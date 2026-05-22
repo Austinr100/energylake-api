@@ -10,28 +10,32 @@ Architecture:
 This service is READ-ONLY. It never writes to the pantry. Ingestion
 stays in the energylake-pantry repo (scrapers + ingesters). This repo
 only serves data that already exists.
+
+Driver note: uses psycopg3 (psycopg[binary]) rather than asyncpg, because
+asyncpg has no prebuilt wheel for Python 3.14 and fails to compile from
+source. psycopg ships binary wheels for 3.14 — no compiler needed locally
+or on Railway. psycopg's async API (AsyncConnectionPool) gives the same
+non-blocking behavior.
 """
 
 import os
 from contextlib import asynccontextmanager
 
-import asyncpg
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from psycopg_pool import AsyncConnectionPool
+from psycopg.rows import dict_row
 
 # ---------------------------------------------------------------------------
 # Configuration (all via environment variables — set these in Railway)
 # ---------------------------------------------------------------------------
 # NEON_DATABASE_URL : the same connection string the pantry uses.
-#   NOTE: asyncpg wants the scheme "postgresql://", NOT "postgres://".
-#   Neon sometimes hands out "postgres://" — we normalize below.
+#   psycopg accepts both "postgres://" and "postgresql://" — no rewrite needed.
 # ALLOWED_ORIGINS   : comma-separated list of frontend origins for CORS,
 #   e.g. "https://energylake.io,https://www.energylake.io,http://localhost:3000"
 # ---------------------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("NEON_DATABASE_URL", "")
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 ALLOWED_ORIGINS = [
     o.strip()
@@ -42,9 +46,9 @@ ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
-# A single shared connection pool, created on startup, closed on shutdown.
-# Railway free/hobby + Neon both have modest connection caps, so keep it small.
-_pool: asyncpg.Pool | None = None
+# A single shared async connection pool, opened on startup, closed on shutdown.
+# Railway hobby + Neon both have modest connection caps, so keep it small.
+_pool: AsyncConnectionPool | None = None
 
 
 @asynccontextmanager
@@ -54,14 +58,14 @@ async def lifespan(app: FastAPI):
         # Fail loud, not silent (Principle #27): if the env var is missing,
         # we want a clear error at startup, not empty query results later.
         raise RuntimeError("NEON_DATABASE_URL is not set")
-    _pool = await asyncpg.create_pool(
-        DATABASE_URL,
+    _pool = AsyncConnectionPool(
+        conninfo=DATABASE_URL,
         min_size=1,
         max_size=5,
-        # Neon pooler-friendly: statement_cache_size=0 avoids issues with
-        # PgBouncer transaction pooling if you use the pooled connection string.
-        statement_cache_size=0,
+        open=False,  # open explicitly below (avoids deprecation warning)
+        kwargs={"row_factory": dict_row},
     )
+    await _pool.open()
     yield
     await _pool.close()
 
@@ -90,8 +94,10 @@ app.add_middleware(
 async def health():
     assert _pool is not None
     try:
-        async with _pool.acquire() as conn:
-            await conn.fetchval("SELECT 1")
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1")
+                await cur.fetchone()
         return {"status": "ok", "db": "ok"}
     except Exception as e:  # surface DB problems explicitly
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
@@ -123,7 +129,6 @@ async def health():
 #     that hour's object rather than breaking the response.
 # ---------------------------------------------------------------------------
 
-TABLE = "timeseries_values"
 FUEL_MIX_DATASET = "caiso_fuel_mix_hourly"
 
 
@@ -160,19 +165,23 @@ async def caiso_fuel_mix(
         WITH recent_hours AS (
             SELECT DISTINCT ts
             FROM timeseries_values
-            WHERE dataset = $1
+            WHERE dataset = %(dataset)s
             ORDER BY ts DESC
-            LIMIT $2
+            LIMIT %(limit)s
         )
         SELECT v.ts, v.series, v.value
         FROM timeseries_values v
         JOIN recent_hours h ON v.ts = h.ts
-        WHERE v.dataset = $1
+        WHERE v.dataset = %(dataset)s
         ORDER BY v.ts DESC, v.series ASC
     """
     try:
-        async with _pool.acquire() as conn:
-            rows = await conn.fetch(query, FUEL_MIX_DATASET, limit)
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    query, {"dataset": FUEL_MIX_DATASET, "limit": limit}
+                )
+                rows = await cur.fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"query failed: {e}")
 
@@ -188,7 +197,11 @@ async def caiso_fuel_mix(
 
     if shape == "long":
         return [
-            {"ts": r["ts"].isoformat(), "series": r["series"], "value": float(r["value"])}
+            {
+                "ts": r["ts"].isoformat(),
+                "series": r["series"],
+                "value": float(r["value"]),
+            }
             for r in rows
         ]
 
