@@ -131,6 +131,19 @@ async def health():
 
 FUEL_MIX_DATASET = "caiso_fuel_mix_hourly"
 
+# CAISO is a Pacific market. All day boundaries are Pacific calendar days,
+# not UTC days — confirmed against real data: midnight PT == 07:00 UTC (PDT),
+# a full PT day returns exactly 24 hourly rows. Postgres does the conversion
+# with AT TIME ZONE, so day math stays correct across the PST/PDT switch.
+MARKET_TZ = "America/Los_Angeles"
+
+# YYYY-MM-DD, used to validate `date`/`start`/`end` before they touch SQL.
+_DATE_RE = __import__("re").compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _valid_date(s: str | None) -> bool:
+    return s is not None and bool(_DATE_RE.match(s))
+
 
 @app.get("/api/timeseries/caiso-fuel-mix")
 async def caiso_fuel_mix(
@@ -138,7 +151,23 @@ async def caiso_fuel_mix(
         default=24,
         ge=1,
         le=2000,
-        description="Number of most-recent HOURS to return.",
+        description="Number of most-recent HOURS to return. Ignored when "
+        "`date` or `start`/`end` is supplied.",
+    ),
+    date: str | None = Query(
+        default=None,
+        description="A single Pacific calendar day, YYYY-MM-DD. Returns that "
+        "day's 24 hours. Mutually exclusive with start/end.",
+    ),
+    start: str | None = Query(
+        default=None,
+        description="Range start, Pacific calendar day, YYYY-MM-DD (inclusive). "
+        "Use with `end`.",
+    ),
+    end: str | None = Query(
+        default=None,
+        description="Range end, Pacific calendar day, YYYY-MM-DD (inclusive). "
+        "Use with `start`.",
     ),
     shape: str = Query(
         default="pivot",
@@ -149,7 +178,15 @@ async def caiso_fuel_mix(
     ),
 ):
     """
-    Recent CAISO fuel mix in MW, newest first.
+    CAISO fuel mix in MW, newest first.
+
+    Three selection modes (in priority order):
+      * date=YYYY-MM-DD            -> that single Pacific calendar day (24h)
+      * start=YYYY-MM-DD&end=...   -> inclusive Pacific-day range
+      * (neither)                  -> latest `limit` hours (default 24)
+
+    Day boundaries are Pacific (America/Los_Angeles), matching the chart's
+    hour labels and CAISO Today's Outlook.
 
     shape=pivot (default):
         [{"ts": "...", "solar": 18550.0, "wind": 4696.0, "batteries": -1845.0, ...}, ...]
@@ -158,35 +195,94 @@ async def caiso_fuel_mix(
     """
     assert _pool is not None
 
-    # We bound the number of DISTINCT timestamps (hours), not raw rows, so
-    # `limit` means "hours" regardless of how many fuels report each hour.
-    # Pull the N newest hours, then all fuel rows within them.
-    query = """
-        WITH recent_hours AS (
-            SELECT DISTINCT ts
+    # ── Decide selection mode + validate (fail loud on bad input) ──────────
+    use_date = date is not None
+    use_range = start is not None or end is not None
+
+    if use_date and use_range:
+        raise HTTPException(
+            status_code=400,
+            detail="Use either `date` or `start`/`end`, not both.",
+        )
+    if use_range and not (start is not None and end is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="`start` and `end` must be supplied together.",
+        )
+    for label, val in (("date", date), ("start", start), ("end", end)):
+        if val is not None and not _valid_date(val):
+            raise HTTPException(
+                status_code=400,
+                detail=f"`{label}` must be YYYY-MM-DD; got '{val}'.",
+            )
+    if use_range and start > end:  # type: ignore[operator]
+        raise HTTPException(
+            status_code=400, detail="`start` must be on or before `end`."
+        )
+
+    # ── Build the query for the chosen mode ────────────────────────────────
+    # Pacific-day boundary pattern (confirmed against real data):
+    #   ts >= (DATE)::timestamp AT TIME ZONE 'America/Los_Angeles'
+    #   ts <  (DATE + 1)::timestamp AT TIME ZONE 'America/Los_Angeles'
+    # The "+1 day" on the end is what makes the range inclusive of `end`.
+    if use_date or use_range:
+        lo = date if use_date else start
+        hi = date if use_date else end
+        query = """
+            SELECT ts, series, value
             FROM timeseries_values
             WHERE dataset = %(dataset)s
-            ORDER BY ts DESC
-            LIMIT %(limit)s
-        )
-        SELECT v.ts, v.series, v.value
-        FROM timeseries_values v
-        JOIN recent_hours h ON v.ts = h.ts
-        WHERE v.dataset = %(dataset)s
-        ORDER BY v.ts DESC, v.series ASC
-    """
+              AND ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+              AND ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+            ORDER BY ts DESC, series ASC
+        """
+        params = {
+            "dataset": FUEL_MIX_DATASET,
+            "lo": lo,
+            "hi": hi,
+            "tz": MARKET_TZ,
+        }
+    else:
+        # Default mode: latest `limit` DISTINCT hours (not raw rows), so
+        # `limit` means "hours" regardless of how many fuels report each hour.
+        query = """
+            WITH recent_hours AS (
+                SELECT DISTINCT ts
+                FROM timeseries_values
+                WHERE dataset = %(dataset)s
+                ORDER BY ts DESC
+                LIMIT %(limit)s
+            )
+            SELECT v.ts, v.series, v.value
+            FROM timeseries_values v
+            JOIN recent_hours h ON v.ts = h.ts
+            WHERE v.dataset = %(dataset)s
+            ORDER BY v.ts DESC, v.series ASC
+        """
+        params = {"dataset": FUEL_MIX_DATASET, "limit": limit}
+
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    query, {"dataset": FUEL_MIX_DATASET, "limit": limit}
-                )
+                await cur.execute(query, params)
                 rows = await cur.fetchall()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"query failed: {e}")
 
     if not rows:
-        # Empty here is suspicious (Principle #27 — fail loud, not silent).
+        # In DEFAULT mode, empty is suspicious (the dataset always has recent
+        # hours) — fail loud per Principle #27. In DATE/RANGE mode, empty just
+        # means the user picked a day with no data (e.g. before 2020 or a
+        # future date) — that's a legitimate 404 with a different message.
+        if use_date or use_range:
+            window = date if use_date else f"{start}..{end}"
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"no '{FUEL_MIX_DATASET}' data for {window} (Pacific). "
+                    "Data runs 2020-01 to current."
+                ),
+            )
         raise HTTPException(
             status_code=404,
             detail=(
