@@ -563,3 +563,173 @@ async def almanac_lmp_shape(
             "unit": "$/MWh",
         },
     }
+
+# =============================================================================
+# Append this block to energylake-api/main.py
+# Insert at the END of the file, after the almanac_lmp_shape route.
+# =============================================================================
+#
+# Newswire endpoint — Joule-rewritten headlines + captions from the
+# narrative corpus.
+#
+# Architecture:
+#   commentary (raw RSS/scrape titles, bodies, URLs)
+#     + narrative_mentions (energy-topic relevance filter)
+#     + joule_calls (Joule-rewritten headline + caption)
+#     -> served as JSON to Newswire.tsx on /overview
+#
+# Editorial pipeline producing the data this endpoint serves:
+#   scrapers (daily 08:00 PT)
+#     -> narrative_tagger (writes narrative_mentions)
+#     -> joule_newswire_post.py (writes joule_calls)
+#     -> THIS ENDPOINT reads the joined view
+#
+# Filtering: we only return rows that:
+#   1. fired >=1 narrative_mention (energy-relevance signal)
+#   2. have a write_newswire_headline joule_call at the current voice version
+# A row missing a caption is fine — caption is optional by design.
+#
+# Voice version: we serve the most-recent voice version per row, so when
+# Joule's voice guide bumps from v2 -> v3, the endpoint serves v3 outputs
+# automatically as the post-processor catches up.
+# =============================================================================
+
+# Pinned to keep all Newswire query knobs in one place.
+NEWSWIRE_DEFAULT_LIMIT = 20
+NEWSWIRE_MAX_LIMIT = 100
+
+
+@app.get("/api/newswire/recent")
+async def newswire_recent(
+    limit: int = Query(
+        default=NEWSWIRE_DEFAULT_LIMIT,
+        ge=1,
+        le=NEWSWIRE_MAX_LIMIT,
+        description="Maximum number of items to return, newest first. "
+        f"Default {NEWSWIRE_DEFAULT_LIMIT}, max {NEWSWIRE_MAX_LIMIT}.",
+    ),
+    since_days: int = Query(
+        default=30,
+        ge=1,
+        le=365,
+        description="Only include items published within the last N days. "
+        "Default 30.",
+    ),
+):
+    """
+    Joule-rewritten Newswire items, newest first.
+
+    Returns the editorial-voice headline + (optional) caption per
+    energy-relevant commentary row, sourced from the narrative corpus
+    after Joule post-processing.
+
+    Response shape:
+        {
+          "data": [
+            {
+              "ts": "2026-05-29T16:00:22Z",
+              "source_code": "constellation_emu",
+              "headline": "Joule headline...",
+              "caption": "optional caption" | "",
+              "raw_title": "original source title",
+              "url": "https://..."
+            },
+            ...
+          ],
+          "meta": {
+            "limit": 20,
+            "since_days": 30,
+            "returned": 20
+          }
+        }
+
+    Notes:
+      - `caption` is "" when there's no editorial value beyond the
+        headline. The frontend should render the caption block
+        conditionally on caption.length > 0.
+      - `url` is the link to the original source, not a Newswire
+        permalink. Click-through goes to the publisher.
+      - Items where Joule has not yet produced a headline are
+        omitted entirely — they show up once the post-processor runs.
+    """
+    assert _pool is not None
+
+    query = """
+        WITH headlines AS (
+            SELECT DISTINCT ON (jc.input->>'raw_title')
+                jc.input->>'raw_title'   AS raw_title,
+                jc.output                AS headline,
+                jc.meta->>'voice_version' AS voice_version,
+                jc.created_at
+            FROM joule_calls jc
+            WHERE jc.method = 'write_newswire_headline'
+              AND length(trim(jc.output)) > 0
+            ORDER BY jc.input->>'raw_title', jc.created_at DESC
+        ),
+        captions AS (
+            SELECT DISTINCT ON (jc.input->>'headline')
+                jc.input->>'headline'    AS headline,
+                jc.output                AS caption,
+                jc.meta->>'voice_version' AS voice_version,
+                jc.created_at
+            FROM joule_calls jc
+            WHERE jc.method = 'write_newswire_caption'
+            ORDER BY jc.input->>'headline', jc.created_at DESC
+        ),
+        energy_relevant AS (
+            SELECT DISTINCT c.commentary_id
+            FROM commentary c
+            JOIN narrative_mentions nm ON nm.commentary_id = c.commentary_id
+        )
+        SELECT
+            c.published_ts                       AS ts,
+            c.source_code                        AS source_code,
+            h.headline                           AS headline,
+            COALESCE(cap.caption, '')            AS caption,
+            c.title                              AS raw_title,
+            c.url                                AS url
+        FROM commentary c
+        JOIN energy_relevant er ON er.commentary_id = c.commentary_id
+        JOIN headlines h        ON h.raw_title    = c.title
+        LEFT JOIN captions cap  ON cap.headline   = h.headline
+        WHERE c.published_ts > now() - (%(since_days)s || ' days')::interval
+        ORDER BY c.published_ts DESC
+        LIMIT %(limit)s
+    """
+    params = {
+        "since_days": str(since_days),
+        "limit": limit,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    # Normalize timestamps to ISO 8601 with Z suffix so the frontend
+    # can parse with `new Date(...)` consistently.
+    data = []
+    for r in rows:
+        ts = r["ts"]
+        # psycopg returns timezone-aware datetimes; isoformat() preserves tz
+        ts_iso = ts.isoformat() if ts is not None else None
+        data.append({
+            "ts": ts_iso,
+            "source_code": r["source_code"],
+            "headline": r["headline"],
+            "caption": r["caption"] or "",
+            "raw_title": r["raw_title"],
+            "url": r["url"],
+        })
+
+    return {
+        "data": data,
+        "meta": {
+            "limit": limit,
+            "since_days": since_days,
+            "returned": len(data),
+        },
+    }
