@@ -733,3 +733,162 @@ async def newswire_recent(
             "returned": len(data),
         },
     }
+
+# =============================================================================
+# /api/tape/recent
+# =============================================================================
+#
+# Tape endpoint — Joule-rewritten headlines for material SEC filings (and
+# eventually IR press) from the 24-company power-sector watchlist.
+#
+# Architecture:
+#   tape_filings (SEC 8-K/10-Q/10-K/425 + future IR press, all body-cleaned)
+#     + joule_calls (Joule-rewritten headline via write_tape_headline)
+#     -> served as JSON to the right column of Newswire.tsx on /overview
+#
+# Pipeline producing the data this endpoint serves:
+#   scrapers.sec_filings (daily 08:00 PT, future: + utility_ir_press)
+#     -> joule_tape_post.py (writes joule_calls)
+#     -> THIS ENDPOINT reads the joined view
+#
+# Filtering:
+#   Only rows that have a write_tape_headline joule_call at the CURRENT
+#   voice version are returned. This decouples the writer (which can
+#   regenerate headlines at a new voice version) from the reader (which
+#   pins to whatever version is shipped). When voice bumps v3 -> v4, the
+#   constant below is the single line that ships the new voice.
+#
+# Why no DISTINCT ON: tape_filings.external_id is unique by construction
+# (SEC accession_number), and write_tape_headline keys input_dict on
+# external_id, so the join is 1:1. No deduplication needed.
+# =============================================================================
+
+# Pinned to keep all Tape query knobs in one place.
+TAPE_DEFAULT_LIMIT = 20
+TAPE_MAX_LIMIT = 100
+TAPE_VOICE_VERSION = "v3"
+
+
+@app.get("/api/tape/recent")
+async def tape_recent(
+    limit: int = Query(
+        default=TAPE_DEFAULT_LIMIT,
+        ge=1,
+        le=TAPE_MAX_LIMIT,
+        description="Maximum number of items to return, newest first. "
+        f"Default {TAPE_DEFAULT_LIMIT}, max {TAPE_MAX_LIMIT}.",
+    ),
+    since_days: int = Query(
+        default=1500,
+        ge=1,
+        le=2000,
+        description="Only include filings published within the last N days. "
+        "Default 1500 (~4 years), max 2000.",
+    ),
+):
+    """
+    Joule-rewritten Tape items, newest first.
+
+    Returns trader-grade editorial headlines for material SEC filings from
+    the 24-company power-sector watchlist, paired with their original
+    filing metadata (ticker, form, item codes, link to SEC).
+
+    Response shape:
+        {
+          "data": [
+            {
+              "ts": "2026-06-02T16:15:28+00:00",
+              "ticker": "CEG",
+              "form_type": "8-K",
+              "item_codes": ["8.01", "9.01"],
+              "headline": "CEG selling shareholders launch secondary...",
+              "raw_title": "Other Material Event",
+              "url": "https://www.sec.gov/Archives/edgar/...",
+              "source_type": "sec_filing",
+              "external_id": "0001104659-26-069482"
+            },
+            ...
+          ],
+          "meta": {
+            "limit": 20,
+            "since_days": 1500,
+            "returned": 20,
+            "voice_version": "v3"
+          }
+        }
+
+    Notes:
+      - `headline` is always non-empty (rows lacking Joule output are
+        excluded by the JOIN).
+      - `url` is the SEC EDGAR document link, not a Newswire permalink.
+        Click-through goes to the original filing.
+      - `raw_title` is the synthetic title built by sec_filings._build_title
+        from form type + 8-K item code labels — useful for hover tooltip
+        context on the frontend.
+      - `item_codes` may be `null` for non-8-K forms (10-Q, 10-K, 425).
+    """
+    assert _pool is not None
+
+    query = """
+        SELECT
+            tf.published_ts                  AS ts,
+            tf.ticker                        AS ticker,
+            tf.form_type                     AS form_type,
+            tf.meta->'item_codes'            AS item_codes,
+            jc.output                        AS headline,
+            tf.title                         AS raw_title,
+            tf.filing_url                    AS url,
+            tf.source_type                   AS source_type,
+            tf.external_id                   AS external_id
+        FROM tape_filings tf
+        JOIN joule_calls jc
+          ON jc.method = 'write_tape_headline'
+         AND jc.meta->>'voice_version' = %(voice_version)s
+         AND jc.input->>'external_id' = tf.external_id
+        WHERE jc.output IS NOT NULL
+          AND length(trim(jc.output)) > 0
+          AND tf.published_ts > now() - (%(since_days)s || ' days')::interval
+        ORDER BY tf.published_ts DESC, jc.created_at DESC
+        LIMIT %(limit)s
+    """
+    params = {
+        "voice_version": TAPE_VOICE_VERSION,
+        "since_days": str(since_days),
+        "limit": limit,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    # Normalize timestamps to ISO 8601 so the frontend can parse with
+    # `new Date(...)` consistently. Matches the Newswire endpoint pattern.
+    data = []
+    for r in rows:
+        ts = r["ts"]
+        ts_iso = ts.isoformat() if ts is not None else None
+        data.append({
+            "ts": ts_iso,
+            "ticker": r["ticker"],
+            "form_type": r["form_type"],
+            "item_codes": r["item_codes"],
+            "headline": r["headline"],
+            "raw_title": r["raw_title"],
+            "url": r["url"],
+            "source_type": r["source_type"],
+            "external_id": r["external_id"],
+        })
+
+    return {
+        "data": data,
+        "meta": {
+            "limit": limit,
+            "since_days": since_days,
+            "returned": len(data),
+            "voice_version": TAPE_VOICE_VERSION,
+        },
+    }
