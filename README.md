@@ -99,3 +99,27 @@ from a server component or route handler and render the first chart
   -> newest-first hours, one object per hour with a key per fuel (MW)
 - `GET /api/timeseries/caiso-fuel-mix?limit=24&shape=long`
   -> newest-first, one object per fuel per hour
+- `GET /api/newswire/recent?limit=20&since_days=30`
+  -> Joule-rewritten Newswire headlines + captions, newest first
+- `GET /api/tape/recent?limit=20&since_days=1500` **(DEPRECATED — use `/api/wire/recent`)**
+  -> Joule Tape headlines for power-sector SEC filings, newest first
+- `GET /api/briefs/daily/latest`
+  -> most recent `brief_type='daily'` Joule brief (404 if none)
+- `GET /api/briefs/daily/{date}`
+  -> daily Joule brief for an ISO date `YYYY-MM-DD` (422 on bad date, 404 if none)
+- `GET /api/wire/recent?stream=&limit=50`
+  -> power-signal tape filings (same shape as `/api/tape/recent` plus
+  `is_power_signal`); optional `stream` = `sec_filing` | `ir_press`;
+  `limit` default 50, hard-capped at 200
+
+---
+
+## Tests
+
+Test-only deps live in `requirements-dev.txt`; no live database is needed
+(an in-memory fake pool stands in for Neon):
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
