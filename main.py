@@ -21,13 +21,20 @@ Endpoints:
     GET /health                            health check
     GET /api/timeseries/caiso-fuel-mix     fuel mix by hour (M2)
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
+    GET /api/newswire/recent               Joule Newswire items
+    GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
+    GET /api/briefs/daily/latest           most recent daily Joule brief (Tape 3a)
+    GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
+    GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
 """
 
 import os
 import re
 from contextlib import asynccontextmanager
+from datetime import date as _date
+from enum import Enum
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
@@ -789,6 +796,17 @@ async def tape_recent(
     """
     Joule-rewritten Tape items, newest first.
 
+    DEPRECATED (D-2026-06-10-03): prefer GET /api/wire/recent, which returns
+    this same shape plus `is_power_signal`, and adds an optional `stream`
+    filter over `source_type`. This endpoint is retained byte-compatible for
+    the live homepage Newswire and will be removed once the dashboard PR
+    migrates the Newswire to /api/wire/recent.
+
+    As of D-2026-06-10-03 this endpoint now applies the power-signal
+    predicate (`is_power_signal IS DISTINCT FROM FALSE`) so it matches the
+    set served by /api/wire/recent — rows explicitly flagged as non-power
+    signal are excluded; NULL (unclassified) rows are kept.
+
     Returns trader-grade editorial headlines for material SEC filings from
     the 24-company power-sector watchlist, paired with their original
     filing metadata (ticker, form, item codes, link to SEC).
@@ -847,6 +865,9 @@ async def tape_recent(
          AND jc.input->>'external_id' = tf.external_id
         WHERE jc.output IS NOT NULL
           AND length(trim(jc.output)) > 0
+          -- D-2026-06-10-03: power-signal predicate. IS DISTINCT FROM FALSE
+          -- keeps NULL (unclassified) rows and drops only explicit FALSE.
+          AND tf.is_power_signal IS DISTINCT FROM FALSE
           AND tf.published_ts > now() - (%(since_days)s || ' days')::interval
         ORDER BY tf.published_ts DESC, jc.created_at DESC
         LIMIT %(limit)s
@@ -888,6 +909,282 @@ async def tape_recent(
         "meta": {
             "limit": limit,
             "since_days": since_days,
+            "returned": len(data),
+            "voice_version": TAPE_VOICE_VERSION,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Daily briefs — Tape rebuild Phase 3a (2026-06-10)
+#
+# Joule's daily editorial brief: a single markdown narrative per day,
+# produced by the brief writer and stored in joule_briefs.
+#
+# Table (per the Phase 3a brief; read-only, same Neon pantry):
+#   joule_briefs(brief_date date, brief_type text, headline text,
+#                content_md text, word_count int, voice_version text,
+#                created_at timestamptz, ...)
+#
+# These endpoints are read-only and serve only brief_type='daily'. They
+# return a single brief object (not a {data, meta} envelope) because the
+# consumer renders one brief at a time.
+# ═══════════════════════════════════════════════════════════════════════════
+
+BRIEF_TYPE_DAILY = "daily"
+
+# The column set both daily-brief endpoints return, kept in one place so the
+# two queries (latest / by-date) stay shape-identical.
+_BRIEF_SELECT = """
+    SELECT
+        brief_date,
+        headline,
+        content_md,
+        word_count,
+        voice_version,
+        created_at
+    FROM joule_briefs
+    WHERE brief_type = %(brief_type)s
+"""
+
+
+def _shape_brief(r: dict) -> dict:
+    """Normalize one joule_briefs row to the JSON brief contract."""
+    bd = r["brief_date"]
+    ca = r["created_at"]
+    return {
+        "brief_date": bd.isoformat() if bd is not None else None,
+        "headline": r["headline"],
+        "content_md": r["content_md"],
+        "word_count": r["word_count"],
+        "voice_version": r["voice_version"],
+        "created_at": ca.isoformat() if ca is not None else None,
+    }
+
+
+@app.get("/api/briefs/daily/latest")
+async def briefs_daily_latest():
+    """
+    Most recent daily Joule brief.
+
+    Returns the single newest row WHERE brief_type='daily', ordered by
+    brief_date DESC. 404 if no daily brief exists yet.
+
+    Response shape:
+        {
+          "brief_date": "2026-06-10",
+          "headline": "...",
+          "content_md": "# ...\\n\\n...",
+          "word_count": 412,
+          "voice_version": "v3",
+          "created_at": "2026-06-10T13:00:00+00:00"
+        }
+    """
+    assert _pool is not None
+
+    query = _BRIEF_SELECT + "\n    ORDER BY brief_date DESC\n    LIMIT 1\n"
+    params = {"brief_type": BRIEF_TYPE_DAILY}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail="no daily brief found (joule_briefs has no brief_type='daily' rows yet).",
+        )
+
+    return _shape_brief(row)
+
+
+@app.get("/api/briefs/daily/{date}")
+async def briefs_daily_by_date(
+    date: _date = Path(
+        ...,
+        description="Brief date as an ISO calendar day, YYYY-MM-DD. "
+        "Non-ISO input is rejected with 422.",
+    ),
+):
+    """
+    Daily Joule brief for an exact date.
+
+    `date` must be an ISO 8601 calendar day (YYYY-MM-DD); anything else is
+    rejected with 422 by request validation. 404 if no daily brief exists
+    for that date.
+
+    Same response shape as /api/briefs/daily/latest.
+    """
+    assert _pool is not None
+
+    query = _BRIEF_SELECT + "\n      AND brief_date = %(brief_date)s\n    LIMIT 1\n"
+    params = {"brief_type": BRIEF_TYPE_DAILY, "brief_date": date}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no daily brief for {date.isoformat()}.",
+        )
+
+    return _shape_brief(row)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/wire/recent — Tape rebuild Phase 3a (2026-06-10)
+#
+# Successor to /api/tape/recent. Same item shape, plus `is_power_signal`,
+# plus an optional `stream` filter over tape_filings.source_type.
+#
+# Filtering:
+#   * is_power_signal IS DISTINCT FROM FALSE — keep power signals AND
+#     unclassified (NULL) rows; drop only rows explicitly flagged FALSE.
+#   * Same Joule-headline join as the Tape endpoint (write_tape_headline at
+#     the pinned voice version), so every returned row has a headline.
+#   * Optional stream filter narrows source_type to one known stream.
+#
+# limit defaults to 50 and is HARD-CAPPED (clamped, not 422'd) at 200, so a
+# caller asking for more simply gets 200.
+# ═══════════════════════════════════════════════════════════════════════════
+
+WIRE_DEFAULT_LIMIT = 50
+WIRE_MAX_LIMIT = 200
+
+
+class WireStream(str, Enum):
+    """Known tape_filings.source_type values accepted by the `stream` filter."""
+
+    sec_filing = "sec_filing"
+    ir_press = "ir_press"
+
+
+@app.get("/api/wire/recent")
+async def wire_recent(
+    stream: WireStream | None = Query(
+        default=None,
+        description="Optional source_type filter. One of 'sec_filing' or "
+        "'ir_press'. Unknown values are rejected with 422.",
+    ),
+    limit: int = Query(
+        default=WIRE_DEFAULT_LIMIT,
+        ge=1,
+        description="Maximum number of items to return, newest first. "
+        f"Default {WIRE_DEFAULT_LIMIT}; values above the hard cap of "
+        f"{WIRE_MAX_LIMIT} are clamped down to {WIRE_MAX_LIMIT}.",
+    ),
+):
+    """
+    Power-signal tape filings with Joule headlines, newest first.
+
+    Successor to /api/tape/recent: identical item shape, plus the
+    `is_power_signal` flag, plus an optional `stream` filter.
+
+    Returns rows from tape_filings where `is_power_signal IS DISTINCT FROM
+    FALSE` (power signals and unclassified rows; explicit non-signals are
+    dropped) that have a Joule `write_tape_headline` at the pinned voice
+    version. Ordered by published_ts DESC.
+
+    Response shape:
+        {
+          "data": [
+            {
+              "ts": "2026-06-02T16:15:28+00:00",
+              "ticker": "CEG",
+              "form_type": "8-K",
+              "item_codes": ["8.01", "9.01"],
+              "headline": "CEG selling shareholders launch secondary...",
+              "raw_title": "Other Material Event",
+              "url": "https://www.sec.gov/Archives/edgar/...",
+              "source_type": "sec_filing",
+              "external_id": "0001104659-26-069482",
+              "is_power_signal": true
+            },
+            ...
+          ],
+          "meta": {
+            "limit": 50,
+            "stream": "sec_filing" | null,
+            "returned": 50,
+            "voice_version": "v3"
+          }
+        }
+    """
+    assert _pool is not None
+
+    # Hard cap: clamp rather than reject, so over-large requests still succeed.
+    effective_limit = min(limit, WIRE_MAX_LIMIT)
+
+    query = """
+        SELECT
+            tf.published_ts                  AS ts,
+            tf.ticker                        AS ticker,
+            tf.form_type                     AS form_type,
+            tf.meta->'item_codes'            AS item_codes,
+            jc.output                        AS headline,
+            tf.title                         AS raw_title,
+            tf.filing_url                    AS url,
+            tf.source_type                   AS source_type,
+            tf.external_id                   AS external_id,
+            tf.is_power_signal               AS is_power_signal
+        FROM tape_filings tf
+        JOIN joule_calls jc
+          ON jc.method = 'write_tape_headline'
+         AND jc.meta->>'voice_version' = %(voice_version)s
+         AND jc.input->>'external_id' = tf.external_id
+        WHERE jc.output IS NOT NULL
+          AND length(trim(jc.output)) > 0
+          AND tf.is_power_signal IS DISTINCT FROM FALSE
+          AND (%(stream)s::text IS NULL OR tf.source_type = %(stream)s)
+        ORDER BY tf.published_ts DESC, jc.created_at DESC
+        LIMIT %(limit)s
+    """
+    params = {
+        "voice_version": TAPE_VOICE_VERSION,
+        "stream": stream.value if stream is not None else None,
+        "limit": effective_limit,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    data = []
+    for r in rows:
+        ts = r["ts"]
+        ts_iso = ts.isoformat() if ts is not None else None
+        data.append({
+            "ts": ts_iso,
+            "ticker": r["ticker"],
+            "form_type": r["form_type"],
+            "item_codes": r["item_codes"],
+            "headline": r["headline"],
+            "raw_title": r["raw_title"],
+            "url": r["url"],
+            "source_type": r["source_type"],
+            "external_id": r["external_id"],
+            "is_power_signal": r["is_power_signal"],
+        })
+
+    return {
+        "data": data,
+        "meta": {
+            "limit": effective_limit,
+            "stream": stream.value if stream is not None else None,
             "returned": len(data),
             "voice_version": TAPE_VOICE_VERSION,
         },
