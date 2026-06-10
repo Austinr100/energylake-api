@@ -90,9 +90,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Vercel preview deployments get a fresh, unpredictable origin per build, so
+# they can't be enumerated in ALLOWED_ORIGINS. This regex (Starlette applies it
+# with fullmatch) is anchored on our real Vercel project slug "energylake" AND
+# our team suffix, so it covers both preview shapes —
+#   energylake-<hash>-austinrodriguez221-6328s-projects.vercel.app
+#   energylake-git-<branch>-austinrodriguez221-6328s-projects.vercel.app
+# — while other teams' "energylake*" projects won't match. Purely additive:
+# allow_origins (prod: energylake.io / www, via env) is unchanged.
+VERCEL_PREVIEW_ORIGIN_REGEX = (
+    r"https://energylake-[a-z0-9-]+-austinrodriguez221-6328s-projects\.vercel\.app"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=VERCEL_PREVIEW_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
