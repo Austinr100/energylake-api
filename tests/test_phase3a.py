@@ -248,3 +248,88 @@ def test_tape_recent_source_defines_predicate():
 def test_tape_recent_marked_deprecated():
     assert "DEPRECATED" in (main.tape_recent.__doc__ or "")
     assert "/api/wire/recent" in (main.tape_recent.__doc__ or "")
+
+
+# ---------------------------------------------------------------------------
+# Voice allowlist + newest-wins headline join (D-2026-06-11-01)
+#
+# Pantry PR #37 writes v3.1 corrections as superseding joule_calls rows. Both
+# /api/wire/recent and /api/tape/recent must (a) match headlines at either
+# voice ('v3','v3.1') rather than the old v3-only equality pin, and (b) select
+# the newest joule_call per external_id so a v3.1 correction supersedes its v3
+# original while a filing with no v3.1 keeps its v3 headline.
+#
+# There is no live DB here, so newest-wins is asserted structurally: the join
+# binds the full allowlist and uses DISTINCT ON external_id ORDER BY created_at
+# DESC — the exact mechanism that makes the newest row win. The v3-only case is
+# exercised through the row-shaping path (a surviving v3 row is still served).
+# ---------------------------------------------------------------------------
+
+def _assert_allowlist_newest_wins(query, params):
+    # Allowlist, not a single-version equality pin.
+    assert "ANY(%(voice_versions)s)" in query
+    assert "voice_version = %(voice_version)s" not in query
+    assert params["voice_versions"] == ["v3", "v3.1"]
+    # Newest-wins: dedup to one joule_call per external_id, newest first.
+    assert "DISTINCT ON (input->>'external_id')" in query
+    assert "ORDER BY input->>'external_id', created_at DESC" in query
+
+
+def test_wire_recent_allowlists_voices_newest_wins(client):
+    pool = use_rows([_wire_row()])
+    resp = client.get("/api/wire/recent")
+    assert resp.status_code == 200
+    _assert_allowlist_newest_wins(pool.sink["query"], pool.sink["params"])
+
+
+def test_tape_recent_allowlists_voices_newest_wins(client):
+    pool = use_rows([])
+    resp = client.get("/api/tape/recent")
+    assert resp.status_code == 200
+    _assert_allowlist_newest_wins(pool.sink["query"], pool.sink["params"])
+
+
+def test_allowlist_constant_is_v3_plus_correction():
+    # The single line that ships voices. v3 stays first (base pin), v3.1 added.
+    assert main.TAPE_VOICE_VERSIONS == ("v3", "v3.1")
+    assert main.TAPE_VOICE_VERSION == "v3"
+
+
+def test_wire_recent_v3_only_row_still_returned(client):
+    # A filing whose newest headline is still v3 (no v3.1 correction exists)
+    # is served unchanged — newest-wins falls back to the surviving v3 row.
+    use_rows([_wire_row()])
+    resp = client.get("/api/wire/recent")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) == 1
+    assert data[0]["headline"] == "CEG launches secondary"
+    assert data[0]["external_id"] == "0001104659-26-069482"
+
+
+def test_tape_recent_v3_only_row_still_returned(client):
+    use_rows([{
+        "ts": datetime.datetime(2026, 6, 2, 16, 15, 28, tzinfo=datetime.timezone.utc),
+        "ticker": "CEG",
+        "form_type": "8-K",
+        "item_codes": ["8.01"],
+        "headline": "CEG launches secondary",
+        "raw_title": "Other Material Event",
+        "url": "https://www.sec.gov/Archives/edgar/x",
+        "source_type": "sec_filing",
+        "external_id": "0001104659-26-069482",
+    }])
+    resp = client.get("/api/tape/recent")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) == 1
+    assert data[0]["headline"] == "CEG launches secondary"
+
+
+def test_allowlist_join_defined_in_source():
+    # Source-level guard so a refactor that drops the allowlist or the
+    # newest-wins dedup from the literal SQL is caught in both endpoints.
+    for fn in (main.wire_recent, main.tape_recent):
+        src = inspect.getsource(fn)
+        assert "ANY(%(voice_versions)s)" in src
+        assert "DISTINCT ON (input->>'external_id')" in src

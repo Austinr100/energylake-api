@@ -772,21 +772,33 @@ async def newswire_recent(
 #     -> THIS ENDPOINT reads the joined view
 #
 # Filtering:
-#   Only rows that have a write_tape_headline joule_call at the CURRENT
-#   voice version are returned. This decouples the writer (which can
-#   regenerate headlines at a new voice version) from the reader (which
-#   pins to whatever version is shipped). When voice bumps v3 -> v4, the
+#   Only rows that have a write_tape_headline joule_call at one of the
+#   ALLOWLISTED voice versions are returned. This decouples the writer (which
+#   can regenerate headlines at a new voice version) from the reader (which
+#   pins to whatever versions are shipped). When voice bumps, the allowlist
 #   constant below is the single line that ships the new voice.
 #
-# Why no DISTINCT ON: tape_filings.external_id is unique by construction
-# (SEC accession_number), and write_tape_headline keys input_dict on
-# external_id, so the join is 1:1. No deduplication needed.
+# Voice allowlist + newest-wins (D-2026-06-11-01): pantry PR #37 introduces
+# v3.1 corrections, written as NEW joule_calls rows that supersede the v3
+# original for the same external_id. The join therefore selects the NEWEST
+# write_tape_headline per external_id across the allowlist (DISTINCT ON
+# external_id ORDER BY created_at DESC):
+#   * a v3.1 correction supersedes its v3 original (the original stale-caption
+#     fix is preserved — newest wins);
+#   * a filing with no v3.1 row keeps its v3 headline (still visible).
+# Pinning to a single version would regress one of these: pinned-at-v3 hides
+# every correction, pinned-at-v3.1 blanks every headline not re-enriched.
 # =============================================================================
 
 # Pinned to keep all Tape query knobs in one place.
 TAPE_DEFAULT_LIMIT = 20
 TAPE_MAX_LIMIT = 100
+# Base pinned voice. Reported in meta.voice_version (kept byte-compatible) and
+# used in docstring response examples.
 TAPE_VOICE_VERSION = "v3"
+# Voice allowlist for the headline join (D-2026-06-11-01). Newest matching
+# joule_call per external_id wins; see the block comment above.
+TAPE_VOICE_VERSIONS = ("v3", "v3.1")
 
 
 @app.get("/api/tape/recent")
@@ -872,21 +884,34 @@ async def tape_recent(
             tf.source_type                   AS source_type,
             tf.external_id                   AS external_id
         FROM tape_filings tf
-        JOIN joule_calls jc
-          ON jc.method = 'write_tape_headline'
-         AND jc.meta->>'voice_version' = %(voice_version)s
-         AND jc.input->>'external_id' = tf.external_id
-        WHERE jc.output IS NOT NULL
-          AND length(trim(jc.output)) > 0
+        -- Newest write_tape_headline per external_id across the voice
+        -- allowlist (D-2026-06-11-01). v3.1 corrections (pantry PR #37) are
+        -- written as superseding joule_calls rows; DISTINCT ON + created_at
+        -- DESC makes a correction supersede its v3 original, while filings
+        -- with no v3.1 keep their v3 headline. The non-empty output filter
+        -- lives inside so an empty row never supersedes a good headline.
+        JOIN (
+            SELECT DISTINCT ON (input->>'external_id')
+                input->>'external_id'  AS external_id,
+                output                 AS output,
+                created_at             AS created_at
+            FROM joule_calls
+            WHERE method = 'write_tape_headline'
+              AND meta->>'voice_version' = ANY(%(voice_versions)s)
+              AND output IS NOT NULL
+              AND length(trim(output)) > 0
+            ORDER BY input->>'external_id', created_at DESC
+        ) jc ON jc.external_id = tf.external_id
+        WHERE
           -- D-2026-06-10-03: power-signal predicate. IS DISTINCT FROM FALSE
           -- keeps NULL (unclassified) rows and drops only explicit FALSE.
-          AND tf.is_power_signal IS DISTINCT FROM FALSE
+          tf.is_power_signal IS DISTINCT FROM FALSE
           AND tf.published_ts > now() - (%(since_days)s || ' days')::interval
         ORDER BY tf.published_ts DESC, jc.created_at DESC
         LIMIT %(limit)s
     """
     params = {
-        "voice_version": TAPE_VOICE_VERSION,
+        "voice_versions": list(TAPE_VOICE_VERSIONS),
         "since_days": str(since_days),
         "limit": limit,
     }
@@ -1151,19 +1176,29 @@ async def wire_recent(
             tf.external_id                   AS external_id,
             tf.is_power_signal               AS is_power_signal
         FROM tape_filings tf
-        JOIN joule_calls jc
-          ON jc.method = 'write_tape_headline'
-         AND jc.meta->>'voice_version' = %(voice_version)s
-         AND jc.input->>'external_id' = tf.external_id
-        WHERE jc.output IS NOT NULL
-          AND length(trim(jc.output)) > 0
-          AND tf.is_power_signal IS DISTINCT FROM FALSE
+        -- Newest write_tape_headline per external_id across the voice
+        -- allowlist (D-2026-06-11-01); see /api/tape/recent for the full
+        -- rationale. v3.1 corrections supersede their v3 originals; filings
+        -- with no v3.1 keep their v3 headline.
+        JOIN (
+            SELECT DISTINCT ON (input->>'external_id')
+                input->>'external_id'  AS external_id,
+                output                 AS output,
+                created_at             AS created_at
+            FROM joule_calls
+            WHERE method = 'write_tape_headline'
+              AND meta->>'voice_version' = ANY(%(voice_versions)s)
+              AND output IS NOT NULL
+              AND length(trim(output)) > 0
+            ORDER BY input->>'external_id', created_at DESC
+        ) jc ON jc.external_id = tf.external_id
+        WHERE tf.is_power_signal IS DISTINCT FROM FALSE
           AND (%(stream)s::text IS NULL OR tf.source_type = %(stream)s)
         ORDER BY tf.published_ts DESC, jc.created_at DESC
         LIMIT %(limit)s
     """
     params = {
-        "voice_version": TAPE_VOICE_VERSION,
+        "voice_versions": list(TAPE_VOICE_VERSIONS),
         "stream": stream.value if stream is not None else None,
         "limit": effective_limit,
     }
