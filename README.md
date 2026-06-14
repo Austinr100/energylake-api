@@ -111,6 +111,12 @@ from a server component or route handler and render the first chart
   -> power-signal tape filings (same shape as `/api/tape/recent` plus
   `is_power_signal`); optional `stream` = `sec_filing` | `ir_press`;
   `limit` default 50, hard-capped at 200
+- `GET /regulatory/board?include_resolved=&body=`
+  -> the `regulatory_board` view as JSON (`{as_of, count, items[]}`), newest by
+  `salience DESC, importance DESC, body ASC`. Default = on-board items only;
+  `include_resolved=true` returns all. Optional general `body` filter: one or
+  comma-separated (e.g. `?body=CAISO`, `?body=FERC,CPUC`) over FERC, CPUC,
+  CAISO, NERC, CARB, NRC, CA_LEG, REGIONAL, BPA; unknown bodies -> 400
 
 ---
 
