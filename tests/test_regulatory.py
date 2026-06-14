@@ -1,7 +1,7 @@
 """
 Tests for the Regulatory Board endpoint (D-2026-06-14-03):
 
-  * GET /regulatory/board
+  * GET /api/regulatory/board
 
 No live database is required. Like the Phase 3a tests, these swap a tiny
 in-memory fake pool into `main._pool` so the SQL is exercised end-to-end
@@ -114,7 +114,7 @@ def _board_row(**over):
 
 def test_board_default_envelope_and_shape(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board")
+    resp = client.get("/api/regulatory/board")
     assert resp.status_code == 200
     body = resp.json()
 
@@ -146,7 +146,7 @@ def test_board_default_envelope_and_shape(client):
 
 def test_board_default_filters_on_board_only(client):
     pool = use_rows([_board_row()])
-    client.get("/regulatory/board")
+    client.get("/api/regulatory/board")
     # Default keeps the on-board predicate and does NOT include resolved.
     assert "on_board" in pool.sink["query"]
     assert pool.sink["params"]["include_resolved"] is False
@@ -154,19 +154,19 @@ def test_board_default_filters_on_board_only(client):
 
 def test_board_orders_by_salience_then_importance_then_body(client):
     pool = use_rows([_board_row()])
-    client.get("/regulatory/board")
+    client.get("/api/regulatory/board")
     assert "ORDER BY salience DESC, importance DESC, body ASC" in pool.sink["query"]
 
 
 def test_board_reads_the_view(client):
     pool = use_rows([_board_row()])
-    client.get("/regulatory/board")
+    client.get("/api/regulatory/board")
     assert "FROM regulatory_board" in pool.sink["query"]
 
 
 def test_board_empty_is_200_with_count_zero(client):
     use_rows([])
-    resp = client.get("/regulatory/board")
+    resp = client.get("/api/regulatory/board")
     assert resp.status_code == 200
     body = resp.json()
     assert body["count"] == 0
@@ -180,7 +180,7 @@ def test_board_empty_is_200_with_count_zero(client):
 
 def test_board_include_resolved_binds_true(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"include_resolved": "true"})
+    resp = client.get("/api/regulatory/board", params={"include_resolved": "true"})
     assert resp.status_code == 200
     assert pool.sink["params"]["include_resolved"] is True
 
@@ -191,49 +191,49 @@ def test_board_include_resolved_binds_true(client):
 
 def test_board_body_single_binds_list(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "CAISO"})
+    resp = client.get("/api/regulatory/board", params={"body": "CAISO"})
     assert resp.status_code == 200
     assert pool.sink["params"]["bodies"] == ["CAISO"]
 
 
 def test_board_body_multiple_comma_separated(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "FERC,CPUC"})
+    resp = client.get("/api/regulatory/board", params={"body": "FERC,CPUC"})
     assert resp.status_code == 200
     assert pool.sink["params"]["bodies"] == ["FERC", "CPUC"]
 
 
 def test_board_body_is_case_insensitive(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "caiso,ferc"})
+    resp = client.get("/api/regulatory/board", params={"body": "caiso,ferc"})
     assert resp.status_code == 200
     assert pool.sink["params"]["bodies"] == ["CAISO", "FERC"]
 
 
 def test_board_body_dedupes_preserving_order(client):
     pool = use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "FERC,FERC,CPUC"})
+    resp = client.get("/api/regulatory/board", params={"body": "FERC,FERC,CPUC"})
     assert resp.status_code == 200
     assert pool.sink["params"]["bodies"] == ["FERC", "CPUC"]
 
 
 def test_board_body_default_is_all_bodies(client):
     pool = use_rows([_board_row()])
-    client.get("/regulatory/board")
+    client.get("/api/regulatory/board")
     # No body filter => bound array is NULL => view returns all bodies.
     assert pool.sink["params"]["bodies"] is None
 
 
 def test_board_body_unknown_is_400(client):
     use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "ENRON"})
+    resp = client.get("/api/regulatory/board", params={"body": "ENRON"})
     assert resp.status_code == 400
     assert "ENRON" in resp.json()["detail"]
 
 
 def test_board_body_mixed_known_and_unknown_is_400(client):
     use_rows([_board_row()])
-    resp = client.get("/regulatory/board", params={"body": "FERC,BOGUS"})
+    resp = client.get("/api/regulatory/board", params={"body": "FERC,BOGUS"})
     assert resp.status_code == 400
 
 
@@ -257,7 +257,7 @@ def test_board_na_and_null_fields_pass_through(client):
         next_date=None,
         salience=2.00,
     )])
-    resp = client.get("/regulatory/board")
+    resp = client.get("/api/regulatory/board")
     item = resp.json()["items"][0]
     assert item["market_impact"] == "na"
     assert item["impact_note"] is None
@@ -268,7 +268,7 @@ def test_board_na_and_null_fields_pass_through(client):
 
 def test_board_count_matches_items(client):
     use_rows([_board_row(id="a"), _board_row(id="b"), _board_row(id="c")])
-    resp = client.get("/regulatory/board")
+    resp = client.get("/api/regulatory/board")
     body = resp.json()
     assert body["count"] == 3 == len(body["items"])
 

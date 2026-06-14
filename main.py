@@ -26,7 +26,7 @@ Endpoints:
     GET /api/briefs/daily/latest           most recent daily Joule brief (Tape 3a)
     GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
-    GET /regulatory/board                  regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
+    GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
 """
 
 import os
@@ -1241,7 +1241,7 @@ async def wire_recent(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# /regulatory/board — Regulatory Board (D-2026-06-14-03, step 2)
+# /api/regulatory/board — Regulatory Board (D-2026-06-14-03, step 2)
 #
 # Serves the `regulatory_board` SQL view (pantry migration 043) as JSON for the
 # frontend's Regulatory Board page. The view owns the editorial fields AND the
@@ -1329,7 +1329,7 @@ def _shape_board_item(r: dict) -> dict:
     }
 
 
-@app.get("/regulatory/board")
+@app.get("/api/regulatory/board")
 async def regulatory_board(
     include_resolved: bool = Query(
         default=False,
