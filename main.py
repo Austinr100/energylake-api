@@ -26,6 +26,7 @@ Endpoints:
     GET /api/briefs/daily/latest           most recent daily Joule brief (Tape 3a)
     GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
+    GET /regulatory/board                  regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
 """
 
 import os
@@ -1236,4 +1237,205 @@ async def wire_recent(
             "returned": len(data),
             "voice_version": TAPE_VOICE_VERSION,
         },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /regulatory/board — Regulatory Board (D-2026-06-14-03, step 2)
+#
+# Serves the `regulatory_board` SQL view (pantry migration 043) as JSON for the
+# frontend's Regulatory Board page. The view owns the editorial fields AND the
+# salience formula; this endpoint is a thin read-through — it does not invent
+# fields or recompute salience. Same read-only Neon pantry, same conn/CORS
+# conventions as the rest of this service.
+#
+# View columns surfaced (one row per docket item):
+#   id, body, docket, title, summary, theme[], status, importance,
+#   market_impact, impact_note, trading_angle, is_editorial, key_dates[],
+#   next_date, days_until, source_url[], salience, provenance, on_board
+#
+# Default: on-board items only (WHERE on_board). `?include_resolved=true`
+# returns the full set (resolved items included, still scored by the view).
+#
+# `?body=` is a GENERAL filter (NOT CAISO-hardcoded): accepts any known body,
+# comma-separated for multiple (e.g. ?body=CAISO, ?body=FERC,CPUC). The CAISO
+# page calls ?body=CAISO to embed its slice, but the door is built wide for
+# every body. Unknown bodies fail loud with 400 (Principle #27).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Known regulatory bodies, the validation set for the `?body=` filter. This is
+# the single place the accepted-body list lives; extend here when the pantry
+# starts tracking a new body.
+REGULATORY_BODIES = (
+    "FERC", "CPUC", "CAISO", "NERC", "CARB", "NRC", "CA_LEG", "REGIONAL", "BPA",
+)
+_REGULATORY_BODY_SET = frozenset(REGULATORY_BODIES)
+
+
+def _parse_body_filter(s: str) -> list[str]:
+    """Parse 'FERC,CPUC' -> ['FERC','CPUC']; validate against the known body
+    set (case-insensitive); raise HTTPException(400) on empty or unknown.
+    Order is preserved and duplicates collapsed so the bound array is clean."""
+    raw = [x.strip().upper() for x in s.split(",") if x.strip()]
+    if not raw:
+        raise HTTPException(
+            status_code=400, detail="`body` cannot be empty when supplied."
+        )
+    unknown = [b for b in raw if b not in _REGULATORY_BODY_SET]
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown body value(s) {unknown}; "
+                f"valid bodies are {list(REGULATORY_BODIES)}."
+            ),
+        )
+    seen: list[str] = []
+    for b in raw:
+        if b not in seen:
+            seen.append(b)
+    return seen
+
+
+def _shape_board_item(r: dict) -> dict:
+    """Normalize one regulatory_board row to the JSON board contract.
+
+    Pass the view through verbatim — the only conversions are JSON-safety:
+    next_date -> ISO string (or null), salience -> float. theme / key_dates /
+    source_url arrive from the view as JSON-ready lists; market_impact is the
+    view's own value ('na' when none); impact_note / trading_angle are null
+    when absent. Nothing here recomputes or invents a field."""
+    nd = r["next_date"]
+    sal = r["salience"]
+    return {
+        "id": r["id"],
+        "body": r["body"],
+        "docket": r["docket"],
+        "title": r["title"],
+        "summary": r["summary"],
+        "theme": r["theme"],
+        "status": r["status"],
+        "importance": r["importance"],
+        "market_impact": r["market_impact"],
+        "impact_note": r["impact_note"],
+        "trading_angle": r["trading_angle"],
+        "is_editorial": r["is_editorial"],
+        "key_dates": r["key_dates"],
+        "next_date": nd.isoformat() if nd is not None else None,
+        "days_until": r["days_until"],
+        "source_url": r["source_url"],
+        "salience": float(sal) if sal is not None else None,
+        "provenance": r["provenance"],
+    }
+
+
+@app.get("/regulatory/board")
+async def regulatory_board(
+    include_resolved: bool = Query(
+        default=False,
+        description="If false (default), return only on-board items "
+        "(WHERE on_board). If true, return all items including resolved ones "
+        "(still scored by the view).",
+    ),
+    body: str | None = Query(
+        default=None,
+        description="Optional regulatory-body filter. One body or a "
+        "comma-separated list (e.g. 'CAISO' or 'FERC,CPUC'). Case-insensitive. "
+        f"Valid bodies: {', '.join(REGULATORY_BODIES)}. Unknown values are "
+        "rejected with 400. Defaults to all bodies.",
+    ),
+):
+    """
+    Regulatory Board — the `regulatory_board` view served as JSON.
+
+    Default returns on-board items only; `?include_resolved=true` returns the
+    full set. `?body=` filters to one or more bodies (general, not hardcoded).
+    Ordered by salience DESC, importance DESC, body ASC. `as_of` is the
+    database's CURRENT_DATE.
+
+    Response shape:
+        {
+          "as_of": "2026-06-14",
+          "count": 22,
+          "items": [
+            {
+              "id": "ferc_rm26_4", "body": "FERC", "docket": "RM26-4",
+              "title": "...", "summary": "...",
+              "theme": ["Large_Load", "Interconnection"],
+              "status": "pending_decision", "importance": 5,
+              "market_impact": "bullish", "impact_note": "...",
+              "trading_angle": "...", "is_editorial": true,
+              "key_dates": [{"type": "decision_expected", "date": "2026-06-30"}],
+              "next_date": "2026-06-30", "days_until": 16,
+              "source_url": ["https://..."], "salience": 11.0,
+              "provenance": "curated"
+            },
+            ...
+          ]
+        }
+
+    Notes:
+      - `market_impact` is "na" when none; `impact_note` / `trading_angle` are
+        null when absent — both come straight from the view.
+      - `salience` is owned by the view; this endpoint never recomputes it.
+    """
+    assert _pool is not None
+
+    bodies = _parse_body_filter(body) if body is not None else None
+
+    # The view owns the columns and the salience formula; we read them through.
+    # WHERE: default to on-board only; include_resolved flips to the full set.
+    # The body filter binds a text[] (or NULL = all bodies) and matches with
+    # = ANY(...), so one body or many costs the same single bound parameter.
+    query = """
+        SELECT
+            id,
+            body,
+            docket,
+            title,
+            summary,
+            theme,
+            status,
+            importance,
+            market_impact,
+            impact_note,
+            trading_angle,
+            is_editorial,
+            key_dates,
+            next_date,
+            days_until,
+            source_url,
+            salience,
+            provenance,
+            CURRENT_DATE AS as_of
+        FROM regulatory_board
+        WHERE (%(include_resolved)s OR on_board)
+          AND (%(bodies)s::text[] IS NULL OR body = ANY(%(bodies)s))
+        ORDER BY salience DESC, importance DESC, body ASC
+    """
+    params = {
+        "include_resolved": include_resolved,
+        "bodies": bodies,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    items = [_shape_board_item(r) for r in rows]
+
+    # as_of is the DB's CURRENT_DATE, carried on each row. An empty result (a
+    # body filter that matches nothing, or an all-resolved board) is a valid
+    # 200 with count 0 — fall back to the server's date only for that edge so
+    # the contract field is never missing.
+    as_of = rows[0]["as_of"].isoformat() if rows else _date.today().isoformat()
+
+    return {
+        "as_of": as_of,
+        "count": len(items),
+        "items": items,
     }
