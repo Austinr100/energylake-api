@@ -19,7 +19,7 @@ non-blocking behavior.
 
 Endpoints:
     GET /health                            health check
-    GET /api/timeseries/caiso-fuel-mix     fuel mix by hour (M2)
+    GET /api/timeseries/caiso-fuel-mix     fuel mix at 5-min grain (M2)
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
@@ -183,7 +183,10 @@ async def health():
 #   timeseries_values(ts timestamptz, dataset text, series text,
 #                     value numeric, meta jsonb, ingested_ts timestamptz)
 #
-# Dataset: 'caiso_fuel_mix_hourly' — 758k rows, 2020-01 -> current, hourly.
+# Dataset: 'caiso_fuel_mix_5min' — CAISO fuel mix at 5-minute grain, on a
+#   rolling ~30-day hot tier (purpose-built store, NOT the hourly table; it
+#   shares the same timeseries_values schema and series set). Up to 288 rows
+#   per Pacific calendar day vs. 24 for the hourly source it replaced.
 # Series (14): batteries, biogas, biomass, coal, geothermal, imports,
 #   large_hydro, natural_gas, nuclear, other, renewables, small_hydro,
 #   solar, wind. Values are MW.
@@ -202,7 +205,11 @@ async def health():
 #     that hour's object rather than breaking the response.
 # ═══════════════════════════════════════════════════════════════════════════
 
-FUEL_MIX_DATASET = "caiso_fuel_mix_hourly"
+# Repointed hourly -> 5-min (2026-06-23). Same timeseries_values schema and the
+# same 14 series (renewables still a roll-up; granular fuels charted, not it).
+# Only the grain/source changes: a Pacific calendar day is now up to 288 points
+# instead of 24. PT day-boundary SQL below is unchanged — it stays correct.
+FUEL_MIX_DATASET = "caiso_fuel_mix_5min"
 
 
 @app.get("/api/timeseries/caiso-fuel-mix")
@@ -211,13 +218,13 @@ async def caiso_fuel_mix(
         default=24,
         ge=1,
         le=2000,
-        description="Number of most-recent HOURS to return. Ignored when "
-        "`date` or `start`/`end` is supplied.",
+        description="Number of most-recent 5-minute intervals to return. "
+        "Ignored when `date` or `start`/`end` is supplied.",
     ),
     date: str | None = Query(
         default=None,
         description="A single Pacific calendar day, YYYY-MM-DD. Returns that "
-        "day's 24 hours. Mutually exclusive with start/end.",
+        "day's 5-minute points (up to 288). Mutually exclusive with start/end.",
     ),
     start: str | None = Query(
         default=None,
@@ -241,7 +248,7 @@ async def caiso_fuel_mix(
     CAISO fuel mix in MW, newest first.
 
     Three selection modes (in priority order):
-      * date=YYYY-MM-DD            -> that single Pacific calendar day (24h)
+      * date=YYYY-MM-DD            -> that single Pacific calendar day (up to 288 pts)
       * start=YYYY-MM-DD&end=...   -> inclusive Pacific-day range
       * (neither)                  -> latest `limit` hours (default 24)
 
@@ -303,8 +310,9 @@ async def caiso_fuel_mix(
             "tz": MARKET_TZ,
         }
     else:
-        # Default mode: latest `limit` DISTINCT hours (not raw rows), so
-        # `limit` means "hours" regardless of how many fuels report each hour.
+        # Default mode: latest `limit` DISTINCT timestamps (not raw rows), so
+        # `limit` means "5-min intervals" regardless of how many fuels report
+        # at each timestamp.
         query = """
             WITH recent_hours AS (
                 SELECT DISTINCT ts
