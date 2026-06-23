@@ -28,6 +28,7 @@ Endpoints:
     GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
     GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
+    GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
 """
 
 import os
@@ -37,10 +38,12 @@ from datetime import date as _date
 from datetime import datetime as _datetime
 from datetime import timedelta as _timedelta
 from enum import Enum
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
@@ -1336,6 +1339,130 @@ async def briefs_daily_by_date(
         )
 
     return _shape_brief(row)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/joule/chart-brief — the render leg for Joule chart briefs (#99)
+#
+# #99 writes 'caiso_fuel_mix_chart' briefs into joule_briefs on the 1:41am
+# cron, but nothing reads them yet. This endpoint serves the most recent brief
+# for a chart, parameterized by brief_type so the load/renewables chart briefs
+# drop in later behind the same route (one endpoint, not N).
+#
+# Latest-row, NOT DISTINCT ON: we take the newest row by created_at, which
+# sidesteps the voice-version-leak debt on the newswire DISTINCT ON query
+# (stale older-voice rows slipping through). The newest fuel-mix row is the
+# current voice by construction. Only PASS briefs are ever written
+# (fail-loud-no-write), and there is no status column, so no status filter is
+# needed — any row present is publishable.
+#
+# Empty case is a 200 with body=null (the brief_type is echoed back), NOT a
+# 404: the dashboard must degrade quietly when no brief exists yet, never
+# error. Unknown brief_type is a 400.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Allowlist of chart-brief types this endpoint will serve. Starts with just the
+# fuel-mix chart; load/renewables types drop in here once #99 writes them.
+CHART_BRIEF_TYPES = frozenset({"caiso_fuel_mix_chart"})
+
+
+class ChartBrief(BaseModel):
+    """
+    Render contract for a Joule chart brief. The dashboard binds to this shape.
+
+    brief_type is always present (echoed from the validated query param). Every
+    other field is Optional because the empty case (no brief written yet)
+    returns this model with body/brief_date/... = null rather than a 404.
+    """
+
+    brief_type: str
+    body: Optional[str] = None
+    brief_date: Optional[str] = None
+    voice_version: Optional[str] = None
+    word_count: Optional[int] = None
+    generated_at: Optional[str] = None
+    id: Optional[int] = None
+
+
+# Latest row for a brief_type, newest first. NOT DISTINCT ON (see block above).
+_CHART_BRIEF_SELECT = """
+    SELECT
+        id,
+        brief_type,
+        brief_date,
+        content_md,
+        voice_version,
+        word_count,
+        created_at
+    FROM joule_briefs
+    WHERE brief_type = %(brief_type)s
+    ORDER BY created_at DESC
+    LIMIT 1
+"""
+
+
+@app.get("/api/joule/chart-brief", response_model=ChartBrief)
+async def joule_chart_brief(
+    brief_type: str = Query(
+        ...,
+        description="Chart-brief discriminator. Currently only "
+        "'caiso_fuel_mix_chart'. Unknown types are rejected with 400.",
+    ),
+):
+    """
+    Most recent Joule chart brief for a given brief_type.
+
+    Returns the single newest row (by created_at) WHERE brief_type matches.
+
+    - Unknown brief_type (not in the allowlist) -> 400.
+    - No brief written yet -> 200 with body=null (NOT 404), so the dashboard
+      degrades quietly.
+
+    Response shape (the contract the dashboard binds to):
+        {
+          "brief_type": "caiso_fuel_mix_chart",
+          "body": "...content_md...",
+          "brief_date": "2026-06-22",
+          "voice_version": "v2.1",
+          "word_count": 71,
+          "generated_at": "2026-06-23T11:45:37.734038+00:00",
+          "id": 18
+        }
+    """
+    assert _pool is not None
+
+    if brief_type not in CHART_BRIEF_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown brief_type '{brief_type}'. "
+            f"Allowed: {sorted(CHART_BRIEF_TYPES)}.",
+        )
+
+    params = {"brief_type": brief_type}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(_CHART_BRIEF_SELECT, params)
+                row = await cur.fetchone()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    # Empty case: echo the brief_type, everything else null. 200, not 404.
+    if row is None:
+        return ChartBrief(brief_type=brief_type)
+
+    bd = row["brief_date"]
+    ca = row["created_at"]
+    return ChartBrief(
+        brief_type=row["brief_type"],
+        body=row["content_md"],
+        brief_date=bd.isoformat() if bd is not None else None,
+        voice_version=row["voice_version"],
+        word_count=row["word_count"],
+        generated_at=ca.isoformat() if ca is not None else None,
+        id=row["id"],
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
