@@ -43,6 +43,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
@@ -91,11 +92,24 @@ async def lifespan(app: FastAPI):
     await _pool.close()
 
 
+# Starlette's JSONResponse emits correct UTF-8 bytes (json.dumps(...,
+# ensure_ascii=False).encode("utf-8")) but labels them only "application/json"
+# — it appends "; charset=utf-8" for text/* media types, not for JSON. A
+# browser's raw-JSON view then guesses Latin-1/CP1252 and renders a stored "—"
+# (UTF-8 E2 80 94) as "â€"". The bytes are already correct (Fetch's .json()
+# decodes them fine), so this is a display-only label fix: make the charset
+# explicit on every JSON response. Subclassing keeps response_model
+# serialization intact — a raw per-route JSONResponse would bypass Pydantic.
+class UTF8JSONResponse(JSONResponse):
+    media_type = "application/json; charset=utf-8"
+
+
 app = FastAPI(
     title="EnergyLake API",
     version="0.2.0",
     description="Read-only pantry access for the EnergyLake frontend.",
     lifespan=lifespan,
+    default_response_class=UTF8JSONResponse,
 )
 
 # Vercel preview deployments get a fresh, unpredictable origin per build, so

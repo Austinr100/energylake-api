@@ -174,3 +174,38 @@ def test_chart_brief_source_uses_latest_row_not_distinct_on():
     src = inspect.getsource(main.joule_chart_brief)
     assert "DISTINCT ON" not in main._CHART_BRIEF_SELECT
     assert "CHART_BRIEF_TYPES" in src
+
+
+# ---------------------------------------------------------------------------
+# UTF-8 encoding (cc_spec 2026-06-23). Recon verdict (A): the bytes were always
+# correct UTF-8; the live "â€"" mojibake was a browser raw-view guessing
+# Latin-1 because the Content-Type lacked "; charset=utf-8". These two tests
+# pin the serialization leg: multibyte chars round-trip clean AND the charset
+# label is present. The live end-to-end re-check (Neon -> Railway -> browser)
+# is a post-deploy receipt (egress blocks Railway here).
+# ---------------------------------------------------------------------------
+
+def _multibyte_row():
+    row = _fuel_mix_row()
+    # Em dash (U+2014, the reported case) plus a degree sign and an accented
+    # vowel for multibyte breadth — all stored clean UTF-8 in Neon.
+    row["content_md"] = "solar 36.8%, wind 14.0% — while gas held 28°, café"
+    return row
+
+
+def test_chart_brief_multibyte_round_trips_clean(client):
+    use_rows([_multibyte_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
+    )
+    assert resp.status_code == 200
+    # Parsed body holds the real characters, not "â€"" / mojibake.
+    assert resp.json()["body"] == "solar 36.8%, wind 14.0% — while gas held 28°, café"
+
+
+def test_chart_brief_response_declares_utf8_charset(client):
+    use_rows([_multibyte_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
+    )
+    assert "charset=utf-8" in resp.headers["content-type"].lower()
