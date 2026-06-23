@@ -20,6 +20,7 @@ non-blocking behavior.
 Endpoints:
     GET /health                            health check
     GET /api/timeseries/caiso-fuel-mix     fuel mix at 5-min grain (M2)
+    GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
@@ -33,7 +34,10 @@ import os
 import re
 from contextlib import asynccontextmanager
 from datetime import date as _date
+from datetime import datetime as _datetime
+from datetime import timedelta as _timedelta
 from enum import Enum
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -377,6 +381,252 @@ async def caiso_fuel_mix(
         bucket[r["series"]] = float(r["value"])
     # rows come newest-first; dict preserves insertion order in py3.7+
     return list(pivoted.values())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CAISO forecast-vs-actual — load / solar / wind (D-18-07 data layer, PRs #76–81).
+#
+# Two stores, keyed differently (confirmed via recon; map across in the join):
+#
+#   forecasts_caiso  — the VINTAGE store, keyed (forecast_type, product):
+#       forecast_type : 'load' | 'solar' | 'wind'
+#       product       : the vintage rung — '7DA' | '2DA' | 'DAM'
+#       target_ts, generated_ts, issued_ts, value_mw, meta
+#     Load carries the full ladder (7DA targets reach +7 days). Solar & wind
+#     carry DAM ONLY — CAISO's SLD_REN_FCST is day-ahead; there is no 7-day-ahead
+#     renewables forecast at the source. That asymmetry is real, not a gap.
+#
+#   actuals_caiso    — the realized store, keyed `series`, latest-wins:
+#       series : 'load' | 'solar' | 'wind'
+#       target_ts, value_mw, meta
+#     Realized through ~yesterday 23:00 PT by design; the actual line ends at the
+#     last realized interval and the forecast continues past it.
+#
+# JOIN ASYMMETRY: forecast side keys on `forecast_type`, actual side on `series`.
+# Same semantic key ('load'/'solar'/'wind'), different column name — mapped below.
+#
+# READ-TIME FLATTEN-TO-WIDE (banked contract — done here, never stored): per
+# target_ts, collapse the latest vintage of each product into columns
+# (actual | DAM [| 2DA | 7DA]), LEFT JOIN the actual onto the forecast spine so
+# unrealized future rows survive with is_scored=false. Storage stays vintaged;
+# this query collapses it for display. No future-padded axis: the forecast spine
+# is the natural trailing edge, and is_scored marks the realized/forecast seam.
+#
+# NOTE: live information_schema recon for a pre-existing forecast_vs_actual view
+# was not possible in this build environment (no DB connection), so the endpoint
+# does the flatten-to-wide join itself rather than read an unconfirmed view.
+# ═══════════════════════════════════════════════════════════════════════════
+
+FORECAST_TABLE = "forecasts_caiso"
+ACTUAL_TABLE = "actuals_caiso"
+
+# Which forecast vintages each quantity carries at the source. Load runs the
+# full ladder; solar/wind are DAM-only (day-ahead renewables forecast only).
+FORECAST_PRODUCTS: dict[str, list[str]] = {
+    "load": ["7DA", "2DA", "DAM"],
+    "solar": ["DAM"],
+    "wind": ["DAM"],
+}
+
+
+def _mw(v) -> float | None:
+    """numeric|None -> float|None, JSON-safe (matches fuel-mix's float() cast)."""
+    return None if v is None else float(v)
+
+
+@app.get("/api/timeseries/caiso-forecast-vs-actual")
+async def caiso_forecast_vs_actual(
+    quantity: str = Query(
+        ...,
+        pattern="^(load|solar|wind)$",
+        description="Which quantity to serve: 'load', 'solar', or 'wind'. "
+        "Load returns the 7DA/2DA/DAM ladder; solar/wind return DAM only "
+        "(day-ahead renewables forecast only at the source).",
+    ),
+    start: str | None = Query(
+        default=None,
+        description="Window start, Pacific calendar day YYYY-MM-DD (inclusive). "
+        "Use with `end`. When omitted, a rolling realized+forecast window is "
+        "used (see `days_back`/`horizon`).",
+    ),
+    end: str | None = Query(
+        default=None,
+        description="Window end, Pacific calendar day YYYY-MM-DD (inclusive). "
+        "Use with `start`.",
+    ),
+    days_back: int = Query(
+        default=7,
+        ge=1,
+        le=60,
+        description="Default-mode realized history: PT days back from today to "
+        "include. Ignored when `start`/`end` is supplied.",
+    ),
+    horizon: int = Query(
+        default=8,
+        ge=1,
+        le=14,
+        description="Default-mode forecast horizon: PT days forward from today "
+        "to include (8 covers the 7DA edge + buffer). Ignored when `start`/`end` "
+        "is supplied. The forecast spine, not this bound, sets the trailing edge.",
+    ),
+):
+    """
+    CAISO actual-vs-forecast for one quantity, flattened to wide per target_ts.
+
+    Two selection modes:
+      * start=YYYY-MM-DD&end=...  -> explicit inclusive Pacific-day window
+      * (neither)                 -> rolling window: today−days_back .. today+horizon (PT)
+
+    Each point is one Pacific-time target interval:
+        load:   {ts, actual, "7DA", "2DA", "DAM", is_scored}
+        solar/  {ts, actual, "DAM", is_scored}
+        wind:
+
+    `actual` is null (and is_scored=false) for unrealized future intervals — the
+    forecast continues past the last realized ts, which is the honest seam. The
+    actual side keys on `series`; the forecast side on `forecast_type`; the join
+    maps the shared semantic key across them.
+
+    Envelope:
+        {
+          "quantity": "load", "tz": "America/Los_Angeles",
+          "window": {"start": "2026-06-16", "end": "2026-07-01"},
+          "products": ["7DA", "2DA", "DAM"],
+          "last_scored_ts": "2026-06-22T23:00:00+00:00",
+          "count": N,
+          "points": [ ... ]
+        }
+    """
+    assert _pool is not None
+
+    # ── Decide selection mode + validate (fail loud on bad input) ──────────
+    use_range = start is not None or end is not None
+    if use_range and not (start is not None and end is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="`start` and `end` must be supplied together.",
+        )
+    for label, val in (("start", start), ("end", end)):
+        if val is not None and not _valid_date(val):
+            raise HTTPException(
+                status_code=400,
+                detail=f"`{label}` must be YYYY-MM-DD; got '{val}'.",
+            )
+    if use_range and start > end:  # type: ignore[operator]
+        raise HTTPException(
+            status_code=400, detail="`start` must be on or before `end`."
+        )
+
+    if use_range:
+        lo_date, hi_date = start, end
+    else:
+        # "Today" is a Pacific calendar day — the realized edge and forecast
+        # both live on the PT clock (reuse fuel-mix's market timezone).
+        today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+        lo_date = (today_pt - _timedelta(days=days_back)).isoformat()
+        hi_date = (today_pt + _timedelta(days=horizon)).isoformat()
+
+    products = FORECAST_PRODUCTS[quantity]
+
+    # ── Flatten-to-wide at read time ───────────────────────────────────────
+    # fc: latest vintage per (target_ts, product) — freshest generated wins.
+    # fc_wide: pivot the products into columns for this target_ts.
+    # act: realized values for the same quantity, keyed on `series`.
+    # Final: forecast spine LEFT JOIN actual, so future rows survive unscored.
+    # PT day boundaries reuse the proven fuel-mix pattern (AT TIME ZONE), end
+    # exclusive at (hi + 1 day) so the window is inclusive of `hi`.
+    query = """
+        WITH fc AS (
+            SELECT DISTINCT ON (target_ts, product)
+                   target_ts, product, value_mw
+            FROM forecasts_caiso
+            WHERE forecast_type = %(quantity)s
+              AND product = ANY(%(products)s)
+              AND target_ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+              AND target_ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+            ORDER BY target_ts, product,
+                     generated_ts DESC NULLS LAST, issued_ts DESC NULLS LAST
+        ),
+        fc_wide AS (
+            SELECT
+                target_ts,
+                MAX(value_mw) FILTER (WHERE product = '7DA') AS sevenda,
+                MAX(value_mw) FILTER (WHERE product = '2DA') AS twoda,
+                MAX(value_mw) FILTER (WHERE product = 'DAM') AS dam
+            FROM fc
+            GROUP BY target_ts
+        ),
+        act AS (
+            SELECT target_ts, value_mw
+            FROM actuals_caiso
+            WHERE series = %(quantity)s
+              AND target_ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+              AND target_ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+        )
+        SELECT
+            f.target_ts        AS target_ts,
+            a.value_mw         AS actual,
+            f.sevenda          AS sevenda,
+            f.twoda            AS twoda,
+            f.dam              AS dam,
+            (a.value_mw IS NOT NULL) AS is_scored
+        FROM fc_wide f
+        LEFT JOIN act a ON a.target_ts = f.target_ts
+        ORDER BY f.target_ts ASC
+    """
+    params = {
+        "quantity": quantity,
+        "products": products,
+        "lo": lo_date,
+        "hi": hi_date,
+        "tz": MARKET_TZ,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"no '{quantity}' forecast-vs-actual data for "
+                f"{lo_date}..{hi_date} (Pacific). Verify forecasts_caiso has "
+                f"forecast_type='{quantity}' rows in the window."
+            ),
+        )
+
+    # ── Shape wide points; honor is_scored; track the realized seam ────────
+    # Rows are ascending, so the last is_scored row is the seam (last realized).
+    include_ladder = quantity == "load"
+    points: list[dict] = []
+    last_scored_ts: str | None = None
+    for r in rows:
+        ts = r["target_ts"].isoformat()
+        is_scored = bool(r["is_scored"])
+        point: dict = {"ts": ts, "actual": _mw(r["actual"])}
+        if include_ladder:
+            point["7DA"] = _mw(r["sevenda"])
+            point["2DA"] = _mw(r["twoda"])
+        point["DAM"] = _mw(r["dam"])
+        point["is_scored"] = is_scored
+        points.append(point)
+        if is_scored:
+            last_scored_ts = ts
+
+    return {
+        "quantity": quantity,
+        "tz": MARKET_TZ,
+        "window": {"start": lo_date, "end": hi_date},
+        "products": products,
+        "last_scored_ts": last_scored_ts,
+        "count": len(points),
+        "points": points,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
