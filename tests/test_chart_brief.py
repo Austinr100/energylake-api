@@ -209,3 +209,69 @@ def test_chart_brief_response_declares_utf8_charset(client):
         "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
     )
     assert "charset=utf-8" in resp.headers["content-type"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Optional brief_date filter (PR-1, cc_spec 2026-06-23). When provided, the
+# endpoint serves the brief for (brief_type, brief_date) so the dashboard
+# commentary can follow the chart's date selector. Omitted -> #8 behavior,
+# unchanged (backward compatible).
+# ---------------------------------------------------------------------------
+
+def test_chart_brief_with_date_returns_that_days_brief(client):
+    pool = use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_fuel_mix_chart", "brief_date": "2026-06-22"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["id"] == 18
+    assert body["brief_date"] == "2026-06-22"
+    # The date filter is spliced into the SQL with a bound param (not a literal).
+    query = pool.sink["query"]
+    assert "AND brief_date = %(brief_date)s" in query
+    assert "ORDER BY created_at DESC" in query
+    assert "LIMIT 1" in query
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_fuel_mix_chart",
+        "brief_date": datetime.date(2026, 6, 22),
+    }
+
+
+def test_chart_brief_with_date_no_brief_is_200_null_body_echoes_date(client):
+    use_rows([])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_fuel_mix_chart", "brief_date": "2026-06-19"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["body"] is None
+    assert body["id"] is None
+    # brief_type AND the requested brief_date are echoed back (not a 404).
+    assert body["brief_type"] == "caiso_fuel_mix_chart"
+    assert body["brief_date"] == "2026-06-19"
+
+
+def test_chart_brief_malformed_date_is_422(client):
+    use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_fuel_mix_chart", "brief_date": "garbage"},
+    )
+    assert resp.status_code == 422
+
+
+def test_chart_brief_absent_date_unchanged_no_date_filter(client):
+    # The #8 contract: no brief_date -> latest by created_at, and the SQL must
+    # NOT carry a brief_date filter or param.
+    pool = use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == 18
+    query = pool.sink["query"]
+    assert "brief_date" not in query.split("WHERE", 1)[1].split("ORDER BY", 1)[0]
+    assert pool.sink["params"] == {"brief_type": "caiso_fuel_mix_chart"}
