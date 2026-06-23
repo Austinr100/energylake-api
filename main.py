@@ -1399,6 +1399,8 @@ class ChartBrief(BaseModel):
 
 
 # Latest row for a brief_type, newest first. NOT DISTINCT ON (see block above).
+# When a specific brief_date is requested, the AND brief_date clause is spliced
+# in before the ORDER BY (see _CHART_BRIEF_DATE_FILTER / _CHART_BRIEF_ORDER).
 _CHART_BRIEF_SELECT = """
     SELECT
         id,
@@ -1410,6 +1412,16 @@ _CHART_BRIEF_SELECT = """
         created_at
     FROM joule_briefs
     WHERE brief_type = %(brief_type)s
+"""
+
+# Optional narrowing to one calendar date. A later `snapshot` param (intraday
+# arc) will hang off the same query for sub-day selection — do NOT build it now.
+_CHART_BRIEF_DATE_FILTER = "      AND brief_date = %(brief_date)s\n"
+
+# Newest-row tiebreak. Kept separate so it always lands after the optional date
+# filter; if multiple rows match (brief_type[, brief_date]) we take the latest
+# created_at — same rule as the no-date case.
+_CHART_BRIEF_ORDER = """
     ORDER BY created_at DESC
     LIMIT 1
 """
@@ -1422,15 +1434,24 @@ async def joule_chart_brief(
         description="Chart-brief discriminator. Currently only "
         "'caiso_fuel_mix_chart'. Unknown types are rejected with 400.",
     ),
+    brief_date: Optional[_date] = Query(
+        None,
+        description="Optional calendar date (YYYY-MM-DD) to fetch a specific "
+        "day's brief. Omitted -> latest brief by created_at. Malformed dates "
+        "are rejected with 422.",
+    ),
 ):
     """
-    Most recent Joule chart brief for a given brief_type.
+    Joule chart brief for a given brief_type, optionally pinned to a date.
 
-    Returns the single newest row (by created_at) WHERE brief_type matches.
-
+    - brief_date omitted -> the single newest row (by created_at) WHERE
+      brief_type matches (the #8/#99 behavior, unchanged).
+    - brief_date provided -> the brief for (brief_type, brief_date); if several
+      rows match, the latest created_at wins.
     - Unknown brief_type (not in the allowlist) -> 400.
-    - No brief written yet -> 200 with body=null (NOT 404), so the dashboard
-      degrades quietly.
+    - Malformed brief_date -> 422 (FastAPI validates the `date` type for free).
+    - No brief for that brief_type[/brief_date] -> 200 with body=null (NOT 404),
+      echoing brief_type and brief_date, so the dashboard degrades quietly.
 
     Response shape (the contract the dashboard binds to):
         {
@@ -1452,19 +1473,28 @@ async def joule_chart_brief(
             f"Allowed: {sorted(CHART_BRIEF_TYPES)}.",
         )
 
+    query = _CHART_BRIEF_SELECT
     params = {"brief_type": brief_type}
+    if brief_date is not None:
+        query += _CHART_BRIEF_DATE_FILTER
+        params["brief_date"] = brief_date
+    query += _CHART_BRIEF_ORDER
 
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(_CHART_BRIEF_SELECT, params)
+                await cur.execute(query, params)
                 row = await cur.fetchone()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"query failed: {e}")
 
-    # Empty case: echo the brief_type, everything else null. 200, not 404.
+    # Empty case: echo brief_type (and brief_date if one was requested),
+    # everything else null. 200, not 404.
     if row is None:
-        return ChartBrief(brief_type=brief_type)
+        return ChartBrief(
+            brief_type=brief_type,
+            brief_date=brief_date.isoformat() if brief_date is not None else None,
+        )
 
     bd = row["brief_date"]
     ca = row["created_at"]
