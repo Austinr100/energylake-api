@@ -21,6 +21,7 @@ Endpoints:
     GET /health                            health check
     GET /api/timeseries/caiso-fuel-mix     fuel mix at 5-min grain (M2)
     GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide
+    GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
@@ -1867,4 +1868,284 @@ async def regulatory_board(
         "as_of": as_of,
         "count": len(items),
         "items": items,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/timeseries/caiso-demand-stack — forward demand-stack substrate (#?, 6/24)
+#
+# ONE concern: feed the two forward 7-day stacked-bar charts from a single read
+# so they stay dimensionally consistent — renewables chart (wind+solar) and
+# load chart (net-demand base + wind + solar wedge). Per hourly target over a
+# forward frame it returns total demand, net demand, solar, wind — each with a
+# forecast and (where realized) an actual value, plus an is_scored now-seam.
+# Net demand is derived SERVER-SIDE so `net + wind + solar = total` holds by
+# construction and the load chart's top two segments equal the renewables chart
+# exactly. Read-only; no schema/ingester/migration change.
+#
+# REUSE (recon of /api/timeseries/caiso-forecast-vs-actual, the sibling read):
+#   (a) latest-vintage selection — DISTINCT ON (...) ORDER BY generated_ts DESC
+#       NULLS LAST, issued_ts DESC NULLS LAST. The never-overwrite forecasts_caiso
+#       store accumulates vintages; this picks the freshest per target hour and
+#       NEVER blends vintages into the subtraction.
+#   (b) flatten-to-wide — MAX(value_mw) FILTER (WHERE ...) pivots the per-series
+#       rows into columns for one target_ts (here keyed on forecast_type/series
+#       rather than product, since the stack spans three series at fixed vintages).
+#   (c) is_scored seam — forecast spine LEFT JOIN actuals; is_scored = the load
+#       (total-demand) actual exists. The forecast spine is the natural trailing
+#       edge; is_scored marks the realized/forecast boundary, same as the sibling.
+#   (d) actuals join — actuals_caiso keyed on `series` mapped to forecast_type on
+#       target_ts, identical to the sibling endpoint.
+# No PT-only label field is added: the sibling endpoint emits `ts` as an ISO
+# string with UTC offset and the dashboard localizes client-side — matched here
+# so the fetch/parse layer is familiar.
+#
+# DECISION (baked into the spec, redline-able): the forward DEMAND curve is load
+# `7DA` (latest vintage); renewables are `DAM` (the only day-ahead+ issuance at
+# the source — solar/wind have no 7-day-ahead forecast, an asymmetry that is real
+# and recon-confirmed). Net-demand forecast = 7DA load − DAM solar − DAM wind.
+# Single forward curves, vintage-coherent, both reaching +7d. Near-term load
+# stitch (DAM/2DA where tighter) is deliberately deferred — it mixes vintages.
+#
+# NET DEMAND NEVER NULL-POISONED: if any of load/solar/wind is missing for an
+# hour, net demand for that hour is NULL — not a partial subtraction against an
+# implicit zero (fail-honest, Principle #27). Across the DAM/7DA forward overlap
+# this is expected to affect no hours, but the code does not assume it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Forward demand-stack vintages (the spec's baked-in decision). Load forward
+# curve = 7DA; renewables = DAM (only day-ahead+ issuance at the source). The
+# LATEST vintage of each is selected; vintages are never blended.
+DEMAND_STACK_FORECAST: dict[str, str] = {
+    "load": "7DA",
+    "solar": "DAM",
+    "wind": "DAM",
+}
+
+# Default forward frame: today (PT) → today+7d, the +7d edge both the 7DA load
+# and the DAM renewables forecasts reach. Inclusive of the end day.
+DEMAND_STACK_HORIZON_DAYS = 7
+
+
+def _net_demand(total: float | None, solar: float | None, wind: float | None) -> float | None:
+    """total − solar − wind, but None if ANY input is None (no partial subtraction
+    against an implicit zero — net demand is fail-honest, never NULL-poisoned)."""
+    if total is None or solar is None or wind is None:
+        return None
+    return total - solar - wind
+
+
+@app.get("/api/timeseries/caiso-demand-stack")
+async def caiso_demand_stack(
+    start: str | None = Query(
+        default=None,
+        description="Forward-frame start, Pacific calendar day YYYY-MM-DD "
+        "(inclusive). Use with `end`. Omitted -> today (PT).",
+    ),
+    end: str | None = Query(
+        default=None,
+        description="Forward-frame end, Pacific calendar day YYYY-MM-DD "
+        f"(inclusive). Use with `start`. Omitted -> today+{DEMAND_STACK_HORIZON_DAYS}d (PT).",
+    ),
+):
+    """
+    CAISO forward demand-stack — one hourly series feeding both stacked-bar charts.
+
+    Each point is one Pacific-time target interval carrying, for total demand,
+    net demand, solar and wind, a FORECAST value (present across the whole
+    forward frame) and an ACTUAL value (present only left of the now-seam):
+
+        {
+          "ts": "2026-06-27T01:00:00+00:00",
+          "is_scored": false,
+          "total_demand_fc": 31000.0,   # latest 7DA load
+          "solar_fc": 0.0,              # latest DAM solar
+          "wind_fc": 4200.0,            # latest DAM wind
+          "net_demand_fc": 26800.0,     # total − solar − wind, server-side
+          "total_demand_act": null,     # load actual
+          "solar_act": null,
+          "wind_act": null,
+          "net_demand_act": null        # total − solar − wind, server-side
+        }
+
+    `net + solar + wind = total` holds by construction (the subtraction is done
+    here, once), so the load chart's wind+solar wedge equals the renewables
+    chart exactly. Net demand is NULL for any hour missing one of its three
+    inputs — never a partial subtraction.
+
+    Two selection modes:
+      * start=YYYY-MM-DD&end=...  -> explicit inclusive Pacific-day forward frame
+      * (neither)                 -> today .. today+{horizon}d (PT)
+
+    Envelope:
+        {
+          "tz": "America/Los_Angeles",
+          "window": {"start": "2026-06-24", "end": "2026-07-01"},
+          "sources": {
+            "total_demand": "7DA load", "solar": "DAM solar", "wind": "DAM wind",
+            "net_demand": "total_demand - solar - wind (server-side)"
+          },
+          "last_scored_ts": "2026-06-24T18:00:00+00:00",
+          "count": N,
+          "points": [ ... ]
+        }
+    """
+    assert _pool is not None
+
+    # ── Decide selection mode + validate (fail loud on bad input) ──────────
+    use_range = start is not None or end is not None
+    if use_range and not (start is not None and end is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="`start` and `end` must be supplied together.",
+        )
+    for label, val in (("start", start), ("end", end)):
+        if val is not None and not _valid_date(val):
+            raise HTTPException(
+                status_code=400,
+                detail=f"`{label}` must be YYYY-MM-DD; got '{val}'.",
+            )
+    if use_range and start > end:  # type: ignore[operator]
+        raise HTTPException(
+            status_code=400, detail="`start` must be on or before `end`."
+        )
+
+    if use_range:
+        lo_date, hi_date = start, end
+    else:
+        # "Today" is a Pacific calendar day — the forward frame lives on the PT
+        # clock (reuse the sibling endpoint's market timezone).
+        today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+        lo_date = today_pt.isoformat()
+        hi_date = (today_pt + _timedelta(days=DEMAND_STACK_HORIZON_DAYS)).isoformat()
+
+    # ── Flatten-to-wide across the three series, latest vintage each ────────
+    # fc:      latest vintage per (forecast_type, target_ts) — freshest generated
+    #          wins; each series is pinned to ONE product so no vintage blending.
+    # fc_wide: pivot load/solar/wind forecasts into columns per target_ts.
+    # act:     realized load/solar/wind for the same window, keyed on `series`.
+    # Final:   forecast spine LEFT JOIN actuals so forward rows survive unscored.
+    # PT day boundaries reuse the proven fuel-mix pattern (AT TIME ZONE); end
+    # exclusive at (hi + 1 day) so the window is inclusive of `hi`.
+    query = """
+        WITH fc AS (
+            SELECT DISTINCT ON (forecast_type, target_ts)
+                   forecast_type, target_ts, value_mw
+            FROM forecasts_caiso
+            WHERE (
+                    (forecast_type = 'load'  AND product = %(load_product)s)
+                 OR (forecast_type = 'solar' AND product = %(solar_product)s)
+                 OR (forecast_type = 'wind'  AND product = %(wind_product)s)
+                  )
+              AND target_ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+              AND target_ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+            ORDER BY forecast_type, target_ts,
+                     generated_ts DESC NULLS LAST, issued_ts DESC NULLS LAST
+        ),
+        fc_wide AS (
+            SELECT
+                target_ts,
+                MAX(value_mw) FILTER (WHERE forecast_type = 'load')  AS total_fc,
+                MAX(value_mw) FILTER (WHERE forecast_type = 'solar') AS solar_fc,
+                MAX(value_mw) FILTER (WHERE forecast_type = 'wind')  AS wind_fc
+            FROM fc
+            GROUP BY target_ts
+        ),
+        act AS (
+            SELECT
+                target_ts,
+                MAX(value_mw) FILTER (WHERE series = 'load')  AS total_act,
+                MAX(value_mw) FILTER (WHERE series = 'solar') AS solar_act,
+                MAX(value_mw) FILTER (WHERE series = 'wind')  AS wind_act
+            FROM actuals_caiso
+            WHERE series IN ('load', 'solar', 'wind')
+              AND target_ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+              AND target_ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+            GROUP BY target_ts
+        )
+        SELECT
+            f.target_ts                  AS target_ts,
+            f.total_fc                   AS total_fc,
+            f.solar_fc                   AS solar_fc,
+            f.wind_fc                    AS wind_fc,
+            a.total_act                  AS total_act,
+            a.solar_act                  AS solar_act,
+            a.wind_act                   AS wind_act,
+            (a.total_act IS NOT NULL)    AS is_scored
+        FROM fc_wide f
+        LEFT JOIN act a ON a.target_ts = f.target_ts
+        ORDER BY f.target_ts ASC
+    """
+    params = {
+        "load_product": DEMAND_STACK_FORECAST["load"],
+        "solar_product": DEMAND_STACK_FORECAST["solar"],
+        "wind_product": DEMAND_STACK_FORECAST["wind"],
+        "lo": lo_date,
+        "hi": hi_date,
+        "tz": MARKET_TZ,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"no demand-stack data for {lo_date}..{hi_date} (Pacific). "
+                "Verify forecasts_caiso has load/solar/wind rows in the window."
+            ),
+        )
+
+    # ── Shape wide points; net demand server-side; track the realized seam ──
+    # Rows ascending, so the last is_scored row is the seam (last realized load).
+    # is_scored keys on the load (total-demand) actual — the demand spine. Net
+    # demand is computed from floats and is NULL when any input is missing, so a
+    # scored hour whose renewable actual lags still reports total but null net
+    # (fail-honest), rather than subtracting an implicit zero.
+    points: list[dict] = []
+    last_scored_ts: str | None = None
+    for r in rows:
+        ts = r["target_ts"].isoformat()
+        is_scored = bool(r["is_scored"])
+
+        total_fc = _mw(r["total_fc"])
+        solar_fc = _mw(r["solar_fc"])
+        wind_fc = _mw(r["wind_fc"])
+        total_act = _mw(r["total_act"])
+        solar_act = _mw(r["solar_act"])
+        wind_act = _mw(r["wind_act"])
+
+        points.append({
+            "ts": ts,
+            "is_scored": is_scored,
+            "total_demand_fc": total_fc,
+            "solar_fc": solar_fc,
+            "wind_fc": wind_fc,
+            "net_demand_fc": _net_demand(total_fc, solar_fc, wind_fc),
+            "total_demand_act": total_act,
+            "solar_act": solar_act,
+            "wind_act": wind_act,
+            "net_demand_act": _net_demand(total_act, solar_act, wind_act),
+        })
+        if is_scored:
+            last_scored_ts = ts
+
+    return {
+        "tz": MARKET_TZ,
+        "window": {"start": lo_date, "end": hi_date},
+        "sources": {
+            "total_demand": f"{DEMAND_STACK_FORECAST['load']} load",
+            "solar": f"{DEMAND_STACK_FORECAST['solar']} solar",
+            "wind": f"{DEMAND_STACK_FORECAST['wind']} wind",
+            "net_demand": "total_demand - solar - wind (server-side)",
+        },
+        "last_scored_ts": last_scored_ts,
+        "count": len(points),
+        "points": points,
     }
