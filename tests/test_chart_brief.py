@@ -170,6 +170,67 @@ def test_chart_brief_allowlist_constant(client):
     assert "caiso_fuel_mix_chart" in main.CHART_BRIEF_TYPES
 
 
+# ---------------------------------------------------------------------------
+# Allow-list extension (cc_spec 2026-06-26): the two Today deviation chart
+# types are admitted (the rows already exist in joule_briefs, the API just
+# wasn't handing them out), plus a forward reservation for week-ahead. The
+# guardrail stays a membership gate — editorial / non-chart types still 400.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "chart_type",
+    [
+        "caiso_load_deviation",
+        "caiso_renewables_deviation",
+        "caiso_week_ahead_outlook",
+    ],
+)
+def test_chart_brief_extended_types_admitted(client, chart_type):
+    # A row of the new type maps through the same flat contract — the only
+    # type-specific thing is membership, so a present row returns 200 with body.
+    row = _fuel_mix_row()
+    row["brief_type"] = chart_type
+    use_rows([row])
+    resp = client.get("/api/joule/chart-brief", params={"brief_type": chart_type})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["brief_type"] == chart_type
+    assert body["body"] == row["content_md"]
+
+
+@pytest.mark.parametrize(
+    "chart_type",
+    ["caiso_load_deviation", "caiso_renewables_deviation"],
+)
+def test_chart_brief_deviation_types_not_400(client, chart_type):
+    # The bug this PR fixes: these used to 4xx with "unknown brief_type".
+    use_rows([])
+    resp = client.get("/api/joule/chart-brief", params={"brief_type": chart_type})
+    assert resp.status_code == 200
+
+
+def test_chart_brief_week_ahead_reserved_empty_is_200_null(client):
+    # Forward reservation: admitted now, but no rows exist yet -> 200/null,
+    # never a 400. Harmless until week-ahead generation writes rows.
+    use_rows([])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_week_ahead_outlook"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["body"] is None
+
+
+def test_chart_brief_editorial_daily_still_400(client):
+    # Guardrail intact: the editorial Daily Brief type ('daily') must NOT be
+    # pullable through the chart-commentary route.
+    use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": main.BRIEF_TYPE_DAILY}
+    )
+    assert resp.status_code == 400
+    assert "daily" in resp.json()["detail"]
+
+
 def test_chart_brief_source_uses_latest_row_not_distinct_on():
     src = inspect.getsource(main.joule_chart_brief)
     assert "DISTINCT ON" not in main._CHART_BRIEF_SELECT
