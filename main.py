@@ -1376,9 +1376,24 @@ async def briefs_daily_by_date(
 # error. Unknown brief_type is a 400.
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Allowlist of chart-brief types this endpoint will serve. Starts with just the
-# fuel-mix chart; load/renewables types drop in here once #99 writes them.
-CHART_BRIEF_TYPES = frozenset({"caiso_fuel_mix_chart"})
+# Allowlist of chart-brief types this endpoint will serve. Deliberately a
+# membership gate, NOT a fully-generic pass-through: it keeps non-chart
+# brief_types (the editorial 'daily' Daily Brief, Wire, etc.) from being pulled
+# through this chart-commentary route. Extend it only with chart-commentary
+# types.
+#
+# - caiso_fuel_mix_chart      — the #99 fuel-mix chart brief (original member).
+# - caiso_load_deviation      — Today load-deviation chart commentary.
+# - caiso_renewables_deviation — Today renewables-deviation chart commentary.
+# - caiso_week_ahead_outlook  — forward reservation: admitted now so it serves
+#                               the moment week-ahead generation writes rows;
+#                               harmless until then (empty case is a 200/null).
+CHART_BRIEF_TYPES = frozenset({
+    "caiso_fuel_mix_chart",
+    "caiso_load_deviation",
+    "caiso_renewables_deviation",
+    "caiso_week_ahead_outlook",
+})
 
 
 class ChartBrief(BaseModel):
@@ -1432,8 +1447,10 @@ _CHART_BRIEF_ORDER = """
 async def joule_chart_brief(
     brief_type: str = Query(
         ...,
-        description="Chart-brief discriminator. Currently only "
-        "'caiso_fuel_mix_chart'. Unknown types are rejected with 400.",
+        description="Chart-brief discriminator (a chart-commentary type in the "
+        "CHART_BRIEF_TYPES allowlist, e.g. 'caiso_fuel_mix_chart', "
+        "'caiso_load_deviation', 'caiso_renewables_deviation'). Unknown or "
+        "non-chart types are rejected with 400.",
     ),
     brief_date: Optional[_date] = Query(
         None,
