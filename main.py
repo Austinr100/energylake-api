@@ -20,7 +20,8 @@ non-blocking behavior.
 Endpoints:
     GET /health                            health check
     GET /api/timeseries/caiso-fuel-mix     fuel mix at 5-min grain (M2)
-    GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide
+    GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide,
+                                                   date-/range-addressable (?date, ?start/?end)
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
@@ -452,6 +453,42 @@ def _mw(v) -> float | None:
     return None if v is None else float(v)
 
 
+# Range mode (start/end) cap. ≤ 31 days bounds the per-day response so a
+# month-long synthesis read stays one call without unbounded fan-out.
+FORECAST_VA_MAX_RANGE_DAYS = 31
+
+
+def _pacific_day(target_ts) -> str:
+    """Pacific calendar day (YYYY-MM-DD) for a tz-aware target_ts. The PT clock
+    is the market day boundary, so a UTC-stored interval is bucketed by the PT
+    day it falls in (the same boundary the SQL window uses)."""
+    return target_ts.astimezone(ZoneInfo(MARKET_TZ)).date().isoformat()
+
+
+def _shape_fva_points(rows, include_ladder: bool):
+    """Wide DB rows -> (points, last_scored_ts).
+
+    The single shaping path shared by default, ?date, and range modes so every
+    point object is byte-identical regardless of how the window was selected.
+    Rows arrive ascending, so the last is_scored row is the realized seam.
+    """
+    points: list[dict] = []
+    last_scored_ts: str | None = None
+    for r in rows:
+        ts = r["target_ts"].isoformat()
+        is_scored = bool(r["is_scored"])
+        point: dict = {"ts": ts, "actual": _mw(r["actual"])}
+        if include_ladder:
+            point["7DA"] = _mw(r["sevenda"])
+            point["2DA"] = _mw(r["twoda"])
+        point["DAM"] = _mw(r["dam"])
+        point["is_scored"] = is_scored
+        points.append(point)
+        if is_scored:
+            last_scored_ts = ts
+    return points, last_scored_ts
+
+
 @app.get("/api/timeseries/caiso-forecast-vs-actual")
 async def caiso_forecast_vs_actual(
     quantity: str = Query(
@@ -461,15 +498,25 @@ async def caiso_forecast_vs_actual(
         "Load returns the 7DA/2DA/DAM ladder; solar/wind return DAM only "
         "(day-ahead renewables forecast only at the source).",
     ),
+    date: str | None = Query(
+        default=None,
+        description="A single Pacific calendar day, YYYY-MM-DD (past or "
+        "present). Returns that day's forecast-vs-actual series. On a "
+        "fully-realized past day the now-seam is suppressed (is_today=false, "
+        "seam=null); on today the live realized/forecast seam is returned. "
+        "Mutually exclusive with `start`/`end`.",
+    ),
     start: str | None = Query(
         default=None,
-        description="Window start, Pacific calendar day YYYY-MM-DD (inclusive). "
-        "Use with `end`. When omitted, a rolling realized+forecast window is "
-        "used (see `days_back`/`horizon`).",
+        description="Range start, Pacific calendar day YYYY-MM-DD (inclusive). "
+        "Use with `end`. Range mode returns per-day records keyed by date "
+        f"(the synthesis read), capped at {FORECAST_VA_MAX_RANGE_DAYS} days. "
+        "When neither `date` nor `start`/`end` is given, a rolling "
+        "realized+forecast window is used (see `days_back`/`horizon`).",
     ),
     end: str | None = Query(
         default=None,
-        description="Window end, Pacific calendar day YYYY-MM-DD (inclusive). "
+        description="Range end, Pacific calendar day YYYY-MM-DD (inclusive). "
         "Use with `start`.",
     ),
     days_back: int = Query(
@@ -491,8 +538,9 @@ async def caiso_forecast_vs_actual(
     """
     CAISO actual-vs-forecast for one quantity, flattened to wide per target_ts.
 
-    Two selection modes:
-      * start=YYYY-MM-DD&end=...  -> explicit inclusive Pacific-day window
+    Three selection modes (date-addressable spine):
+      * date=YYYY-MM-DD           -> a single Pacific calendar day (past or present)
+      * start=YYYY-MM-DD&end=...  -> inclusive Pacific-day range, per-day records
       * (neither)                 -> rolling window: today−days_back .. today+horizon (PT)
 
     Each point is one Pacific-time target interval:
@@ -503,9 +551,16 @@ async def caiso_forecast_vs_actual(
     `actual` is null (and is_scored=false) for unrealized future intervals — the
     forecast continues past the last realized ts, which is the honest seam. The
     actual side keys on `series`; the forecast side on `forecast_type`; the join
-    maps the shared semantic key across them.
+    maps the shared semantic key across them. The forecast vintage selected is
+    the latest generated for each target_ts, so a past date returns the forecast
+    that was published for it (not today's).
 
-    Envelope:
+    The now-seam is data-extent-derived, never wall-clock: it is the last
+    realized interval. In `date`/range mode each day also carries an explicit
+    `is_today` + `seam` signal — on a fully-realized PAST day `seam` is null and
+    `is_today` is false (no now-line); on today `seam` is the live realized edge.
+
+    Default envelope (no param — byte-for-byte unchanged):
         {
           "quantity": "load", "tz": "America/Los_Angeles",
           "window": {"start": "2026-06-16", "end": "2026-07-01"},
@@ -514,17 +569,27 @@ async def caiso_forecast_vs_actual(
           "count": N,
           "points": [ ... ]
         }
+
+    ?date envelope adds `date`, `is_today`, `seam`; range envelope replaces
+    `points` with a `days` array of per-day records, each shaped like ?date.
     """
     assert _pool is not None
 
     # ── Decide selection mode + validate (fail loud on bad input) ──────────
+    use_date = date is not None
     use_range = start is not None or end is not None
+
+    if use_date and use_range:
+        raise HTTPException(
+            status_code=400,
+            detail="Use either `date` or `start`/`end`, not both.",
+        )
     if use_range and not (start is not None and end is not None):
         raise HTTPException(
             status_code=400,
             detail="`start` and `end` must be supplied together.",
         )
-    for label, val in (("start", start), ("end", end)):
+    for label, val in (("date", date), ("start", start), ("end", end)):
         if val is not None and not _valid_date(val):
             raise HTTPException(
                 status_code=400,
@@ -534,13 +599,25 @@ async def caiso_forecast_vs_actual(
         raise HTTPException(
             status_code=400, detail="`start` must be on or before `end`."
         )
-
     if use_range:
+        span_days = (_date.fromisoformat(end) - _date.fromisoformat(start)).days + 1
+        if span_days > FORECAST_VA_MAX_RANGE_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"range spans {span_days} days; the maximum is "
+                f"{FORECAST_VA_MAX_RANGE_DAYS}.",
+            )
+
+    # "Today" is a Pacific calendar day — the realized edge and forecast both
+    # live on the PT clock (reuse fuel-mix's market timezone).
+    today_iso = _datetime.now(ZoneInfo(MARKET_TZ)).date().isoformat()
+
+    if use_date:
+        lo_date = hi_date = date
+    elif use_range:
         lo_date, hi_date = start, end
     else:
-        # "Today" is a Pacific calendar day — the realized edge and forecast
-        # both live on the PT clock (reuse fuel-mix's market timezone).
-        today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+        today_pt = _date.fromisoformat(today_iso)
         lo_date = (today_pt - _timedelta(days=days_back)).isoformat()
         hi_date = (today_pt + _timedelta(days=horizon)).isoformat()
 
@@ -619,23 +696,62 @@ async def caiso_forecast_vs_actual(
         )
 
     # ── Shape wide points; honor is_scored; track the realized seam ────────
-    # Rows are ascending, so the last is_scored row is the seam (last realized).
     include_ladder = quantity == "load"
-    points: list[dict] = []
-    last_scored_ts: str | None = None
-    for r in rows:
-        ts = r["target_ts"].isoformat()
-        is_scored = bool(r["is_scored"])
-        point: dict = {"ts": ts, "actual": _mw(r["actual"])}
-        if include_ladder:
-            point["7DA"] = _mw(r["sevenda"])
-            point["2DA"] = _mw(r["twoda"])
-        point["DAM"] = _mw(r["dam"])
-        point["is_scored"] = is_scored
-        points.append(point)
-        if is_scored:
-            last_scored_ts = ts
 
+    # Range mode: a thin extension of the single-date path — one window query,
+    # then partition the rows into PT calendar days and shape each day exactly
+    # like the ?date response. This is the synthesis read (per-day records keyed
+    # by date) the weekly/monthly layer batch-reads with no retrofit. Empty days
+    # (no forecast spine) are simply absent; a wholly empty range already 404'd.
+    if use_range:
+        by_day: dict[str, list] = {}
+        for r in rows:
+            by_day.setdefault(_pacific_day(r["target_ts"]), []).append(r)
+        days: list[dict] = []
+        for day_iso in sorted(by_day):
+            day_points, day_seam = _shape_fva_points(by_day[day_iso], include_ladder)
+            is_today = day_iso == today_iso
+            days.append({
+                "date": day_iso,
+                "is_today": is_today,
+                # Past day = fully realized => no now-line (seam null); today =>
+                # the live realized edge. Keyed on is_today, not wall-clock.
+                "seam": day_seam if is_today else None,
+                "last_scored_ts": day_seam,
+                "count": len(day_points),
+                "points": day_points,
+            })
+        return {
+            "quantity": quantity,
+            "tz": MARKET_TZ,
+            "window": {"start": lo_date, "end": hi_date},
+            "products": products,
+            "count": len(days),
+            "days": days,
+        }
+
+    # Rows are ascending, so the last is_scored row is the seam (last realized).
+    points, last_scored_ts = _shape_fva_points(rows, include_ladder)
+
+    # ?date mode: same single-day series plus the explicit seam signal the
+    # frontend keys its now-line render on (Phase 2 invariant).
+    if use_date:
+        is_today = date == today_iso
+        return {
+            "quantity": quantity,
+            "tz": MARKET_TZ,
+            "window": {"start": lo_date, "end": hi_date},
+            "date": date,
+            "is_today": is_today,
+            "seam": last_scored_ts if is_today else None,
+            "products": products,
+            "last_scored_ts": last_scored_ts,
+            "count": len(points),
+            "points": points,
+        }
+
+    # Default mode — byte-for-byte identical to the shipped contract (no
+    # date/is_today/seam fields; the existing chart must not move on today).
     return {
         "quantity": quantity,
         "tz": MARKET_TZ,

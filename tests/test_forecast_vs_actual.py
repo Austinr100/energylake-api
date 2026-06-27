@@ -243,6 +243,165 @@ def test_days_back_and_horizon_widen_the_window(client):
 
 
 # ---------------------------------------------------------------------------
+# Date-addressable: ?date single day + past/today seam signal (Brick 1)
+# ---------------------------------------------------------------------------
+
+import zoneinfo  # noqa: E402
+
+_TODAY_PT = datetime.datetime.now(
+    zoneinfo.ZoneInfo("America/Los_Angeles")
+).date()
+_TODAY_ISO = _TODAY_PT.isoformat()
+_PAST_ISO = (_TODAY_PT - datetime.timedelta(days=3)).isoformat()
+
+
+def test_date_binds_single_pt_day(client):
+    # ?date collapses the window to one PT day (lo == hi == date) and echoes
+    # the date + an explicit is_today/seam signal.
+    pool = use_rows([_wide_row()])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "date": _PAST_ISO},
+    )
+    assert resp.status_code == 200
+    assert pool.sink["params"]["lo"] == _PAST_ISO
+    assert pool.sink["params"]["hi"] == _PAST_ISO
+    body = resp.json()
+    assert body["window"] == {"start": _PAST_ISO, "end": _PAST_ISO}
+    assert body["date"] == _PAST_ISO
+    assert "is_today" in body and "seam" in body
+
+
+def test_date_today_keeps_live_seam(client):
+    # date == today (PT): the live realized/forecast seam is preserved — seam
+    # is the last realized ts, is_today true.
+    use_rows([
+        _wide_row(ts="2026-06-22T22:00:00+00:00", actual=23000.0, is_scored=True),
+        _wide_row(ts="2026-06-22T23:00:00+00:00", actual=22500.0, is_scored=True),
+        _wide_row(ts="2026-06-23T00:00:00+00:00", actual=None, is_scored=False),
+    ])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "date": _TODAY_ISO},
+    )
+    body = resp.json()
+    assert body["is_today"] is True
+    assert body["seam"] == body["last_scored_ts"] == "2026-06-22T23:00:00+00:00"
+
+
+def test_date_past_suppresses_seam(client):
+    # A fully-realized PAST day: every hour scored, so last_scored_ts lands on
+    # the final interval — but seam is null and is_today false, so the chart
+    # draws no now-line in the middle of a complete past day (locked invariant).
+    use_rows([
+        _wide_row(ts="2026-06-22T22:00:00+00:00", actual=23000.0, is_scored=True),
+        _wide_row(ts="2026-06-22T23:00:00+00:00", actual=22500.0, is_scored=True),
+    ])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "date": _PAST_ISO},
+    )
+    body = resp.json()
+    assert body["is_today"] is False
+    assert body["seam"] is None
+    # The realized edge is still reported; only the now-line signal is off.
+    assert body["last_scored_ts"] == "2026-06-22T23:00:00+00:00"
+
+
+def test_date_default_unchanged_no_seam_fields(client):
+    # No param => default relative window, byte-for-byte: NO date/is_today/seam.
+    use_rows([_wide_row()])
+    body = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual", params={"quantity": "load"}
+    ).json()
+    assert "date" not in body
+    assert "is_today" not in body
+    assert "seam" not in body
+
+
+def test_date_and_range_mutually_exclusive(client):
+    use_rows([_wide_row()])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "date": _PAST_ISO, "start": _PAST_ISO, "end": _TODAY_ISO},
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Date-addressable: ?start/?end range -> per-day records (synthesis spine)
+# ---------------------------------------------------------------------------
+
+def test_range_returns_per_day_records(client):
+    # Rows spanning two PT days -> a `days` array, one record per day, each
+    # shaped like the single-date response (date/is_today/seam/points).
+    use_rows([
+        _wide_row(ts="2026-06-22T18:00:00+00:00", actual=24000.0),  # PT 06-22
+        _wide_row(ts="2026-06-23T18:00:00+00:00", actual=25000.0),  # PT 06-23
+    ])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "start": "2026-06-22", "end": "2026-06-23"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # Range envelope: per-day records, not a flat points list.
+    assert "days" in body and "points" not in body
+    assert body["count"] == 2
+    dates = [d["date"] for d in body["days"]]
+    assert dates == ["2026-06-22", "2026-06-23"]
+    day0 = body["days"][0]
+    assert set(day0) == {"date", "is_today", "seam", "last_scored_ts", "count", "points"}
+    # Each day's points are shaped exactly like the single-date contract.
+    assert day0["points"][0] == {
+        "ts": "2026-06-22T18:00:00+00:00",
+        "actual": 24000.0,
+        "7DA": 24800.0,
+        "2DA": 24300.0,
+        "DAM": 24100.0,
+        "is_scored": True,
+    }
+
+
+@pytest.mark.parametrize("quantity", ["solar", "wind"])
+def test_renewables_date_mode_dam_only_with_seam(client, quantity):
+    # The renewables deviation surface is the same endpoint at quantity=
+    # solar/wind: ?date returns DAM-only points plus the is_today/seam signal.
+    use_rows([_wide_row(actual=8000.0, dam=8200.0, ts="2026-06-22T18:00:00+00:00")])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": quantity, "date": _PAST_ISO},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["products"] == ["DAM"]
+    assert body["is_today"] is False and body["seam"] is None
+    point = body["points"][0]
+    assert set(point.keys()) == {"ts", "actual", "DAM", "is_scored"}
+
+
+def test_range_cap_rejects_overlong_span(client):
+    # > 31-day span is rejected cleanly (bounded synthesis read).
+    use_rows([_wide_row()])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "start": "2026-01-01", "end": "2026-03-01"},
+    )
+    assert resp.status_code == 400
+    assert "maximum" in resp.json()["detail"]
+
+
+def test_range_cap_allows_31_days(client):
+    # Exactly 31 days (inclusive) is allowed.
+    use_rows([_wide_row(ts="2026-06-01T18:00:00+00:00")])
+    resp = client.get(
+        "/api/timeseries/caiso-forecast-vs-actual",
+        params={"quantity": "load", "start": "2026-06-01", "end": "2026-07-01"},
+    )
+    assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
 # Validation + empties
 # ---------------------------------------------------------------------------
 
