@@ -182,7 +182,7 @@ def test_chart_brief_allowlist_constant(client):
     [
         "caiso_load_deviation",
         "caiso_renewables_deviation",
-        "caiso_week_ahead_outlook",
+        "caiso_week_ahead",
     ],
 )
 def test_chart_brief_extended_types_admitted(client, chart_type):
@@ -210,11 +210,11 @@ def test_chart_brief_deviation_types_not_400(client, chart_type):
 
 
 def test_chart_brief_week_ahead_reserved_empty_is_200_null(client):
-    # Forward reservation: admitted now, but no rows exist yet -> 200/null,
-    # never a 400. Harmless until week-ahead generation writes rows.
+    # Empty case for the admitted week-ahead type: no rows -> 200/null, never a
+    # 400. (A populated row is covered by test_chart_brief_extended_types_admitted.)
     use_rows([])
     resp = client.get(
-        "/api/joule/chart-brief", params={"brief_type": "caiso_week_ahead_outlook"}
+        "/api/joule/chart-brief", params={"brief_type": "caiso_week_ahead"}
     )
     assert resp.status_code == 200
     assert resp.json()["body"] is None

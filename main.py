@@ -1501,14 +1501,16 @@ async def briefs_daily_by_date(
 # - caiso_fuel_mix_chart      — the #99 fuel-mix chart brief (original member).
 # - caiso_load_deviation      — Today load-deviation chart commentary.
 # - caiso_renewables_deviation — Today renewables-deviation chart commentary.
-# - caiso_week_ahead_outlook  — forward reservation: admitted now so it serves
-#                               the moment week-ahead generation writes rows;
-#                               harmless until then (empty case is a 200/null).
+# - caiso_week_ahead       — the 7-day week-ahead outlook chart brief. The
+#                               canonical slug matches the pantry writer + the
+#                               joule_briefs CHECK (the live row is stored under
+#                               this slug); an earlier `_outlook` variant here
+#                               drifted from write-side and served body=null.
 CHART_BRIEF_TYPES = frozenset({
     "caiso_fuel_mix_chart",
     "caiso_load_deviation",
     "caiso_renewables_deviation",
-    "caiso_week_ahead_outlook",
+    "caiso_week_ahead",
 })
 
 
