@@ -23,6 +23,7 @@ Endpoints:
     GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide,
                                                    date-/range-addressable (?date, ?start/?end)
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
+    GET /api/timeseries/caiso-hub-lmp      CAISO trading-hub LMP (DA/RTPD/RTD + DART), prev+current PT day
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
@@ -39,6 +40,7 @@ from contextlib import asynccontextmanager
 from datetime import date as _date
 from datetime import datetime as _datetime
 from datetime import timedelta as _timedelta
+from datetime import timezone as _timezone
 from enum import Enum
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -2283,4 +2285,292 @@ async def caiso_demand_stack(
         "last_scored_ts": last_scored_ts,
         "count": len(points),
         "points": points,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/timeseries/caiso-hub-lmp — the three CAISO trading-hub LMP series
+# (DA hourly, RTPD 15-min, RTD 5-min) for the previous + current PT trade date,
+# shaped for the dashboard's hub-LMP chart (PR-1).
+#
+# ONE concern: a read-only window onto timeseries_values serving all three hubs
+# (NP15 / SP15 / ZP26) across all three markets, plus two server-derived bundles
+# the frontend must NOT re-derive — DART (DA − RTPD) and the on/off-peak DA
+# averages — so the quote strip, chart subheads, and the later Joule brief all
+# read server-authoritative values.
+#
+# SUBSTRATE (verified live in Neon 2026-07-05; do not re-derive from memory):
+#   timeseries_values(ts timestamptz, dataset, series, value numeric, ...)
+#     caiso_lmp_da_hourly  hourly  NP15/SP15/ZP26  (through T−1 today; T lands w/ pantry PR-0)
+#     caiso_lmp_rt_15min   15-min (RTPD/FMM)       live, ~30 min lag
+#     caiso_lmp_rt_5min    5-min  (RTD)            live, ~15 min lag
+#   Series are the bare hub labels (NP15, not TH_NP15_GEN-APND). The legacy
+#   TH_*_ONPEAK/OFFPEAK series are ignored.
+#
+# REUSE (recon of the sibling reads — same shape family, deliberately):
+#   * PT day-boundary window (AT TIME ZONE, end-exclusive at hi+1d) — fuel mix.
+#   * float()/skip-null value handling — fuel mix.
+#   * `ts` emitted as a UTC ISO string, client localizes — demand-stack/f-v-a.
+#   * server-derived fields (net demand there; DART + peak here) computed once,
+#     never stored — demand-stack precedent.
+#
+# DART (server-side, hourly): spread = DA hourly price − avg(RTPD intervals in
+# that hour). Sign convention POSITIVE = DA over RT. It is DA − RTPD (the banked
+# FMM settlement definition) — never RTD. Emitted only for hours where DA exists
+# AND ≥1 RTPD interval exists; the current in-progress hour averages over the
+# intervals available so far. RTPD 15-min intervals are bucketed to their clock
+# hour — PT hour starts land on UTC :00 (whole-hour offset), so a UTC floor is
+# the DA hour key.
+#
+# PEAK (server-side, current PT trade date, from the DA curve): { onpeak_avg,
+# offpeak_avg }. RECON NOTE — the bucket series TH_{HUB}_GEN_ONPEAK/OFFPEAK-APND
+# could NOT be confirmed live in this build environment (no DB connection here;
+# every suite runs against an in-memory fake pool). Per the spec's sanctioned
+# fallback we take the COMPUTED-SPLIT path: average the bare hourly DA series
+# over the NERC on-peak block (HE7–HE22, Mon–Sat, ex-NERC-holiday), reusing the
+# locked _NERC_HOLIDAYS list and the on-peak convention already established by
+# the /api/almanac/lmp-shape endpoint. A bucket with no rows on the date (e.g.
+# a NERC holiday or Sunday → no on-peak hours) is emitted as null, not a fake 0.
+#
+# LATEST (ticker block): per hub the most recent value+ts per market. DA's
+# "latest" is the DA price for the CURRENT PT hour (it is a schedule, not a
+# tape) — null when today's DA has not landed yet (expected until pantry PR-0);
+# RTPD/RTD "latest" is the tail of the array (freshest interval).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Market key -> (dataset code, cadence label). Order fixes the output order of
+# `sources`/`last_ts`; the reverse map routes fetched rows back to their market.
+HUB_LMP_MARKETS: dict[str, dict[str, str]] = {
+    "da":   {"dataset": "caiso_lmp_da_hourly", "cadence": "hourly"},
+    "rtpd": {"dataset": "caiso_lmp_rt_15min",  "cadence": "15-min"},
+    "rtd":  {"dataset": "caiso_lmp_rt_5min",   "cadence": "5-min"},
+}
+_HUB_LMP_DATASET_TO_MARKET = {m["dataset"]: k for k, m in HUB_LMP_MARKETS.items()}
+
+# Trading hubs, in stable output order (spec order). Same set the almanac
+# endpoint validates against.
+HUB_LMP_HUBS = ["NP15", "SP15", "ZP26"]
+
+# The locked NERC-holiday list reused as a set for O(1) membership in the
+# on/off-peak split (source of truth is _NERC_HOLIDAYS above).
+_NERC_HOLIDAY_SET = frozenset(_NERC_HOLIDAYS)
+
+
+def _lmp_is_onpeak(ts_pt) -> bool:
+    """NERC on-peak block test for a Pacific-localized hour-start datetime.
+
+    On-peak = HE7–HE22 (PT start hours 6–21) AND Mon–Sat AND not a NERC
+    holiday. Everything else — overnight hours, all of Sunday, NERC holidays —
+    is off-peak. Matches the locked block definition the LMP-shape almanac
+    endpoint already uses (Mon–Sat ex-holiday), narrowed to the HE7–HE22
+    on-peak window per the PR-1 spec.
+    """
+    if ts_pt.date().isoformat() in _NERC_HOLIDAY_SET:
+        return False
+    if ts_pt.isoweekday() == 7:  # Sunday — all off-peak
+        return False
+    return 6 <= ts_pt.hour <= 21  # HE7 (06:00-07:00) .. HE22 (21:00-22:00)
+
+
+@app.get("/api/timeseries/caiso-hub-lmp")
+async def caiso_hub_lmp():
+    """
+    CAISO trading-hub LMP for the previous + current PT trade date.
+
+    One read serves all three hubs (NP15/SP15/ZP26) across all three markets —
+    DA hourly, RTPD 15-min, RTD 5-min — plus two fields derived server-side so
+    the frontend never re-computes them: DART (DA − RTPD, positive = DA over RT)
+    and the on/off-peak DA averages for the current trade date.
+
+    Prices are plain numbers; null rows are skipped (never emitted as null
+    inside the arrays). `ts` is UTC ISO — the client localizes to PT.
+
+    Envelope:
+        {
+          "tz": "America/Los_Angeles",
+          "window": {"start": "2026-07-04", "end": "2026-07-05"},
+          "sources": {
+            "da":   {"dataset": "caiso_lmp_da_hourly", "cadence": "hourly"},
+            "rtpd": {"dataset": "caiso_lmp_rt_15min",  "cadence": "15-min"},
+            "rtd":  {"dataset": "caiso_lmp_rt_5min",   "cadence": "5-min"}
+          },
+          "last_ts": {"da": "...|null", "rtpd": "...", "rtd": "..."},
+          "hubs": {
+            "NP15": {
+              "da":   [{"ts": "...", "price": 41.2}, ...],
+              "rtpd": [{"ts": "...", "price": 39.8}, ...],
+              "rtd":  [{"ts": "...", "price": 40.1}, ...],
+              "dart": [{"ts": "...", "spread": 1.4}, ...]   # DA − avg(RTPD)/hr
+            },
+            "SP15": {...}, "ZP26": {...}
+          },
+          "latest": {
+            "NP15": {
+              "da":   {"ts": "...", "price": 41.2} | null,   # current PT hour
+              "rtpd": {"ts": "...", "price": 39.8} | null,   # freshest interval
+              "rtd":  {"ts": "...", "price": 40.1} | null
+            }, "SP15": {...}, "ZP26": {...}
+          },
+          "peak": {
+            "NP15": {"onpeak_avg": 44.7 | null, "offpeak_avg": 33.1 | null},
+            "SP15": {...}, "ZP26": {...}
+          }
+        }
+
+    Fixed window (v1): no hub, date, or range parameter — the previous + current
+    Pacific trade date, computed in America/Los_Angeles. Read-only.
+    """
+    assert _pool is not None
+
+    # ── Window: previous + current PT trade date ───────────────────────────
+    today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+    prev_pt = today_pt - _timedelta(days=1)
+    lo_date = prev_pt.isoformat()
+    hi_date = today_pt.isoformat()
+
+    # ── One read across all three datasets × three hubs over the PT window ──
+    # Non-null filtered in SQL; PT day boundaries reuse the proven fuel-mix
+    # pattern (AT TIME ZONE), end-exclusive at (hi + 1 day) so `hi` is included.
+    query = """
+        SELECT ts, dataset, series, value
+        FROM timeseries_values
+        WHERE dataset = ANY(%(datasets)s)
+          AND series  = ANY(%(hubs)s)
+          AND value IS NOT NULL
+          AND ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+          AND ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+        ORDER BY dataset, series, ts ASC
+    """
+    params = {
+        "datasets": [m["dataset"] for m in HUB_LMP_MARKETS.values()],
+        "hubs": HUB_LMP_HUBS,
+        "lo": lo_date,
+        "hi": hi_date,
+        "tz": MARKET_TZ,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"no CAISO hub-LMP data for {lo_date}..{hi_date} (Pacific). "
+                "Verify timeseries_values has the caiso_lmp_da_hourly / "
+                "caiso_lmp_rt_15min / caiso_lmp_rt_5min datasets in the window."
+            ),
+        )
+
+    # ── Partition rows into buckets[market][hub] = [(ts_utc, price), ...] ────
+    # Rows arrive ascending, so each series list stays ascending (tail = newest).
+    # Null values are already excluded in SQL; the guard keeps the shaping honest
+    # if the query ever changes.
+    buckets: dict[str, dict[str, list]] = {
+        mk: {h: [] for h in HUB_LMP_HUBS} for mk in HUB_LMP_MARKETS
+    }
+    for r in rows:
+        if r["value"] is None:
+            continue
+        market = _HUB_LMP_DATASET_TO_MARKET.get(r["dataset"])
+        if market is None or r["series"] not in buckets[market]:
+            continue
+        ts_utc = r["ts"].astimezone(_timezone.utc)
+        buckets[market][r["series"]].append((ts_utc, float(r["value"])))
+
+    # ── last_ts per market: MAX(ts) among returned rows. The window includes
+    # today, so for the live RT feeds this equals the dataset MAX at request
+    # time; for DA it is the freshest DA hour present. ────────────────────────
+    last_ts: dict[str, str | None] = {}
+    for market in HUB_LMP_MARKETS:
+        newest = None
+        for h in HUB_LMP_HUBS:
+            series_rows = buckets[market][h]
+            if series_rows and (newest is None or series_rows[-1][0] > newest):
+                newest = series_rows[-1][0]
+        last_ts[market] = newest.isoformat() if newest is not None else None
+
+    # Current PT hour, UTC-aligned — the key for DA's "latest" schedule read.
+    now_pt = _datetime.now(ZoneInfo(MARKET_TZ))
+    cur_hour_utc = now_pt.replace(
+        minute=0, second=0, microsecond=0
+    ).astimezone(_timezone.utc)
+
+    hubs_out: dict[str, dict] = {}
+    latest_out: dict[str, dict] = {}
+    peak_out: dict[str, dict] = {}
+
+    for hub in HUB_LMP_HUBS:
+        da_rows = buckets["da"][hub]
+        rtpd_rows = buckets["rtpd"][hub]
+        rtd_rows = buckets["rtd"][hub]
+
+        # ── market arrays (prices as plain numbers, ascending) ──────────────
+        da_arr = [{"ts": ts.isoformat(), "price": px} for ts, px in da_rows]
+        rtpd_arr = [{"ts": ts.isoformat(), "price": px} for ts, px in rtpd_rows]
+        rtd_arr = [{"ts": ts.isoformat(), "price": px} for ts, px in rtd_rows]
+
+        # ── DART: hourly DA − avg(RTPD intervals in that hour) ──────────────
+        # Bucket RTPD intervals by their clock hour (UTC floor == PT hour start).
+        # Emit only hours with a DA price AND ≥1 RTPD interval; the in-progress
+        # hour averages over whatever intervals have landed. Sign: + = DA > RT.
+        rtpd_by_hour: dict = {}
+        for ts, px in rtpd_rows:
+            hour_key = ts.replace(minute=0, second=0, microsecond=0)
+            rtpd_by_hour.setdefault(hour_key, []).append(px)
+        dart_arr = []
+        for ts, da_px in da_rows:
+            intervals = rtpd_by_hour.get(ts.replace(minute=0, second=0, microsecond=0))
+            if not intervals:
+                continue
+            avg_rtpd = sum(intervals) / len(intervals)
+            dart_arr.append({"ts": ts.isoformat(), "spread": round(da_px - avg_rtpd, 2)})
+
+        hubs_out[hub] = {"da": da_arr, "rtpd": rtpd_arr, "rtd": rtd_arr, "dart": dart_arr}
+
+        # ── latest ticker: DA = current PT hour (a schedule); RT = tail ─────
+        da_latest = None
+        for ts, px in da_rows:
+            if ts == cur_hour_utc:
+                da_latest = {"ts": ts.isoformat(), "price": px}
+                break
+        latest_out[hub] = {
+            "da": da_latest,
+            "rtpd": ({"ts": rtpd_rows[-1][0].isoformat(), "price": rtpd_rows[-1][1]}
+                     if rtpd_rows else None),
+            "rtd": ({"ts": rtd_rows[-1][0].isoformat(), "price": rtd_rows[-1][1]}
+                    if rtd_rows else None),
+        }
+
+        # ── peak: current PT trade date on/off-peak averages of the DA curve ─
+        # Computed-split path (recon note in the block comment above): average
+        # the bare hourly DA series over the NERC on-peak block. A bucket with
+        # no rows on the date is null, not a fake zero.
+        onpeak_vals, offpeak_vals = [], []
+        for ts, px in da_rows:
+            ts_pt = ts.astimezone(ZoneInfo(MARKET_TZ))
+            if ts_pt.date() != today_pt:
+                continue
+            (onpeak_vals if _lmp_is_onpeak(ts_pt) else offpeak_vals).append(px)
+        peak_out[hub] = {
+            "onpeak_avg": round(sum(onpeak_vals) / len(onpeak_vals), 2) if onpeak_vals else None,
+            "offpeak_avg": round(sum(offpeak_vals) / len(offpeak_vals), 2) if offpeak_vals else None,
+        }
+
+    return {
+        "tz": MARKET_TZ,
+        "window": {"start": lo_date, "end": hi_date},
+        "sources": {
+            mk: {"dataset": m["dataset"], "cadence": m["cadence"]}
+            for mk, m in HUB_LMP_MARKETS.items()
+        },
+        "last_ts": last_ts,
+        "hubs": hubs_out,
+        "latest": latest_out,
+        "peak": peak_out,
     }
