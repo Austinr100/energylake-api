@@ -23,6 +23,7 @@ Endpoints:
     GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide,
                                                    date-/range-addressable (?date, ?start/?end)
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
+    GET /api/timeseries/caiso-hub-lmp             hub LMP (DA/RTPD/RTD × NP15/SP15/ZP26, prev+current PT trade date)
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
@@ -2283,4 +2284,169 @@ async def caiso_demand_stack(
         "last_scored_ts": last_scored_ts,
         "count": len(points),
         "points": points,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/timeseries/caiso-hub-lmp — the three CAISO trading-hub LMP series (PR-1)
+#
+# ONE concern: serve the three hub-LMP markets (DA hourly, RTPD 15-min, RTD
+# 5-min) for the current + previous PT trade dates, shaped for the dashboard's
+# hub-LMP chart. Read-only; no schema/ingester/migration change.
+#
+# Substrate (verified live in Neon 2026-07-05 — timeseries_values, keyed
+# (ts, dataset, series)):
+#   caiso_lmp_da_hourly  — hourly (DA)   — through end of trade date T−1
+#   caiso_lmp_rt_15min   — 15-min (RTPD/FMM) — live, ~30 min lag
+#   caiso_lmp_rt_5min    — 5-min  (RTD)  — live, ~15 min lag
+# Series names are the bare hub labels (NP15 / SP15 / ZP26), NOT the legacy
+# TH_*_GEN-APND node ids or the TH_*_ONPEAK/OFFPEAK block series.
+#
+# REUSE (recon of the sibling timeseries reads — caiso-fuel-mix + almanac
+# lmp-shape, both readers of timeseries_values):
+#   (a) value column — the numeric price lives in `value` (float() at read).
+#   (b) ts convention — `ts` is timestamptz stored UTC; emitted as an ISO
+#       string with UTC offset, the dashboard localizes client-side (house
+#       convention, matched by every sibling).
+#   (c) PT day-boundary window — ts >= (DATE)::timestamp AT TIME ZONE PT and
+#       ts < (DATE+1)::timestamp AT TIME ZONE PT, the proven fuel-mix pattern.
+#
+# Non-goals (baked into the spec): no hub param, no date-range param (v1 fixed
+# window), no server-side DART (DA − RTPD is a derived-symbol / warehouse
+# concern), no writes.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Market code -> (dataset, cadence label). The code is the per-market key in
+# `hubs`, `sources`, and `last_ts`; the cadence label feeds data-driven chart
+# subheads (the established `sources` pattern).
+HUB_LMP_MARKETS: dict[str, dict[str, str]] = {
+    "da":   {"dataset": "caiso_lmp_da_hourly", "cadence": "hourly"},
+    "rtpd": {"dataset": "caiso_lmp_rt_15min",  "cadence": "15-min"},
+    "rtd":  {"dataset": "caiso_lmp_rt_5min",   "cadence": "5-min"},
+}
+
+# The three valid trading hubs (bare labels, as stored in .series). Always all
+# three present in the response, each with all three markets (empty list if a
+# market has no rows in the window — the shape is stable for the chart).
+HUB_LMP_HUBS = ["NP15", "SP15", "ZP26"]
+
+
+@app.get("/api/timeseries/caiso-hub-lmp")
+async def caiso_hub_lmp():
+    """
+    CAISO trading-hub LMP — three markets × three hubs over the previous +
+    current PT trade date, shaped for the dashboard's hub-LMP chart.
+
+    Fixed window (v1): previous + current Pacific trade date. Boundaries are
+    computed in America/Los_Angeles; `ts` is emitted in UTC and the client
+    localizes (house convention).
+
+    Envelope:
+        {
+          "tz": "America/Los_Angeles",
+          "window": {"start": "2026-07-04", "end": "2026-07-05"},
+          "sources": {
+            "da":   {"dataset": "caiso_lmp_da_hourly", "cadence": "hourly"},
+            "rtpd": {"dataset": "caiso_lmp_rt_15min",  "cadence": "15-min"},
+            "rtd":  {"dataset": "caiso_lmp_rt_5min",   "cadence": "5-min"}
+          },
+          "last_ts": {"da": "...", "rtpd": "...", "rtd": "..."},
+          "hubs": {
+            "NP15": {
+              "da":   [{"ts": "2026-07-04T07:00:00+00:00", "price": 42.15}, ...],
+              "rtpd": [...],
+              "rtd":  [...]
+            },
+            "SP15": {...},
+            "ZP26": {...}
+          }
+        }
+
+    Prices are numbers; null-value rows are skipped (never emitted as null).
+    `last_ts` per market is the latest `ts` present for that dataset in the
+    window — the trailing edge the chart draws to.
+    """
+    assert _pool is not None
+
+    # ── Window: previous + current PT trade date ───────────────────────────
+    # "Today" is a Pacific calendar day (the CAISO trade date lives on the PT
+    # clock). Window is the two most recent trade dates, inclusive of today.
+    today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+    lo_date = (today_pt - _timedelta(days=1)).isoformat()
+    hi_date = today_pt.isoformat()
+
+    # ── One windowed read across the three datasets × three hubs ───────────
+    # PT day boundaries reuse the proven fuel-mix pattern (AT TIME ZONE); end
+    # exclusive at (hi + 1 day) so the window is inclusive of `hi`. Ascending
+    # ts so each market's last row seen is its trailing edge (last_ts).
+    datasets = [m["dataset"] for m in HUB_LMP_MARKETS.values()]
+    query = """
+        SELECT ts, dataset, series, value
+        FROM timeseries_values
+        WHERE dataset = ANY(%(datasets)s)
+          AND series  = ANY(%(hubs)s)
+          AND ts >= (%(lo)s::date)::timestamp AT TIME ZONE %(tz)s
+          AND ts <  ((%(hi)s::date) + 1)::timestamp AT TIME ZONE %(tz)s
+        ORDER BY ts ASC, dataset ASC, series ASC
+    """
+    params = {
+        "datasets": datasets,
+        "hubs": HUB_LMP_HUBS,
+        "lo": lo_date,
+        "hi": hi_date,
+        "tz": MARKET_TZ,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    if not rows:
+        # These datasets are live (RT lags ~15-30 min); an empty two-day window
+        # is a misconfiguration, not a legitimate gap — fail loud (Principle #27).
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"no hub-LMP data for {lo_date}..{hi_date} (Pacific). Verify "
+                "timeseries_values has caiso_lmp_da_hourly / caiso_lmp_rt_15min "
+                "/ caiso_lmp_rt_5min rows for hubs NP15/SP15/ZP26 in the window."
+            ),
+        )
+
+    # ── Shape: hubs[hub][market] = [{ts, price}], last_ts[market] = trailing ─
+    # All three hubs × three markets are always present (stable shape for the
+    # chart). Null-value rows are skipped rather than emitted as null.
+    dataset_to_market = {m["dataset"]: code for code, m in HUB_LMP_MARKETS.items()}
+    hubs: dict[str, dict[str, list]] = {
+        h: {code: [] for code in HUB_LMP_MARKETS} for h in HUB_LMP_HUBS
+    }
+    last_ts: dict[str, str | None] = {code: None for code in HUB_LMP_MARKETS}
+
+    for r in rows:
+        if r["value"] is None:
+            continue
+        market = dataset_to_market.get(r["dataset"])
+        hub = r["series"]
+        if market is None or hub not in hubs:
+            continue
+        ts = r["ts"].isoformat()
+        hubs[hub][market].append({"ts": ts, "price": float(r["value"])})
+        # Rows ascending, so the last write per market is its max ts.
+        last_ts[market] = ts
+
+    sources = {
+        code: {"dataset": m["dataset"], "cadence": m["cadence"]}
+        for code, m in HUB_LMP_MARKETS.items()
+    }
+
+    return {
+        "tz": MARKET_TZ,
+        "window": {"start": lo_date, "end": hi_date},
+        "sources": sources,
+        "last_ts": last_ts,
+        "hubs": hubs,
     }

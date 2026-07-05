@@ -99,6 +99,10 @@ from a server component or route handler and render the first chart
   -> newest-first hours, one object per hour with a key per fuel (MW)
 - `GET /api/timeseries/caiso-fuel-mix?limit=24&shape=long`
   -> newest-first, one object per fuel per hour
+- `GET /api/timeseries/caiso-hub-lmp`
+  -> hub LMP for the previous + current PT trade date: three markets
+  (`da` hourly / `rtpd` 15-min / `rtd` 5-min) × three hubs (NP15/SP15/ZP26),
+  `{window, sources, last_ts, hubs}` with `hubs[hub][market] = [{ts, price}]`
 - `GET /api/newswire/recent?limit=20&since_days=30`
   -> Joule-rewritten Newswire headlines + captions, newest first
 - `GET /api/tape/recent?limit=20&since_days=1500` **(DEPRECATED — use `/api/wire/recent`)**
