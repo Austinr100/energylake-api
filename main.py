@@ -1508,12 +1508,31 @@ async def briefs_daily_by_date(
 #                               joule_briefs CHECK (the live row is stored under
 #                               this slug); an earlier `_outlook` variant here
 #                               drifted from write-side and served body=null.
+# - caiso_hub_lmp             — per-hub commentary for the trading-hub LMP chart
+#                               (/api/timeseries/caiso-hub-lmp). Unlike every
+#                               other member, this type partitions its briefs by
+#                               brief_key (one row per hub slug), so a `key`
+#                               query param selects the hub — see CHART_BRIEF_KEYS.
 CHART_BRIEF_TYPES = frozenset({
     "caiso_fuel_mix_chart",
     "caiso_load_deviation",
     "caiso_renewables_deviation",
     "caiso_week_ahead",
+    "caiso_hub_lmp",
 })
+
+# Chart-brief types that partition their briefs by brief_key, mapped to the
+# closed set of valid keys. A type listed here resolves on
+# (brief_type, brief_key[, brief_date]); the `key` query param picks the row and
+# is validated against this set (unknown key -> 404). Types NOT listed here
+# ignore `key` entirely and resolve on (brief_type[, brief_date]) exactly as
+# before — their SQL and params are byte-for-byte unchanged.
+#
+# Hub slugs mirror the OASIS trading-hub node prefixes (TH_SP15 = TH_SP15_GEN-
+# APND); the caiso-hub-lmp brief writer stores one row per hub under these keys.
+CHART_BRIEF_KEYS = {
+    "caiso_hub_lmp": frozenset({"TH_NP15", "TH_SP15", "TH_ZP26"}),
+}
 
 
 class ChartBrief(BaseModel):
@@ -1550,6 +1569,12 @@ _CHART_BRIEF_SELECT = """
     WHERE brief_type = %(brief_type)s
 """
 
+# Optional narrowing to one brief_key (hub slug). Spliced in ONLY for keyed
+# brief types (CHART_BRIEF_KEYS); absent-key defaults the bound param to '' so a
+# keyed type without ?key resolves deterministically (no cross-key latest-row
+# bleed). Non-keyed types never carry this clause, so their query is unchanged.
+_CHART_BRIEF_KEY_FILTER = "      AND brief_key = %(brief_key)s\n"
+
 # Optional narrowing to one calendar date. A later `snapshot` param (intraday
 # arc) will hang off the same query for sub-day selection — do NOT build it now.
 _CHART_BRIEF_DATE_FILTER = "      AND brief_date = %(brief_date)s\n"
@@ -1578,6 +1603,14 @@ async def joule_chart_brief(
         "day's brief. Omitted -> latest brief by created_at. Malformed dates "
         "are rejected with 422.",
     ),
+    key: Optional[str] = Query(
+        None,
+        description="Optional brief_key selecting one partition of a keyed "
+        "brief_type (currently only 'caiso_hub_lmp', keyed by hub slug: "
+        "'TH_NP15', 'TH_SP15', 'TH_ZP26'). For keyed types the param defaults "
+        "to '' when omitted; an unrecognized key is rejected with 404 (no "
+        "empty-key fallback). Ignored for every non-keyed brief_type.",
+    ),
 ):
     """
     Joule chart brief for a given brief_type, optionally pinned to a date.
@@ -1588,8 +1621,12 @@ async def joule_chart_brief(
       rows match, the latest created_at wins.
     - Unknown brief_type (not in the allowlist) -> 400.
     - Malformed brief_date -> 422 (FastAPI validates the `date` type for free).
-    - No brief for that brief_type[/brief_date] -> 200 with body=null (NOT 404),
-      echoing brief_type and brief_date, so the dashboard degrades quietly.
+    - For a keyed brief_type (CHART_BRIEF_KEYS, e.g. caiso_hub_lmp) the `key`
+      param selects one hub partition (brief_key); an unrecognized key -> 404
+      (NOT an empty-key fallback). Omitting `key` resolves brief_key = ''. For
+      non-keyed types `key` is ignored and the query is byte-identical to before.
+    - No brief for that brief_type[/key][/brief_date] -> 200 with body=null (NOT
+      404), echoing brief_type and brief_date, so the dashboard degrades quietly.
 
     Response shape (the contract the dashboard binds to):
         {
@@ -1613,6 +1650,22 @@ async def joule_chart_brief(
 
     query = _CHART_BRIEF_SELECT
     params = {"brief_type": brief_type}
+
+    # Keyed brief_type (only caiso_hub_lmp today): validate + pin brief_key.
+    # A provided-but-unknown key is a 404 — never a silent fall-through to the
+    # '' partition. Absent key -> brief_key = '' (deterministic empty for hubs).
+    # Non-keyed types skip this block entirely, so their SQL/params are unchanged.
+    valid_keys = CHART_BRIEF_KEYS.get(brief_type)
+    if valid_keys is not None:
+        if key is not None and key not in valid_keys:
+            raise HTTPException(
+                status_code=404,
+                detail=f"unknown key '{key}' for brief_type '{brief_type}'. "
+                f"Valid keys: {sorted(valid_keys)}.",
+            )
+        query += _CHART_BRIEF_KEY_FILTER
+        params["brief_key"] = key if key is not None else ""
+
     if brief_date is not None:
         query += _CHART_BRIEF_DATE_FILTER
         params["brief_date"] = brief_date
