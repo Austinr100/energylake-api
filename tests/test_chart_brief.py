@@ -336,3 +336,138 @@ def test_chart_brief_absent_date_unchanged_no_date_filter(client):
     query = pool.sink["query"]
     assert "brief_date" not in query.split("WHERE", 1)[1].split("ORDER BY", 1)[0]
     assert pool.sink["params"] == {"brief_type": "caiso_fuel_mix_chart"}
+
+
+# ---------------------------------------------------------------------------
+# Optional `key` param (cc_spec 2026-07-06). The caiso_hub_lmp chart-brief type
+# partitions its briefs by brief_key (one row per hub slug). `key` selects the
+# hub; it is validated against the closed slug set (unknown -> 404) and defaults
+# the bound brief_key param to '' when omitted. Every non-keyed brief_type
+# ignores `key` and keeps its exact prior SQL/params — byte-identical behavior.
+# ---------------------------------------------------------------------------
+
+HUB_KEYS = ["TH_NP15", "TH_SP15", "TH_ZP26"]
+
+
+def _hub_row(key="TH_SP15"):
+    row = _fuel_mix_row()
+    row["id"] = 42
+    row["brief_type"] = "caiso_hub_lmp"
+    row["content_md"] = f"SP15 DA held a premium to RT through the evening ramp ({key})."
+    return row
+
+
+def test_hub_lmp_admitted_to_allowlist():
+    assert "caiso_hub_lmp" in main.CHART_BRIEF_TYPES
+    assert set(main.CHART_BRIEF_KEYS["caiso_hub_lmp"]) == set(HUB_KEYS)
+
+
+def test_chart_brief_absent_key_on_existing_type_is_byte_identical(client):
+    # A non-keyed type never gains a brief_key clause or param, with OR without
+    # the query param present — the whole point of "existing types unaffected."
+    pool = use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
+    )
+    assert resp.status_code == 200
+    assert "brief_key" not in pool.sink["query"]
+    assert pool.sink["params"] == {"brief_type": "caiso_fuel_mix_chart"}
+
+
+def test_chart_brief_key_ignored_for_non_keyed_type(client):
+    # Passing ?key to a non-keyed type is a no-op: same row, same SQL, no 404.
+    pool = use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_fuel_mix_chart", "key": "TH_SP15"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == 18
+    assert "brief_key" not in pool.sink["query"]
+    assert pool.sink["params"] == {"brief_type": "caiso_fuel_mix_chart"}
+
+
+@pytest.mark.parametrize("key", HUB_KEYS)
+def test_chart_brief_hub_with_key_filters_brief_key(client, key):
+    # Keyed type + valid key -> brief_key clause bound to that exact slug.
+    pool = use_rows([_hub_row(key)])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "key": key},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == 42
+    assert "AND brief_key = %(brief_key)s" in pool.sink["query"]
+    assert pool.sink["params"] == {"brief_type": "caiso_hub_lmp", "brief_key": key}
+
+
+def test_chart_brief_hub_absent_key_defaults_to_empty(client):
+    # Keyed type WITHOUT ?key: brief_key is pinned to '' (deterministic empty),
+    # never left off so the latest row of any hub bleeds through.
+    pool = use_rows([])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_hub_lmp"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["body"] is None
+    assert "AND brief_key = %(brief_key)s" in pool.sink["query"]
+    assert pool.sink["params"] == {"brief_type": "caiso_hub_lmp", "brief_key": ""}
+
+
+def test_chart_brief_hub_unknown_key_is_404_not_empty_fallback(client):
+    # Unknown key -> clean 404. Must NOT fall back to the '' partition, and the
+    # DB is never queried (the guard fires before any execute()).
+    pool = use_rows([_hub_row()])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "key": "TH_SP99"},
+    )
+    assert resp.status_code == 404
+    assert "TH_SP99" in resp.json()["detail"]
+    assert pool.sink == {}
+
+
+def test_chart_brief_hub_key_and_date_both_filter(client):
+    # key + brief_date compose: both clauses present, both params bound.
+    pool = use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={
+            "brief_type": "caiso_hub_lmp",
+            "key": "TH_NP15",
+            "brief_date": "2026-07-05",
+        },
+    )
+    assert resp.status_code == 200
+    query = pool.sink["query"]
+    assert "AND brief_key = %(brief_key)s" in query
+    assert "AND brief_date = %(brief_date)s" in query
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_hub_lmp",
+        "brief_key": "TH_NP15",
+        "brief_date": datetime.date(2026, 7, 5),
+    }
+
+
+def test_chart_brief_hub_valid_key_missing_date_is_200_null(client):
+    # Valid key but no brief for that (key, date) combo -> 200/null, not 404.
+    # The 404 is reserved for an *unknown key*, not an empty result set.
+    pool = use_rows([])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={
+            "brief_type": "caiso_hub_lmp",
+            "key": "TH_ZP26",
+            "brief_date": "2026-07-05",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["body"] is None
+    assert body["brief_type"] == "caiso_hub_lmp"
+    assert body["brief_date"] == "2026-07-05"
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_hub_lmp",
+        "brief_key": "TH_ZP26",
+        "brief_date": datetime.date(2026, 7, 5),
+    }
