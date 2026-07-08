@@ -48,6 +48,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Path, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
@@ -137,6 +138,16 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+# Ride-along with the pnode-LMP endpoint (D-07-05-09): /api/atlas/pnode-lmp is
+# the repo's first multi-MB payload (~14,417-row columnar JSON), so app-wide
+# gzip lands here rather than in its own PR. Assumed-safe-by-construction, not
+# measured: GZipMiddleware only compresses when the client sends
+# Accept-Encoding: gzip, so it is harmless even if Railway's edge already
+# compresses — the real end-to-end size/timing is acceptance receipt #5,
+# post-deploy. minimum_size=1000 skips tiny bodies (health, error envelopes)
+# where framing overhead would dwarf any savings.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2742,6 +2753,13 @@ async def atlas_pnode_lmp(
     Staleness is expected (dispatch-only writer): the latest complete instant is
     served regardless of age; market_date/hour/interval + feed_generated_at are
     the staleness signal. NULL components pass through as JSON null.
+
+    Sentinel note for the consumer (PR-3): some rows carry all-zero
+    lmp/energy/congestion/loss as a no-DA-price sentinel (observed in DAM), NOT
+    real prices, and status_flag does not discriminate them. This endpoint
+    serves rows faithfully — no filtering, no nulling — so display honesty
+    (rendering the no-price state) is the map client's contract, not this
+    endpoint's.
 
     Errors: unknown market -> 400 (allowed values echoed); no complete instant
     (empty/expired table) -> 503; internal array skew -> 500.
