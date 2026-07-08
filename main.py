@@ -32,6 +32,7 @@ Endpoints:
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
     GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
+    GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
 """
 
 import os
@@ -45,8 +46,9 @@ from enum import Enum
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi import FastAPI, HTTPException, Path, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
@@ -136,6 +138,16 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+# Ride-along with the pnode-LMP endpoint (D-07-05-09): /api/atlas/pnode-lmp is
+# the repo's first multi-MB payload (~14,417-row columnar JSON), so app-wide
+# gzip lands here rather than in its own PR. Assumed-safe-by-construction, not
+# measured: GZipMiddleware only compresses when the client sends
+# Accept-Encoding: gzip, so it is harmless even if Railway's edge already
+# compresses — the real end-to-end size/timing is acceptance receipt #5,
+# post-deploy. minimum_size=1000 skips tiny bodies (health, error envelopes)
+# where framing overhead would dwarf any savings.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2626,4 +2638,259 @@ async def caiso_hub_lmp():
         "hubs": hubs_out,
         "latest": latest_out,
         "peak": peak_out,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/pnode-lmp — latest complete pnode-LMP snapshot (D-07-05-09, PR-2)
+#
+# ONE concern: serve the newest COMPLETE nodal price picture for a single CAISO
+# market as a compact columnar payload the live-nodal-LMP map (PR-3, separate
+# repo) joins client-side onto atlas_pnodes.geojson by pnode_id. PRICES ONLY —
+# no coordinates, no geometry, ever (the ratified geometry/price split; geometry
+# shipped in PR-1 to the pantry).
+#
+# SOURCE: atlas_pnode_lmp_snapshot (Neon hot tier, 7-day retention, dispatch-only
+# writer with ON CONFLICT DO NOTHING). PK is
+#   (pnode_id, market, market_date, market_hour, market_interval)
+# — snapshot_vintage is NOT in the key, and DO-NOTHING means a re-pulled interval
+# keeps its ORIGINAL vintage. So MAX(snapshot_vintage) selects "rows from the
+# newest pull," NOT "the newest complete picture" — it is the wrong selector.
+#
+# SELECTOR (D-07-05-09 adjudication): the latest COMPLETE market INSTANT, where
+# an instant is one (market_date, market_hour, market_interval). "Latest" =
+# date DESC, hour DESC, interval DESC NULLS LAST. "Complete" = the instant's
+# distinct-pnode count is >= 90% of the market's table-wide distinct-pnode count.
+# The newest instant clearing the floor wins; if the newest fails, fall back to
+# the next-newest that passes; if none passes, 503. Because one response is
+# exactly one instant, market_date/hour/interval are true top-level scalars
+# (gate 3 dissolves — no per-node scalar variance is possible).
+#
+# STALENESS BY DESIGN: the writer has no standing schedule (prove-before-
+# automate), so the hot tier is legitimately stale between dispatches. Age is
+# NOT an error — the latest complete instant is served regardless of how old it
+# is, and the payload's market_date/hour/interval + feed_generated_at ARE the
+# staleness signal the dashboard renders. 503 is reserved for "no complete
+# instant exists at all" (empty or fully expired table), never mere staleness.
+#
+# snapshot_vintage is DEMOTED to informational metadata: reported as MAX(vintage)
+# among the served rows (the newest pull that touched this instant). It may span
+# more than one vintage within an instant (different pnodes pulled in different
+# dispatches, each retaining its own vintage) — feed_generated_at, not vintage,
+# is the authoritative staleness signal.
+#
+# ERROR CONTRACT (deliberate fork from caiso-hub-lmp's 404, per adjudication):
+#   * unknown market             -> 400 with the allowed values (a client input
+#                                   error: "you asked wrong").
+#   * no complete instant exists -> 503 (a server-side data-availability
+#                                   condition: feed failure / expired table), so
+#                                   the map can render a staleness/outage state
+#                                   rather than an empty map. Never an empty-200.
+# NULL price components pass through as JSON null (absence is not zero) — and,
+# because the payload is columnar/order-aligned, nulls MUST be kept to preserve
+# array alignment. All six arrays are built from one row walk and asserted equal
+# length before returning; any skew -> 500, no partial payload.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Stored market symbols (the `market` column's live values, recon 2026-07-05).
+# These are the query-param AND payload values; display naming (e.g. "FMM") is a
+# dashboard concern, not this endpoint's. Default = RTD: the fastest cadence, the
+# "live" market; DAM/RTPD by explicit ?market=.
+PNODE_LMP_MARKETS = ("RTD", "RTPD", "DAM")
+_PNODE_LMP_MARKET_SET = frozenset(PNODE_LMP_MARKETS)
+PNODE_LMP_DEFAULT_MARKET = "RTD"
+
+# Completeness floor for the instant selector: an instant must carry >= 90% of
+# the market's table-wide distinct pnodes to be servable, guarding against
+# serving a half-written vintage/instant. (Latest observed complete instant is
+# 14,417/14,417 for all three markets — recon 2026-07-05.)
+PNODE_LMP_COMPLETENESS_FLOOR = 0.90
+
+# Price component columns emitted as order-aligned arrays (sorted by pnode_id).
+PNODE_LMP_COMPONENTS = ("lmp", "energy", "congestion", "loss", "ghg")
+
+
+def _pnode_utc_iso(ts) -> str | None:
+    """timestamptz -> UTC ISO string; None passes through. Matches the repo's
+    convention of emitting timestamps in UTC and localizing on the client."""
+    return ts.astimezone(_timezone.utc).isoformat() if ts is not None else None
+
+
+@app.get("/api/atlas/pnode-lmp")
+async def atlas_pnode_lmp(
+    response: Response,
+    market: str = Query(
+        default=PNODE_LMP_DEFAULT_MARKET,
+        description=(
+            "CAISO market symbol. One of "
+            f"{', '.join(PNODE_LMP_MARKETS)} (case-insensitive). Default "
+            f"{PNODE_LMP_DEFAULT_MARKET} (fastest cadence, the 'live' market). "
+            "Unknown values are rejected with 400."
+        ),
+    ),
+):
+    """
+    Latest COMPLETE pnode-LMP snapshot for one CAISO market — prices only.
+
+    Serves the newest market instant (market_date, market_hour, market_interval)
+    whose pnode coverage clears the completeness floor, as a compact columnar
+    payload the nodal-LMP map joins client-side onto the pnode geometry by
+    pnode_id. No coordinates, no geometry.
+
+    Columnar payload — all six arrays are order-aligned and sorted by pnode_id:
+        {
+          "market": "RTD",
+          "snapshot_vintage": "2026-07-05T13:45:50+00:00",
+          "market_date": "2026-07-05", "market_hour": 9, "market_interval": 8,
+          "feed_generated_at": "2026-07-05T...+00:00",
+          "pnode_count": 14417,
+          "pnode_id":   ["...", ...],
+          "lmp":        [41.2, ...],  "energy":     [40.0, ...],
+          "congestion": [1.1, ...],   "loss":       [0.1, ...],
+          "ghg":        [null, ...]
+        }
+
+    Staleness is expected (dispatch-only writer): the latest complete instant is
+    served regardless of age; market_date/hour/interval + feed_generated_at are
+    the staleness signal. NULL components pass through as JSON null.
+
+    Sentinel note for the consumer (PR-3): some rows carry all-zero
+    lmp/energy/congestion/loss as a no-DA-price sentinel (observed in DAM), NOT
+    real prices, and status_flag does not discriminate them. This endpoint
+    serves rows faithfully — no filtering, no nulling — so display honesty
+    (rendering the no-price state) is the map client's contract, not this
+    endpoint's.
+
+    Errors: unknown market -> 400 (allowed values echoed); no complete instant
+    (empty/expired table) -> 503; internal array skew -> 500.
+    """
+    assert _pool is not None
+
+    # ── Validate market (case-insensitive) -> 400 with allowed values ───────
+    market_norm = market.strip().upper()
+    if market_norm not in _PNODE_LMP_MARKET_SET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown market '{market}'; "
+                f"valid markets are {list(PNODE_LMP_MARKETS)}."
+            ),
+        )
+
+    # ── One read: pick the latest instant clearing the completeness floor, then
+    # return all its rows sorted by pnode_id. The selector lives in SQL so the
+    # floor + latest-passing-instant fallback is a single round trip.
+    #   denom    = market's table-wide distinct pnode count (the floor base)
+    #   instants = per-instant distinct pnode count
+    #   chosen   = newest instant whose count >= floor * denom (LIMIT 1)
+    # If `chosen` is empty (no instant passes -> empty/expired table), the final
+    # SELECT returns zero rows and we 503. market_interval is compared with
+    # IS NOT DISTINCT FROM so a NULL interval joins to itself.
+    query = """
+        WITH market_rows AS (
+            SELECT pnode_id, lmp, energy, congestion, loss, ghg,
+                   market_date, market_hour, market_interval,
+                   snapshot_vintage, feed_generated_at
+            FROM atlas_pnode_lmp_snapshot
+            WHERE market = %(market)s
+        ),
+        denom AS (
+            SELECT COUNT(DISTINCT pnode_id) AS total_pnodes FROM market_rows
+        ),
+        instants AS (
+            SELECT market_date, market_hour, market_interval,
+                   COUNT(DISTINCT pnode_id) AS pnodes
+            FROM market_rows
+            GROUP BY market_date, market_hour, market_interval
+        ),
+        chosen AS (
+            SELECT i.market_date, i.market_hour, i.market_interval
+            FROM instants i, denom d
+            WHERE d.total_pnodes > 0
+              AND i.pnodes::numeric >= %(floor)s * d.total_pnodes
+            ORDER BY i.market_date DESC, i.market_hour DESC,
+                     i.market_interval DESC NULLS LAST
+            LIMIT 1
+        )
+        SELECT r.pnode_id, r.lmp, r.energy, r.congestion, r.loss, r.ghg,
+               r.market_date, r.market_hour, r.market_interval,
+               r.snapshot_vintage, r.feed_generated_at
+        FROM market_rows r
+        JOIN chosen c
+          ON r.market_date = c.market_date
+         AND r.market_hour = c.market_hour
+         AND r.market_interval IS NOT DISTINCT FROM c.market_interval
+        ORDER BY r.pnode_id ASC
+    """
+    params = {"market": market_norm, "floor": PNODE_LMP_COMPLETENESS_FLOOR}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    # ── No complete instant -> 503 (data unavailable, NOT a missing resource).
+    # Staleness alone never reaches here; this is empty/expired table only. The
+    # map client distinguishes this from the 400 to render an outage state.
+    if not rows:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"no complete {market_norm} pnode-LMP instant available "
+                f"(>= {int(PNODE_LMP_COMPLETENESS_FLOOR * 100)}% pnode coverage). "
+                "The snapshot hot tier may be empty or expired (7-day retention, "
+                "dispatch-only writer) — a fresh snapshot dispatch is required."
+            ),
+        )
+
+    # ── Shape columnar. One row walk builds every array so they stay aligned;
+    # the instant scalars are constant across rows (one instant by construction)
+    # and read from the first row. NULL components pass through as JSON null.
+    pnode_id: list = []
+    cols: dict[str, list] = {c: [] for c in PNODE_LMP_COMPONENTS}
+    for r in rows:
+        pnode_id.append(r["pnode_id"])
+        for c in PNODE_LMP_COMPONENTS:
+            v = r[c]
+            cols[c].append(float(v) if v is not None else None)
+
+    # ── Array-alignment guard: unequal lengths -> 500, no partial payload. ──
+    n = len(pnode_id)
+    if any(len(cols[c]) != n for c in PNODE_LMP_COMPONENTS):
+        raise HTTPException(
+            status_code=500,
+            detail="internal error: pnode-LMP column arrays are misaligned.",
+        )
+
+    # snapshot_vintage / feed_generated_at: MAX among served rows (the newest
+    # pull / feed generation that touched this instant). Vintage may span the
+    # instant; feed_generated_at is the authoritative staleness signal.
+    first = rows[0]
+    md = first["market_date"]
+    vintages = [r["snapshot_vintage"] for r in rows if r["snapshot_vintage"] is not None]
+    feeds = [r["feed_generated_at"] for r in rows if r["feed_generated_at"] is not None]
+    max_vintage = max(vintages) if vintages else None
+    max_feed = max(feeds) if feeds else None
+
+    # Short cache: the feed is dispatch-only, so a 60s window relieves repeated
+    # multi-MB reads without hiding a fresh dispatch for long. Endpoint-local.
+    response.headers["Cache-Control"] = "max-age=60"
+
+    return {
+        "market": market_norm,
+        "snapshot_vintage": _pnode_utc_iso(max_vintage),
+        "market_date": md.isoformat() if md is not None else None,
+        "market_hour": first["market_hour"],
+        "market_interval": first["market_interval"],
+        "feed_generated_at": _pnode_utc_iso(max_feed),
+        "pnode_count": n,
+        "pnode_id": pnode_id,
+        "lmp": cols["lmp"],
+        "energy": cols["energy"],
+        "congestion": cols["congestion"],
+        "loss": cols["loss"],
+        "ghg": cols["ghg"],
     }
