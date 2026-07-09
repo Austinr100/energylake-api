@@ -136,6 +136,26 @@ from a server component or route handler and render the first chart
   deliberate 503-not-404 convention fork** — valid market + zero rows is a
   data-availability condition, not a missing resource). `Cache-Control: max-age=60`
 
+- `GET /api/atlas/pnode-history?pnode_id=KRNCNYN_6_N001&market=RTD&hours=24`
+  -> raw 7-day price-component **history** for one CAISO pnode from the same
+  hot tier — prices only, no geometry. A pure range scan (no completeness
+  gating; partial trailing instants are honest data). Columnar payload:
+  top-level `pnode_id`/`market`/`hours`/`known`/`row_count` plus order-aligned
+  arrays sorted ascending by instant — three market-coordinate arrays
+  (`market_date`, `market_hour`, `market_interval`; `market_interval` is null
+  for hourly DAM) and five component arrays (`lmp`, `energy`, `congestion`,
+  `loss`, `ghg`; NULL passes through as JSON null). **No server-derived
+  timestamp**: the hot tier carries no market-instant `timestamptz`, so the
+  client builds the ISO time axis from the three coordinate arrays using its
+  HE/interval conventions (and computes DART = FMM − DAM client-side). `market`
+  ∈ `RTD` (default) / `RTPD` / `DAM` — `FMM` is a display name only and is
+  rejected 400 (send `RTPD`). `hours` ∈ `24` (default) / `168`, coarsened to a
+  whole-day filter server-side. Blank/unknown `pnode_id`, bad `market`, or
+  `hours`∉{24,168} -> 400; a **known** pnode with no rows in the window -> 200
+  with empty arrays and `known:true`; DB unavailable -> 503. DAM all-zero
+  sentinel rows pass through as-is (no-price is a client render concern).
+  `Cache-Control: max-age=60`
+
 ---
 
 ## Tests

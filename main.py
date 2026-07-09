@@ -33,6 +33,7 @@ Endpoints:
     GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
+    GET /api/atlas/pnode-history           7-day price-component history for one pnode, columnar prices-only (D-07-08)
 """
 
 import os
@@ -2888,6 +2889,267 @@ async def atlas_pnode_lmp(
         "feed_generated_at": _pnode_utc_iso(max_feed),
         "pnode_count": n,
         "pnode_id": pnode_id,
+        "lmp": cols["lmp"],
+        "energy": cols["energy"],
+        "congestion": cols["congestion"],
+        "loss": cols["loss"],
+        "ghg": cols["ghg"],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/pnode-history — 7-day price history for ONE pnode (D-07-08, PR-1)
+#
+# ONE concern: serve the raw price-component history for a single CAISO pricing
+# node from the hot tier, so the map (energylake-dashboard PR-2) can draw a
+# click-to-inspect sparkline. Prices only — no geometry, ever (same geometry/
+# price split as the sibling /api/atlas/pnode-lmp).
+#
+# SOURCE: atlas_pnode_lmp_snapshot (the SAME Neon hot tier the sibling reads;
+# 7-day retention, dispatch-only writer). This endpoint is a PURE READER: a
+# plain range scan over one pnode + one market + a day window, sorted ascending
+# by instant. NO completeness gating (unlike the live endpoint) — history's job
+# is to show what exists, and partial trailing instants are honest, timestamped
+# data. NO server-side thinning, NO server-derived DART (the client computes
+# DART = FMM − DAM, ratified positive = RT over DA).
+#
+# TIME AXIS IS A CLIENT CONCERN (captain-adjudicated 2026-07-08): the hot tier
+# carries NO interval-start timestamptz — only market_date / market_hour /
+# market_interval (plus ingestion-time feed_generated_at / snapshot_vintage /
+# ingested_at, which are the WRONG axis). Rather than bake HE-vs-HB / DST
+# assumptions into the API, this endpoint emits those three market-coordinate
+# columns verbatim as parallel arrays and the dashboard derives ISO instants
+# with its existing HE/interval conventions. The API stays a pure reader.
+#
+# MARKET TOKENS: the stored `market` symbols RTD | RTPD | DAM, identical to the
+# sibling. "FMM" is a dashboard display name only and is rejected with 400 —
+# callers send RTPD on the wire.
+#
+# HOURS: only 24 or 168 (7 days). Coarsened server-side to a calendar-day filter
+# (hours/24 days) matching the validated index predicate (Bitmap Index Scan on
+# the PK, ~3.6ms) — sub-day precision is impossible without a market timestamp
+# and is the client's axis job anyway.
+#
+# KNOWN / ERROR CONTRACT:
+#   * blank pnode_id / bad market / hours∉{24,168} -> 400 (client input error).
+#   * unknown pnode_id (absent from the hot-tier universe) -> 400.
+#   * known pnode_id with no rows in the window/market -> 200 with EMPTY arrays
+#     and known:true (honest: a valid node, simply no history here — never a
+#     404/empty pretending, never a fabricated flat line).
+#   * DB unavailable -> 503 with the house standard body (see /health). Fail
+#     loud — never a 200 with silently truncated data.
+# SENTINEL HONESTY: DAM all-zero-component rows pass through as-is (the client
+# renders the no-price state); the API never filters or nulls them. NULL
+# components pass through as JSON null; columnar arrays are order-aligned and
+# asserted equal-length before returning (any skew -> 500, no partial payload).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# History shares the sibling's stored market symbols verbatim (RTD | RTPD | DAM)
+# and its price-component columns. "FMM" stays a dashboard display name — it is
+# NOT accepted here; callers send RTPD. Single source of truth = the LMP consts.
+PNODE_HISTORY_MARKETS = PNODE_LMP_MARKETS
+_PNODE_HISTORY_MARKET_SET = _PNODE_LMP_MARKET_SET
+PNODE_HISTORY_DEFAULT_MARKET = PNODE_LMP_DEFAULT_MARKET  # RTD, matching the sibling
+PNODE_HISTORY_COMPONENTS = PNODE_LMP_COMPONENTS
+
+# Only two look-back windows are accepted; any other value is a 400. Each is
+# coarsened to a whole-day filter (hours // 24 days) because the hot tier has no
+# sub-day market timestamp — the client derives the fine time axis.
+PNODE_HISTORY_ALLOWED_HOURS = (24, 168)
+PNODE_HISTORY_DEFAULT_HOURS = 24
+
+
+@app.get("/api/atlas/pnode-history")
+async def atlas_pnode_history(
+    response: Response,
+    pnode_id: str = Query(
+        default="",
+        description=(
+            "CAISO pricing-node id (e.g. KRNCNYN_6_N001). Required; a blank or "
+            "unknown pnode_id is rejected with 400."
+        ),
+    ),
+    market: str = Query(
+        default=PNODE_HISTORY_DEFAULT_MARKET,
+        description=(
+            "CAISO market symbol. One of "
+            f"{', '.join(PNODE_HISTORY_MARKETS)} (case-insensitive). Default "
+            f"{PNODE_HISTORY_DEFAULT_MARKET}. 'FMM' is a display name only and is "
+            "rejected with 400 — send RTPD on the wire."
+        ),
+    ),
+    hours: int = Query(
+        default=PNODE_HISTORY_DEFAULT_HOURS,
+        description=(
+            "Look-back window in hours. Only 24 or 168 (7 days) are accepted; any "
+            "other value is rejected with 400. Coarsened server-side to a "
+            "calendar-day filter (hours/24 days) — the hot tier carries no "
+            "sub-day market timestamp, so the client derives the time axis."
+        ),
+    ),
+):
+    """
+    Raw price-component history for one CAISO pnode from the 7-day hot tier.
+
+    A pure range scan over one pnode + one market + a day window, sorted
+    ascending by instant. Columnar payload — every array is order-aligned:
+        {
+          "pnode_id": "KRNCNYN_6_N001", "market": "RTD",
+          "hours": 24, "known": true, "row_count": 13,
+          "market_date":     ["2026-07-05", ...],
+          "market_hour":     [9, ...],
+          "market_interval": [8, ...],   # null for DAM (hourly)
+          "lmp":        [41.2, ...],  "energy":     [40.0, ...],
+          "congestion": [1.1, ...],   "loss":       [0.1, ...],
+          "ghg":        [null, ...]
+        }
+
+    The three market-coordinate arrays (market_date / market_hour /
+    market_interval) mirror the sibling's exposed fields verbatim; the client
+    builds the ISO time axis from them (the hot tier has no market timestamp).
+    NULL components pass through as JSON null; DAM all-zero sentinel rows pass
+    through as-is (no-price is a client render concern).
+
+    Errors: blank/unknown pnode_id, bad market, or hours∉{24,168} -> 400; a
+    known pnode with no rows in the window -> 200 with empty arrays and
+    known:true; DB unavailable -> 503; internal array skew -> 500.
+    """
+    assert _pool is not None
+
+    # ── Validate pnode_id (blank -> 400; unknown pnode handled after the read).
+    pid = pnode_id.strip()
+    if not pid:
+        raise HTTPException(status_code=400, detail="missing pnode_id.")
+
+    # ── Validate market (case-insensitive) -> 400 with allowed values ─────────
+    market_norm = market.strip().upper()
+    if market_norm not in _PNODE_HISTORY_MARKET_SET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown market '{market}'; valid markets are "
+                f"{list(PNODE_HISTORY_MARKETS)} ('FMM' is a display name — "
+                "send RTPD)."
+            ),
+        )
+
+    # ── Validate hours -> only 24 or 168 -> 400 otherwise ─────────────────────
+    if hours not in PNODE_HISTORY_ALLOWED_HOURS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unsupported hours={hours}; valid values are "
+                f"{list(PNODE_HISTORY_ALLOWED_HOURS)}."
+            ),
+        )
+    days = hours // 24
+
+    # ── One read, one round trip. `known` is a universe-membership probe (does
+    # this pnode appear ANYWHERE in the hot tier, any market/date within
+    # retention?); `hist` is the range scan for the requested market + day
+    # window. LEFT JOIN from the single known-row to hist means: if hist has
+    # rows we get one row per instant (each carrying is_known=true); if hist is
+    # empty we still get ONE sentinel row carrying is_known + all-NULL history
+    # columns — which is exactly what distinguishes an unknown pnode (400) from
+    # a known pnode with no rows in this window (200, empty arrays). No
+    # completeness gating; ordered ascending by instant in SQL. market_interval
+    # is NULL for DAM, so it sorts NULLS LAST harmlessly (one row per hour).
+    query = """
+        WITH known AS (
+            SELECT EXISTS (
+                SELECT 1 FROM atlas_pnode_lmp_snapshot WHERE pnode_id = %(pnode_id)s
+            ) AS is_known
+        ),
+        hist AS (
+            SELECT market_date, market_hour, market_interval,
+                   lmp, energy, congestion, loss, ghg
+            FROM atlas_pnode_lmp_snapshot
+            WHERE pnode_id = %(pnode_id)s
+              AND market = %(market)s
+              AND market_date >= (CURRENT_DATE - %(days)s)
+        )
+        SELECT k.is_known,
+               h.market_date, h.market_hour, h.market_interval,
+               h.lmp, h.energy, h.congestion, h.loss, h.ghg
+        FROM known k
+        LEFT JOIN hist h ON TRUE
+        ORDER BY h.market_date ASC NULLS LAST,
+                 h.market_hour ASC NULLS LAST,
+                 h.market_interval ASC NULLS LAST
+    """
+    params = {"pnode_id": pid, "market": market_norm, "days": days}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        # DB unavailability -> 503 with the house standard body (see /health).
+        # Fail loud; never a 200 with truncated data.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # ── `known` is constant across rows (one probe); the known CTE always yields
+    # a row, so `rows` is never empty. Real instants carry a non-NULL
+    # market_date (the PK); the empty-window LEFT JOIN sentinel carries
+    # market_date IS NULL.
+    is_known = bool(rows[0]["is_known"]) if rows else False
+    hist_rows = [r for r in rows if r["market_date"] is not None]
+
+    # Unknown pnode (absent from the universe) AND no rows -> 400. A known pnode
+    # with no rows in the window -> 200 with empty arrays (honest: valid node,
+    # no history here) — handled by falling through with empty hist_rows.
+    if not hist_rows and not is_known:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown pnode_id '{pid}'; it is not present in the pnode-LMP "
+                "hot tier (7-day retention)."
+            ),
+        )
+
+    # ── Shape columnar. One row walk builds every array so they stay aligned.
+    # market_date -> ISO date string; market_hour/market_interval pass through
+    # (interval is NULL for DAM). NULL price components pass through as JSON null.
+    market_date: list = []
+    market_hour: list = []
+    market_interval: list = []
+    cols: dict[str, list] = {c: [] for c in PNODE_HISTORY_COMPONENTS}
+    for r in hist_rows:
+        md = r["market_date"]
+        market_date.append(md.isoformat() if md is not None else None)
+        market_hour.append(r["market_hour"])
+        market_interval.append(r["market_interval"])
+        for c in PNODE_HISTORY_COMPONENTS:
+            v = r[c]
+            cols[c].append(float(v) if v is not None else None)
+
+    # ── Array-alignment guard: any skew -> 500, no partial payload. ───────────
+    n = len(market_date)
+    if (
+        len(market_hour) != n
+        or len(market_interval) != n
+        or any(len(cols[c]) != n for c in PNODE_HISTORY_COMPONENTS)
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail="internal error: pnode-history column arrays are misaligned.",
+        )
+
+    # Short cache: same 60s window as the live endpoint (dispatch-only feed).
+    response.headers["Cache-Control"] = "max-age=60"
+
+    return {
+        "pnode_id": pid,
+        "market": market_norm,
+        "hours": hours,
+        # Rows present ⟹ the pnode is in the universe; keep the probe result
+        # too so an empty-but-valid window still reports known:true.
+        "known": bool(is_known or hist_rows),
+        "row_count": n,
+        "market_date": market_date,
+        "market_hour": market_hour,
+        "market_interval": market_interval,
         "lmp": cols["lmp"],
         "energy": cols["energy"],
         "congestion": cols["congestion"],
