@@ -34,10 +34,12 @@ Endpoints:
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
     GET /api/atlas/pnode-history           7-day price-component history for one pnode, columnar prices-only (D-07-08)
+    GET /api/atlas/constraints             CAISO binding-constraint blotter league table (DAM/RTM, windowed), cached (D-07-11)
 """
 
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import date as _date
 from datetime import datetime as _datetime
@@ -3156,3 +3158,305 @@ async def atlas_pnode_history(
         "loss": cols["loss"],
         "ghg": cols["ghg"],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/constraints — CAISO binding-constraint blotter league table (D-07-11)
+#
+# ONE concern: the "which constraints hurt most, lately" league table behind the
+# Atlas constraint blotter (dashboard half on branch claude/new-session-lru22r).
+# One market, one look-back window -> the top-100 constraints by how many hours
+# they bound, each with its worst shadow price, its average shadow price WHILE
+# bound, when it last bound, and a per-day sparkline of binding hours.
+#
+# SOURCE (schema-read first, 2026-07-11 — the task's assumed table names
+# caiso_binding_constraints_{dam,rtm} do NOT exist; the real shape is one raw
+# table + one daily rollup, market is a COLUMN not a table suffix):
+#   caiso_binding_constraints        raw interval grain (market, constraint_id,
+#                                    constraint_name, constraint_type, ts,
+#                                    shadow_price, meta, ingested_ts)
+#   caiso_binding_constraints_daily  per (trade_date, market, constraint_id)
+#                                    rollup: hours_binding, intervals_binding,
+#                                    max/min/mean/max_abs_shadow_price,
+#                                    first_binding_ts, last_binding_ts
+# The daily rollup IS this endpoint's table: a league table is a daily rollup,
+# and its per-trade_date hours_binding is exactly the `trend` sparkline. Markets
+# are stored as DAM | RTM (verified DISTINCT).
+#
+# KEY = constraint_id, NOT constraint_name. constraint_name is nullable and
+# non-unique ("Base Case" recurs across different physical constraints), so the
+# response `constraint` string is the stable CAISO constraint_id — which is also
+# what the Hopland-Cloverdale cross-check keys on (HPLND JT -> CLVRDLJT lives in
+# the id, not the name).
+#
+# WINDOW / TREND AXIS: window ∈ {1d,7d,30d,90d} -> N days. The axis is anchored
+# on the latest available trade_date for the market (NOT wall-clock today),
+# because the daily rollup legitimately lags the current trading day by ~1 day —
+# a today-anchored 1d window would always be empty. So the window is "the last N
+# days of data we have," dates [anchor-(N-1) .. anchor], and `stale` (below)
+# independently flags if that data itself is old. generate_series builds the full
+# N-day axis so every constraint's `trend` is exactly N entries, 0-filled and
+# ordered oldest->newest.
+#
+# AGGREGATION (windowed, per constraint):
+#   hours_bound            = SUM(hours_binding)                    (rounded int)
+#   max_shadow             = MAX(max_shadow_price)
+#   avg_shadow_when_bound  = SUM(mean_shadow_price * intervals_binding)
+#                            / SUM(intervals_binding)   -- interval-weighted, so
+#                            it equals the true mean of shadow_price over every
+#                            binding interval in the window (a plain AVG of the
+#                            daily means would misweight short/long days).
+#   last_bound_ts          = MAX(last_binding_ts)
+#   trend[d]               = that day's hours_binding (0 if it didn't bind)
+# Sorted hours_bound DESC (constraint_id tiebreak for determinism), cap 100.
+# hours are reported as rounded ints per the response contract; DAM is hourly so
+# these are whole by nature, RTM (5-min) is rounded from fractional interval-hours.
+#
+# STALE / FAIL-HONEST: `as_of` = MAX(last_binding_ts) across the window. stale is
+# true when there are NO rows at all OR as_of is older than 48h. Empty/stale data
+# is reported faithfully (stale:true, rows possibly empty) — never fabricated.
+#   * malformed market or window        -> 400 (terse message, allowed values).
+#   * DB unavailable                    -> 503 (house standard; fail loud).
+#   * internal trend-axis length skew   -> 500 (no partial payload).
+#
+# CACHE: in-process, 5-min TTL, keyed (market, window). The feed updates at most
+# a few times an hour, so a 5-min window collapses repeated 90d scans to one read
+# without hiding fresh data for long. Lock-free: the event loop is single-
+# threaded, and a rare double-fill just recomputes and last-write-wins (idempotent).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Stored market symbols for the binding-constraint tables (verified DISTINCT,
+# 2026-07-11). Query-param AND payload values; case-insensitive on the wire.
+ATLAS_CONSTRAINT_MARKETS = ("DAM", "RTM")
+_ATLAS_CONSTRAINT_MARKET_SET = frozenset(ATLAS_CONSTRAINT_MARKETS)
+
+# Accepted look-back windows -> whole-day span. Any other value is a 400.
+ATLAS_CONSTRAINT_WINDOWS = {"1d": 1, "7d": 7, "30d": 30, "90d": 90}
+ATLAS_CONSTRAINT_DEFAULT_WINDOW = "7d"
+
+# League-table cap and the staleness threshold (no row newer than this -> stale).
+ATLAS_CONSTRAINT_ROW_CAP = 100
+ATLAS_CONSTRAINT_STALE_AFTER = _timedelta(hours=48)
+
+# In-process response cache: (market, window) -> (monotonic_stamp, payload).
+_ATLAS_CONSTRAINTS_CACHE_TTL = 300.0  # 5 minutes
+_atlas_constraints_cache: dict[tuple[str, str], tuple[float, dict]] = {}
+
+
+def _parse_atlas_constraints_params(market: str, window: str) -> tuple[str, str, int]:
+    """Validate + normalize (market, window). Returns (market_norm, window_norm,
+    days) or raises HTTPException(400) with a terse message. Pure — unit-tested."""
+    market_norm = market.strip().upper()
+    if market_norm not in _ATLAS_CONSTRAINT_MARKET_SET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown market '{market}'; valid markets are "
+                f"{list(ATLAS_CONSTRAINT_MARKETS)}."
+            ),
+        )
+    window_norm = window.strip().lower()
+    if window_norm not in ATLAS_CONSTRAINT_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown window '{window}'; valid windows are "
+                f"{list(ATLAS_CONSTRAINT_WINDOWS)}."
+            ),
+        )
+    return market_norm, window_norm, ATLAS_CONSTRAINT_WINDOWS[window_norm]
+
+
+def _build_atlas_constraints_query(
+    market_norm: str, days: int, cap: int
+) -> tuple[str, dict]:
+    """Build the windowed league-table aggregation SQL + params. Pure (no DB) so
+    the SQL shape and param math are unit-testable. The window is anchored on the
+    market's latest trade_date; generate_series yields the full N-day trend axis
+    (0-filled, oldest->newest) so every `trend` has exactly `days` entries."""
+    sql = """
+        WITH bounds AS (
+            SELECT MAX(trade_date) AS anchor
+            FROM caiso_binding_constraints_daily
+            WHERE market = %(market)s
+        ),
+        win AS (
+            SELECT anchor,
+                   (anchor - %(days_back)s)::date AS start_date
+            FROM bounds
+        ),
+        days AS (
+            SELECT generate_series(w.start_date, w.anchor, interval '1 day')::date AS d
+            FROM win w
+            WHERE w.anchor IS NOT NULL
+        ),
+        scoped AS (
+            SELECT c.constraint_id, c.trade_date, c.hours_binding,
+                   c.intervals_binding, c.max_shadow_price, c.mean_shadow_price,
+                   c.last_binding_ts
+            FROM caiso_binding_constraints_daily c, win w
+            WHERE c.market = %(market)s
+              AND c.trade_date BETWEEN w.start_date AND w.anchor
+        ),
+        agg AS (
+            SELECT constraint_id,
+                   SUM(hours_binding) AS hours_bound,
+                   MAX(max_shadow_price) AS max_shadow,
+                   SUM(mean_shadow_price * intervals_binding)
+                       / NULLIF(SUM(intervals_binding), 0) AS avg_shadow_when_bound,
+                   MAX(last_binding_ts) AS last_bound_ts
+            FROM scoped
+            GROUP BY constraint_id
+            ORDER BY hours_bound DESC, constraint_id ASC
+            LIMIT %(cap)s
+        ),
+        trend AS (
+            SELECT a.constraint_id,
+                   array_agg(COALESCE(s.hours_binding, 0) ORDER BY d.d) AS trend
+            FROM agg a
+            CROSS JOIN days d
+            LEFT JOIN scoped s
+              ON s.constraint_id = a.constraint_id
+             AND s.trade_date = d.d
+            GROUP BY a.constraint_id
+        ),
+        meta AS (
+            SELECT MAX(last_binding_ts) AS as_of FROM scoped
+        )
+        SELECT a.constraint_id AS constraint,
+               a.hours_bound, a.max_shadow, a.avg_shadow_when_bound,
+               a.last_bound_ts, t.trend, m.as_of
+        FROM agg a
+        JOIN trend t ON t.constraint_id = a.constraint_id
+        CROSS JOIN meta m
+        ORDER BY a.hours_bound DESC, a.constraint_id ASC
+    """
+    params = {"market": market_norm, "days_back": days - 1, "cap": cap}
+    return sql, params
+
+
+def _atlas_constraints_is_stale(as_of, now) -> bool:
+    """No data at all, or the newest binding is older than the 48h threshold.
+    Pure — unit-tested. `as_of`/`now` are tz-aware datetimes (or as_of None)."""
+    if as_of is None:
+        return True
+    return (now - as_of) > ATLAS_CONSTRAINT_STALE_AFTER
+
+
+@app.get("/api/atlas/constraints")
+async def atlas_constraints(
+    response: Response,
+    market: str = Query(
+        description=(
+            "CAISO market symbol. One of "
+            f"{', '.join(ATLAS_CONSTRAINT_MARKETS)} (case-insensitive). Required; "
+            "unknown values are rejected with 400."
+        ),
+    ),
+    window: str = Query(
+        default=ATLAS_CONSTRAINT_DEFAULT_WINDOW,
+        description=(
+            "Look-back window. One of "
+            f"{', '.join(ATLAS_CONSTRAINT_WINDOWS)} (default "
+            f"{ATLAS_CONSTRAINT_DEFAULT_WINDOW}). Any other value is rejected "
+            "with 400."
+        ),
+    ),
+):
+    """
+    Binding-constraint blotter league table for one CAISO market + window.
+
+    Top-100 constraints by binding hours over the window, each with its worst
+    shadow price, interval-weighted average shadow price while bound, last bind
+    time, and a per-day binding-hours sparkline:
+        {
+          "as_of": "2026-07-11T06:00:00+00:00",   # max last_binding_ts in window
+          "market": "DAM", "window": "90d",
+          "stale": false,                          # no rows OR as_of older than 48h
+          "rows": [
+            { "constraint": "31336_HPLND JT_60.0_31370_CLVRDLJT_60.0_BR_1 _1",
+              "hours_bound": 1835, "max_shadow": 553.15802,
+              "avg_shadow_when_bound": 160.90376,
+              "last_bound_ts": "2026-07-11T06:00:00+00:00",
+              "trend": [ ...N per-day hours_bound, oldest->newest... ] },
+            ...
+          ]
+        }
+
+    Sourced from the caiso_binding_constraints_daily rollup, keyed by
+    constraint_id (constraint_name is nullable/non-unique). The window is
+    anchored on the market's latest trade_date (the rollup lags the live day),
+    so `trend` always spans N real days; `stale` flags genuinely old/absent data.
+    Cached in-process for 5 min per (market, window).
+
+    Errors: bad market/window -> 400; DB unavailable -> 503; internal trend-axis
+    skew -> 500. Empty/stale data is reported honestly (stale:true), never faked.
+    """
+    assert _pool is not None
+
+    market_norm, window_norm, days = _parse_atlas_constraints_params(market, window)
+
+    # ── Cache hit (5-min TTL, keyed (market, window)) ────────────────────────
+    key = (market_norm, window_norm)
+    now_mono = time.monotonic()
+    cached = _atlas_constraints_cache.get(key)
+    if cached is not None and (now_mono - cached[0]) < _ATLAS_CONSTRAINTS_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=300"
+        return cached[1]
+
+    sql, params = _build_atlas_constraints_query(
+        market_norm, days, ATLAS_CONSTRAINT_ROW_CAP
+    )
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        # DB unavailability -> 503 (house standard; see /health). Fail loud.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # ── as_of + stale. No rows ⟺ no data for this market -> as_of null, stale.
+    as_of = rows[0]["as_of"] if rows else None
+    now_utc = _datetime.now(_timezone.utc)
+    stale = _atlas_constraints_is_stale(as_of, now_utc)
+
+    out_rows: list[dict] = []
+    for r in rows:
+        trend_raw = r["trend"] or []
+        # Trend-axis guard: generate_series must yield exactly `days` buckets;
+        # any skew is an internal error, not a partial payload.
+        if len(trend_raw) != days:
+            raise HTTPException(
+                status_code=500,
+                detail="internal error: constraint trend axis length mismatch.",
+            )
+        max_shadow = r["max_shadow"]
+        avg_shadow = r["avg_shadow_when_bound"]
+        out_rows.append(
+            {
+                "constraint": r["constraint"],
+                # hours reported as whole hours per the contract (DAM hourly is
+                # whole by nature; RTM 5-min is rounded from interval-hours).
+                "hours_bound": int(round(float(r["hours_bound"]))),
+                "max_shadow": float(max_shadow) if max_shadow is not None else None,
+                "avg_shadow_when_bound": (
+                    round(float(avg_shadow), 5) if avg_shadow is not None else None
+                ),
+                "last_bound_ts": _pnode_utc_iso(r["last_bound_ts"]),
+                "trend": [int(round(float(v))) for v in trend_raw],
+            }
+        )
+
+    payload = {
+        "as_of": _pnode_utc_iso(as_of),
+        "market": market_norm,
+        "window": window_norm,
+        "stale": stale,
+        "rows": out_rows,
+    }
+
+    # Populate the in-process cache and mirror the 5-min TTL on the HTTP header.
+    _atlas_constraints_cache[key] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=300"
+    return payload
