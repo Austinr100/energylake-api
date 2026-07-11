@@ -1,0 +1,357 @@
+"""
+Tests for the CAISO binding-constraint blotter league table:
+
+  * GET /api/atlas/constraints?market={DAM|RTM}&window={1d|7d|30d|90d}
+
+Two layers, no live database required:
+
+  1. Pure-function unit tests on the aggregation SQL builder
+     (`_build_atlas_constraints_query`), the param validator
+     (`_parse_atlas_constraints_params`), and the stale predicate
+     (`_atlas_constraints_is_stale`). These carry the SQL-shape + window-math +
+     staleness contract without touching Postgres.
+
+  2. Endpoint tests that swap a tiny in-memory fake pool into `main._pool` (same
+     surface as the sibling pnode suites) and feed the rows the final SELECT
+     *would* return — one row per constraint carrying constraint/hours_bound/
+     max_shadow/avg_shadow_when_bound/last_bound_ts/trend plus the per-row `as_of`
+     scalar. The tests assert row shaping (int-rounded hours + trend, ISO
+     timestamps), the stale flag, the 5-min in-process cache, and the
+     400/500/503 error contract.
+"""
+
+import datetime
+from decimal import Decimal
+
+import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
+import main
+
+
+UTC = datetime.timezone.utc
+
+
+# ---------------------------------------------------------------------------
+# In-memory fake pool (same surface as tests/test_pnode_history.py).
+# ---------------------------------------------------------------------------
+
+class _FakeCursor:
+    def __init__(self, rows, sink):
+        self._rows = rows
+        self._sink = sink
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def execute(self, query, params=None):
+        self._sink["query"] = query
+        self._sink["params"] = params
+
+    async def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeConn:
+    def __init__(self, rows, sink):
+        self._rows = rows
+        self._sink = sink
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def cursor(self):
+        return _FakeCursor(self._rows, self._sink)
+
+
+class FakePool:
+    def __init__(self, rows):
+        self._rows = rows
+        self.sink = {}
+
+    def connection(self):
+        return _FakeConn(self._rows, self.sink)
+
+
+class _BoomPool:
+    """Pool whose connection() raises — simulates DB unavailability."""
+
+    def __init__(self):
+        self.sink = {}
+
+    def connection(self):
+        raise RuntimeError("connection refused")
+
+
+URL = "/api/atlas/constraints"
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    # The in-process cache is module-global; isolate every test.
+    main._atlas_constraints_cache.clear()
+    yield
+    main._atlas_constraints_cache.clear()
+
+
+@pytest.fixture
+def client():
+    # No `with` block => lifespan does not run => real pool is never opened.
+    return TestClient(main.app)
+
+
+def use_rows(rows):
+    pool = FakePool(rows)
+    main._pool = pool
+    return pool
+
+
+def _row(constraint, hours_bound, max_shadow, avg_shadow, last_bound_ts, trend,
+         as_of):
+    """One row as the final SELECT yields it (psycopg dict_row). Numerics arrive
+    as Decimal; trend is a Python list; timestamps are tz-aware datetimes."""
+    return {
+        "constraint": constraint,
+        "hours_bound": Decimal(str(hours_bound)),
+        "max_shadow": Decimal(str(max_shadow)) if max_shadow is not None else None,
+        "avg_shadow_when_bound": (
+            Decimal(str(avg_shadow)) if avg_shadow is not None else None
+        ),
+        "last_bound_ts": last_bound_ts,
+        "trend": [Decimal(str(v)) for v in trend],
+        "as_of": as_of,
+    }
+
+
+def _recent(hours_ago=1):
+    return datetime.datetime.now(UTC) - datetime.timedelta(hours=hours_ago)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Pure: param validator
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_parse_params_defaults_and_normalization():
+    # case-insensitive market, default window 7d -> 7 days.
+    assert main._parse_atlas_constraints_params("dam", "7d") == ("DAM", "7d", 7)
+    assert main._parse_atlas_constraints_params(" RtM ", "1d") == ("RTM", "1d", 1)
+    assert main._parse_atlas_constraints_params("DAM", "30d") == ("DAM", "30d", 30)
+    assert main._parse_atlas_constraints_params("DAM", "90d") == ("DAM", "90d", 90)
+
+
+def test_parse_params_bad_market_is_400():
+    with pytest.raises(HTTPException) as ei:
+        main._parse_atlas_constraints_params("MISO", "7d")
+    assert ei.value.status_code == 400
+    assert "market" in ei.value.detail
+
+
+def test_parse_params_bad_window_is_400():
+    with pytest.raises(HTTPException) as ei:
+        main._parse_atlas_constraints_params("DAM", "14d")
+    assert ei.value.status_code == 400
+    assert "window" in ei.value.detail
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Pure: aggregation SQL builder
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_build_query_params_math():
+    _, params = main._build_atlas_constraints_query("DAM", 90, 100)
+    # days_back is (days - 1): a 90-day window spans [anchor-89 .. anchor].
+    assert params == {"market": "DAM", "days_back": 89, "cap": 100}
+
+    _, params_1d = main._build_atlas_constraints_query("RTM", 1, 100)
+    assert params_1d["days_back"] == 0  # 1-day window is a single day (anchor)
+
+
+def test_build_query_sql_shape():
+    sql, _ = main._build_atlas_constraints_query("DAM", 7, 100)
+    # Sourced from the daily rollup, keyed by constraint_id.
+    assert "caiso_binding_constraints_daily" in sql
+    assert "GROUP BY constraint_id" in sql
+    # League table: hours DESC with a deterministic tiebreak, capped.
+    assert "ORDER BY hours_bound DESC, constraint_id ASC" in sql
+    assert "LIMIT %(cap)s" in sql
+    # Window anchored on the latest trade_date; full N-day axis via series.
+    assert "MAX(trade_date)" in sql
+    assert "generate_series" in sql
+    # Interval-weighted average (not a naive AVG of daily means).
+    assert "mean_shadow_price * intervals_binding" in sql
+    # as_of = max last_binding_ts across the window.
+    assert "MAX(last_binding_ts) AS as_of" in sql
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Pure: stale predicate
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_stale_no_data():
+    now = datetime.datetime.now(UTC)
+    assert main._atlas_constraints_is_stale(None, now) is True
+
+
+def test_stale_fresh_vs_old():
+    now = datetime.datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
+    fresh = now - datetime.timedelta(hours=47, minutes=59)
+    old = now - datetime.timedelta(hours=48, minutes=1)
+    assert main._atlas_constraints_is_stale(fresh, now) is False
+    assert main._atlas_constraints_is_stale(old, now) is True
+
+
+def test_stale_exactly_48h_is_not_stale():
+    # Boundary: exactly 48h is the edge of the window, not past it.
+    now = datetime.datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
+    edge = now - datetime.timedelta(hours=48)
+    assert main._atlas_constraints_is_stale(edge, now) is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: envelope + row shaping
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_envelope_and_row_shaping(client):
+    as_of = _recent(1)
+    last = _recent(2)
+    use_rows([
+        _row("HPLND_CLVRDL", 1835, 553.15802, 160.9037631, last,
+             trend=[10], as_of=as_of),
+    ])
+    resp = client.get(f"{URL}?market=DAM&window=1d")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert set(body) == {"as_of", "market", "window", "stale", "rows"}
+    assert body["market"] == "DAM"
+    assert body["window"] == "1d"
+    assert body["stale"] is False
+    assert body["as_of"] == as_of.isoformat()
+
+    row = body["rows"][0]
+    assert set(row) == {
+        "constraint", "hours_bound", "max_shadow",
+        "avg_shadow_when_bound", "last_bound_ts", "trend",
+    }
+    assert row["constraint"] == "HPLND_CLVRDL"
+    # hours reported as a rounded int per the contract.
+    assert row["hours_bound"] == 1835
+    assert isinstance(row["hours_bound"], int)
+    assert row["max_shadow"] == 553.15802
+    assert row["avg_shadow_when_bound"] == 160.90376  # rounded to 5dp
+    assert row["last_bound_ts"] == last.isoformat()
+    assert row["trend"] == [10]
+
+
+def test_rtm_fractional_hours_round_to_int(client):
+    as_of = _recent(1)
+    use_rows([
+        _row("USWP_SBTAP", Decimal("103.9168"), 109.14747, 80.6516242,
+             _recent(1), trend=[7.25, 13.1667, 15.9167, 23.4167, 14.75, 10.25,
+                                 19.1667], as_of=as_of),
+    ])
+    body = client.get(f"{URL}?market=RTM&window=7d").json()
+    row = body["rows"][0]
+    assert row["hours_bound"] == 104          # 103.9168 -> 104
+    assert row["trend"] == [7, 13, 16, 23, 15, 10, 19]  # each per-day rounded
+    assert len(row["trend"]) == 7
+
+
+def test_default_window_is_7d(client):
+    use_rows([
+        _row("X", 5, 1.0, 0.5, _recent(1), trend=[1, 1, 1, 1, 1, 0, 0],
+             as_of=_recent(1)),
+    ])
+    body = client.get(f"{URL}?market=DAM").json()
+    assert body["window"] == "7d"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: stale + empty
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_stale_true_when_data_old(client):
+    old = datetime.datetime.now(UTC) - datetime.timedelta(hours=72)
+    use_rows([
+        _row("OLD", 3, 2.0, 1.0, old, trend=[3], as_of=old),
+    ])
+    body = client.get(f"{URL}?market=DAM&window=1d").json()
+    assert body["stale"] is True
+    assert body["as_of"] == old.isoformat()
+    assert body["rows"][0]["constraint"] == "OLD"  # rows still served honestly
+
+
+def test_empty_data_is_stale_with_no_rows(client):
+    use_rows([])
+    body = client.get(f"{URL}?market=RTM&window=90d").json()
+    assert body["stale"] is True
+    assert body["as_of"] is None
+    assert body["rows"] == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: error contract
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_unknown_market_is_400(client):
+    use_rows([])
+    resp = client.get(f"{URL}?market=PJM&window=7d")
+    assert resp.status_code == 400
+
+
+def test_unknown_window_is_400(client):
+    use_rows([])
+    resp = client.get(f"{URL}?market=DAM&window=5d")
+    assert resp.status_code == 400
+
+
+def test_db_unavailable_is_503(client):
+    main._pool = _BoomPool()
+    resp = client.get(f"{URL}?market=DAM&window=7d")
+    assert resp.status_code == 503
+
+
+def test_trend_axis_skew_is_500(client):
+    # window=7d -> 7 buckets expected; a 3-length trend is an internal skew.
+    use_rows([
+        _row("SKEW", 5, 1.0, 0.5, _recent(1), trend=[1, 2, 3], as_of=_recent(1)),
+    ])
+    resp = client.get(f"{URL}?market=DAM&window=7d")
+    assert resp.status_code == 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: in-process cache (5-min TTL, keyed (market, window))
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_cache_serves_hit_without_touching_db(client):
+    use_rows([
+        _row("C", 9, 1.0, 0.5, _recent(1), trend=[9], as_of=_recent(1)),
+    ])
+    first = client.get(f"{URL}?market=DAM&window=1d")
+    assert first.status_code == 200
+
+    # Break the pool: a genuine second read would 503. A cache hit returns 200.
+    main._pool = _BoomPool()
+    second = client.get(f"{URL}?market=DAM&window=1d")
+    assert second.status_code == 200
+    assert second.json() == first.json()
+
+
+def test_cache_key_separates_market_and_window(client):
+    use_rows([
+        _row("C", 9, 1.0, 0.5, _recent(1), trend=[9], as_of=_recent(1)),
+    ])
+    client.get(f"{URL}?market=DAM&window=1d")  # populate (DAM,1d) only
+
+    # A different key must NOT be served from the (DAM,1d) entry.
+    main._pool = _BoomPool()
+    assert client.get(f"{URL}?market=RTM&window=1d").status_code == 503
+    assert client.get(f"{URL}?market=DAM&window=7d").status_code == 503
