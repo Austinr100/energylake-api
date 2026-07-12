@@ -3225,10 +3225,51 @@ async def atlas_pnode_history(
 # threaded, and a rare double-fill just recomputes and last-write-wins (idempotent).
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Stored market symbols for the binding-constraint tables (verified DISTINCT,
-# 2026-07-11). Query-param AND payload values; case-insensitive on the wire.
-ATLAS_CONSTRAINT_MARKETS = ("DAM", "RTM")
+# ── MARKET LABEL TRANSITION (pantry migration 072, not yet applied) ──────────
+# The lake is relabeling binding-constraint market values. TODAY the daily rollup
+# stores DAM | RTM, where 'RTM' is factually RTD-grain (5-min) data. Migration 072
+# will UPDATE market='RTM' -> 'RTD' and widen the CHECK to (DAM, RTPD, RTD); RTPD
+# (the FMM settlement lane) rows arrive later still. This endpoint is hardened to
+# straddle that relabel with ZERO downtime — it ships & deploys BEFORE 072 runs:
+#
+#   * Accepted wire tokens (case-insensitive): DAM | RTD | RTM. RTM is a
+#     DEPRECATED ALIAS that resolves to the canonical 'RTD' label. Anything else
+#     is rejected with 400, exactly as before.
+#   * The RESOLVED label is what the response echoes and the cache keys on, so an
+#     RTM request and an RTD request share one cache entry and never diverge.
+#   * The SQL is label-agnostic: RTD filters market = ANY(['RTD','RTM']) so it
+#     returns correct data BOTH before and after 072 UPDATEs the stored symbol.
+#     DAM is a single stable label, unchanged.
+#
+# Accepted wire tokens. Query-param values; case-insensitive on the wire. Note
+# these are the ACCEPTED tokens, not the stored symbols — see the resolve/db-label
+# maps below. (RTPD is intentionally NOT here yet — prepared but rejected until
+# RTPD rows exist in the lake; activation is a one-line uncomment in each map.)
+ATLAS_CONSTRAINT_MARKETS = ("DAM", "RTD", "RTM")
 _ATLAS_CONSTRAINT_MARKET_SET = frozenset(ATLAS_CONSTRAINT_MARKETS)
+
+# Wire token -> canonical (resolved) market label. RTM is the deprecated alias for
+# RTD; DAM and RTD map to themselves. The resolved label is the response echo and
+# the cache-key market component.
+_ATLAS_CONSTRAINT_MARKET_RESOLVE = {
+    "DAM": "DAM",
+    "RTD": "RTD",
+    "RTM": "RTD",   # deprecated alias -> canonical RTD
+    # "RTPD": "RTPD",   # activate with the db-label entry below when RTPD lands
+}
+
+# Resolved label -> the set of stored `market` symbols carrying its data during
+# the transition. RTD spans BOTH the new 'RTD' and the legacy 'RTM' so the query
+# is correct before AND after migration 072 (which UPDATEs 'RTM' -> 'RTD'); once
+# 072 has run the 'RTM' element is simply an empty match. DAM is a single symbol.
+_ATLAS_CONSTRAINT_DB_LABELS = {
+    "DAM": ("DAM",),
+    "RTD": ("RTD", "RTM"),
+    # RTPD is prepared, NOT exposed. Uncomment this line AND the resolve entry
+    # above AND add "RTPD" to ATLAS_CONSTRAINT_MARKETS once RTPD (FMM settlement)
+    # rows exist in the lake — the query shape is identical (single-label filter).
+    # "RTPD": ("RTPD",),
+}
 
 # Accepted look-back windows -> whole-day span. Any other value is a 400.
 ATLAS_CONSTRAINT_WINDOWS = {"1d": 1, "7d": 7, "30d": 30, "90d": 90}
@@ -3244,8 +3285,11 @@ _atlas_constraints_cache: dict[tuple[str, str], tuple[float, dict]] = {}
 
 
 def _parse_atlas_constraints_params(market: str, window: str) -> tuple[str, str, int]:
-    """Validate + normalize (market, window). Returns (market_norm, window_norm,
-    days) or raises HTTPException(400) with a terse message. Pure — unit-tested."""
+    """Validate + normalize (market, window). Returns (market_resolved,
+    window_norm, days) or raises HTTPException(400) with a terse message.
+    `market_resolved` is the CANONICAL label after alias resolution — the
+    deprecated 'RTM' wire token resolves to 'RTD' — and is what the response
+    echoes and the cache keys on. Pure — unit-tested."""
     market_norm = market.strip().upper()
     if market_norm not in _ATLAS_CONSTRAINT_MARKET_SET:
         raise HTTPException(
@@ -3255,6 +3299,7 @@ def _parse_atlas_constraints_params(market: str, window: str) -> tuple[str, str,
                 f"{list(ATLAS_CONSTRAINT_MARKETS)}."
             ),
         )
+    market_resolved = _ATLAS_CONSTRAINT_MARKET_RESOLVE[market_norm]
     window_norm = window.strip().lower()
     if window_norm not in ATLAS_CONSTRAINT_WINDOWS:
         raise HTTPException(
@@ -3264,21 +3309,27 @@ def _parse_atlas_constraints_params(market: str, window: str) -> tuple[str, str,
                 f"{list(ATLAS_CONSTRAINT_WINDOWS)}."
             ),
         )
-    return market_norm, window_norm, ATLAS_CONSTRAINT_WINDOWS[window_norm]
+    return market_resolved, window_norm, ATLAS_CONSTRAINT_WINDOWS[window_norm]
 
 
 def _build_atlas_constraints_query(
-    market_norm: str, days: int, cap: int
+    market_resolved: str, days: int, cap: int
 ) -> tuple[str, dict]:
     """Build the windowed league-table aggregation SQL + params. Pure (no DB) so
     the SQL shape and param math are unit-testable. The window is anchored on the
     market's latest trade_date; generate_series yields the full N-day trend axis
-    (0-filled, oldest->newest) so every `trend` has exactly `days` entries."""
+    (0-filled, oldest->newest) so every `trend` has exactly `days` entries.
+
+    Label-agnostic during the pantry relabel: the resolved market maps to the set
+    of stored `market` symbols carrying its data (RTD spans BOTH the new 'RTD' and
+    the legacy 'RTM' via `market = ANY(...)`), so results are correct before AND
+    after migration 072. DAM is a single stable symbol."""
+    db_labels = _ATLAS_CONSTRAINT_DB_LABELS[market_resolved]
     sql = """
         WITH bounds AS (
             SELECT MAX(trade_date) AS anchor
             FROM caiso_binding_constraints_daily
-            WHERE market = %(market)s
+            WHERE market = ANY(%(markets)s)
         ),
         win AS (
             SELECT anchor,
@@ -3295,7 +3346,7 @@ def _build_atlas_constraints_query(
                    c.intervals_binding, c.max_shadow_price, c.mean_shadow_price,
                    c.last_binding_ts
             FROM caiso_binding_constraints_daily c, win w
-            WHERE c.market = %(market)s
+            WHERE c.market = ANY(%(markets)s)
               AND c.trade_date BETWEEN w.start_date AND w.anchor
         ),
         agg AS (
@@ -3331,7 +3382,7 @@ def _build_atlas_constraints_query(
         CROSS JOIN meta m
         ORDER BY a.hours_bound DESC, a.constraint_id ASC
     """
-    params = {"market": market_norm, "days_back": days - 1, "cap": cap}
+    params = {"markets": list(db_labels), "days_back": days - 1, "cap": cap}
     return sql, params
 
 
@@ -3350,7 +3401,8 @@ async def atlas_constraints(
         description=(
             "CAISO market symbol. One of "
             f"{', '.join(ATLAS_CONSTRAINT_MARKETS)} (case-insensitive). Required; "
-            "unknown values are rejected with 400."
+            "unknown values are rejected with 400. RTM is a deprecated alias for "
+            "RTD (echoed back as RTD during the label transition)."
         ),
     ),
     window: str = Query(
@@ -3394,10 +3446,14 @@ async def atlas_constraints(
     """
     assert _pool is not None
 
-    market_norm, window_norm, days = _parse_atlas_constraints_params(market, window)
+    market_resolved, window_norm, days = _parse_atlas_constraints_params(
+        market, window
+    )
 
-    # ── Cache hit (5-min TTL, keyed (market, window)) ────────────────────────
-    key = (market_norm, window_norm)
+    # ── Cache hit (5-min TTL, keyed (resolved market, window)) ───────────────
+    # The key uses the RESOLVED label, so the deprecated 'RTM' alias and 'RTD'
+    # share one entry and can never return divergent payloads.
+    key = (market_resolved, window_norm)
     now_mono = time.monotonic()
     cached = _atlas_constraints_cache.get(key)
     if cached is not None and (now_mono - cached[0]) < _ATLAS_CONSTRAINTS_CACHE_TTL:
@@ -3405,7 +3461,7 @@ async def atlas_constraints(
         return cached[1]
 
     sql, params = _build_atlas_constraints_query(
-        market_norm, days, ATLAS_CONSTRAINT_ROW_CAP
+        market_resolved, days, ATLAS_CONSTRAINT_ROW_CAP
     )
     try:
         async with _pool.connection() as conn:
@@ -3450,7 +3506,7 @@ async def atlas_constraints(
 
     payload = {
         "as_of": _pnode_utc_iso(as_of),
-        "market": market_norm,
+        "market": market_resolved,
         "window": window_norm,
         "stale": stale,
         "rows": out_rows,
