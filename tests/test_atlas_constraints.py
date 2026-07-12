@@ -1,7 +1,9 @@
 """
 Tests for the CAISO binding-constraint blotter league table:
 
-  * GET /api/atlas/constraints?market={DAM|RTM}&window={1d|7d|30d|90d}
+  * GET /api/atlas/constraints?market={DAM|RTD|RTM}&window={1d|7d|30d|90d}
+    (RTM is a deprecated alias resolving to RTD during the pantry label
+    transition — migration 072 relabels stored market='RTM' -> 'RTD'.)
 
 Two layers, no live database required:
 
@@ -141,14 +143,34 @@ def _recent(hours_ago=1):
 def test_parse_params_defaults_and_normalization():
     # case-insensitive market, default window 7d -> 7 days.
     assert main._parse_atlas_constraints_params("dam", "7d") == ("DAM", "7d", 7)
-    assert main._parse_atlas_constraints_params(" RtM ", "1d") == ("RTM", "1d", 1)
+    # RTM is the deprecated alias -> resolves to the canonical RTD label.
+    assert main._parse_atlas_constraints_params(" RtM ", "1d") == ("RTD", "1d", 1)
+    assert main._parse_atlas_constraints_params("rtd", "1d") == ("RTD", "1d", 1)
     assert main._parse_atlas_constraints_params("DAM", "30d") == ("DAM", "30d", 30)
     assert main._parse_atlas_constraints_params("DAM", "90d") == ("DAM", "90d", 90)
+
+
+def test_parse_params_rtm_alias_resolves_to_rtd():
+    # Both the legacy alias and the canonical token resolve to 'RTD'; DAM is
+    # unchanged. The resolved label is what the response echoes / the cache keys on.
+    assert main._parse_atlas_constraints_params("RTM", "7d")[0] == "RTD"
+    assert main._parse_atlas_constraints_params("RTD", "7d")[0] == "RTD"
+    assert main._parse_atlas_constraints_params("DAM", "7d")[0] == "DAM"
 
 
 def test_parse_params_bad_market_is_400():
     with pytest.raises(HTTPException) as ei:
         main._parse_atlas_constraints_params("MISO", "7d")
+    assert ei.value.status_code == 400
+    assert "market" in ei.value.detail
+
+
+def test_parse_params_rtpd_is_400():
+    # RTPD is prepared in the lake mapping but NOT yet exposed -> rejected exactly
+    # like any invalid value until RTPD rows exist (activation is a one-line
+    # uncomment in each transition map).
+    with pytest.raises(HTTPException) as ei:
+        main._parse_atlas_constraints_params("RTPD", "7d")
     assert ei.value.status_code == 400
     assert "market" in ei.value.detail
 
@@ -167,10 +189,26 @@ def test_parse_params_bad_window_is_400():
 def test_build_query_params_math():
     _, params = main._build_atlas_constraints_query("DAM", 90, 100)
     # days_back is (days - 1): a 90-day window spans [anchor-89 .. anchor].
-    assert params == {"market": "DAM", "days_back": 89, "cap": 100}
+    assert params == {"markets": ["DAM"], "days_back": 89, "cap": 100}
 
-    _, params_1d = main._build_atlas_constraints_query("RTM", 1, 100)
+    _, params_1d = main._build_atlas_constraints_query("RTD", 1, 100)
     assert params_1d["days_back"] == 0  # 1-day window is a single day (anchor)
+
+
+def test_build_query_dual_label_for_rtd():
+    # RTD must match BOTH the new 'RTD' rows and the legacy 'RTM' rows so the
+    # endpoint is correct before AND after migration 072 UPDATEs the symbol.
+    sql, params = main._build_atlas_constraints_query("RTD", 7, 100)
+    assert "market = ANY(%(markets)s)" in sql
+    assert "%(market)s" not in sql  # no single-label predicate lingers
+    assert params["markets"] == ["RTD", "RTM"]
+
+
+def test_build_query_dam_single_label():
+    # DAM is a single stable symbol — unchanged by the transition.
+    sql, params = main._build_atlas_constraints_query("DAM", 7, 100)
+    assert "market = ANY(%(markets)s)" in sql
+    assert params["markets"] == ["DAM"]
 
 
 def test_build_query_sql_shape():
@@ -306,6 +344,13 @@ def test_unknown_market_is_400(client):
     assert resp.status_code == 400
 
 
+def test_rtpd_market_is_400(client):
+    # RTPD is prepared but NOT exposed until its rows land -> 400 like any invalid.
+    use_rows([])
+    resp = client.get(f"{URL}?market=RTPD&window=7d")
+    assert resp.status_code == 400
+
+
 def test_unknown_window_is_400(client):
     use_rows([])
     resp = client.get(f"{URL}?market=DAM&window=5d")
@@ -351,7 +396,49 @@ def test_cache_key_separates_market_and_window(client):
     ])
     client.get(f"{URL}?market=DAM&window=1d")  # populate (DAM,1d) only
 
-    # A different key must NOT be served from the (DAM,1d) entry.
+    # A different key must NOT be served from the (DAM,1d) entry. (RTM resolves to
+    # RTD, so (RTD,1d) is a distinct key from the populated (DAM,1d).)
     main._pool = _BoomPool()
     assert client.get(f"{URL}?market=RTM&window=1d").status_code == 503
     assert client.get(f"{URL}?market=DAM&window=7d").status_code == 503
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: market label transition (pantry migration 072) — RTM->RTD alias,
+# dual-label SQL, cache-key unification
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_rtm_alias_echoes_resolved_rtd_label(client):
+    use_rows([
+        _row("C", 9, 1.0, 0.5, _recent(1), trend=[9], as_of=_recent(1)),
+    ])
+    body = client.get(f"{URL}?market=RTM&window=1d").json()
+    # The deprecated alias echoes the CANONICAL resolved label, not the wire token.
+    assert body["market"] == "RTD"
+
+
+def test_endpoint_rtd_queries_both_stored_labels(client):
+    # The SQL that actually reaches the DB filters BOTH 'RTD' and 'RTM', so the
+    # blotter is correct before AND after migration 072 relabels the rows.
+    pool = use_rows([
+        _row("C", 9, 1.0, 0.5, _recent(1), trend=[9], as_of=_recent(1)),
+    ])
+    client.get(f"{URL}?market=RTM&window=1d")
+    assert pool.sink["params"]["markets"] == ["RTD", "RTM"]
+    assert "market = ANY(%(markets)s)" in pool.sink["query"]
+
+
+def test_rtm_and_rtd_share_one_cache_entry(client):
+    use_rows([
+        _row("C", 9, 1.0, 0.5, _recent(1), trend=[9], as_of=_recent(1)),
+    ])
+    first = client.get(f"{URL}?market=RTD&window=1d")
+    assert first.status_code == 200
+
+    # RTM resolves to RTD -> served from the SAME cache entry: a broken pool would
+    # 503 on a genuine read, but the cache hit returns 200 with identical bytes.
+    main._pool = _BoomPool()
+    second = client.get(f"{URL}?market=RTM&window=1d")
+    assert second.status_code == 200
+    assert second.json() == first.json()
+    assert second.json()["market"] == "RTD"
