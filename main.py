@@ -35,6 +35,7 @@ Endpoints:
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
     GET /api/atlas/pnode-history           7-day price-component history for one pnode, columnar prices-only (D-07-08)
     GET /api/atlas/constraints             CAISO binding-constraint blotter league table (DAM/RTM, windowed), cached (D-07-11)
+    GET /api/atlas/constraints/fingerprint per-node constraint fingerprint (delta/beta by pnode, geo-joined), newest-success-scoped, cached (D-07-12)
 """
 
 import os
@@ -3514,5 +3515,359 @@ async def atlas_constraints(
 
     # Populate the in-process cache and mirror the 5-min TTL on the HTTP header.
     _atlas_constraints_cache[key] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=300"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/constraints/fingerprint — per-node binding-constraint fingerprint
+# (D-07-12)
+#
+# ONE concern: the per-node "fingerprint" of a single binding constraint — for
+# one constraint_id + one variant, the nodes whose price moves most WHEN that
+# constraint binds, each with its delta/beta, sign-consistency, bound-hour count,
+# co-binding fraction, and effective map coordinates. This is the read side of
+# last night's pantry "fingerprint" build; the dashboard fingerprint lane
+# consumes it and MUST NOT ship until this endpoint is deployed on Railway.
+#
+# SOURCE (schema-read first, 2026-07-12):
+#   fingerprint_builds        build ledger — one row per build attempt
+#                             (build_id, params jsonb, source_as_of jsonb,
+#                             row_counts jsonb, status, error_message,
+#                             started_at, finished_at)
+#   constraint_fingerprints   per-node results (constraint_id, variant,
+#                             pnode_id, window_start/end, n_bound, n_unbound,
+#                             mean_when_bound/unbound, delta, beta,
+#                             sign_consistency, co_bind_frac, built_at, build_id)
+#   atlas_pnode_geo_corrected captain-verified live geo (14,417 rows, full
+#                             universe, zero null base coords, 38 editorial
+#                             corrections). Effective coords are
+#                             COALESCE(corrected_lat, latitude) /
+#                             COALESCE(corrected_lon, longitude) — the coalesce
+#                             is MANDATORY (corrections move mislocated nodes up
+#                             to ~812 km). NEVER the uncorrected atlas_pnode_geo.
+#
+# CONSUMER CONTRACT — newest-success scoping (critical): reads are ALWAYS scoped
+# to the newest fingerprint_builds row with status='success'. constraint_fingerprints
+# is NEVER read unscoped: a refused/failed build can strand orphan rows under a
+# non-success build_id, and a newer FAILED build must be ignored in favor of the
+# newest SUCCESS. The ledger row also carries source_as_of (echoed as `as_of`),
+# the build window (params.window_start/end), and row_counts (drives the honest
+# empty-reason below).
+#
+# ROUTE — query params, NOT a path segment (constraint ids carry spaces, e.g.
+# "34116_LE GRAND_115_..."):
+#   GET /api/atlas/constraints/fingerprint?constraint_id=<exact>&variant=<v>&limit=<n>
+#     constraint_id  required, exact match.
+#     variant        optional, default da_fmm; one of the four validated below.
+#     limit          optional, default 50, hard-capped (clamped) at 200.
+#   Rows ordered ABS(delta) DESC; for the beta variants, fall back to ABS(beta)
+#   when delta is null (COALESCE(ABS(delta),ABS(beta))). pnode_id breaks ties.
+#
+# EMPTY-WITH-REASON (honesty feature): a constraint with no rows in the newest
+# build for that variant still returns 200 with nodes:[] and a `reason` derived
+# from the ledger row_counts — never a bare empty array. See _atlas_fingerprint_reason.
+#
+# ADVISORY: co_bind_frac_avg is the mean co_bind_frac over the returned nodes;
+# when it exceeds 0.8 a note flags that the deltas are NOT deconfounded (bound
+# hours co-occurred with other binding constraints).
+#
+# CACHE: in-process, 5-min TTL, keyed (constraint_id, variant, limit) — mirrors
+# the blotter's cache discipline. Lock-free (single-threaded loop; a rare double
+# fill just recomputes, last-write-wins, idempotent).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Accepted fingerprint variants (exact wire tokens). Anything else -> 400.
+ATLAS_FP_VARIANTS = (
+    "da_fmm",
+    "fmm_rtd",
+    "congestion_beta_dam",
+    "congestion_beta_rtd",
+)
+_ATLAS_FP_VARIANT_SET = frozenset(ATLAS_FP_VARIANTS)
+ATLAS_FP_DEFAULT_VARIANT = "da_fmm"
+
+# The "beta" variants carry a beta column; for these, ordering falls back to
+# ABS(beta) when delta is null (COALESCE below). The others always have delta.
+_ATLAS_FP_BETA_VARIANTS = frozenset({"congestion_beta_dam", "congestion_beta_rtd"})
+
+# limit: default 50, HARD-CAPPED (clamped, not 422'd) at 200 — mirrors /api/wire.
+ATLAS_FP_DEFAULT_LIMIT = 50
+ATLAS_FP_MAX_LIMIT = 200
+
+# Advisory trips when the mean co-binding fraction over returned nodes exceeds
+# this — deltas are then confounded by co-binding constraints.
+ATLAS_FP_CO_BIND_ADVISORY_THRESHOLD = 0.8
+_ATLAS_FP_CO_BIND_NOTE = (
+    "bound hours had co-binding constraints this window; "
+    "deltas are not deconfounded"
+)
+
+# In-process response cache: (constraint_id, variant, limit) -> (stamp, payload).
+_ATLAS_FP_CACHE_TTL = 300.0  # 5 minutes
+_atlas_fingerprint_cache: dict[tuple[str, str, int], tuple[float, dict]] = {}
+
+# Newest SUCCESS build. status='success' is what enforces the consumer contract:
+# a newer FAILED build is filtered out, so this resolves to the newest build that
+# actually wrote rows — never an orphan-stranding refused build.
+_ATLAS_FP_LATEST_SUCCESS_SQL = """
+    SELECT build_id, source_as_of, row_counts, params
+    FROM fingerprint_builds
+    WHERE status = 'success'
+    ORDER BY started_at DESC, build_id DESC
+    LIMIT 1
+"""
+
+
+def _parse_atlas_fingerprint_params(
+    variant: str, limit: int
+) -> tuple[str, int]:
+    """Validate + normalize (variant, limit). Returns (variant_norm,
+    limit_clamped) or raises HTTPException(400) on an unknown variant. limit is
+    CLAMPED to [1, 200] (never rejected). Pure — unit-tested. constraint_id needs
+    no normalization (exact match, spaces significant) so it is not handled here."""
+    variant_norm = variant.strip()
+    if variant_norm not in _ATLAS_FP_VARIANT_SET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown variant '{variant}'; valid variants are "
+                f"{list(ATLAS_FP_VARIANTS)}."
+            ),
+        )
+    limit_clamped = max(1, min(int(limit), ATLAS_FP_MAX_LIMIT))
+    return variant_norm, limit_clamped
+
+
+def _build_atlas_fingerprint_nodes_query(
+    build_id: str, constraint_id: str, variant: str, limit: int
+) -> tuple[str, dict]:
+    """Build the per-node fingerprint SELECT + params. Pure (no DB) so the SQL
+    shape, geo-coalesce, and ordering are unit-testable.
+
+    Scoped to the resolved build_id (newest success) + exact constraint_id +
+    variant. LEFT JOINs atlas_pnode_geo_corrected so nodes with no geo row are
+    KEPT with null lat/lon (nulls counted, not dropped); effective coordinates are
+    COALESCE(corrected_*, base) — the captain-ratified corrections. Ordered by
+    ABS(delta) DESC; the beta variants fall back to ABS(beta) when delta is null."""
+    if variant in _ATLAS_FP_BETA_VARIANTS:
+        order_key = "COALESCE(ABS(cf.delta), ABS(cf.beta))"
+    else:
+        order_key = "ABS(cf.delta)"
+    sql = f"""
+        SELECT cf.pnode_id,
+               cf.delta, cf.beta, cf.sign_consistency, cf.n_bound, cf.co_bind_frac,
+               COALESCE(g.corrected_lat, g.latitude) AS lat,
+               COALESCE(g.corrected_lon, g.longitude) AS lon
+        FROM constraint_fingerprints cf
+        LEFT JOIN atlas_pnode_geo_corrected g ON g.pnode_id = cf.pnode_id
+        WHERE cf.build_id = %(build_id)s
+          AND cf.constraint_id = %(constraint_id)s
+          AND cf.variant = %(variant)s
+        ORDER BY {order_key} DESC NULLS LAST, cf.pnode_id ASC
+        LIMIT %(limit)s
+    """
+    params = {
+        "build_id": build_id,
+        "constraint_id": constraint_id,
+        "variant": variant,
+        "limit": limit,
+    }
+    return sql, params
+
+
+def _atlas_fingerprint_reason(row_counts, variant: str, constraint_id: str) -> dict:
+    """Derive the honest empty-reason for a constraint absent from the newest
+    build's rows for `variant`, from the ledger row_counts jsonb. Pure —
+    unit-tested. Returns {"reason": ...} plus, for insufficient_overlap, the
+    demoted constraint's bound_hours/joined_hours.
+
+    Precedence follows the contract's listed order (most constraint-specific
+    first): insufficient_overlap (demoted, with its numbers) -> below_floor ->
+    variant_degenerate (whole variant refused) -> not_in_window (the catch-all).
+    below_floor is only positively derivable if the ledger enumerates below-floor
+    ids (a list rather than the usual scalar count); otherwise such constraints
+    fall through to not_in_window, since row_counts carries no below-floor id list."""
+    rc = row_counts or {}
+    by_variant = rc.get("by_variant") or {}
+    bv = by_variant.get(variant) or {}
+
+    # insufficient_overlap: bound enough hours but too few JOINED (overlap) hours,
+    # so the build demoted it. The demoted list carries the per-constraint numbers.
+    for entry in bv.get("demoted") or []:
+        if entry.get("constraint_id") == constraint_id:
+            return {
+                "reason": "insufficient_overlap",
+                "bound_hours": entry.get("bound_hours"),
+                "joined_hours": entry.get("joined_hours"),
+            }
+
+    # below_floor: didn't bind enough hours to clear the floor. Only assertable
+    # when the ledger lists the ids (defensive — usually a scalar count only).
+    below_floor = bv.get("skipped_below_floor")
+    if isinstance(below_floor, list) and constraint_id in below_floor:
+        return {"reason": "below_floor"}
+
+    # variant_degenerate: the whole variant produced zero node rows and the build
+    # refused to write it — so every constraint in it is empty for a systemic reason.
+    if variant in (rc.get("degenerate_variants") or []) or bv.get("degenerate"):
+        return {"reason": "variant_degenerate"}
+
+    # not_in_window: the constraint simply never surfaced in this build/variant.
+    return {"reason": "not_in_window"}
+
+
+def _atlas_fingerprint_advisory(co_bind_fracs) -> dict:
+    """Advisory block from the co_bind_frac values of the returned nodes. Pure —
+    unit-tested. co_bind_frac_avg is their mean (None when no rows). When the mean
+    exceeds 0.8 a `note` warns the deltas are not deconfounded."""
+    vals = [float(v) for v in co_bind_fracs if v is not None]
+    if not vals:
+        return {"co_bind_frac_avg": None}
+    avg = sum(vals) / len(vals)
+    out = {"co_bind_frac_avg": round(avg, 6)}
+    if avg > ATLAS_FP_CO_BIND_ADVISORY_THRESHOLD:
+        out["note"] = _ATLAS_FP_CO_BIND_NOTE
+    return out
+
+
+def _atlas_fp_num(x):
+    """Numeric (Decimal/float) -> rounded float, None passes through. Coordinates
+    and metrics are emitted at 6 dp — ample for a map and stable across reads."""
+    return round(float(x), 6) if x is not None else None
+
+
+@app.get("/api/atlas/constraints/fingerprint")
+async def atlas_constraints_fingerprint(
+    response: Response,
+    constraint_id: str = Query(
+        description=(
+            "Exact CAISO constraint_id (case- and space-sensitive; ids contain "
+            "spaces, so this is a query param, not a path segment). Required."
+        ),
+    ),
+    variant: str = Query(
+        default=ATLAS_FP_DEFAULT_VARIANT,
+        description=(
+            "Fingerprint variant. One of "
+            f"{', '.join(ATLAS_FP_VARIANTS)} (default {ATLAS_FP_DEFAULT_VARIANT}). "
+            "Unknown values are rejected with 400."
+        ),
+    ),
+    limit: int = Query(
+        default=ATLAS_FP_DEFAULT_LIMIT,
+        ge=1,
+        description=(
+            f"Max nodes returned, ordered by ABS(delta) DESC. Default "
+            f"{ATLAS_FP_DEFAULT_LIMIT}; values above the hard cap of "
+            f"{ATLAS_FP_MAX_LIMIT} are clamped down to {ATLAS_FP_MAX_LIMIT}."
+        ),
+    ),
+):
+    """
+    Per-node fingerprint of one binding constraint for one variant.
+
+    Scoped to the NEWEST successful fingerprint build (a newer failed build is
+    ignored). Returns the nodes whose price moves most when the constraint binds,
+    each with delta/beta, sign-consistency, bound-hour count, co-binding fraction,
+    and effective map coordinates (captain-corrected COALESCE):
+        {
+          "constraint_id": "31336_HPLND JT_60.0_31370_CLVRDLJT_60.0_BR_1 _1",
+          "variant": "da_fmm",
+          "build_id": "fpb_20260712T151820Z_7d",
+          "window_start": "2026-07-06", "window_end": "2026-07-12",
+          "as_of": { ...source_as_of passthrough... },
+          "advisory": { "co_bind_frac_avg": 1.0,
+                        "note": "bound hours had co-binding constraints ..." },
+          "nodes": [
+            { "pnode_id": "CONTROLX_1_N003", "lat": 37.3428, "lon": -118.4719,
+              "delta": 286.271099, "beta": null, "sign_consistency": 0.526316,
+              "n_bound": 19, "co_bind_frac": 1.0 }, ...
+          ]
+        }
+
+    A constraint with no rows in the newest build for the variant still returns
+    200 with nodes:[] and an honest `reason` (below_floor | insufficient_overlap |
+    variant_degenerate | not_in_window) derived from the build ledger's row_counts.
+
+    Errors: bad variant -> 400; DB unavailable / no successful build -> 503.
+    """
+    assert _pool is not None
+
+    variant_norm, limit_clamped = _parse_atlas_fingerprint_params(variant, limit)
+
+    # ── Cache hit (5-min TTL, keyed (constraint_id, variant, clamped limit)) ──
+    key = (constraint_id, variant_norm, limit_clamped)
+    now_mono = time.monotonic()
+    cached = _atlas_fingerprint_cache.get(key)
+    if cached is not None and (now_mono - cached[0]) < _ATLAS_FP_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=300"
+        return cached[1]
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # 1) Resolve the newest SUCCESS build (ledger row: build_id +
+                #    source_as_of + row_counts + params). Scoping happens here.
+                await cur.execute(_ATLAS_FP_LATEST_SUCCESS_SQL)
+                ledger = await cur.fetchone()
+                if ledger is None:
+                    # No successful build at all -> no data universe. Fail loud.
+                    raise HTTPException(
+                        status_code=503,
+                        detail="no successful fingerprint build available.",
+                    )
+                build_id = ledger["build_id"]
+                # 2) That build's rows for (constraint_id, variant), geo-joined.
+                nodes_sql, nodes_params = _build_atlas_fingerprint_nodes_query(
+                    build_id, constraint_id, variant_norm, limit_clamped
+                )
+                await cur.execute(nodes_sql, nodes_params)
+                rows = await cur.fetchall()
+    except HTTPException:
+        raise
+    except Exception as e:
+        # DB unavailability -> 503 (house standard; see /health). Fail loud.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    params_json = ledger["params"] or {}
+    payload = {
+        "constraint_id": constraint_id,
+        "variant": variant_norm,
+        "build_id": build_id,
+        "window_start": params_json.get("window_start"),
+        "window_end": params_json.get("window_end"),
+        "as_of": ledger["source_as_of"],
+    }
+
+    if not rows:
+        # Empty-with-reason: never a bare empty array. Reason from the ledger.
+        payload["advisory"] = _atlas_fingerprint_advisory([])
+        payload["nodes"] = []
+        payload.update(
+            _atlas_fingerprint_reason(
+                ledger["row_counts"], variant_norm, constraint_id
+            )
+        )
+    else:
+        nodes = [
+            {
+                "pnode_id": r["pnode_id"],
+                "lat": _atlas_fp_num(r["lat"]),
+                "lon": _atlas_fp_num(r["lon"]),
+                "delta": _atlas_fp_num(r["delta"]),
+                "beta": _atlas_fp_num(r["beta"]),
+                "sign_consistency": _atlas_fp_num(r["sign_consistency"]),
+                "n_bound": int(r["n_bound"]) if r["n_bound"] is not None else None,
+                "co_bind_frac": _atlas_fp_num(r["co_bind_frac"]),
+            }
+            for r in rows
+        ]
+        payload["advisory"] = _atlas_fingerprint_advisory(
+            [r["co_bind_frac"] for r in rows]
+        )
+        payload["nodes"] = nodes
+
+    _atlas_fingerprint_cache[key] = (now_mono, payload)
     response.headers["Cache-Control"] = "max-age=300"
     return payload
