@@ -13,11 +13,13 @@ Two layers, no live database required:
      validation + SQL-shape + reason + advisory contract without touching Postgres.
 
   2. Endpoint tests that swap a tiny in-memory fake pool into `main._pool` (same
-     surface as the sibling atlas suites). Because this endpoint issues TWO reads
+     surface as the sibling atlas suites). Because this endpoint issues THREE reads
      on one cursor — first `fetchone()` for the newest-success ledger row, then
-     `fetchall()` for that build's node rows — the fake cursor serves the ledger
-     from fetchone and the nodes from fetchall, and records every execute() so the
-     tests can assert newest-success scoping and the limit clamp reach the DB.
+     `fetchall()` for that build's node rows, then a second `fetchone()` for the
+     constraint's ratified gazetteer landmark — the fake cursor serves the ledger
+     from the first fetchone, the nodes from fetchall, and the landmark from the
+     second fetchone, and records every execute() so the tests can assert
+     newest-success scoping and the limit clamp reach the DB.
 """
 
 import datetime
@@ -44,6 +46,7 @@ class _FakeCursor:
     def __init__(self, store, sink):
         self._store = store
         self._sink = sink
+        self._fetchone_calls = 0
 
     async def __aenter__(self):
         return self
@@ -57,7 +60,12 @@ class _FakeCursor:
         self._sink["params"] = params
 
     async def fetchone(self):
-        return self._store["ledger"]
+        # Two fetchone reads per request, in endpoint order: the first resolves
+        # the newest-success ledger row, the second the gazetteer landmark row.
+        self._fetchone_calls += 1
+        if self._fetchone_calls == 1:
+            return self._store["ledger"]
+        return self._store.get("landmark")
 
     async def fetchall(self):
         return list(self._store["nodes"])
@@ -79,8 +87,8 @@ class _FakeConn:
 
 
 class FakePool:
-    def __init__(self, ledger, nodes):
-        self._store = {"ledger": ledger, "nodes": nodes}
+    def __init__(self, ledger, nodes, landmark=None):
+        self._store = {"ledger": ledger, "nodes": nodes, "landmark": landmark}
         self.sink = {}
 
     def connection(self):
@@ -111,10 +119,23 @@ def client():
     return TestClient(main.app)
 
 
-def use(ledger, nodes):
-    pool = FakePool(ledger, nodes)
+def use(ledger, nodes, landmark=None):
+    pool = FakePool(ledger, nodes, landmark)
     main._pool = pool
     return pool
+
+
+def _landmark(name="Inyokern Export Corridor", slug="inyokern-export-corridor",
+              function_type="corridor", blurb="Owens Valley/Kern export path."):
+    """A ratified landmark row as the landmark SELECT yields it (dict_row). None
+    stands for 'constraint is in no ratified landmark' — pass landmark=None to
+    `use` for that case (the default)."""
+    return {
+        "landmark_name": name,
+        "landmark_slug": slug,
+        "landmark_function_type": function_type,
+        "landmark_blurb": blurb,
+    }
 
 
 def _ledger(build_id="fpb_20260712T151820Z_7d", *, source_as_of=None,
@@ -257,6 +278,21 @@ def test_build_nodes_query_ordering_non_beta_vs_beta():
     assert "ORDER BY COALESCE(ABS(cf.delta), ABS(cf.beta)) DESC NULLS LAST" in beta
 
 
+def test_landmark_sql_scopes_to_ratified_constraint_member():
+    sql = main._ATLAS_FP_LANDMARK_SQL
+    # Keyed on the requested constraint_id, joined members -> landmarks.
+    assert "atlas_landmark_members" in sql
+    assert "atlas_landmarks" in sql
+    assert "m.entity_id = %(constraint_id)s" in sql
+    assert "m.entity_type = 'constraint'" in sql
+    # The guard that provisional/retired landmarks NEVER surface.
+    assert "l.status = 'ratified'" in sql
+    # Carries blurb (the fingerprint landmark object includes it); LIMIT 1 guards
+    # against an accidental double-membership.
+    assert "l.blurb" in sql
+    assert "LIMIT 1" in sql
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure: empty-reason resolver
 # ═══════════════════════════════════════════════════════════════════════════
@@ -340,8 +376,10 @@ def test_happy_path_hopland(client):
 
     assert set(body) == {
         "constraint_id", "variant", "build_id", "window_start", "window_end",
-        "as_of", "advisory", "nodes",
+        "as_of", "advisory", "nodes", "landmark",
     }
+    # This fixture supplied no landmark row -> null (additive top-level field).
+    assert body["landmark"] is None
     assert body["constraint_id"] == hplnd
     assert body["variant"] == "da_fmm"
     assert body["build_id"] == "fpb_20260712T151820Z_7d"
@@ -464,6 +502,55 @@ def test_empty_with_reason_not_in_window(client):
     body = client.get(f"{URL}?constraint_id=99999_NOWHERE&variant=da_fmm").json()
     assert body["nodes"] == []
     assert body["reason"] == "not_in_window"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: gazetteer landmark (top-level, additive, nullable, carries blurb)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_named_constraint_carries_landmark_with_blurb(client):
+    # The canonical named row: 7690-CONTRL-INYOKN_EXP_NG -> Inyokern Export
+    # Corridor. Unlike the blotter, the fingerprint landmark carries `blurb`.
+    inyokn = "7690-CONTRL-INYOKN_EXP_NG"
+    use(_ledger(), [_node("N1", delta="10")], landmark=_landmark(
+        blurb="Owens Valley/Kern export path. Binds against outflow."))
+    body = client.get(f"{URL}?constraint_id={inyokn}&variant=da_fmm").json()
+    assert body["landmark"] == {
+        "name": "Inyokern Export Corridor",
+        "slug": "inyokern-export-corridor",
+        "function_type": "corridor",
+        "blurb": "Owens Valley/Kern export path. Binds against outflow.",
+    }
+
+
+def test_family_member_resolves_to_same_landmark(client):
+    # Family-sharing by design: the OMS-prefixed Inyokern member returns the SAME
+    # landmark as the 7690- member (the join keys on entity_id; both map to
+    # lmk_inyokern_corridor).
+    oms = "OMS20107865-CONTRL-INYOKN_EXP_NG"
+    use(_ledger(), [_node("N1", delta="10")], landmark=_landmark())
+    body = client.get(f"{URL}?constraint_id={oms}&variant=da_fmm").json()
+    assert body["landmark"]["name"] == "Inyokern Export Corridor"
+    assert body["landmark"]["slug"] == "inyokern-export-corridor"
+
+
+def test_unnamed_constraint_landmark_is_null(client):
+    # A constraint in no ratified landmark -> the landmark read yields no row ->
+    # top-level landmark is null (present key, null value).
+    use(_ledger(), [_node("N1", delta="10")], landmark=None)
+    body = client.get(f"{URL}?constraint_id=99999_NOWHERE&variant=da_fmm").json()
+    assert "landmark" in body
+    assert body["landmark"] is None
+
+
+def test_landmark_present_even_on_empty_with_reason(client):
+    # The landmark is build-independent: an empty-with-reason payload (no nodes)
+    # still carries the constraint's landmark.
+    use(_ledger(row_counts=_ROW_COUNTS), [], landmark=_landmark())
+    body = client.get(f"{URL}?constraint_id=99999_NOWHERE&variant=da_fmm").json()
+    assert body["nodes"] == []
+    assert body["reason"] == "not_in_window"
+    assert body["landmark"]["name"] == "Inyokern Export Corridor"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

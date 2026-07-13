@@ -3374,13 +3374,34 @@ def _build_atlas_constraints_query(
         ),
         meta AS (
             SELECT MAX(last_binding_ts) AS as_of FROM scoped
+        ),
+        -- Gazetteer name for each constraint: its RATIFIED landmark, if any.
+        -- Many raw constraint_ids share one landmark by design (the Inyokern
+        -- family is 7 rows -> one name), so this joins members -> landmarks and
+        -- keeps only status='ratified' (provisional/retired never surface). A
+        -- constraint is expected to sit in at most one ratified landmark;
+        -- DISTINCT ON guards the league-table row count against an accidental
+        -- double-membership fanning a row into two.
+        landmarks AS (
+            SELECT DISTINCT ON (lm.entity_id)
+                   lm.entity_id,
+                   l.canonical_name AS landmark_name,
+                   l.slug           AS landmark_slug,
+                   l.function_type  AS landmark_function_type
+            FROM atlas_landmark_members lm
+            JOIN atlas_landmarks l ON l.landmark_id = lm.landmark_id
+            WHERE lm.entity_type = 'constraint'
+              AND l.status = 'ratified'
+            ORDER BY lm.entity_id, l.landmark_id
         )
         SELECT a.constraint_id AS constraint,
                a.hours_bound, a.max_shadow, a.avg_shadow_when_bound,
-               a.last_bound_ts, t.trend, m.as_of
+               a.last_bound_ts, t.trend, m.as_of,
+               lk.landmark_name, lk.landmark_slug, lk.landmark_function_type
         FROM agg a
         JOIN trend t ON t.constraint_id = a.constraint_id
         CROSS JOIN meta m
+        LEFT JOIN landmarks lk ON lk.entity_id = a.constraint_id
         ORDER BY a.hours_bound DESC, a.constraint_id ASC
     """
     params = {"markets": list(db_labels), "days_back": days - 1, "cap": cap}
@@ -3431,13 +3452,17 @@ async def atlas_constraints(
               "hours_bound": 1835, "max_shadow": 553.15802,
               "avg_shadow_when_bound": 160.90376,
               "last_bound_ts": "2026-07-11T06:00:00+00:00",
-              "trend": [ ...N per-day hours_bound, oldest->newest... ] },
+              "trend": [ ...N per-day hours_bound, oldest->newest... ],
+              "landmark": { "name": "Hopland Gate", "slug": "hopland-gate",
+                            "function_type": "gate" } },   # or null
             ...
           ]
         }
 
-    Sourced from the caiso_binding_constraints_daily rollup, keyed by
-    constraint_id (constraint_name is nullable/non-unique). The window is
+    `landmark` is the constraint's ratified gazetteer landmark (many raw
+    constraint_ids share one name by design) or null if it belongs to no
+    ratified landmark. Sourced from the caiso_binding_constraints_daily rollup,
+    keyed by constraint_id (constraint_name is nullable/non-unique). The window is
     anchored on the market's latest trade_date (the rollup lags the live day),
     so `trend` always spans N real days; `stale` flags genuinely old/absent data.
     Cached in-process for 5 min per (market, window).
@@ -3490,6 +3515,18 @@ async def atlas_constraints(
             )
         max_shadow = r["max_shadow"]
         avg_shadow = r["avg_shadow_when_bound"]
+        # Gazetteer name: the constraint's ratified landmark, or null. The join
+        # already filtered to status='ratified', so a null name means "in no
+        # ratified landmark" (unnamed, provisional, or retired all land here).
+        landmark = (
+            {
+                "name": r["landmark_name"],
+                "slug": r["landmark_slug"],
+                "function_type": r["landmark_function_type"],
+            }
+            if r["landmark_name"] is not None
+            else None
+        )
         out_rows.append(
             {
                 "constraint": r["constraint"],
@@ -3502,6 +3539,7 @@ async def atlas_constraints(
                 ),
                 "last_bound_ts": _pnode_utc_iso(r["last_bound_ts"]),
                 "trend": [int(round(float(v))) for v in trend_raw],
+                "landmark": landmark,
             }
         )
 
@@ -3615,6 +3653,26 @@ _ATLAS_FP_LATEST_SUCCESS_SQL = """
     FROM fingerprint_builds
     WHERE status = 'success'
     ORDER BY started_at DESC, build_id DESC
+    LIMIT 1
+"""
+
+# Gazetteer landmark for the requested constraint_id: its RATIFIED landmark, if
+# any. Independent of the fingerprint build (landmarks are a naming layer, not a
+# per-build result), so this is a third small read keyed on constraint_id alone.
+# status='ratified' means provisional/retired never surface; LIMIT 1 (ordered by
+# landmark_id) guards against an accidental double-membership. Carries `blurb`,
+# which the blotter's per-row landmark omits.
+_ATLAS_FP_LANDMARK_SQL = """
+    SELECT l.canonical_name AS landmark_name,
+           l.slug           AS landmark_slug,
+           l.function_type  AS landmark_function_type,
+           l.blurb          AS landmark_blurb
+    FROM atlas_landmark_members m
+    JOIN atlas_landmarks l ON l.landmark_id = m.landmark_id
+    WHERE m.entity_type = 'constraint'
+      AND m.entity_id = %(constraint_id)s
+      AND l.status = 'ratified'
+    ORDER BY l.landmark_id
     LIMIT 1
 """
 
@@ -3777,6 +3835,10 @@ async def atlas_constraints_fingerprint(
           "build_id": "fpb_20260712T151820Z_7d",
           "window_start": "2026-07-06", "window_end": "2026-07-12",
           "as_of": { ...source_as_of passthrough... },
+          "landmark": { "name": "Inyokern Export Corridor",
+                        "slug": "inyokern-export-corridor",
+                        "function_type": "corridor",
+                        "blurb": "Owens Valley/Kern export path..." },  # or null
           "advisory": { "co_bind_frac_avg": 1.0,
                         "note": "bound hours had co-binding constraints ..." },
           "nodes": [
@@ -3824,6 +3886,13 @@ async def atlas_constraints_fingerprint(
                 )
                 await cur.execute(nodes_sql, nodes_params)
                 rows = await cur.fetchall()
+                # 3) The constraint's ratified gazetteer landmark, if any. Build-
+                #    independent (a naming layer), so it is read on constraint_id
+                #    alone and returned even for an empty-with-reason payload.
+                await cur.execute(
+                    _ATLAS_FP_LANDMARK_SQL, {"constraint_id": constraint_id}
+                )
+                landmark_row = await cur.fetchone()
     except HTTPException:
         raise
     except Exception as e:
@@ -3831,6 +3900,18 @@ async def atlas_constraints_fingerprint(
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
     params_json = ledger["params"] or {}
+    # Top-level landmark object (with blurb), or null if the constraint is in no
+    # ratified landmark. Unlike the blotter's per-row landmark, this carries blurb.
+    landmark = (
+        {
+            "name": landmark_row["landmark_name"],
+            "slug": landmark_row["landmark_slug"],
+            "function_type": landmark_row["landmark_function_type"],
+            "blurb": landmark_row["landmark_blurb"],
+        }
+        if landmark_row is not None
+        else None
+    )
     payload = {
         "constraint_id": constraint_id,
         "variant": variant_norm,
@@ -3838,6 +3919,7 @@ async def atlas_constraints_fingerprint(
         "window_start": params_json.get("window_start"),
         "window_end": params_json.get("window_end"),
         "as_of": ledger["source_as_of"],
+        "landmark": landmark,
     }
 
     if not rows:
