@@ -116,9 +116,12 @@ def use_rows(rows):
 
 
 def _row(constraint, hours_bound, max_shadow, avg_shadow, last_bound_ts, trend,
-         as_of):
+         as_of, landmark_name=None, landmark_slug=None,
+         landmark_function_type=None):
     """One row as the final SELECT yields it (psycopg dict_row). Numerics arrive
-    as Decimal; trend is a Python list; timestamps are tz-aware datetimes."""
+    as Decimal; trend is a Python list; timestamps are tz-aware datetimes. The
+    landmark_* columns come from the LEFT JOIN on the ratified gazetteer — all
+    null when the constraint belongs to no ratified landmark."""
     return {
         "constraint": constraint,
         "hours_bound": Decimal(str(hours_bound)),
@@ -129,6 +132,9 @@ def _row(constraint, hours_bound, max_shadow, avg_shadow, last_bound_ts, trend,
         "last_bound_ts": last_bound_ts,
         "trend": [Decimal(str(v)) for v in trend],
         "as_of": as_of,
+        "landmark_name": landmark_name,
+        "landmark_slug": landmark_slug,
+        "landmark_function_type": landmark_function_type,
     }
 
 
@@ -228,6 +234,24 @@ def test_build_query_sql_shape():
     assert "MAX(last_binding_ts) AS as_of" in sql
 
 
+def test_build_query_landmark_join():
+    # The gazetteer name rides in via a LEFT JOIN to the members/landmarks
+    # tables, filtered to ratified. This filter is the guard that provisional
+    # and retired landmarks NEVER surface on the blotter.
+    sql, _ = main._build_atlas_constraints_query("DAM", 7, 100)
+    assert "atlas_landmark_members" in sql
+    assert "atlas_landmarks" in sql
+    assert "l.status = 'ratified'" in sql            # provisional/retired excluded
+    assert "lm.entity_type = 'constraint'" in sql    # only constraint members
+    assert "LEFT JOIN landmarks" in sql              # unnamed constraints kept
+    # DISTINCT ON guards the league-table row count against double-membership.
+    assert "DISTINCT ON (lm.entity_id)" in sql
+    # The three landmark columns the endpoint shapes into the `landmark` object.
+    assert "l.canonical_name AS landmark_name" in sql
+    assert "l.slug           AS landmark_slug" in sql
+    assert "l.function_type  AS landmark_function_type" in sql
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure: stale predicate
 # ═══════════════════════════════════════════════════════════════════════════
@@ -276,7 +300,7 @@ def test_envelope_and_row_shaping(client):
     row = body["rows"][0]
     assert set(row) == {
         "constraint", "hours_bound", "max_shadow",
-        "avg_shadow_when_bound", "last_bound_ts", "trend",
+        "avg_shadow_when_bound", "last_bound_ts", "trend", "landmark",
     }
     assert row["constraint"] == "HPLND_CLVRDL"
     # hours reported as a rounded int per the contract.
@@ -286,6 +310,8 @@ def test_envelope_and_row_shaping(client):
     assert row["avg_shadow_when_bound"] == 160.90376  # rounded to 5dp
     assert row["last_bound_ts"] == last.isoformat()
     assert row["trend"] == [10]
+    # This fixture row carried no landmark columns -> null (additive field).
+    assert row["landmark"] is None
 
 
 def test_rtm_fractional_hours_round_to_int(client):
@@ -332,6 +358,58 @@ def test_empty_data_is_stale_with_no_rows(client):
     assert body["stale"] is True
     assert body["as_of"] is None
     assert body["rows"] == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: gazetteer landmark (per-row, additive, nullable)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_named_row_carries_landmark(client):
+    # The canonical named row: 7690-CONTRL-INYOKN_EXP_NG -> Inyokern Export
+    # Corridor. name/slug/function_type surface; no blurb on the blotter.
+    use_rows([
+        _row("7690-CONTRL-INYOKN_EXP_NG", 42, 5.0, 2.5, _recent(1), trend=[42],
+             as_of=_recent(1), landmark_name="Inyokern Export Corridor",
+             landmark_slug="inyokern-export-corridor",
+             landmark_function_type="corridor"),
+    ])
+    body = client.get(f"{URL}?market=RTM&window=1d").json()
+    assert body["rows"][0]["landmark"] == {
+        "name": "Inyokern Export Corridor",
+        "slug": "inyokern-export-corridor",
+        "function_type": "corridor",
+    }
+
+
+def test_unnamed_row_landmark_is_null(client):
+    # A constraint in no ratified landmark -> the LEFT JOIN yields null columns
+    # -> landmark is null (not an empty object, not a missing key).
+    use_rows([
+        _row("34724_KRN OL J_115_NOT_A_LANDMARK", 7, 1.0, 0.5, _recent(1),
+             trend=[7], as_of=_recent(1)),
+    ])
+    row = client.get(f"{URL}?market=DAM&window=1d").json()["rows"][0]
+    assert "landmark" in row
+    assert row["landmark"] is None
+
+
+def test_family_members_share_one_landmark(client):
+    # Family-sharing by design: an OMS-prefixed Inyokern member resolves to the
+    # SAME landmark as the 7690- member (many raw ids -> one name).
+    use_rows([
+        _row("7690-CONTRL-INYOKN_EXP_NG", 42, 5.0, 2.5, _recent(1), trend=[42],
+             as_of=_recent(1), landmark_name="Inyokern Export Corridor",
+             landmark_slug="inyokern-export-corridor",
+             landmark_function_type="corridor"),
+        _row("OMS20107865-CONTRL-INYOKN_EXP_NG", 30, 4.0, 2.0, _recent(1),
+             trend=[30], as_of=_recent(1),
+             landmark_name="Inyokern Export Corridor",
+             landmark_slug="inyokern-export-corridor",
+             landmark_function_type="corridor"),
+    ])
+    rows = client.get(f"{URL}?market=RTM&window=1d").json()["rows"]
+    assert rows[0]["landmark"] == rows[1]["landmark"]
+    assert rows[0]["landmark"]["name"] == "Inyokern Export Corridor"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
