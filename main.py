@@ -59,6 +59,17 @@ from pydantic import BaseModel
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
+from publication_clock import compute_status as _compute_publication_status
+
+
+def _utcnow() -> _datetime:
+    """Current instant as a tz-aware UTC datetime.
+
+    A one-line seam so the publication clock's `now` is injectable in tests
+    (monkeypatch main._utcnow) without freezing the whole process clock.
+    """
+    return _datetime.now(_timezone.utc)
+
 # ---------------------------------------------------------------------------
 # Configuration (all via environment variables — set these in Railway)
 # ---------------------------------------------------------------------------
@@ -1412,6 +1423,23 @@ def _shape_brief(r: dict) -> dict:
     }
 
 
+def _shape_brief_with_publication(r: dict) -> dict:
+    """`_shape_brief` plus the additive `publication` rider (Market Clock).
+
+    The rider hangs off a single new key so no existing field is touched; it
+    reports whether this daily edition is current / pending / overdue against
+    the publication clock. Pure shaping stays in `_shape_brief`.
+    """
+    shaped = _shape_brief(r)
+    shaped["publication"] = _compute_publication_status(
+        BRIEF_TYPE_DAILY,
+        r["brief_date"],
+        _utcnow(),
+        published_at=r["created_at"],
+    ).as_rider()
+    return shaped
+
+
 @app.get("/api/briefs/daily/latest")
 async def briefs_daily_latest():
     """
@@ -1449,7 +1477,7 @@ async def briefs_daily_latest():
             detail="no daily brief found (joule_briefs has no brief_type='daily' rows yet).",
         )
 
-    return _shape_brief(row)
+    return _shape_brief_with_publication(row)
 
 
 @app.get("/api/briefs/daily/{date}")
@@ -1488,7 +1516,7 @@ async def briefs_daily_by_date(
             detail=f"no daily brief for {date.isoformat()}.",
         )
 
-    return _shape_brief(row)
+    return _shape_brief_with_publication(row)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1568,6 +1596,11 @@ class ChartBrief(BaseModel):
     word_count: Optional[int] = None
     generated_at: Optional[str] = None
     id: Optional[int] = None
+    # Additive publication rider (Market Clock seed): {status, trade_date,
+    # published_at, next_expected_at}. Always present; unscheduled chart types
+    # (the deviations, hub) report status='unscheduled' with next_expected_at
+    # null. No existing field is touched.
+    publication: Optional[dict] = None
 
 
 # Latest row for a brief_type, newest first. NOT DISTINCT ON (see block above).
@@ -1696,12 +1729,18 @@ async def joule_chart_brief(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"query failed: {e}")
 
+    now = _utcnow()
+
     # Empty case: echo brief_type (and brief_date if one was requested),
-    # everything else null. 200, not 404.
+    # everything else null. 200, not 404. The publication rider still reports
+    # (an empty scheduled type reads pending/overdue; unscheduled reads so).
     if row is None:
         return ChartBrief(
             brief_type=brief_type,
             brief_date=brief_date.isoformat() if brief_date is not None else None,
+            publication=_compute_publication_status(
+                brief_type, brief_date, now, published_at=None
+            ).as_rider(),
         )
 
     bd = row["brief_date"]
@@ -1714,6 +1753,9 @@ async def joule_chart_brief(
         word_count=row["word_count"],
         generated_at=ca.isoformat() if ca is not None else None,
         id=row["id"],
+        publication=_compute_publication_status(
+            brief_type, bd, now, published_at=ca
+        ).as_rider(),
     )
 
 

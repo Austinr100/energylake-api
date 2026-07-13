@@ -104,7 +104,11 @@ def test_chart_brief_maps_contract(client):
         "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
     )
     assert resp.status_code == 200
-    assert resp.json() == {
+    body = resp.json()
+    # The additive publication rider rides alongside; pop it and assert the
+    # existing chart-brief contract is byte-for-byte unchanged.
+    publication = body.pop("publication")
+    assert body == {
         "brief_type": "caiso_fuel_mix_chart",
         "body": "Solar carried the midday peak while gas backfilled the evening ramp.",
         "brief_date": "2026-06-22",
@@ -113,6 +117,10 @@ def test_chart_brief_maps_contract(client):
         "generated_at": "2026-06-23T11:45:37.734038+00:00",
         "id": 18,
     }
+    # A month-old fuel-mix brief (12:00 UTC, 60m grace) is unambiguously overdue.
+    assert publication["status"] == "overdue"
+    assert publication["trade_date"] == "2026-06-22"
+    assert publication["published_at"] == "2026-06-23T11:45:37.734038+00:00"
 
 
 def test_chart_brief_latest_by_created_at_not_distinct_on(client):
