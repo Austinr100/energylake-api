@@ -117,11 +117,15 @@ def use_rows(rows):
 
 def _row(constraint, hours_bound, max_shadow, avg_shadow, last_bound_ts, trend,
          as_of, landmark_name=None, landmark_slug=None,
-         landmark_function_type=None):
+         landmark_function_type=None, geom_resolution=None, geom_line_ids=None,
+         geom_sub_id=None, geom_landmark_id=None, geom_match_method=None,
+         geom_confidence=None):
     """One row as the final SELECT yields it (psycopg dict_row). Numerics arrive
     as Decimal; trend is a Python list; timestamps are tz-aware datetimes. The
     landmark_* columns come from the LEFT JOIN on the ratified gazetteer — all
-    null when the constraint belongs to no ratified landmark."""
+    null when the constraint belongs to no ratified landmark. The geom_* columns
+    come from the LEFT JOIN on constraint_geometry_current — all null when the
+    constraint has no geometry row in the newest-success build."""
     return {
         "constraint": constraint,
         "hours_bound": Decimal(str(hours_bound)),
@@ -135,6 +139,14 @@ def _row(constraint, hours_bound, max_shadow, avg_shadow, last_bound_ts, trend,
         "landmark_name": landmark_name,
         "landmark_slug": landmark_slug,
         "landmark_function_type": landmark_function_type,
+        "geom_resolution": geom_resolution,
+        "geom_line_ids": geom_line_ids,
+        "geom_sub_id": geom_sub_id,
+        "geom_landmark_id": geom_landmark_id,
+        "geom_match_method": geom_match_method,
+        "geom_confidence": (
+            Decimal(str(geom_confidence)) if geom_confidence is not None else None
+        ),
     }
 
 
@@ -252,6 +264,19 @@ def test_build_query_landmark_join():
     assert "l.function_type  AS landmark_function_type" in sql
 
 
+def test_build_query_geometry_join():
+    # geometry_ref rides in via a LEFT JOIN to the newest-success geometry view,
+    # so a constraint with no geometry row simply carries geometry_ref: null.
+    sql, _ = main._build_atlas_constraints_query("DAM", 7, 100)
+    assert "constraint_geometry_current" in sql       # the scoped view, not raw
+    assert "LEFT JOIN geometry g" in sql              # unplaced constraints kept
+    # The geom_* columns the endpoint feeds to _atlas_geometry_ref.
+    assert "g.resolution     AS geom_resolution" in sql
+    assert "g.line_ids       AS geom_line_ids" in sql
+    assert "g.landmark_id    AS geom_landmark_id" in sql
+    assert "g.confidence     AS geom_confidence" in sql
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Pure: stale predicate
 # ═══════════════════════════════════════════════════════════════════════════
@@ -301,6 +326,7 @@ def test_envelope_and_row_shaping(client):
     assert set(row) == {
         "constraint", "hours_bound", "max_shadow",
         "avg_shadow_when_bound", "last_bound_ts", "trend", "landmark",
+        "geometry_ref",
     }
     assert row["constraint"] == "HPLND_CLVRDL"
     # hours reported as a rounded int per the contract.
@@ -312,6 +338,8 @@ def test_envelope_and_row_shaping(client):
     assert row["trend"] == [10]
     # This fixture row carried no landmark columns -> null (additive field).
     assert row["landmark"] is None
+    # No geometry columns -> geometry_ref null (additive field).
+    assert row["geometry_ref"] is None
 
 
 def test_rtm_fractional_hours_round_to_int(client):
@@ -410,6 +438,68 @@ def test_family_members_share_one_landmark(client):
     rows = client.get(f"{URL}?market=RTM&window=1d").json()["rows"]
     assert rows[0]["landmark"] == rows[1]["landmark"]
     assert rows[0]["landmark"]["name"] == "Inyokern Export Corridor"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Endpoint: geometry_ref (from the newest-success constraint-geometry build)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_row_carries_geometry_ref_line_and_landmark(client):
+    # The Hopland Gate case: a BR constraint resolved to line 306104, ALSO
+    # carrying its ratified landmark id. geometry_ref carries both the line and
+    # the landmark_id (line 306104 + landmark), per the pointer contract.
+    use_rows([
+        _row("31336_HPLND JT_60.0_31370_CLVRDLJT_60.0_BR_1 _1", 1835, 553.15802,
+             160.9037631, _recent(1), trend=[10], as_of=_recent(1),
+             landmark_name="Hopland Gate", landmark_slug="hopland-gate",
+             landmark_function_type="gate",
+             geom_resolution="line", geom_line_ids=["306104"],
+             geom_landmark_id="lmk_hopland_gate", geom_match_method="br_line",
+             geom_confidence=0.9),
+    ])
+    row = client.get(f"{URL}?market=DAM&window=1d").json()["rows"][0]
+    assert row["geometry_ref"] == {
+        "resolution": "line",
+        "line_ids": ["306104"],
+        "sub_id": None,
+        "landmark_id": "lmk_hopland_gate",
+        "confidence": 0.9,
+        "match_method": "br_line",
+    }
+    # The gazetteer `landmark` object rides alongside, unchanged.
+    assert row["landmark"]["name"] == "Hopland Gate"
+
+
+def test_row_unmatched_geometry_ref_is_null(client):
+    # An 'unmatched' geometry row -> geometry_ref null (no geometry to draw),
+    # exactly like a constraint with no geometry row at all.
+    use_rows([
+        _row("34540_HENRITTA_70.0_30881_HENRIETA_230_XF_4", 12, 3.0, 1.5,
+             _recent(1), trend=[12], as_of=_recent(1),
+             geom_resolution="unmatched"),
+    ])
+    row = client.get(f"{URL}?market=DAM&window=1d").json()["rows"][0]
+    assert row["geometry_ref"] is None
+
+
+def test_row_approx_geometry_ref_carries_sub_id(client):
+    # 'approx' IS a returned geometry (it has a substation sub_id); its low
+    # confidence is the signal the map renders it approximately.
+    use_rows([
+        _row("22008_ASH_69.0_22012_ASH TP_69.0_BR_1 _1", 40, 8.0, 4.0,
+             _recent(1), trend=[40], as_of=_recent(1),
+             geom_resolution="approx", geom_sub_id=6482,
+             geom_match_method="br_approx", geom_confidence=0.5),
+    ])
+    row = client.get(f"{URL}?market=DAM&window=1d").json()["rows"][0]
+    assert row["geometry_ref"] == {
+        "resolution": "approx",
+        "line_ids": None,
+        "sub_id": 6482,
+        "landmark_id": None,
+        "confidence": 0.5,
+        "match_method": "br_approx",
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════

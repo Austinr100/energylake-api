@@ -3286,6 +3286,40 @@ _ATLAS_CONSTRAINTS_CACHE_TTL = 300.0  # 5 minutes
 _atlas_constraints_cache: dict[tuple[str, str], tuple[float, dict]] = {}
 
 
+# Resolution families that carry USABLE map geometry: a transmission line
+# (line_ids -> atlas_tx_lines), a substation point (sub_id), or a ratified
+# gazetteer landmark (landmark_id). These are the "covered" set the coverage
+# stats count. 'approx' is a low-confidence substation guess (real sub_id, but
+# the map draws it as approximate, not fact); 'unmatched' has nothing to point at.
+ATLAS_GEOMETRY_LPL = ("line", "point", "landmark")
+
+
+def _atlas_geometry_ref(
+    resolution, line_ids, sub_id, landmark_id, confidence, match_method
+) -> Optional[dict]:
+    """Compact geometry pointer bundle for one constraint, or None when there is
+    no usable geometry. Pure — unit-tested, and shared by the blotter's per-row
+    `geometry_ref` and the geometry endpoint's rows.
+
+    Returns None when the constraint is absent from the newest geometry build
+    (`resolution` is None) OR is explicitly 'unmatched' (the resolver found
+    nothing to point at) — so `geometry_ref: null` means exactly "no geometry to
+    draw." Otherwise carries the resolution plus the pointers the map joins
+    client-side: `line_ids` -> atlas_tx_lines, `sub_id` -> a substation point,
+    `landmark_id` -> a ratified landmark. 'approx' IS returned (it carries a
+    sub_id); its `confidence` is the signal the map renders it approximately."""
+    if resolution is None or resolution == "unmatched":
+        return None
+    return {
+        "resolution": resolution,
+        "line_ids": list(line_ids) if line_ids is not None else None,
+        "sub_id": int(sub_id) if sub_id is not None else None,
+        "landmark_id": landmark_id,
+        "confidence": _atlas_fp_num(confidence),
+        "match_method": match_method,
+    }
+
+
 def _parse_atlas_constraints_params(market: str, window: str) -> tuple[str, str, int]:
     """Validate + normalize (market, window). Returns (market_resolved,
     window_norm, days) or raises HTTPException(400) with a terse message.
@@ -3394,15 +3428,31 @@ def _build_atlas_constraints_query(
             WHERE lm.entity_type = 'constraint'
               AND l.status = 'ratified'
             ORDER BY lm.entity_id, l.landmark_id
+        ),
+        -- Constraint geometry from the newest-success build (the scoped view
+        -- already unions captain overrides + newest build). LEFT-joined so a
+        -- constraint with no geometry row simply carries geometry_ref: null;
+        -- see _atlas_geometry_ref for the null / 'unmatched' collapse.
+        geometry AS (
+            SELECT constraint_id, resolution, line_ids, sub_id, landmark_id,
+                   match_method, confidence
+            FROM constraint_geometry_current
         )
         SELECT a.constraint_id AS constraint,
                a.hours_bound, a.max_shadow, a.avg_shadow_when_bound,
                a.last_bound_ts, t.trend, m.as_of,
-               lk.landmark_name, lk.landmark_slug, lk.landmark_function_type
+               lk.landmark_name, lk.landmark_slug, lk.landmark_function_type,
+               g.resolution     AS geom_resolution,
+               g.line_ids       AS geom_line_ids,
+               g.sub_id         AS geom_sub_id,
+               g.landmark_id    AS geom_landmark_id,
+               g.match_method   AS geom_match_method,
+               g.confidence     AS geom_confidence
         FROM agg a
         JOIN trend t ON t.constraint_id = a.constraint_id
         CROSS JOIN meta m
         LEFT JOIN landmarks lk ON lk.entity_id = a.constraint_id
+        LEFT JOIN geometry g ON g.constraint_id = a.constraint_id
         ORDER BY a.hours_bound DESC, a.constraint_id ASC
     """
     params = {"markets": list(db_labels), "days_back": days - 1, "cap": cap}
@@ -3455,14 +3505,21 @@ async def atlas_constraints(
               "last_bound_ts": "2026-07-11T06:00:00+00:00",
               "trend": [ ...N per-day hours_bound, oldest->newest... ],
               "landmark": { "name": "Hopland Gate", "slug": "hopland-gate",
-                            "function_type": "gate" } },   # or null
+                            "function_type": "gate" },   # or null
+              "geometry_ref": { "resolution": "line", "line_ids": ["306104"],
+                                "sub_id": null, "landmark_id": "lmk_hopland_gate",
+                                "confidence": 0.9, "match_method": "br_line" } },
             ...
           ]
         }
 
     `landmark` is the constraint's ratified gazetteer landmark (many raw
     constraint_ids share one name by design) or null if it belongs to no
-    ratified landmark. Sourced from the caiso_binding_constraints_daily rollup,
+    ratified landmark. `geometry_ref` is the constraint's map-geometry pointer
+    from the newest-success geometry build (line_ids -> atlas_tx_lines, sub_id ->
+    a substation point, landmark_id -> a ratified landmark), or null when the
+    constraint has no geometry or resolved 'unmatched'. Sourced from the
+    caiso_binding_constraints_daily rollup,
     keyed by constraint_id (constraint_name is nullable/non-unique). The window is
     anchored on the market's latest trade_date (the rollup lags the live day),
     so `trend` always spans N real days; `stale` flags genuinely old/absent data.
@@ -3541,6 +3598,16 @@ async def atlas_constraints(
                 "last_bound_ts": _pnode_utc_iso(r["last_bound_ts"]),
                 "trend": [int(round(float(v))) for v in trend_raw],
                 "landmark": landmark,
+                # Geometry pointer from the newest-success build (null when the
+                # constraint has no geometry row or resolved 'unmatched').
+                "geometry_ref": _atlas_geometry_ref(
+                    r["geom_resolution"],
+                    r["geom_line_ids"],
+                    r["geom_sub_id"],
+                    r["geom_landmark_id"],
+                    r["geom_confidence"],
+                    r["geom_match_method"],
+                ),
             }
         )
 
@@ -4264,5 +4331,307 @@ async def atlas_nodes_fingerprint(
         payload["constraints"] = constraints
 
     _atlas_node_fingerprint_cache[key] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=300"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/constraints/geometry — constraint→geometry map layer + coverage
+# (D-07-13)
+#
+# ONE concern: the read side of last night's pantry "constraint geometry" build —
+# for every binding constraint the resolver placed, WHAT to draw on the map (a
+# transmission line, a substation point, or a ratified landmark) and, at the top,
+# an honest coverage summary of how much of the blotter the geometry layer
+# actually covers, by COUNT and by congestion DOLLARS. The dashboard geometry
+# lane (PR-3, separate, gated on Railway verify) consumes it.
+#
+# SOURCE (schema-read first, 2026-07-13):
+#   constraint_geometry_builds   build ledger — one row per build attempt
+#                                (build_id, params jsonb {window_days,rule_version},
+#                                source_as_of jsonb, row_counts jsonb, status,
+#                                started_at, finished_at). NEWEST status='success'
+#                                (excluding the 'cgb_manual' override channel)
+#                                scopes reads — same contract as the fingerprint
+#                                ledger: a newer FAILED build is ignored.
+#   constraint_geometry_current  the served view — UNIONs captain manual overrides
+#                                with the newest-success build's rows. Per
+#                                constraint: resolution (line|point|landmark|
+#                                approx|unmatched), line_ids[], sub_id,
+#                                landmark_id, match_method, confidence. Reading the
+#                                VIEW (not constraint_geometry) inherits the
+#                                newest-success + override scoping for free.
+#   caiso_binding_constraints_daily  the daily rollup — supplies each constraint's
+#                                congestion-dollar weight for dollar-coverage.
+#   atlas_landmarks              ratified-landmark display (name/slug/function_type)
+#                                for a row's landmark_id.
+#
+# COVERAGE — the summary block, the whole point of the endpoint:
+#   * count_coverage_pct = (#line + #point + #landmark) / #constraints. The
+#     fraction of DISTINCT constraints the layer can place with real geometry.
+#     'approx' and 'unmatched' are NOT counted (approx is a guess, not a placement).
+#   * dollar_coverage — the same numerator/denominator but WEIGHTED by each
+#     constraint's congestion dollars, so it answers "of the money, how much can we
+#     draw?" not "of the rows." Weight = SUM(ABS(mean_shadow_price) * hours_binding)
+#     over a WINDOW = the geometry build's own params.window_days (default 30),
+#     anchored on the daily rollup's latest trade_date (the blotter's anchor
+#     convention — NOT wall-clock today; the rollup legitimately lags a day).
+#     Two tiers, because approx is cheap-but-uncertain and the desk wants both:
+#       strict_pct      = line+point+landmark dollars / all dollars
+#       with_approx_pct = (line+point+landmark+approx) dollars / all dollars
+#     Coverage-by-dollars runs FAR ahead of coverage-by-count: the constraints
+#     that bind hard (and cost most) are the well-known lines we place first.
+#
+# PER-ROW: constraint + resolution + geometry_ref (the shared pointer bundle;
+# null for 'unmatched' — carries resolution='unmatched' at the row level with
+# null geometry, so an unplaced constraint is explicit, never a silent omission) +
+# its landmark display + dollar_weight. Ordered dollar_weight DESC (the map draws
+# the costliest first), constraint_id tiebreak.
+#
+# ERRORS: DB unavailable / no successful build -> 503 (house standard; the layer
+# has no data universe without a build). A build that exists but placed nothing
+# still returns 200 with an honest zero-coverage summary and rows[].
+#
+# CACHE: in-process, 5-min TTL, single payload (no params) — mirrors the sibling
+# atlas endpoints' cache discipline; lock-free, last-write-wins, idempotent.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Default look-back for the dollar-coverage weight when the build ledger's params
+# carry no window_days. The build writes window_days=30; this is only the belt-
+# and-suspenders fallback.
+ATLAS_GEOMETRY_DEFAULT_WINDOW_DAYS = 30
+
+# In-process response cache: single payload (endpoint takes no params).
+_ATLAS_GEOMETRY_CACHE_TTL = 300.0  # 5 minutes
+_atlas_geometry_cache: dict[str, tuple[float, dict]] = {}
+
+# Newest SUCCESS geometry build, excluding the 'cgb_manual' override channel —
+# exactly the scoping constraint_geometry_current itself uses, so the ledger row
+# we read for metadata (window_days, source_as_of, build_ts) matches the build
+# whose rows the view serves. A newer FAILED build is filtered out.
+_ATLAS_GEOMETRY_LATEST_SUCCESS_SQL = """
+    SELECT build_id, source_as_of, row_counts, params, build_ts, finished_at
+    FROM constraint_geometry_builds
+    WHERE status = 'success' AND build_id <> 'cgb_manual'
+    ORDER BY started_at DESC, build_id DESC
+    LIMIT 1
+"""
+
+
+def _atlas_geometry_window_days(params) -> int:
+    """The dollar-coverage window in days: the geometry build's own
+    params.window_days, or the default fallback. Coerced to a positive int; any
+    junk falls back. Pure — unit-tested."""
+    try:
+        wd = int((params or {}).get("window_days"))
+    except (TypeError, ValueError):
+        return ATLAS_GEOMETRY_DEFAULT_WINDOW_DAYS
+    return wd if wd > 0 else ATLAS_GEOMETRY_DEFAULT_WINDOW_DAYS
+
+
+def _atlas_geometry_dollar(x) -> Optional[float]:
+    """Congestion-dollar weight (Decimal/float) -> float rounded to 2 dp; None
+    passes through. Dollars, so 2 dp — unlike the 6-dp coordinate rounding."""
+    return round(float(x), 2) if x is not None else None
+
+
+def _build_atlas_geometry_query(days_back: int) -> tuple[str, dict]:
+    """Build the geometry-layer SQL + params. Pure (no DB) so the SQL shape and
+    window math are unit-testable.
+
+    One walk of constraint_geometry_current (the newest-success + override view),
+    LEFT-joined to (a) each constraint's congestion-dollar weight over the window
+    [latest trade_date - days_back .. latest trade_date] and (b) its ratified
+    landmark display by landmark_id. dollar_weight COALESCEs to 0 for a constraint
+    that did not bind in the window (e.g. a manual override outside it). Ordered
+    dollar_weight DESC so the costliest constraints lead; constraint_id tiebreak
+    for determinism."""
+    sql = """
+        WITH anchor AS (
+            SELECT MAX(trade_date) AS a FROM caiso_binding_constraints_daily
+        ),
+        dollars AS (
+            SELECT d.constraint_id,
+                   SUM(ABS(d.mean_shadow_price) * d.hours_binding) AS dollar_weight
+            FROM caiso_binding_constraints_daily d, anchor
+            WHERE anchor.a IS NOT NULL
+              AND d.trade_date BETWEEN (anchor.a - %(days_back)s) AND anchor.a
+            GROUP BY d.constraint_id
+        )
+        SELECT g.constraint_id AS constraint,
+               g.constraint_name, g.constraint_type, g.resolution,
+               g.line_ids, g.sub_id, g.landmark_id, g.match_method, g.confidence,
+               COALESCE(dol.dollar_weight, 0) AS dollar_weight,
+               l.canonical_name AS landmark_name,
+               l.slug           AS landmark_slug,
+               l.function_type  AS landmark_function_type
+        FROM constraint_geometry_current g
+        LEFT JOIN dollars dol ON dol.constraint_id = g.constraint_id
+        LEFT JOIN atlas_landmarks l
+               ON l.landmark_id = g.landmark_id AND l.status = 'ratified'
+        ORDER BY dollar_weight DESC, g.constraint_id ASC
+    """
+    return sql, {"days_back": days_back}
+
+
+def _atlas_geometry_summary(rows, window_days: int) -> dict:
+    """Coverage summary over the served geometry rows. Pure — unit-tested.
+
+    Each row is a dict carrying `resolution` and `dollar_weight` (Decimal/float).
+    count_coverage_pct is the line+point+landmark share of DISTINCT constraints;
+    dollar_coverage weights the same numerators by congestion dollars, at two
+    tiers (strict = line+point+landmark; with_approx also folds in approx). Pcts
+    are None when their denominator is zero (no constraints / no dollars) — never
+    a divide-by-zero, never a fabricated 0.0."""
+    n = len(rows)
+    by_resolution: dict[str, int] = {}
+    for r in rows:
+        res = r["resolution"]
+        by_resolution[res] = by_resolution.get(res, 0) + 1
+
+    n_lpl = sum(by_resolution.get(k, 0) for k in ATLAS_GEOMETRY_LPL)
+
+    def _w(r):
+        w = r["dollar_weight"]
+        return float(w) if w is not None else 0.0
+
+    total_d = sum(_w(r) for r in rows)
+    lpl_d = sum(_w(r) for r in rows if r["resolution"] in ATLAS_GEOMETRY_LPL)
+    approx_d = sum(_w(r) for r in rows if r["resolution"] == "approx")
+
+    def _pct(num, den):
+        return round(100.0 * num / den, 1) if den else None
+
+    return {
+        "n_constraints": n,
+        "by_resolution": by_resolution,
+        "count_coverage_pct": _pct(n_lpl, n),
+        "dollar_coverage": {
+            "window_days": window_days,
+            "strict_pct": _pct(lpl_d, total_d),
+            "with_approx_pct": _pct(lpl_d + approx_d, total_d),
+            "total_dollar_weight": round(total_d, 2),
+        },
+    }
+
+
+@app.get("/api/atlas/constraints/geometry")
+async def atlas_constraints_geometry(response: Response):
+    """
+    Constraint→geometry map layer for the newest-success geometry build, with a
+    count- and dollar-coverage summary.
+
+    Every binding constraint the resolver placed, with WHAT to draw (line_ids ->
+    atlas_tx_lines, sub_id -> a substation point, landmark_id -> a ratified
+    landmark), plus a summary of how much of the blotter the layer covers by count
+    and by congestion dollars:
+        {
+          "build_id": "cgb_20260713T224545Z_30d",
+          "rule_version": "geom_v1",
+          "as_of": { ...source_as_of passthrough... },
+          "summary": {
+            "n_constraints": 144,
+            "by_resolution": { "line": 25, "point": 6, "landmark": 7,
+                               "approx": 67, "unmatched": 39 },
+            "count_coverage_pct": 26.4,
+            "dollar_coverage": { "window_days": 30, "strict_pct": 58.8,
+                                 "with_approx_pct": 87.7,
+                                 "total_dollar_weight": 870327.5 }
+          },
+          "rows": [
+            { "constraint": "31336_HPLND JT_60.0_31370_CLVRDLJT_60.0_BR_1 _1",
+              "constraint_name": "PG1 EGLRK-SLVR-FLTN 115_M",
+              "constraint_type": "BR", "resolution": "line",
+              "geometry_ref": { "resolution": "line", "line_ids": ["306104"],
+                                "sub_id": null, "landmark_id": "lmk_hopland_gate",
+                                "confidence": 0.9, "match_method": "br_line" },
+              "landmark": { "name": "Hopland Gate", "slug": "hopland-gate",
+                            "function_type": "gate" },
+              "dollar_weight": 30251.4 },
+            ...
+            { "constraint": "34540_HENRITTA_70.0_30881_HENRIETA_230_XF_4",
+              "constraint_name": "Base Case", "constraint_type": "XF",
+              "resolution": "unmatched", "geometry_ref": null,
+              "landmark": null, "dollar_weight": 812.0 },
+            ...
+          ]
+        }
+
+    An 'unmatched' constraint carries resolution='unmatched' at the row level with
+    geometry_ref: null (explicit, never a silent omission). Coverage runs ahead by
+    dollars (the costliest constraints are the well-known lines placed first).
+    Reads are scoped to the newest successful build; cached in-process for 5 min.
+
+    Errors: DB unavailable / no successful build -> 503. A build that placed
+    nothing still returns 200 with a zero-coverage summary and rows:[].
+    """
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    cached = _atlas_geometry_cache.get("payload")
+    if cached is not None and (now_mono - cached[0]) < _ATLAS_GEOMETRY_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=300"
+        return cached[1]
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # 1) Newest-success build ledger (metadata + the dollar window).
+                await cur.execute(_ATLAS_GEOMETRY_LATEST_SUCCESS_SQL)
+                ledger = await cur.fetchone()
+                if ledger is None:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="no successful constraint-geometry build available.",
+                    )
+                params_json = ledger["params"] or {}
+                window_days = _atlas_geometry_window_days(params_json)
+                # 2) The served view's rows, dollar-weighted + landmark-joined.
+                sql, sql_params = _build_atlas_geometry_query(window_days - 1)
+                await cur.execute(sql, sql_params)
+                rows = await cur.fetchall()
+    except HTTPException:
+        raise
+    except Exception as e:
+        # DB unavailability -> 503 (house standard; see /health). Fail loud.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    out_rows = [
+        {
+            "constraint": r["constraint"],
+            "constraint_name": r["constraint_name"],
+            "constraint_type": r["constraint_type"],
+            "resolution": r["resolution"],
+            "geometry_ref": _atlas_geometry_ref(
+                r["resolution"],
+                r["line_ids"],
+                r["sub_id"],
+                r["landmark_id"],
+                r["confidence"],
+                r["match_method"],
+            ),
+            "landmark": (
+                {
+                    "name": r["landmark_name"],
+                    "slug": r["landmark_slug"],
+                    "function_type": r["landmark_function_type"],
+                }
+                if r["landmark_name"] is not None
+                else None
+            ),
+            "dollar_weight": _atlas_geometry_dollar(r["dollar_weight"]),
+        }
+        for r in rows
+    ]
+
+    payload = {
+        "build_id": ledger["build_id"],
+        "rule_version": params_json.get("rule_version"),
+        "as_of": ledger["source_as_of"],
+        "summary": _atlas_geometry_summary(rows, window_days),
+        "rows": out_rows,
+    }
+
+    _atlas_geometry_cache["payload"] = (now_mono, payload)
     response.headers["Cache-Control"] = "max-age=300"
     return payload
