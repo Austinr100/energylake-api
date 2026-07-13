@@ -113,6 +113,9 @@ def test_briefs_latest_shape(client):
     resp = client.get("/api/briefs/daily/latest")
     assert resp.status_code == 200
     body = resp.json()
+    # The additive publication rider (Market Clock) rides alongside; pop it and
+    # assert the existing contract is byte-for-byte unchanged.
+    publication = body.pop("publication")
     assert body == {
         "brief_date": "2026-06-10",
         "headline": "Grid tightens into summer",
@@ -121,6 +124,12 @@ def test_briefs_latest_shape(client):
         "voice_version": "v3",
         "created_at": "2026-06-10T13:00:00+00:00",
     }
+    # A month-old brief is unambiguously overdue for the daily (05:00 UTC, 60m
+    # grace) type; trade_date/published_at echo the brief in hand.
+    assert publication["status"] == "overdue"
+    assert publication["trade_date"] == "2026-06-10"
+    assert publication["published_at"] == "2026-06-10T13:00:00+00:00"
+    assert "T05:00" in publication["next_expected_at"]
 
 
 # ---------------------------------------------------------------------------
