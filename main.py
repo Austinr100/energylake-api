@@ -36,6 +36,7 @@ Endpoints:
     GET /api/atlas/pnode-history           7-day price-component history for one pnode, columnar prices-only (D-07-08)
     GET /api/atlas/constraints             CAISO binding-constraint blotter league table (DAM/RTM, windowed), cached (D-07-11)
     GET /api/atlas/constraints/fingerprint per-node constraint fingerprint (delta/beta by pnode, geo-joined), newest-success-scoped, cached (D-07-12)
+    GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
 """
 
 import os
@@ -3951,5 +3952,317 @@ async def atlas_constraints_fingerprint(
         payload["nodes"] = nodes
 
     _atlas_fingerprint_cache[key] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=300"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/atlas/nodes/fingerprint — inverse fingerprint: constraints by pnode
+# (D-07-12)
+#
+# ONE concern: the INVERSE of /api/atlas/constraints/fingerprint. That endpoint
+# fixes a constraint and ranks the nodes it moves; this fixes a PNODE and ranks
+# the constraints whose binding moves it. Desk motivation: a trader watching a
+# node crater on the DART layer asks "which constraint is doing this?" — until
+# now there was no lookup in that direction. Same underlying table
+# (constraint_fingerprints), same newest-success build scoping, read the other
+# way round (WHERE pnode_id = param, rows ARE constraints).
+#
+# SOURCE (identical to the forward endpoint's, read the transposed axis):
+#   fingerprint_builds        build ledger — newest status='success' scopes reads
+#   constraint_fingerprints   per (constraint_id, pnode_id, variant) result rows;
+#                             here filtered to one pnode_id, one variant
+#   atlas_pnode_geo_corrected pnode universe (14,417 rows) — consulted ONLY to
+#                             tell "unknown pnode" from "known pnode, no rows in
+#                             this build" in the empty case (no geo is emitted:
+#                             the caller already holds the node it tapped).
+#   atlas_landmark_members /  gazetteer — each returned CONSTRAINT carries its
+#   atlas_landmarks           ratified landmark (name/slug/function_type), joined
+#                             per-row via the blotter's DISTINCT ON shape (NOT the
+#                             forward endpoint's single top-level landmark: there
+#                             the constraint is the subject; here the constraints
+#                             are the rows, so the landmark rides each row and
+#                             omits `blurb`, exactly like the blotter's).
+#
+# NEWEST-SUCCESS SCOPING: identical contract to the forward endpoint — reads are
+# ALWAYS scoped to the newest fingerprint_builds row with status='success' (a
+# newer FAILED build is ignored; constraint_fingerprints is never read unscoped).
+# Reuses _ATLAS_FP_LATEST_SUCCESS_SQL and the shared variant set.
+#
+# ROUTE — query params (pnode ids are plain tokens, but mirror the forward
+# endpoint's param style, not a path segment):
+#   GET /api/atlas/nodes/fingerprint?pnode_id=<exact>&variant=<v>&limit=<n>
+#     pnode_id  required, exact match.
+#     variant   optional, default da_fmm; one of the shared four (400 otherwise).
+#     limit     optional, default 20, hard-capped (clamped) at 50 — a node's
+#               binding-constraint list is short; this is not the forward
+#               endpoint's 50/200 (a constraint fans out to many nodes).
+#   Rows ordered ABS(delta) DESC; beta variants fall back to ABS(beta) when delta
+#   is null (COALESCE). constraint_id breaks ties.
+#
+# EMPTY handling: nodes are not demoted individually the way constraints are, so
+# the ledger row_counts reason machinery does NOT apply. Two honest static
+# reasons suffice, disambiguated by a single existence probe against
+# atlas_pnode_geo_corrected: `unknown_pnode` (the id is in no geo row at all) vs
+# `node_not_in_build` (a real node, just no constraint moved it in this build).
+#
+# ADVISORY: reuses _atlas_fingerprint_advisory over the returned rows'
+# co_bind_frac — same computation, read as "were these constraints' bound hours
+# confounded by co-binding" for this one node.
+#
+# CACHE: in-process, 5-min TTL, keyed (pnode_id, variant, limit) — its own dict,
+# same discipline as the forward endpoint's.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# limit: default 20, HARD-CAPPED (clamped, not 422'd) at 50. Smaller than the
+# forward endpoint's 50/200: a single node is moved by only a handful of
+# constraints, whereas one constraint fans out across many nodes.
+ATLAS_NODE_FP_DEFAULT_LIMIT = 20
+ATLAS_NODE_FP_MAX_LIMIT = 50
+
+# In-process response cache: (pnode_id, variant, limit) -> (stamp, payload).
+_atlas_node_fingerprint_cache: dict[tuple[str, str, int], tuple[float, dict]] = {}
+
+# Does this pnode_id exist in the corrected geo universe at all? Drives the
+# empty-case reason (unknown_pnode vs node_not_in_build). Existence only — no
+# coordinates are emitted by this endpoint.
+_ATLAS_NODE_FP_PNODE_EXISTS_SQL = """
+    SELECT 1
+    FROM atlas_pnode_geo_corrected
+    WHERE pnode_id = %(pnode_id)s
+    LIMIT 1
+"""
+
+
+def _parse_atlas_node_fingerprint_params(
+    variant: str, limit: int
+) -> tuple[str, int]:
+    """Validate + normalize (variant, limit) for the inverse endpoint. Returns
+    (variant_norm, limit_clamped) or raises HTTPException(400) on an unknown
+    variant. Shares the forward endpoint's variant set; limit is CLAMPED to
+    [1, 50] (never rejected). Pure — unit-tested. pnode_id needs no normalization
+    (exact match) so it is not handled here."""
+    variant_norm = variant.strip()
+    if variant_norm not in _ATLAS_FP_VARIANT_SET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown variant '{variant}'; valid variants are "
+                f"{list(ATLAS_FP_VARIANTS)}."
+            ),
+        )
+    limit_clamped = max(1, min(int(limit), ATLAS_NODE_FP_MAX_LIMIT))
+    return variant_norm, limit_clamped
+
+
+def _build_atlas_node_fingerprint_constraints_query(
+    build_id: str, pnode_id: str, variant: str, limit: int
+) -> tuple[str, dict]:
+    """Build the per-constraint SELECT + params for one pnode. Pure (no DB) so the
+    SQL shape, gazetteer join, and ordering are unit-testable.
+
+    Scoped to the resolved build_id (newest success) + exact pnode_id + variant.
+    Each constraint row LEFT JOINs its ratified gazetteer landmark via the
+    blotter's DISTINCT ON (entity_id) shape — a constraint sits in at most one
+    ratified landmark, and DISTINCT ON guards the row count against an accidental
+    double-membership fanning a constraint into two rows. Ordered by ABS(delta)
+    DESC; the beta variants fall back to ABS(beta) when delta is null."""
+    if variant in _ATLAS_FP_BETA_VARIANTS:
+        order_key = "COALESCE(ABS(cf.delta), ABS(cf.beta))"
+    else:
+        order_key = "ABS(cf.delta)"
+    sql = f"""
+        WITH landmarks AS (
+            SELECT DISTINCT ON (lm.entity_id)
+                   lm.entity_id,
+                   l.canonical_name AS landmark_name,
+                   l.slug           AS landmark_slug,
+                   l.function_type  AS landmark_function_type
+            FROM atlas_landmark_members lm
+            JOIN atlas_landmarks l ON l.landmark_id = lm.landmark_id
+            WHERE lm.entity_type = 'constraint'
+              AND l.status = 'ratified'
+            ORDER BY lm.entity_id, l.landmark_id
+        )
+        SELECT cf.constraint_id,
+               cf.delta, cf.beta, cf.sign_consistency, cf.n_bound, cf.co_bind_frac,
+               lk.landmark_name, lk.landmark_slug, lk.landmark_function_type
+        FROM constraint_fingerprints cf
+        LEFT JOIN landmarks lk ON lk.entity_id = cf.constraint_id
+        WHERE cf.build_id = %(build_id)s
+          AND cf.pnode_id = %(pnode_id)s
+          AND cf.variant = %(variant)s
+        ORDER BY {order_key} DESC NULLS LAST, cf.constraint_id ASC
+        LIMIT %(limit)s
+    """
+    params = {
+        "build_id": build_id,
+        "pnode_id": pnode_id,
+        "variant": variant,
+        "limit": limit,
+    }
+    return sql, params
+
+
+@app.get("/api/atlas/nodes/fingerprint")
+async def atlas_nodes_fingerprint(
+    response: Response,
+    pnode_id: str = Query(
+        description=(
+            "Exact CAISO pnode_id (case-sensitive). Required. The node whose "
+            "binding constraints you want ranked."
+        ),
+    ),
+    variant: str = Query(
+        default=ATLAS_FP_DEFAULT_VARIANT,
+        description=(
+            "Fingerprint variant. One of "
+            f"{', '.join(ATLAS_FP_VARIANTS)} (default {ATLAS_FP_DEFAULT_VARIANT}). "
+            "Unknown values are rejected with 400."
+        ),
+    ),
+    limit: int = Query(
+        default=ATLAS_NODE_FP_DEFAULT_LIMIT,
+        ge=1,
+        description=(
+            f"Max constraints returned, ordered by ABS(delta) DESC. Default "
+            f"{ATLAS_NODE_FP_DEFAULT_LIMIT}; values above the hard cap of "
+            f"{ATLAS_NODE_FP_MAX_LIMIT} are clamped down to {ATLAS_NODE_FP_MAX_LIMIT}."
+        ),
+    ),
+):
+    """
+    Inverse fingerprint: the constraints whose binding moves one pnode most.
+
+    The mirror image of /api/atlas/constraints/fingerprint — fix a node, rank the
+    constraints (not the other way round). Scoped to the NEWEST successful
+    fingerprint build (a newer failed build is ignored). Each constraint carries
+    its delta/beta, sign-consistency, bound-hour count, co-binding fraction, and
+    its ratified gazetteer landmark (per-row, no blurb — the blotter's shape):
+        {
+          "pnode_id": "CONTROL_7_N022",
+          "variant": "da_fmm",
+          "build_id": "fpb_20260712T151820Z_7d",
+          "window_start": "2026-07-06", "window_end": "2026-07-12",
+          "as_of": { ...source_as_of passthrough... },
+          "advisory": { "co_bind_frac_avg": 1.0,
+                        "note": "bound hours had co-binding constraints ..." },
+          "constraints": [
+            { "constraint_id": "7690-CONTRL-INYOKN_EXP_NG",
+              "landmark": { "name": "Inyokern Export Corridor",
+                            "slug": "inyokern-export-corridor",
+                            "function_type": "corridor" },   # or null
+              "delta": -286.271099, "beta": null,
+              "sign_consistency": 0.526316, "n_bound": 19,
+              "co_bind_frac": 1.0 }, ...
+          ]
+        }
+
+    A pnode with no rows in the newest build still returns 200 with
+    constraints:[] and an honest static `reason`: `unknown_pnode` (the id is in
+    no corrected-geo row at all) or `node_not_in_build` (a real node, but no
+    constraint moved it in this build). Nodes are not demoted individually, so the
+    forward endpoint's ledger-reason machinery does not apply here.
+
+    Errors: bad variant -> 400; DB unavailable / no successful build -> 503.
+    """
+    assert _pool is not None
+
+    variant_norm, limit_clamped = _parse_atlas_node_fingerprint_params(
+        variant, limit
+    )
+
+    # ── Cache hit (5-min TTL, keyed (pnode_id, variant, clamped limit)) ──
+    key = (pnode_id, variant_norm, limit_clamped)
+    now_mono = time.monotonic()
+    cached = _atlas_node_fingerprint_cache.get(key)
+    if cached is not None and (now_mono - cached[0]) < _ATLAS_FP_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=300"
+        return cached[1]
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # 1) Resolve the newest SUCCESS build (shared ledger SQL). Scoping
+                #    happens here — a newer FAILED build is filtered out.
+                await cur.execute(_ATLAS_FP_LATEST_SUCCESS_SQL)
+                ledger = await cur.fetchone()
+                if ledger is None:
+                    # No successful build at all -> no data universe. Fail loud.
+                    raise HTTPException(
+                        status_code=503,
+                        detail="no successful fingerprint build available.",
+                    )
+                build_id = ledger["build_id"]
+                # 2) That build's constraint rows for (pnode_id, variant), each
+                #    gazetteer-joined to its ratified landmark.
+                rows_sql, rows_params = (
+                    _build_atlas_node_fingerprint_constraints_query(
+                        build_id, pnode_id, variant_norm, limit_clamped
+                    )
+                )
+                await cur.execute(rows_sql, rows_params)
+                rows = await cur.fetchall()
+                # 3) ONLY when empty: probe geo to tell unknown_pnode from
+                #    node_not_in_build. A real node moved by nothing this build is
+                #    a legitimate 200 with node_not_in_build; a typo'd id is
+                #    unknown_pnode. No extra read on the hot (non-empty) path.
+                pnode_exists = None
+                if not rows:
+                    await cur.execute(
+                        _ATLAS_NODE_FP_PNODE_EXISTS_SQL, {"pnode_id": pnode_id}
+                    )
+                    pnode_exists = await cur.fetchone() is not None
+    except HTTPException:
+        raise
+    except Exception as e:
+        # DB unavailability -> 503 (house standard; see /health). Fail loud.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    params_json = ledger["params"] or {}
+    payload = {
+        "pnode_id": pnode_id,
+        "variant": variant_norm,
+        "build_id": build_id,
+        "window_start": params_json.get("window_start"),
+        "window_end": params_json.get("window_end"),
+        "as_of": ledger["source_as_of"],
+    }
+
+    if not rows:
+        # Empty: never a bare empty array. One honest static reason, chosen by the
+        # geo existence probe (nodes aren't demoted, so no ledger reason applies).
+        payload["advisory"] = _atlas_fingerprint_advisory([])
+        payload["constraints"] = []
+        payload["reason"] = (
+            "node_not_in_build" if pnode_exists else "unknown_pnode"
+        )
+    else:
+        constraints = [
+            {
+                "constraint_id": r["constraint_id"],
+                "landmark": (
+                    {
+                        "name": r["landmark_name"],
+                        "slug": r["landmark_slug"],
+                        "function_type": r["landmark_function_type"],
+                    }
+                    if r["landmark_name"] is not None
+                    else None
+                ),
+                "delta": _atlas_fp_num(r["delta"]),
+                "beta": _atlas_fp_num(r["beta"]),
+                "sign_consistency": _atlas_fp_num(r["sign_consistency"]),
+                "n_bound": int(r["n_bound"]) if r["n_bound"] is not None else None,
+                "co_bind_frac": _atlas_fp_num(r["co_bind_frac"]),
+            }
+            for r in rows
+        ]
+        payload["advisory"] = _atlas_fingerprint_advisory(
+            [r["co_bind_frac"] for r in rows]
+        )
+        payload["constraints"] = constraints
+
+    _atlas_node_fingerprint_cache[key] = (now_mono, payload)
     response.headers["Cache-Control"] = "max-age=300"
     return payload
