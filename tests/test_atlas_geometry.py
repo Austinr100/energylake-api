@@ -115,8 +115,24 @@ def use(ledger, rows):
     return pool
 
 
+# The real column set of constraint_geometry_builds (Neon schema truth). The
+# builds ledger carries started_at/finished_at, NOT build_ts (that column is on
+# constraint_geometry rows). The endpoint's ledger SELECT must not reach for a
+# column outside this set — a prior revision selected `build_ts`, which does not
+# exist here, and 503'd the whole endpoint against the live schema.
+CONSTRAINT_GEOMETRY_BUILDS_COLUMNS = frozenset({
+    "build_id", "params", "source_as_of", "row_counts", "status",
+    "error_message", "started_at", "finished_at",
+})
+
+
 def _ledger(build_id="cgb_20260713T224545Z_30d", window_days=30,
             rule_version="geom_v1", source_as_of=None):
+    # This fake ledger row mirrors the *real* schema shape: it exposes only the
+    # columns the endpoint's SELECT actually returns. It deliberately does NOT
+    # carry a phantom `build_ts` key — that masking is exactly what let the
+    # missing-column bug ship, since the fake pool returns whatever keys the row
+    # holds. If the handler ever reaches for build_ts again, it KeyErrors here.
     return {
         "build_id": build_id,
         "source_as_of": source_as_of or {
@@ -124,8 +140,6 @@ def _ledger(build_id="cgb_20260713T224545Z_30d", window_days=30,
         },
         "row_counts": {"n_written": 144},
         "params": {"window_days": window_days, "rule_version": rule_version},
-        "build_ts": datetime.datetime(2026, 7, 13, 22, 45, 48, tzinfo=UTC),
-        "finished_at": datetime.datetime(2026, 7, 13, 22, 45, 48, tzinfo=UTC),
     }
 
 
@@ -319,6 +333,28 @@ def test_latest_success_sql_scoping():
     assert "LIMIT 1" in sql
 
 
+def test_latest_success_sql_selects_only_real_columns():
+    """The ledger SELECT must reference only columns that exist on
+    constraint_geometry_builds. This is the guard the missing-column 503 slipped
+    past: `build_ts` is on constraint_geometry rows, NOT the builds ledger, and
+    selecting it 503'd the endpoint against the live schema.
+
+    We parse the SELECT list out of the constant and assert each name is a real
+    column — a source-level check that a phantom column can never ship again.
+    """
+    sql = main._ATLAS_GEOMETRY_LATEST_SUCCESS_SQL
+    select_clause = sql.upper().split("SELECT", 1)[1].split("FROM", 1)[0]
+    cols = [c.strip().lower() for c in select_clause.split(",")]
+    assert cols, "SELECT list did not parse"
+    for col in cols:
+        assert col in CONSTRAINT_GEOMETRY_BUILDS_COLUMNS, (
+            f"ledger SELECT references '{col}', which is not a real "
+            f"constraint_geometry_builds column"
+        )
+    # And specifically the column that caused the live 503 is gone.
+    assert "build_ts" not in sql
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Endpoint: envelope + row shaping
 # ═══════════════════════════════════════════════════════════════════════════
@@ -362,6 +398,29 @@ def test_envelope_and_row_shaping(client):
         "name": "Hopland Gate", "slug": "hopland-gate", "function_type": "gate",
     }
     assert hopland["dollar_weight"] == 30251.4
+
+
+def test_full_handler_runs_with_live_schema_ledger_row(client):
+    """Regression (live 503: column "build_ts" does not exist).
+
+    Drive the WHOLE handler chain — ledger read -> window resolve -> rows read
+    -> shaping -> payload — with a ledger row that carries ONLY the real
+    constraint_geometry_builds columns (see _ledger / CONSTRAINT_GEOMETRY_BUILDS_
+    COLUMNS). Prior tests handed the fake pool a row with a phantom `build_ts`
+    key, so the handler's `ledger["build_ts"]` never faulted; against the real
+    schema the SELECT itself failed and the endpoint 503'd. With the SELECT
+    trimmed to real columns, the full chain returns 200 and never touches
+    build_ts.
+    """
+    pool = use(_ledger(), [_grow("A", "line", 10, line_ids=["1"], match_method="br_line", confidence=0.9)])
+    resp = client.get(URL)
+    assert resp.status_code == 200
+    # The ledger SELECT that actually reached the DB references no build_ts.
+    ledger_execute = pool.sink["calls"][0]["query"]
+    assert "build_ts" not in ledger_execute
+    assert "constraint_geometry_builds" in ledger_execute
+    # Payload contract intact (still the locked 5 keys).
+    assert set(resp.json()) == {"build_id", "rule_version", "as_of", "summary", "rows"}
 
 
 def test_unmatched_row_carries_resolution_and_null_geometry(client):
