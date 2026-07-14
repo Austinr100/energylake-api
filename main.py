@@ -51,7 +51,7 @@ from enum import Enum
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, HTTPException, Path, Query, Response
+from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -1602,6 +1602,11 @@ class ChartBrief(BaseModel):
     brief_type: str
     body: Optional[str] = None
     brief_date: Optional[str] = None
+    # The resolved brief_key (hub slug) this response was served for. Echoed so a
+    # consumer can verify WHICH partition it got — for a keyed type this is the
+    # explicit/defaulted hub (e.g. 'TH_NP15'); null for a non-keyed brief_type
+    # (which has no partition). Without this echo the served hub was invisible.
+    brief_key: Optional[str] = None
     voice_version: Optional[str] = None
     word_count: Optional[int] = None
     generated_at: Optional[str] = None
@@ -1649,9 +1654,19 @@ _CHART_BRIEF_ORDER = """
     LIMIT 1
 """
 
+# The complete set of query params this route accepts. Anything else is a 400,
+# not a silent no-op: a silently-ignored selector is exactly how the D-07-13-20
+# null bug hid — the empty-key default swallowed every request that meant to pick
+# a hub. `brief_key` is the canonical selector name (matches the column); `key`
+# is kept as a working alias.
+_CHART_BRIEF_ALLOWED_PARAMS = frozenset(
+    {"brief_type", "brief_date", "brief_key", "key"}
+)
+
 
 @app.get("/api/joule/chart-brief", response_model=ChartBrief)
 async def joule_chart_brief(
+    request: Request,
     brief_type: str = Query(
         ...,
         description="Chart-brief discriminator (a chart-commentary type in the "
@@ -1665,14 +1680,19 @@ async def joule_chart_brief(
         "day's brief. Omitted -> latest brief by created_at. Malformed dates "
         "are rejected with 422.",
     ),
+    brief_key: Optional[str] = Query(
+        None,
+        description="Canonical selector for one partition of a keyed brief_type "
+        "(currently only 'caiso_hub_lmp', keyed by hub slug: 'TH_NP15', "
+        "'TH_SP15', 'TH_ZP26'). For keyed types it defaults to the primary hub "
+        "('TH_SP15' for caiso_hub_lmp) when omitted; an unrecognized value is "
+        "rejected with 404 (no empty-key fallback). Ignored for every non-keyed "
+        "brief_type.",
+    ),
     key: Optional[str] = Query(
         None,
-        description="Optional brief_key selecting one partition of a keyed "
-        "brief_type (currently only 'caiso_hub_lmp', keyed by hub slug: "
-        "'TH_NP15', 'TH_SP15', 'TH_ZP26'). For keyed types the param defaults "
-        "to the primary hub ('TH_SP15' for caiso_hub_lmp) when omitted; an "
-        "unrecognized key is rejected with 404 (no empty-key fallback). Ignored "
-        "for every non-keyed brief_type.",
+        description="Deprecated alias for `brief_key` (kept working). Passing "
+        "both is allowed only when they agree; a mismatch is a 400.",
     ),
 ):
     """
@@ -1683,28 +1703,58 @@ async def joule_chart_brief(
     - brief_date provided -> the brief for (brief_type, brief_date); if several
       rows match, the latest created_at wins.
     - Unknown brief_type (not in the allowlist) -> 400.
+    - Unknown query parameter (a name outside _CHART_BRIEF_ALLOWED_PARAMS, e.g. a
+      misspelled selector) -> 400. A silently-ignored param is how D-07-13-20
+      stayed invisible, so this route fails loud instead of swallowing it.
     - Malformed brief_date -> 422 (FastAPI validates the `date` type for free).
-    - For a keyed brief_type (CHART_BRIEF_KEYS, e.g. caiso_hub_lmp) the `key`
-      param selects one hub partition (brief_key); an unrecognized key -> 404
-      (NOT an empty-key fallback). Omitting `key` resolves to the type's primary
-      hub (CHART_BRIEF_DEFAULT_KEY, TH_SP15 for caiso_hub_lmp) — never '', which
-      matched no stored row and returned body=null. For non-keyed types `key` is
+    - For a keyed brief_type (CHART_BRIEF_KEYS, e.g. caiso_hub_lmp) `brief_key`
+      (or its alias `key`) selects one hub partition; an unrecognized value -> 404
+      (NOT an empty-key fallback). Omitting it resolves to the type's primary hub
+      (CHART_BRIEF_DEFAULT_KEY, TH_SP15 for caiso_hub_lmp) — never '', which
+      matched no stored row and returned body=null. Passing both `brief_key` and
+      `key` with different values -> 400. For non-keyed types the selector is
       ignored and the query is byte-identical to before.
-    - No brief for that brief_type[/key][/brief_date] -> 200 with body=null (NOT
-      404), echoing brief_type and brief_date, so the dashboard degrades quietly.
+    - The resolved brief_key is echoed in the response (null for non-keyed types),
+      so a consumer can verify which hub it was served.
+    - No brief for that brief_type[/brief_key][/brief_date] -> 200 with body=null
+      (NOT 404), echoing brief_type/brief_key/brief_date, so the dashboard
+      degrades quietly.
 
     Response shape (the contract the dashboard binds to):
         {
-          "brief_type": "caiso_fuel_mix_chart",
+          "brief_type": "caiso_hub_lmp",
           "body": "...content_md...",
-          "brief_date": "2026-06-22",
-          "voice_version": "v2.1",
-          "word_count": 71,
-          "generated_at": "2026-06-23T11:45:37.734038+00:00",
-          "id": 18
+          "brief_date": "2026-07-13",
+          "brief_key": "TH_NP15",
+          "voice_version": "v1.5",
+          "word_count": 186,
+          "generated_at": "2026-07-13T17:32:47.950000+00:00",
+          "id": 469
         }
     """
     assert _pool is not None
+
+    # Fail loud on any param outside the allowlist (400), so a misspelled or
+    # unsupported selector can never be silently ignored. Runs before the
+    # brief_type membership check so an unknown param 400s regardless of type.
+    unknown_params = set(request.query_params.keys()) - _CHART_BRIEF_ALLOWED_PARAMS
+    if unknown_params:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown query parameter(s): {sorted(unknown_params)}. "
+            f"Allowed: {sorted(_CHART_BRIEF_ALLOWED_PARAMS)}.",
+        )
+
+    # `brief_key` is canonical; `key` is a working alias. Fold them to one
+    # selector: if both are given they must agree (else 400 — the request is
+    # ambiguous about which hub it wants).
+    if brief_key is not None and key is not None and brief_key != key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"conflicting selectors: brief_key='{brief_key}' != "
+            f"key='{key}'. Pass one (brief_key is canonical) or matching values.",
+        )
+    selector = brief_key if brief_key is not None else key
 
     if brief_type not in CHART_BRIEF_TYPES:
         raise HTTPException(
@@ -1716,23 +1766,26 @@ async def joule_chart_brief(
     query = _CHART_BRIEF_SELECT
     params = {"brief_type": brief_type}
 
-    # Keyed brief_type (only caiso_hub_lmp today): validate + resolve brief_key.
-    # A provided-but-unknown key is a 404 — never a silent fall-through. Absent
-    # key resolves to the type's primary partition (CHART_BRIEF_DEFAULT_KEY), NOT
-    # '': every hub brief is stored under a hub slug, so the empty-string default
-    # matched zero rows and returned body=null (the D-07-13-20 bug). resolved_key
-    # is None for non-keyed types, which skip this block, so their SQL/params and
-    # their brief_type-level publication clock are byte-for-byte unchanged.
+    # Keyed brief_type (only caiso_hub_lmp today): validate + resolve brief_key
+    # from the folded `selector` (brief_key/key). A provided-but-unknown value is
+    # a 404 — never a silent fall-through. Absent selector resolves to the type's
+    # primary partition (CHART_BRIEF_DEFAULT_KEY), NOT '': every hub brief is
+    # stored under a hub slug, so the empty-string default matched zero rows and
+    # returned body=null (the D-07-13-20 bug). resolved_key is None for non-keyed
+    # types, which skip this block, so their SQL/params and their brief_type-level
+    # publication clock are byte-for-byte unchanged.
     resolved_key = None
     valid_keys = CHART_BRIEF_KEYS.get(brief_type)
     if valid_keys is not None:
-        if key is not None and key not in valid_keys:
+        if selector is not None and selector not in valid_keys:
             raise HTTPException(
                 status_code=404,
-                detail=f"unknown key '{key}' for brief_type '{brief_type}'. "
-                f"Valid keys: {sorted(valid_keys)}.",
+                detail=f"unknown brief_key '{selector}' for brief_type "
+                f"'{brief_type}'. Valid keys: {sorted(valid_keys)}.",
             )
-        resolved_key = key if key is not None else CHART_BRIEF_DEFAULT_KEY[brief_type]
+        resolved_key = (
+            selector if selector is not None else CHART_BRIEF_DEFAULT_KEY[brief_type]
+        )
         query += _CHART_BRIEF_KEY_FILTER
         params["brief_key"] = resolved_key
 
@@ -1758,6 +1811,7 @@ async def joule_chart_brief(
         return ChartBrief(
             brief_type=brief_type,
             brief_date=brief_date.isoformat() if brief_date is not None else None,
+            brief_key=resolved_key,
             publication=_compute_publication_status(
                 brief_type, brief_date, now, published_at=None, brief_key=resolved_key
             ).as_rider(),
@@ -1769,6 +1823,7 @@ async def joule_chart_brief(
         brief_type=row["brief_type"],
         body=row["content_md"],
         brief_date=bd.isoformat() if bd is not None else None,
+        brief_key=resolved_key,
         voice_version=row["voice_version"],
         word_count=row["word_count"],
         generated_at=ca.isoformat() if ca is not None else None,
