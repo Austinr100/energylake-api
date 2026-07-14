@@ -4449,10 +4449,18 @@ _atlas_geometry_cache: dict[str, tuple[float, dict]] = {}
 
 # Newest SUCCESS geometry build, excluding the 'cgb_manual' override channel —
 # exactly the scoping constraint_geometry_current itself uses, so the ledger row
-# we read for metadata (window_days, source_as_of, build_ts) matches the build
+# we read for metadata (window_days from params, source_as_of) matches the build
 # whose rows the view serves. A newer FAILED build is filtered out.
+#
+# Columns mirror the fingerprint sibling's ledger read exactly: build_id,
+# source_as_of, row_counts, params — the only columns the payload consumes.
+# (An earlier revision also selected `build_ts`, which does NOT exist on
+# constraint_geometry_builds — that column lives on constraint_geometry rows —
+# so the whole endpoint 503'd on "column build_ts does not exist". The builds
+# ledger carries started_at/finished_at, not build_ts; neither is served, so
+# both are left out rather than selected-and-ignored.)
 _ATLAS_GEOMETRY_LATEST_SUCCESS_SQL = """
-    SELECT build_id, source_as_of, row_counts, params, build_ts, finished_at
+    SELECT build_id, source_as_of, row_counts, params
     FROM constraint_geometry_builds
     WHERE status = 'success' AND build_id <> 'cgb_manual'
     ORDER BY started_at DESC, build_id DESC
