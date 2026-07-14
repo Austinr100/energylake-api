@@ -125,12 +125,51 @@ def test_unknown_type_never_raises():
     assert st.next_expected_at is None
 
 
-def test_hub_lmp_unscheduled_pending_retime():
-    # TODO(D-07-13-11): hub is unscheduled until the cron retime lands.
+# ---------------------------------------------------------------------------
+# caiso_hub_lmp is now scheduled (D-07-13-11): expected 10:23 UTC, grace 60m,
+# offset 0 (brief_date = run_date — hub briefs write today's date, not prior).
+# Same coverage the other scheduled types carry: current / pending / overdue,
+# and the strict grace boundary (expected+59 = pending, expected+61 = overdue).
+# ---------------------------------------------------------------------------
+
+def test_hub_lmp_current_when_brief_covers_todays_run_date():
+    # After the 10:23 run, offset 0 means today's trade date is the run date.
     st = pc.compute_status(
-        "caiso_hub_lmp", datetime.date(2026, 7, 12), _dt(2026, 7, 13, 6, 0)
+        "caiso_hub_lmp", datetime.date(2026, 7, 13), _dt(2026, 7, 13, 11, 0)
     )
-    assert st.status == pc.UNSCHEDULED
+    assert st.status == pc.CURRENT
+    assert st.trade_date == "2026-07-13"
+    assert st.next_expected_at == "2026-07-14T10:23:00+00:00"
+
+
+def test_hub_lmp_pending_within_grace():
+    # now = 11:22 (expected 10:23 + 59m): today's edition due, grace not lapsed.
+    st = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 12), _dt(2026, 7, 13, 11, 22)
+    )
+    assert st.status == pc.PENDING
+
+
+def test_hub_lmp_overdue_after_grace():
+    # now = 11:24 (expected 10:23 + 61m): today's edition missing, grace lapsed.
+    st = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 12), _dt(2026, 7, 13, 11, 24)
+    )
+    assert st.status == pc.OVERDUE
+
+
+@pytest.mark.parametrize(
+    "minutes, expected",
+    [
+        (59, pc.PENDING),
+        (60, pc.OVERDUE),
+        (61, pc.OVERDUE),
+    ],
+)
+def test_hub_lmp_grace_boundary_is_strict(minutes, expected):
+    now = _dt(2026, 7, 13, 10, 23) + datetime.timedelta(minutes=minutes)
+    st = pc.compute_status("caiso_hub_lmp", datetime.date(2026, 7, 12), now)
+    assert st.status == expected
 
 
 # ---------------------------------------------------------------------------
