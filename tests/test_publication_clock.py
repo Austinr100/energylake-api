@@ -173,6 +173,63 @@ def test_hub_lmp_grace_boundary_is_strict(minutes, expected):
 
 
 # ---------------------------------------------------------------------------
+# Per-brief_key resolution (D-07-13-20, concern 2). caiso_hub_lmp is three
+# artifacts (one per hub slug), not one: the clock resolves the cadence per
+# (brief_type, brief_key), so a hub with its own schedule is classified
+# independently. Absent a per-key override, brief_key falls back to the
+# brief_type-level entry — so passing brief_key never changes today's behavior.
+# ---------------------------------------------------------------------------
+
+def test_brief_key_without_override_falls_back_to_type_schedule():
+    # No SCHEDULE_BY_KEY override for TH_SP15 -> identical to omitting brief_key.
+    now = _dt(2026, 7, 13, 11, 0)
+    with_key = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 13), now, brief_key="TH_SP15"
+    )
+    without = pc.compute_status("caiso_hub_lmp", datetime.date(2026, 7, 13), now)
+    assert with_key.status == without.status == pc.CURRENT
+    assert with_key.next_expected_at == without.next_expected_at
+
+
+def test_schedule_by_key_override_clocks_hub_independently(monkeypatch):
+    # An override makes one hub tick on its own clock: at now=11:00 the shared
+    # 10:23 cadence has already flipped to today (07-13 due), so a 07-12 brief is
+    # PENDING — while a hub expecting 20:00 is still on yesterday's run, so the
+    # same 07-12 brief reads CURRENT. Same inputs, different hub -> different state.
+    monkeypatch.setitem(
+        pc.SCHEDULE_BY_KEY,
+        ("caiso_hub_lmp", "TH_ZP26"),
+        pc.ScheduleEntry(datetime.time(20, 0), 60, 0),
+    )
+    now = _dt(2026, 7, 13, 11, 0)
+    sp15 = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 12), now, brief_key="TH_SP15"
+    )
+    zp26 = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 12), now, brief_key="TH_ZP26"
+    )
+    assert sp15.status == pc.PENDING
+    assert zp26.status == pc.CURRENT
+    assert zp26.next_expected_at == "2026-07-13T20:00:00+00:00"
+
+
+def test_schedule_by_key_override_can_unschedule_one_hub(monkeypatch):
+    # A None override deliberately unschedules a single hub without touching the
+    # type-level cadence the other hubs still ride.
+    monkeypatch.setitem(pc.SCHEDULE_BY_KEY, ("caiso_hub_lmp", "TH_NP15"), None)
+    now = _dt(2026, 7, 13, 11, 0)
+    np15 = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 13), now, brief_key="TH_NP15"
+    )
+    sp15 = pc.compute_status(
+        "caiso_hub_lmp", datetime.date(2026, 7, 13), now, brief_key="TH_SP15"
+    )
+    assert np15.status == pc.UNSCHEDULED
+    assert np15.next_expected_at is None
+    assert sp15.status == pc.CURRENT
+
+
+# ---------------------------------------------------------------------------
 # Clock fields: before/after expected flips both the current trade date and the
 # next_expected_at, and an edition published ahead of schedule reads current.
 # ---------------------------------------------------------------------------
@@ -363,6 +420,25 @@ def test_chart_brief_unscheduled_type_rider(client, frozen_now):
     pub = resp.json()["publication"]
     assert pub["status"] == "unscheduled"
     assert pub["next_expected_at"] is None
+
+
+def test_chart_brief_hub_rider_computed_for_returned_hub(client, frozen_now):
+    # A keyed hub request carries a rider clocked from that hub's own row against
+    # the caiso_hub_lmp cadence (expected 10:23, offset 0). The SP15 07-13 brief,
+    # seen at 11:00, is current with tomorrow's 10:23 as the next run.
+    frozen_now(_dt(2026, 7, 13, 11, 0))
+    row = _chart_row("caiso_hub_lmp", datetime.date(2026, 7, 13), _dt(2026, 7, 13, 10, 30))
+    row["id"] = 463
+    use_rows([row])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "key": "TH_SP15"},
+    )
+    assert resp.status_code == 200
+    pub = resp.json()["publication"]
+    assert pub["status"] == "current"
+    assert pub["trade_date"] == "2026-07-13"
+    assert pub["next_expected_at"] == "2026-07-14T10:23:00+00:00"
 
 
 def test_chart_brief_empty_still_carries_rider(client, frozen_now):

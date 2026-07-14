@@ -1579,6 +1579,16 @@ CHART_BRIEF_KEYS = {
     "caiso_hub_lmp": frozenset({"TH_NP15", "TH_SP15", "TH_ZP26"}),
 }
 
+# Default brief_key for a keyed brief_type when `?key` is omitted. A keyed type
+# stores NO brief_key='' row — every partition is a real hub slug — so the older
+# empty-string default matched zero rows and returned body=null on a bare
+# ?brief_type=caiso_hub_lmp (the D-07-13-20 lookup bug). The bare route now
+# resolves to the type's primary partition: TH_SP15 (SP15, the CAISO reference /
+# flagship trading hub) for caiso_hub_lmp. An explicit ?key still selects any hub.
+CHART_BRIEF_DEFAULT_KEY = {
+    "caiso_hub_lmp": "TH_SP15",
+}
+
 
 class ChartBrief(BaseModel):
     """
@@ -1620,9 +1630,11 @@ _CHART_BRIEF_SELECT = """
 """
 
 # Optional narrowing to one brief_key (hub slug). Spliced in ONLY for keyed
-# brief types (CHART_BRIEF_KEYS); absent-key defaults the bound param to '' so a
-# keyed type without ?key resolves deterministically (no cross-key latest-row
-# bleed). Non-keyed types never carry this clause, so their query is unchanged.
+# brief types (CHART_BRIEF_KEYS); absent-key defaults the bound param to the
+# type's primary hub (CHART_BRIEF_DEFAULT_KEY) so a keyed type without ?key
+# resolves to a real, populated partition (no cross-key latest-row bleed, and no
+# empty-string partition that matches nothing). Non-keyed types never carry this
+# clause, so their query is unchanged.
 _CHART_BRIEF_KEY_FILTER = "      AND brief_key = %(brief_key)s\n"
 
 # Optional narrowing to one calendar date. A later `snapshot` param (intraday
@@ -1658,8 +1670,9 @@ async def joule_chart_brief(
         description="Optional brief_key selecting one partition of a keyed "
         "brief_type (currently only 'caiso_hub_lmp', keyed by hub slug: "
         "'TH_NP15', 'TH_SP15', 'TH_ZP26'). For keyed types the param defaults "
-        "to '' when omitted; an unrecognized key is rejected with 404 (no "
-        "empty-key fallback). Ignored for every non-keyed brief_type.",
+        "to the primary hub ('TH_SP15' for caiso_hub_lmp) when omitted; an "
+        "unrecognized key is rejected with 404 (no empty-key fallback). Ignored "
+        "for every non-keyed brief_type.",
     ),
 ):
     """
@@ -1673,8 +1686,10 @@ async def joule_chart_brief(
     - Malformed brief_date -> 422 (FastAPI validates the `date` type for free).
     - For a keyed brief_type (CHART_BRIEF_KEYS, e.g. caiso_hub_lmp) the `key`
       param selects one hub partition (brief_key); an unrecognized key -> 404
-      (NOT an empty-key fallback). Omitting `key` resolves brief_key = ''. For
-      non-keyed types `key` is ignored and the query is byte-identical to before.
+      (NOT an empty-key fallback). Omitting `key` resolves to the type's primary
+      hub (CHART_BRIEF_DEFAULT_KEY, TH_SP15 for caiso_hub_lmp) — never '', which
+      matched no stored row and returned body=null. For non-keyed types `key` is
+      ignored and the query is byte-identical to before.
     - No brief for that brief_type[/key][/brief_date] -> 200 with body=null (NOT
       404), echoing brief_type and brief_date, so the dashboard degrades quietly.
 
@@ -1701,10 +1716,14 @@ async def joule_chart_brief(
     query = _CHART_BRIEF_SELECT
     params = {"brief_type": brief_type}
 
-    # Keyed brief_type (only caiso_hub_lmp today): validate + pin brief_key.
-    # A provided-but-unknown key is a 404 — never a silent fall-through to the
-    # '' partition. Absent key -> brief_key = '' (deterministic empty for hubs).
-    # Non-keyed types skip this block entirely, so their SQL/params are unchanged.
+    # Keyed brief_type (only caiso_hub_lmp today): validate + resolve brief_key.
+    # A provided-but-unknown key is a 404 — never a silent fall-through. Absent
+    # key resolves to the type's primary partition (CHART_BRIEF_DEFAULT_KEY), NOT
+    # '': every hub brief is stored under a hub slug, so the empty-string default
+    # matched zero rows and returned body=null (the D-07-13-20 bug). resolved_key
+    # is None for non-keyed types, which skip this block, so their SQL/params and
+    # their brief_type-level publication clock are byte-for-byte unchanged.
+    resolved_key = None
     valid_keys = CHART_BRIEF_KEYS.get(brief_type)
     if valid_keys is not None:
         if key is not None and key not in valid_keys:
@@ -1713,8 +1732,9 @@ async def joule_chart_brief(
                 detail=f"unknown key '{key}' for brief_type '{brief_type}'. "
                 f"Valid keys: {sorted(valid_keys)}.",
             )
+        resolved_key = key if key is not None else CHART_BRIEF_DEFAULT_KEY[brief_type]
         query += _CHART_BRIEF_KEY_FILTER
-        params["brief_key"] = key if key is not None else ""
+        params["brief_key"] = resolved_key
 
     if brief_date is not None:
         query += _CHART_BRIEF_DATE_FILTER
@@ -1739,7 +1759,7 @@ async def joule_chart_brief(
             brief_type=brief_type,
             brief_date=brief_date.isoformat() if brief_date is not None else None,
             publication=_compute_publication_status(
-                brief_type, brief_date, now, published_at=None
+                brief_type, brief_date, now, published_at=None, brief_key=resolved_key
             ).as_rider(),
         )
 
@@ -1754,7 +1774,7 @@ async def joule_chart_brief(
         generated_at=ca.isoformat() if ca is not None else None,
         id=row["id"],
         publication=_compute_publication_status(
-            brief_type, bd, now, published_at=ca
+            brief_type, bd, now, published_at=ca, brief_key=resolved_key
         ).as_rider(),
     )
 
