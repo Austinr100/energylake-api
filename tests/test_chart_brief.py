@@ -347,11 +347,13 @@ def test_chart_brief_absent_date_unchanged_no_date_filter(client):
 
 
 # ---------------------------------------------------------------------------
-# Optional `key` param (cc_spec 2026-07-06). The caiso_hub_lmp chart-brief type
-# partitions its briefs by brief_key (one row per hub slug). `key` selects the
-# hub; it is validated against the closed slug set (unknown -> 404) and defaults
-# the bound brief_key param to '' when omitted. Every non-keyed brief_type
-# ignores `key` and keeps its exact prior SQL/params — byte-identical behavior.
+# Optional `key` param (cc_spec 2026-07-06; default-hub fix D-07-13-20). The
+# caiso_hub_lmp chart-brief type partitions its briefs by brief_key (one row per
+# hub slug). `key` selects the hub; it is validated against the closed slug set
+# (unknown -> 404) and defaults the bound brief_key param to the type's primary
+# hub (TH_SP15) when omitted — NOT '', which matched no stored row and returned
+# body=null. Every non-keyed brief_type ignores `key` and keeps its exact prior
+# SQL/params — byte-identical behavior.
 # ---------------------------------------------------------------------------
 
 HUB_KEYS = ["TH_NP15", "TH_SP15", "TH_ZP26"]
@@ -368,6 +370,13 @@ def _hub_row(key="TH_SP15"):
 def test_hub_lmp_admitted_to_allowlist():
     assert "caiso_hub_lmp" in main.CHART_BRIEF_TYPES
     assert set(main.CHART_BRIEF_KEYS["caiso_hub_lmp"]) == set(HUB_KEYS)
+
+
+def test_hub_lmp_default_key_is_primary_hub():
+    # The bare-route default partition. TH_SP15 is a valid hub, and picking it
+    # (not '') is what makes ?brief_type=caiso_hub_lmp return a real row.
+    assert main.CHART_BRIEF_DEFAULT_KEY["caiso_hub_lmp"] == "TH_SP15"
+    assert main.CHART_BRIEF_DEFAULT_KEY["caiso_hub_lmp"] in main.CHART_BRIEF_KEYS["caiso_hub_lmp"]
 
 
 def test_chart_brief_absent_key_on_existing_type_is_byte_identical(client):
@@ -409,17 +418,37 @@ def test_chart_brief_hub_with_key_filters_brief_key(client, key):
     assert pool.sink["params"] == {"brief_type": "caiso_hub_lmp", "brief_key": key}
 
 
-def test_chart_brief_hub_absent_key_defaults_to_empty(client):
-    # Keyed type WITHOUT ?key: brief_key is pinned to '' (deterministic empty),
-    # never left off so the latest row of any hub bleeds through.
+def test_chart_brief_hub_absent_key_defaults_to_primary_hub(client):
+    # Keyed type WITHOUT ?key: brief_key resolves to the type's primary hub
+    # (TH_SP15), never '' — the empty string matched no stored row and was the
+    # D-07-13-20 body=null bug. A bare ?brief_type=caiso_hub_lmp now serves the
+    # SP15 partition (the reference receipt: id 463, TH_SP15).
+    pool = use_rows([_hub_row("TH_SP15")])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_hub_lmp"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == 42
+    assert "AND brief_key = %(brief_key)s" in pool.sink["query"]
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_hub_lmp",
+        "brief_key": "TH_SP15",
+    }
+
+
+def test_chart_brief_hub_absent_key_empty_is_200_null_default_partition(client):
+    # Default partition with no stored row still degrades to 200/null (never a
+    # 404), and the bound brief_key is the primary hub, not ''.
     pool = use_rows([])
     resp = client.get(
         "/api/joule/chart-brief", params={"brief_type": "caiso_hub_lmp"}
     )
     assert resp.status_code == 200
     assert resp.json()["body"] is None
-    assert "AND brief_key = %(brief_key)s" in pool.sink["query"]
-    assert pool.sink["params"] == {"brief_type": "caiso_hub_lmp", "brief_key": ""}
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_hub_lmp",
+        "brief_key": "TH_SP15",
+    }
 
 
 def test_chart_brief_hub_unknown_key_is_404_not_empty_fallback(client):

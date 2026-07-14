@@ -28,6 +28,18 @@ Schedule map (locked 2026-07-13 from 14-day joule_briefs receipts):
 
 Any brief_type absent from the map is treated as unscheduled — compute_status
 never raises on an unknown type.
+
+Per-brief_key resolution:
+    A keyed brief_type (one that partitions its briefs by brief_key, e.g.
+    caiso_hub_lmp with one row per trading hub) is THREE artifacts, not one, and
+    each hub's freshness is clocked independently from its own latest row.
+    compute_status takes an optional `brief_key`; the cadence resolves through
+    SCHEDULE_BY_KEY[(brief_type, brief_key)] first, falling back to the
+    brief_type-level SCHEDULE entry. Today all three CAISO hubs are written by a
+    single cron in sequence and share the type-level cadence, so SCHEDULE_BY_KEY
+    is empty — but the resolver is keyed by (brief_type, brief_key), so the clock
+    computes per hub and a hub that later drifts onto its own schedule is a
+    one-line data change, not a code change.
 """
 
 from __future__ import annotations
@@ -85,6 +97,38 @@ SCHEDULE: dict[str, Optional[ScheduleEntry]] = {
 }
 
 
+# Per-(brief_type, brief_key) schedule overrides. A keyed brief_type resolves its
+# cadence here first (so it is clocked per brief_key), falling back to the
+# brief_type-level SCHEDULE entry when no override exists. A None value here means
+# that specific hub is deliberately unscheduled, distinct from a missing key.
+#
+# Empty today: the three CAISO hubs (TH_NP15 / TH_SP15 / TH_ZP26) are written by
+# one cron in sequence and share caiso_hub_lmp's type-level cadence, so no hub
+# needs its own row. The map exists so the clock computes per brief_key rather
+# than treating caiso_hub_lmp as a single artifact — a hub that later moves onto
+# its own clock is added here, no code change.
+SCHEDULE_BY_KEY: dict[tuple[str, str], Optional[ScheduleEntry]] = {}
+
+# Sentinel: distinguishes "no override for this (type, key)" from an override
+# whose value is None (deliberately unscheduled). Cannot use None for the miss.
+_NO_OVERRIDE = object()
+
+
+def _schedule_for(brief_type: str, brief_key: Optional[str]) -> Optional[ScheduleEntry]:
+    """Resolve the ScheduleEntry for a (brief_type, brief_key) pair.
+
+    A per-key override in SCHEDULE_BY_KEY wins so a keyed type is clocked per
+    brief_key; absent one (or when brief_key is None) the brief_type-level
+    SCHEDULE entry applies. Either level may be None (deliberately unscheduled);
+    both a None entry and an absent key resolve to UNSCHEDULED downstream.
+    """
+    if brief_key is not None:
+        entry = SCHEDULE_BY_KEY.get((brief_type, brief_key), _NO_OVERRIDE)
+        if entry is not _NO_OVERRIDE:
+            return entry  # type: ignore[return-value]
+    return SCHEDULE.get(brief_type)
+
+
 @dataclass(frozen=True)
 class PublicationStatus:
     """The publication rider — an additive block on a brief response.
@@ -140,17 +184,23 @@ def compute_status(
     brief_date: Optional[_date],
     now: _datetime,
     published_at: Optional[_datetime] = None,
+    brief_key: Optional[str] = None,
 ) -> PublicationStatus:
     """Classify the freshness of the brief in hand against the schedule.
 
     Pure: `now` is injected, no I/O. `now` must be a tz-aware UTC datetime.
+
+    `brief_key` clocks a keyed brief_type (e.g. caiso_hub_lmp) per partition:
+    the cadence resolves through SCHEDULE_BY_KEY[(brief_type, brief_key)] first,
+    then the brief_type-level SCHEDULE. None (the default) clocks at the
+    brief_type level exactly as before, so every existing caller is unchanged.
 
     * Unscheduled/unknown type -> UNSCHEDULED (never raises).
     * brief_date >= today's trade date -> CURRENT (covers the "published early"
       case too — an edition at or ahead of the expected date is current).
     * Otherwise behind: PENDING while now < expected + grace, else OVERDUE.
     """
-    entry = SCHEDULE.get(brief_type)
+    entry = _schedule_for(brief_type, brief_key)
     if entry is None:
         return PublicationStatus(
             status=UNSCHEDULED,
