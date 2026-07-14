@@ -112,6 +112,8 @@ def test_chart_brief_maps_contract(client):
         "brief_type": "caiso_fuel_mix_chart",
         "body": "Solar carried the midday peak while gas backfilled the evening ramp.",
         "brief_date": "2026-06-22",
+        # A non-keyed type has no partition, so brief_key echoes null.
+        "brief_key": None,
         "voice_version": "v2.1",
         "word_count": 71,
         "generated_at": "2026-06-23T11:45:37.734038+00:00",
@@ -503,8 +505,129 @@ def test_chart_brief_hub_valid_key_missing_date_is_200_null(client):
     assert body["body"] is None
     assert body["brief_type"] == "caiso_hub_lmp"
     assert body["brief_date"] == "2026-07-05"
+    # Even on the empty case the resolved hub is echoed, so a consumer knows
+    # which partition came back empty.
+    assert body["brief_key"] == "TH_ZP26"
     assert pool.sink["params"] == {
         "brief_type": "caiso_hub_lmp",
         "brief_key": "TH_ZP26",
         "brief_date": datetime.date(2026, 7, 5),
     }
+
+
+# ---------------------------------------------------------------------------
+# Param contract (D-07-13-20 follow-up): brief_key is the canonical selector
+# name (key is a kept alias), the resolved hub is echoed in the body, and an
+# unknown query param 400s instead of being silently ignored.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("param_name", ["brief_key", "key"])
+def test_chart_brief_selector_accepts_both_spellings(client, param_name):
+    # Canonical brief_key and its alias key resolve to the SAME row and bind the
+    # same brief_key param — both spellings are first-class.
+    pool = use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", param_name: "TH_NP15"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == 42
+    assert pool.sink["params"] == {
+        "brief_type": "caiso_hub_lmp",
+        "brief_key": "TH_NP15",
+    }
+
+
+@pytest.mark.parametrize("param_name", ["brief_key", "key"])
+def test_chart_brief_echoes_resolved_brief_key(client, param_name):
+    # The served hub is echoed in the response so a consumer can verify it.
+    use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", param_name: "TH_NP15"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["brief_key"] == "TH_NP15"
+
+
+def test_chart_brief_echoes_defaulted_brief_key(client):
+    # No selector -> the primary-hub default is echoed, not left blank.
+    use_rows([_hub_row("TH_SP15")])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_hub_lmp"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["brief_key"] == "TH_SP15"
+
+
+def test_chart_brief_non_keyed_type_echoes_null_brief_key(client):
+    # A non-keyed type has no partition, so brief_key echoes null.
+    use_rows([_fuel_mix_row()])
+    resp = client.get(
+        "/api/joule/chart-brief", params={"brief_type": "caiso_fuel_mix_chart"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["brief_key"] is None
+
+
+def test_chart_brief_both_spellings_agree_ok(client):
+    # brief_key and key may both be present when they agree.
+    pool = use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "brief_key": "TH_NP15", "key": "TH_NP15"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["brief_key"] == "TH_NP15"
+    assert pool.sink["params"]["brief_key"] == "TH_NP15"
+
+
+def test_chart_brief_conflicting_selectors_is_400(client):
+    # brief_key and key disagree -> ambiguous -> 400, DB never queried.
+    pool = use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "brief_key": "TH_NP15", "key": "TH_SP15"},
+    )
+    assert resp.status_code == 400
+    assert "conflicting" in resp.json()["detail"]
+    assert pool.sink == {}
+
+
+def test_chart_brief_unknown_param_is_400(client):
+    # A misspelled selector (or any unlisted param) 400s instead of silently
+    # falling through — the failure that hid D-07-13-20. DB never queried.
+    pool = use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "caiso_hub_lmp", "keyy": "TH_NP15"},
+    )
+    assert resp.status_code == 400
+    assert "keyy" in resp.json()["detail"]
+    assert pool.sink == {}
+
+
+def test_chart_brief_unknown_param_400s_before_type_check(client):
+    # The unknown-param guard fires even when brief_type itself is invalid, so a
+    # typo'd param is never masked by the type 400.
+    use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={"brief_type": "garbage", "bogus": "1"},
+    )
+    assert resp.status_code == 400
+    assert "bogus" in resp.json()["detail"]
+
+
+def test_chart_brief_known_params_not_rejected(client):
+    # All four allowed params together must NOT trip the unknown-param guard.
+    use_rows([_hub_row("TH_NP15")])
+    resp = client.get(
+        "/api/joule/chart-brief",
+        params={
+            "brief_type": "caiso_hub_lmp",
+            "brief_key": "TH_NP15",
+            "brief_date": "2026-07-13",
+        },
+    )
+    assert resp.status_code == 200
