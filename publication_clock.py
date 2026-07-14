@@ -24,7 +24,7 @@ Schedule map (locked 2026-07-13 from 14-day joule_briefs receipts):
     caiso_fuel_mix_chart        expected 12:00 UTC, grace 60m, brief_date = run_date - 1
     caiso_load_deviation        unscheduled — rolling intraday product, no edition
     caiso_renewables_deviation  unscheduled — rolling intraday product, no edition
-    caiso_hub_lmp               unscheduled — TODO(D-07-13-11): pending cron retime
+    caiso_hub_lmp               expected 10:23 UTC, grace 60m, brief_date = run_date
 
 Any brief_type absent from the map is treated as unscheduled — compute_status
 never raises on an unknown type.
@@ -78,10 +78,10 @@ SCHEDULE: dict[str, Optional[ScheduleEntry]] = {
     # they carry no banner. Permanently unscheduled, not a pending TODO.
     "caiso_load_deviation": None,
     "caiso_renewables_deviation": None,
-    # TODO(D-07-13-11): caiso_hub_lmp is unscheduled pending the cron retime.
-    # When the retime lands, replace this None with its ScheduleEntry — this
-    # line is the ONE place that changes to give the hub brief a banner.
-    "caiso_hub_lmp": None,
+    # #? hub LMP brief: run 10:23 UTC, brief_date = run_date (receipt-confirmed,
+    # so offset 0). Grace 60m absorbs observed GitHub scheduler lag on the
+    # shared runner (declared 11:53 UTC vs receipts landing ~12:44 UTC ≈ 51m).
+    "caiso_hub_lmp": ScheduleEntry(_time(10, 23), 60, 0),
 }
 
 
