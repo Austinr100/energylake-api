@@ -45,6 +45,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import date as _date
 from datetime import datetime as _datetime
+from datetime import time as _time
 from datetime import timedelta as _timedelta
 from datetime import timezone as _timezone
 from enum import Enum
@@ -60,6 +61,7 @@ from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
 from publication_clock import compute_status as _compute_publication_status
+import market_clock as _mc
 
 
 def _utcnow() -> _datetime:
@@ -2761,6 +2763,194 @@ async def caiso_hub_lmp():
         "latest": latest_out,
         "peak": peak_out,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/market-clock — the deterministic CAISO market state machine (Ticker v1).
+#
+# ONE state, computed once, read by every surface (banner ticker, briefs, email
+# arc, Paper Desk) so no surface computes its own opinion of whether the DAM has
+# published. The state machine itself is pure and lives in market_clock.py; this
+# endpoint does only the lake reads it needs and hands them to compute_clock.
+#
+# Publication detection = "the lake holds the rows": the target trade date is
+# tomorrow PT (the auction marching through today's session), and DA_PUBLISHED /
+# RT_LIVE are gated on those rows actually being present — the honesty rail.
+# The NERC calendar is REUSED from the locked _NERC_HOLIDAY_SET bundle purely as
+# block-vocabulary context (Sunday/holiday = off-peak all day); it never
+# suppresses a cycle, because the CAISO DAM clears a full 24h every calendar day.
+#
+# Two tier-1 feeds are read: caiso_lmp_da_hourly (the DA cycle + the SP15 print)
+# and caiso_lmp_rt_15min (the live FMM layer). A stale FMM feed, or a DAM overdue
+# past its grace, is surfaced as `degraded` naming the feed. DB unavailable -> 503
+# (house standard); the clock never blanks for a partial read.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# FMM = CAISO Fifteen Minute Market = the RTPD 15-min dataset. The live tape the
+# RT_LIVE headline and prints.latest_fmm read from. SP15 is the reference hub.
+MARKET_CLOCK_DA_DATASET = "caiso_lmp_da_hourly"
+MARKET_CLOCK_FMM_DATASET = "caiso_lmp_rt_15min"
+MARKET_CLOCK_REF_HUB = "SP15"
+# HE17 (the classic peak marker) = PT start-hour 16. The single on-cycle SP15 DA
+# print surfaced when awards are out.
+MARKET_CLOCK_PRINT_HE = 17
+MARKET_CLOCK_PRINT_START_HOUR = 16
+# FMM staleness: RTPD intervals land every 15 min; older than this and the live
+# feed is degraded (honesty on the glass).
+MARKET_CLOCK_FMM_STALE_AFTER = _timedelta(minutes=60)
+
+
+def _market_clock_offpeak_all_day(d: _date) -> bool:
+    """Block-vocabulary context, REUSING the locked NERC bundle: a date is
+    off-peak all day when it is a Sunday or a NERC holiday (no on-peak block
+    exists), matching the on/off-peak split _lmp_is_onpeak already encodes."""
+    return d.isoweekday() == 7 or d.isoformat() in _NERC_HOLIDAY_SET
+
+
+@app.get("/api/market-clock")
+async def market_clock():
+    """
+    The single CAISO market state for the ticker chip and every downstream
+    surface — deterministic, publication-anchored, zero LLM.
+
+        {
+          "state": "RT_LIVE",                     # DA_BIDDING | DA_MARKET_RUNNING
+                                                  # | DA_PUBLISHED | RT_LIVE
+          "label": "Real-time market live",
+          "detail": "FMM SP15 $41.20 · as-of 19:45 PT · DA 2026-07-16 published",
+          "trade_date": "2026-07-16",             # the current DA cycle's target
+          "next_expected": {"event": "bid_close", "at": "2026-07-16T17:00:00+00:00"},
+          "prints": {
+            "sp15_da":   {"hub": "SP15", "ts": "...", "price": 40.05, "he": 17} | null,
+            "latest_fmm":{"hub": "SP15", "market": "rtpd", "ts": "...", "price": 41.2} | null
+          },
+          "as_of": "2026-07-16T02:27:30+00:00",
+          "degraded": false, "degraded_feeds": [],
+          "sources": ["caiso_lmp_da_hourly", "caiso_lmp_rt_15min"]
+        }
+
+    Publication detection is the sole authority for DA_PUBLISHED / RT_LIVE — the
+    clock can never claim awards the lake does not hold. A stale FMM feed or an
+    overdue DAM sets `degraded`. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    now = _utcnow()
+    now_pt = now.astimezone(ZoneInfo(MARKET_TZ))
+    today_pt = now_pt.date()
+    # Target trade date = tomorrow PT: the auction being bid / run / published
+    # during today's session.
+    target_date = today_pt + _timedelta(days=1)
+
+    # PT-day UTC bounds for the target trade date, and the exact HE17 instant —
+    # computed in Python so the query is a plain indexed ts range/equality.
+    target_start = _datetime.combine(
+        target_date, _time(0, 0), tzinfo=ZoneInfo(MARKET_TZ)
+    ).astimezone(_timezone.utc)
+    target_end = _datetime.combine(
+        target_date + _timedelta(days=1), _time(0, 0), tzinfo=ZoneInfo(MARKET_TZ)
+    ).astimezone(_timezone.utc)
+    he17_ts = _datetime.combine(
+        target_date, _time(MARKET_CLOCK_PRINT_START_HOUR, 0), tzinfo=ZoneInfo(MARKET_TZ)
+    ).astimezone(_timezone.utc)
+
+    # One round trip: DA detection (hours present + honest ingest time) for the
+    # target date, the on-cycle SP15 DA HE17 print, and the freshest FMM interval.
+    query = """
+        SELECT
+          (SELECT count(*) FROM timeseries_values
+             WHERE dataset = %(da)s AND series = %(hub)s
+               AND ts >= %(tstart)s AND ts < %(tend)s
+               AND value IS NOT NULL)                              AS da_hours,
+          (SELECT max(ingested_ts) FROM timeseries_values
+             WHERE dataset = %(da)s
+               AND ts >= %(tstart)s AND ts < %(tend)s)             AS da_published_at,
+          (SELECT value FROM timeseries_values
+             WHERE dataset = %(da)s AND series = %(hub)s AND ts = %(he17)s
+               AND value IS NOT NULL LIMIT 1)                      AS sp15_da_val,
+          (SELECT ts FROM timeseries_values
+             WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
+             ORDER BY ts DESC LIMIT 1)                             AS fmm_ts,
+          (SELECT value FROM timeseries_values
+             WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
+             ORDER BY ts DESC LIMIT 1)                             AS fmm_val
+    """
+    params = {
+        "da": MARKET_CLOCK_DA_DATASET,
+        "fmm": MARKET_CLOCK_FMM_DATASET,
+        "hub": MARKET_CLOCK_REF_HUB,
+        "tstart": target_start,
+        "tend": target_end,
+        "he17": he17_ts,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+    except Exception as e:
+        # DB unavailability -> 503 (house standard; see /health). Fail loud.
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    row = row or {}
+    da_hours = int(row.get("da_hours") or 0)
+    target_published = da_hours >= _mc.PUBLICATION_FLOOR_HOURS
+
+    # ── The on-cycle SP15 DA print (only meaningful once awards are out). ─────
+    sp15_da_print = None
+    if row.get("sp15_da_val") is not None:
+        sp15_da_print = {
+            "hub": MARKET_CLOCK_REF_HUB,
+            "ts": he17_ts.isoformat(),
+            "price": float(row["sp15_da_val"]),
+            "he": MARKET_CLOCK_PRINT_HE,
+        }
+
+    # ── The live FMM layer + its freshness. ──────────────────────────────────
+    latest_fmm = None
+    fmm_ts = row.get("fmm_ts")
+    degraded_feeds: list[str] = []
+    if fmm_ts is not None and row.get("fmm_val") is not None:
+        fmm_ts_utc = fmm_ts.astimezone(_timezone.utc)
+        latest_fmm = {
+            "hub": MARKET_CLOCK_REF_HUB,
+            "market": "rtpd",
+            "ts": fmm_ts_utc.isoformat(),
+            "price": float(row["fmm_val"]),
+        }
+        if (now - fmm_ts_utc) > MARKET_CLOCK_FMM_STALE_AFTER:
+            degraded_feeds.append("rtpd")
+    else:
+        # No live FMM at all is itself a stale/absent tier-1 feed.
+        degraded_feeds.append("rtpd")
+
+    # ── DAM overdue: past bid close + expected publish + grace, still no rows. ─
+    overdue_after = (
+        _datetime.combine(today_pt, _mc.DA_EXPECTED_PUBLISH_PT, tzinfo=ZoneInfo(MARKET_TZ))
+        + _mc.DA_PUBLISH_GRACE
+    )
+    if not target_published and now_pt >= overdue_after:
+        degraded_feeds.append("da")
+
+    da_published_at = row.get("da_published_at")
+    if da_published_at is not None:
+        da_published_at = da_published_at.astimezone(_timezone.utc)
+
+    clock = _mc.compute_clock(
+        now,
+        target_date=target_date,
+        target_published=target_published,
+        da_published_at=da_published_at,
+        sp15_da_print=sp15_da_print,
+        latest_fmm=latest_fmm,
+        target_is_offpeak_all_day=_market_clock_offpeak_all_day(target_date),
+        degraded_feeds=degraded_feeds,
+    )
+
+    return clock.as_dict(
+        sources=[MARKET_CLOCK_DA_DATASET, MARKET_CLOCK_FMM_DATASET]
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

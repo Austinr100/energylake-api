@@ -104,6 +104,20 @@ from a server component or route handler and render the first chart
   date: per hub `da`/`rtpd`/`rtd` arrays plus server-derived `dart`
   (DA − avg RTPD per hour, + = DA over RT), a `latest` ticker block, and
   on/off-peak DA `peak` averages. Fixed window, read-only, no parameters
+- `GET /api/market-clock`
+  -> the single deterministic CAISO market state for the Ticker chip and every
+  downstream surface (briefs, email arc, Paper Desk) — one state, computed once,
+  zero LLM. `state` ∈ `DA_BIDDING` → `DA_MARKET_RUNNING` (10:00 PT bid close) →
+  `DA_PUBLISHED` (awards detected in the lake) → `RT_LIVE` (live FMM tape is the
+  overnight headline); target trade date = tomorrow PT. **Publication detection
+  ("the lake holds the rows") is the sole authority for DA_PUBLISHED/RT_LIVE** —
+  the clock can never claim awards the lake lacks. Payload: `state`/`label`/
+  `detail`/`trade_date`/`next_expected{event,at}`/`prints{sp15_da?,latest_fmm?}`/
+  `as_of`/`degraded`/`degraded_feeds`/`sources[]`. The NERC/weekend calendar is
+  block-vocabulary context only (the DAM clears a full 24h every calendar day, so
+  a cycle is never suppressed — Sunday/holiday just reads "off-peak all hours" in
+  `detail`). A stale FMM feed (>60m) or an overdue DAM sets `degraded` naming the
+  feed; DB unavailable -> 503. Read-only, no parameters
 - `GET /api/newswire/recent?limit=20&since_days=30`
   -> Joule-rewritten Newswire headlines + captions, newest first
 - `GET /api/tape/recent?limit=20&since_days=1500` **(DEPRECATED — use `/api/wire/recent`)**
