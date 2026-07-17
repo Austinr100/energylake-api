@@ -137,18 +137,24 @@ from a server component or route handler and render the first chart
   comma-separated (e.g. `?body=CAISO`, `?body=FERC,CPUC`) over FERC, CPUC,
   CAISO, NERC, CARB, NRC, CA_LEG, REGIONAL, BPA; unknown bodies -> 400
 - `GET /api/atlas/pnode-lmp?market=RTD`
-  -> latest **complete** CAISO pnode-LMP snapshot for one market — prices only,
-  no geometry (the map joins client-side on `pnode_id` against the pnode
-  geometry). Columnar payload: top-level `market`/`snapshot_vintage`/
-  `market_date`/`market_hour`/`market_interval`/`feed_generated_at`/`pnode_count`
-  plus six order-aligned arrays sorted by `pnode_id` (`pnode_id`, `lmp`,
-  `energy`, `congestion`, `loss`, `ghg`; NULL components pass through as JSON
-  null). `market` ∈ `RTD` (default) / `RTPD` / `DAM`. Selects the newest market
-  instant clearing a ≥90% pnode-coverage floor; staleness is expected (dispatch-
-  only feed) and surfaced via the timestamp fields, not an error. Unknown market
-  -> 400; no complete instant (empty/expired table) -> 503 (**note the
-  deliberate 503-not-404 convention fork** — valid market + zero rows is a
-  data-availability condition, not a missing resource). `Cache-Control: max-age=60`
+  -> latest CAISO pnode-LMP snapshot for one market — prices only, no geometry
+  (the map joins client-side on `pnode_id` against the pnode geometry). Columnar
+  payload: top-level `market`/`snapshot_vintage`/`market_date`/`market_hour`/
+  `market_interval`/`feed_generated_at`/`pnode_count`/`expected_pnode_count`/
+  `complete`/`fell_back` plus six order-aligned arrays sorted by `pnode_id`
+  (`pnode_id`, `lmp`, `energy`, `congestion`, `loss`, `ghg`; NULL components pass
+  through as JSON null). `market` ∈ `RTD` (default) / `RTPD` / `DAM`. Selects the
+  newest market instant via a **two-step index-only query** (latest instant, then
+  its rows — replacing the old table-wide `COUNT(DISTINCT)` scan-and-sort that ran
+  ~46 s; now sub-second). A ≥90%-of-expected-universe row-count floor guards
+  against a partial mid-dispatch write: a thin latest instant falls back one
+  interval and serves the fuller of the two, flagged `fell_back:true`; a still-
+  thin serve carries `complete:false` (**never silently thin**). Staleness is
+  expected (dispatch-only feed) and surfaced via the timestamp fields, not an
+  error. Unknown market -> 400; **no instant at all** (empty/expired table) -> 503
+  (**note the deliberate 503-not-404 convention fork** — valid market + zero rows
+  is a data-availability condition, not a missing resource; a present-but-thin
+  instant is a `complete:false` 200, not a 503). `Cache-Control: max-age=60`
 
 - `GET /api/atlas/pnode-history?pnode_id=KRNCNYN_6_N001&market=RTD&hours=24`
   -> raw 7-day price-component **history** for one CAISO pnode from the same
