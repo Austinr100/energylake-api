@@ -39,6 +39,7 @@ Endpoints:
     GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
 """
 
+import logging
 import os
 import re
 import time
@@ -2969,14 +2970,22 @@ async def market_clock():
 # keeps its ORIGINAL vintage. So MAX(snapshot_vintage) selects "rows from the
 # newest pull," NOT "the newest complete picture" — it is the wrong selector.
 #
-# SELECTOR (D-07-05-09 adjudication): the latest COMPLETE market INSTANT, where
-# an instant is one (market_date, market_hour, market_interval). "Latest" =
-# date DESC, hour DESC, interval DESC NULLS LAST. "Complete" = the instant's
-# distinct-pnode count is >= 90% of the market's table-wide distinct-pnode count.
-# The newest instant clearing the floor wins; if the newest fails, fall back to
-# the next-newest that passes; if none passes, 503. Because one response is
-# exactly one instant, market_date/hour/interval are true top-level scalars
-# (gate 3 dissolves — no per-node scalar variance is possible).
+# SELECTOR (D-07-05-09 adjudication; two-step reshape D-07-17): the latest
+# market INSTANT, where an instant is one (market_date, market_hour,
+# market_interval). "Latest" = date DESC, hour DESC, interval DESC NULLS LAST.
+# The selection is now TWO index-driven steps instead of one COUNT(DISTINCT)
+# scan-and-external-sort (which read all ~10M rows/market and spilled ~685 MB to
+# disk — 11.5 s warm, ~46.8 s observed end-to-end):
+#   1. latest instant  — ORDER BY ... LIMIT 1, a backward index-only scan (ms).
+#   2. fetch its rows  — an index range scan (~14.8k rows, sub-100 ms).
+# COMPLETENESS is now an absolute row-count gate: the served instant must carry
+# >= PNODE_LMP_COMPLETENESS_FLOOR * PNODE_LMP_EXPECTED_NODES rows. If the latest
+# instant is thin (a caught mid-dispatch partial write), fall back ONE instant
+# and serve whichever of the two is fuller — never silently thin. The served
+# count, expected universe, and whether a fallback happened are echoed in the
+# response (pnode_count / expected_pnode_count / complete / fell_back) and
+# logged. Because one response is exactly one instant, market_date/hour/interval
+# are true top-level scalars (no per-node scalar variance is possible).
 #
 # STALENESS BY DESIGN: the writer has no standing schedule (prove-before-
 # automate), so the hot tier is legitimately stale between dispatches. Age is
@@ -2992,12 +3001,15 @@ async def market_clock():
 # is the authoritative staleness signal.
 #
 # ERROR CONTRACT (deliberate fork from caiso-hub-lmp's 404, per adjudication):
-#   * unknown market             -> 400 with the allowed values (a client input
-#                                   error: "you asked wrong").
-#   * no complete instant exists -> 503 (a server-side data-availability
-#                                   condition: feed failure / expired table), so
-#                                   the map can render a staleness/outage state
-#                                   rather than an empty map. Never an empty-200.
+#   * unknown market   -> 400 with the allowed values (a client input error).
+#   * no instant at all -> 503 (a server-side data-availability condition: feed
+#                          failure / expired table — the table holds ZERO rows
+#                          for the market), so the map can render an outage state
+#                          rather than an empty map. Never an empty-200.
+# NOTE (D-07-17 change): 503 now fires only when NO instant exists. A present-
+# but-thin instant is SERVED with complete=false (loud, not silent) rather than
+# 503'd — "never silently thin" means surface the thin data + the flag, so the
+# map can render a partial-coverage state instead of a blank outage.
 # NULL price components pass through as JSON null (absence is not zero) — and,
 # because the payload is columnar/order-aligned, nulls MUST be kept to preserve
 # array alignment. All six arrays are built from one row walk and asserted equal
@@ -3012,14 +3024,77 @@ PNODE_LMP_MARKETS = ("RTD", "RTPD", "DAM")
 _PNODE_LMP_MARKET_SET = frozenset(PNODE_LMP_MARKETS)
 PNODE_LMP_DEFAULT_MARKET = "RTD"
 
-# Completeness floor for the instant selector: an instant must carry >= 90% of
-# the market's table-wide distinct pnodes to be servable, guarding against
-# serving a half-written vintage/instant. (Latest observed complete instant is
-# 14,417/14,417 for all three markets — recon 2026-07-05.)
+# Completeness floor for the instant selector: a served instant must carry
+# >= 90% of the market's expected node universe, guarding against serving a
+# half-written mid-dispatch instant. Applied as `floor * PNODE_LMP_EXPECTED_NODES`
+# (see below) — an absolute row-count gate, NOT the old table-wide COUNT(DISTINCT)
+# ratio (that shape scanned all ~10M rows per market and externally sorted them;
+# the two-step query below is index-only — D-07-17 load-perf arc).
 PNODE_LMP_COMPLETENESS_FLOOR = 0.90
+
+# Expected nodal universe per market — the row count a COMPLETE instant carries.
+# All three CAISO markets price the same node set (14,827 as of 2026-07-17; was
+# 14,417 at the D-07-05 recon — it drifts upward as nodes are added), so one
+# constant covers all three. This is a FLOOR-GUARD base, not an exact contract:
+# a complete instant that EXCEEDS it still serves; only a materially thin instant
+# (a caught mid-dispatch partial write) trips the one-interval fallback. The
+# response echoes it as `expected_pnode_count` so the client can render coverage.
+# Captain-tunable; split into a per-market dict if the shared-universe fact ever
+# stops holding.
+PNODE_LMP_EXPECTED_NODES = 14827
 
 # Price component columns emitted as order-aligned arrays (sorted by pnode_id).
 PNODE_LMP_COMPONENTS = ("lmp", "energy", "congestion", "loss", "ghg")
+
+# Diagnostics: the completeness gate logs actual-vs-expected node counts and
+# every fallback/thin serve, so a partial-write event is visible in Railway logs
+# without changing the response contract. Railway captures stdout/stderr.
+_pnode_lmp_log = logging.getLogger("energylake.pnode_lmp")
+
+# ── Two-step interval-targeted selection (replaces the scan-and-sort shape) ──
+# The (market, market_date, market_hour, market_interval) composite index
+# answers all three of these without touching the market's history:
+#
+#   step 1  latest instant   — backward index-only scan, stops at the first
+#                              instant (LIMIT 1); milliseconds.
+#   step 2  fetch instant    — bitmap index range scan of one instant; ~14.8k
+#                              rows. IS NOT DISTINCT FROM keeps a NULL interval
+#                              matching itself (hourly markets).
+#   fallback  prev instant   — newest instant strictly BEFORE a given one, same
+#                              backward index scan. Run ONLY when step 2 comes
+#                              back thin. ROW-value comparison stays on the
+#                              composite index; NULLS-LAST ordering means a NULL
+#                              interval bound walks to the previous hour (correct
+#                              for hourly DAM, whose interval is null/0).
+_PNODE_LMP_LATEST_INSTANT_SQL = """
+    SELECT market_date, market_hour, market_interval
+    FROM atlas_pnode_lmp_snapshot
+    WHERE market = %(market)s
+    ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+    LIMIT 1
+"""
+
+_PNODE_LMP_PREV_INSTANT_SQL = """
+    SELECT market_date, market_hour, market_interval
+    FROM atlas_pnode_lmp_snapshot
+    WHERE market = %(market)s
+      AND (market_date, market_hour, market_interval)
+          < (%(md)s, %(mh)s, %(mi)s)
+    ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+    LIMIT 1
+"""
+
+_PNODE_LMP_FETCH_INSTANT_SQL = """
+    SELECT pnode_id, lmp, energy, congestion, loss, ghg,
+           market_date, market_hour, market_interval,
+           snapshot_vintage, feed_generated_at
+    FROM atlas_pnode_lmp_snapshot
+    WHERE market = %(market)s
+      AND market_date = %(md)s
+      AND market_hour = %(mh)s
+      AND market_interval IS NOT DISTINCT FROM %(mi)s
+    ORDER BY pnode_id ASC
+"""
 
 
 def _pnode_utc_iso(ts) -> str | None:
@@ -3042,12 +3117,13 @@ async def atlas_pnode_lmp(
     ),
 ):
     """
-    Latest COMPLETE pnode-LMP snapshot for one CAISO market — prices only.
+    Latest pnode-LMP snapshot for one CAISO market — prices only.
 
     Serves the newest market instant (market_date, market_hour, market_interval)
-    whose pnode coverage clears the completeness floor, as a compact columnar
-    payload the nodal-LMP map joins client-side onto the pnode geometry by
-    pnode_id. No coordinates, no geometry.
+    as a compact columnar payload the nodal-LMP map joins client-side onto the
+    pnode geometry by pnode_id. No coordinates, no geometry. Selection is two
+    index-driven steps (latest instant, then fetch its rows) — see the module
+    header for why this replaced the old COUNT(DISTINCT) scan-and-sort.
 
     Columnar payload — all six arrays are order-aligned and sorted by pnode_id:
         {
@@ -3055,16 +3131,26 @@ async def atlas_pnode_lmp(
           "snapshot_vintage": "2026-07-05T13:45:50+00:00",
           "market_date": "2026-07-05", "market_hour": 9, "market_interval": 8,
           "feed_generated_at": "2026-07-05T...+00:00",
-          "pnode_count": 14417,
+          "pnode_count": 14827, "expected_pnode_count": 14827,
+          "complete": true, "fell_back": false,
           "pnode_id":   ["...", ...],
           "lmp":        [41.2, ...],  "energy":     [40.0, ...],
           "congestion": [1.1, ...],   "loss":       [0.1, ...],
           "ghg":        [null, ...]
         }
 
-    Staleness is expected (dispatch-only writer): the latest complete instant is
-    served regardless of age; market_date/hour/interval + feed_generated_at are
-    the staleness signal. NULL components pass through as JSON null.
+    completeness/fallback meta:
+      * complete    — served node count >= floor * expected universe.
+      * fell_back   — the latest instant was a partial mid-dispatch write, so
+                      the prior (fuller) instant was served instead. When true,
+                      market_date/hour/interval already describe that prior
+                      instant. A thin instant is served with complete=false, not
+                      hidden — "never silently thin".
+      * expected_pnode_count — the universe the floor is measured against.
+
+    Staleness is expected (dispatch-only writer): the latest instant is served
+    regardless of age; market_date/hour/interval + feed_generated_at are the
+    staleness signal. NULL components pass through as JSON null.
 
     Sentinel note for the consumer (PR-3): some rows carry all-zero
     lmp/energy/congestion/loss as a no-DA-price sentinel (observed in DAM), NOT
@@ -3073,7 +3159,7 @@ async def atlas_pnode_lmp(
     (rendering the no-price state) is the map client's contract, not this
     endpoint's.
 
-    Errors: unknown market -> 400 (allowed values echoed); no complete instant
+    Errors: unknown market -> 400 (allowed values echoed); no instant at all
     (empty/expired table) -> 503; internal array skew -> 500.
     """
     assert _pool is not None
@@ -3089,72 +3175,69 @@ async def atlas_pnode_lmp(
             ),
         )
 
-    # ── One read: pick the latest instant clearing the completeness floor, then
-    # return all its rows sorted by pnode_id. The selector lives in SQL so the
-    # floor + latest-passing-instant fallback is a single round trip.
-    #   denom    = market's table-wide distinct pnode count (the floor base)
-    #   instants = per-instant distinct pnode count
-    #   chosen   = newest instant whose count >= floor * denom (LIMIT 1)
-    # If `chosen` is empty (no instant passes -> empty/expired table), the final
-    # SELECT returns zero rows and we 503. market_interval is compared with
-    # IS NOT DISTINCT FROM so a NULL interval joins to itself.
-    query = """
-        WITH market_rows AS (
-            SELECT pnode_id, lmp, energy, congestion, loss, ghg,
-                   market_date, market_hour, market_interval,
-                   snapshot_vintage, feed_generated_at
-            FROM atlas_pnode_lmp_snapshot
-            WHERE market = %(market)s
-        ),
-        denom AS (
-            SELECT COUNT(DISTINCT pnode_id) AS total_pnodes FROM market_rows
-        ),
-        instants AS (
-            SELECT market_date, market_hour, market_interval,
-                   COUNT(DISTINCT pnode_id) AS pnodes
-            FROM market_rows
-            GROUP BY market_date, market_hour, market_interval
-        ),
-        chosen AS (
-            SELECT i.market_date, i.market_hour, i.market_interval
-            FROM instants i, denom d
-            WHERE d.total_pnodes > 0
-              AND i.pnodes::numeric >= %(floor)s * d.total_pnodes
-            ORDER BY i.market_date DESC, i.market_hour DESC,
-                     i.market_interval DESC NULLS LAST
-            LIMIT 1
-        )
-        SELECT r.pnode_id, r.lmp, r.energy, r.congestion, r.loss, r.ghg,
-               r.market_date, r.market_hour, r.market_interval,
-               r.snapshot_vintage, r.feed_generated_at
-        FROM market_rows r
-        JOIN chosen c
-          ON r.market_date = c.market_date
-         AND r.market_hour = c.market_hour
-         AND r.market_interval IS NOT DISTINCT FROM c.market_interval
-        ORDER BY r.pnode_id ASC
-    """
-    params = {"market": market_norm, "floor": PNODE_LMP_COMPLETENESS_FLOOR}
+    # ── Two-step, index-driven selection (see module header). One connection,
+    # sequential reads: latest instant (ms) -> its rows (~14.8k). A thin latest
+    # instant (partial mid-dispatch write) triggers a one-instant fallback, and
+    # we serve whichever of the two is fuller. `min_nodes` is the absolute
+    # row-count floor; `fell_back` records whether the prior instant was served.
+    min_nodes = PNODE_LMP_COMPLETENESS_FLOOR * PNODE_LMP_EXPECTED_NODES
+
+    def _fetch_params(inst) -> dict:
+        return {
+            "market": market_norm,
+            "md": inst["market_date"],
+            "mh": inst["market_hour"],
+            "mi": inst["market_interval"],
+        }
 
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, params)
-                rows = await cur.fetchall()
+                # Step 1 — latest instant (backward index-only scan, LIMIT 1).
+                await cur.execute(_PNODE_LMP_LATEST_INSTANT_SQL, {"market": market_norm})
+                latest = await cur.fetchone()
+                if latest is None:
+                    rows, fell_back = [], False
+                else:
+                    # Step 2 — every row of the latest instant (index range).
+                    await cur.execute(_PNODE_LMP_FETCH_INSTANT_SQL, _fetch_params(latest))
+                    rows = await cur.fetchall()
+                    fell_back = False
+
+                    # Partial-write guard: a latest instant below the floor is a
+                    # mid-dispatch write. Fall back ONE instant; keep the fuller.
+                    if len(rows) < min_nodes:
+                        await cur.execute(
+                            _PNODE_LMP_PREV_INSTANT_SQL,
+                            {
+                                "market": market_norm,
+                                "md": latest["market_date"],
+                                "mh": latest["market_hour"],
+                                "mi": latest["market_interval"],
+                            },
+                        )
+                        prev = await cur.fetchone()
+                        if prev is not None:
+                            await cur.execute(
+                                _PNODE_LMP_FETCH_INSTANT_SQL, _fetch_params(prev)
+                            )
+                            prev_rows = await cur.fetchall()
+                            if len(prev_rows) > len(rows):
+                                rows, fell_back = prev_rows, True
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"query failed: {e}")
 
-    # ── No complete instant -> 503 (data unavailable, NOT a missing resource).
-    # Staleness alone never reaches here; this is empty/expired table only. The
-    # map client distinguishes this from the 400 to render an outage state.
+    # ── No instant at all -> 503 (data unavailable, NOT a missing resource).
+    # Staleness alone never reaches here; this is an empty/expired table only.
+    # (A present-but-thin instant is served below with complete=false, never
+    # 503'd.) The map client distinguishes this from the 400 to render an outage.
     if not rows:
         raise HTTPException(
             status_code=503,
             detail=(
-                f"no complete {market_norm} pnode-LMP instant available "
-                f"(>= {int(PNODE_LMP_COMPLETENESS_FLOOR * 100)}% pnode coverage). "
-                "The snapshot hot tier may be empty or expired (7-day retention, "
-                "dispatch-only writer) — a fresh snapshot dispatch is required."
+                f"no {market_norm} pnode-LMP instant available. The snapshot hot "
+                "tier may be empty or expired (7-day retention, dispatch-only "
+                "writer) — a fresh snapshot dispatch is required."
             ),
         )
 
@@ -3187,6 +3270,23 @@ async def atlas_pnode_lmp(
     max_vintage = max(vintages) if vintages else None
     max_feed = max(feeds) if feeds else None
 
+    # ── Completeness verdict + diagnostics. `complete` is the served instant
+    # clearing the absolute floor; log actual-vs-expected always, and escalate to
+    # a warning when we serve thin (visible in Railway logs; contract unchanged).
+    complete = n >= min_nodes
+    _pnode_lmp_log.info(
+        "pnode-lmp market=%s instant=%s/%s/%s nodes=%d expected~%d complete=%s fell_back=%s",
+        market_norm, first["market_date"], first["market_hour"],
+        first["market_interval"], n, PNODE_LMP_EXPECTED_NODES, complete, fell_back,
+    )
+    if not complete:
+        _pnode_lmp_log.warning(
+            "pnode-lmp SERVED THIN: market=%s nodes=%d < floor=%d "
+            "(%.0f%% of expected %d); fell_back=%s",
+            market_norm, n, int(min_nodes),
+            PNODE_LMP_COMPLETENESS_FLOOR * 100, PNODE_LMP_EXPECTED_NODES, fell_back,
+        )
+
     # Short cache: the feed is dispatch-only, so a 60s window relieves repeated
     # multi-MB reads without hiding a fresh dispatch for long. Endpoint-local.
     response.headers["Cache-Control"] = "max-age=60"
@@ -3199,6 +3299,9 @@ async def atlas_pnode_lmp(
         "market_interval": first["market_interval"],
         "feed_generated_at": _pnode_utc_iso(max_feed),
         "pnode_count": n,
+        "expected_pnode_count": PNODE_LMP_EXPECTED_NODES,
+        "complete": complete,
+        "fell_back": fell_back,
         "pnode_id": pnode_id,
         "lmp": cols["lmp"],
         "energy": cols["energy"],
