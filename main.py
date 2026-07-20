@@ -1838,6 +1838,254 @@ async def joule_chart_brief(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/brief/{latest,history} — Kelvin, the Weather Desk (2026-07-20)
+#
+# The first department agent's daily brief. Written by joule_weather_post.py in
+# the pantry (brief_type='weather', single-keyed brief_key=''), stored in
+# joule_briefs. Read-only here, and — because the writer UPSERTs a row ONLY when
+# the per-sentence verifier PASSES — the mere EXISTENCE of a stored weather row
+# is itself the verifier stamp: verified=true is an invariant of the table, not
+# a field we have to trust.
+#
+# Shape mirrors the hub-brief (chart-brief) contract, enriched with the three
+# things a weather brief carries that a price brief does not, all sourced from
+# columns already on the row (no new pantry behavior, no joule_calls join):
+#   * byline    — the ratified constant "By Kelvin · Weather Desk (agent)".
+#                 "(agent)" is non-negotiable everywhere the name renders.
+#   * dateline  — {date, tz, byline, verified} — what the desk knew, when.
+#   * gates + degraded/empty beats — from sources_used (jsonb the writer stamps
+#                 with the bundle's build-time freshness verdicts), so the tab's
+#                 dateline block can PROVE which inputs were fresh.
+#
+# Two routes, in the daily-brief path style (dedicated latest + a history list),
+# NOT the chart-brief query-param style — a weather section opens with ONE
+# living brief and a rolling verification strip, which is exactly these two.
+# ═══════════════════════════════════════════════════════════════════════════
+
+BRIEF_TYPE_WEATHER = "weather"
+
+# The ratified byline constant (2026-07-20). Kept here as a constant — not read
+# from the row — because it is a ratified invariant of the surface, not
+# per-brief data. Matches joule._WEATHER_BYLINE in the pantry; if that ever
+# changes, this changes with it (a deliberate two-line coupling, not drift).
+WEATHER_BYLINE = "By Kelvin · Weather Desk (agent)"
+
+# Rolling history cap. The Verification tile shows a short trailing window of
+# briefs; 14 covers two weeks, 60 is a hard ceiling so a crafted ?limit can't
+# ask for the whole table.
+_WEATHER_HISTORY_DEFAULT = 14
+_WEATHER_HISTORY_MAX = 60
+
+# Full weather row. Selects sources_used (the bundle's build-time gate receipts
+# + degraded/empty beat lists) on top of the daily-brief column set.
+_WEATHER_BRIEF_SELECT = """
+    SELECT
+        id,
+        brief_date,
+        headline,
+        content_md,
+        word_count,
+        voice_version,
+        sources_used,
+        created_at
+    FROM joule_briefs
+    WHERE brief_type = %(brief_type)s
+"""
+_WEATHER_BRIEF_DATE_FILTER = "      AND brief_date = %(brief_date)s\n"
+_WEATHER_BRIEF_ORDER_ONE = """
+    ORDER BY created_at DESC
+    LIMIT 1
+"""
+_WEATHER_BRIEF_ORDER_MANY = """
+    ORDER BY brief_date DESC, created_at DESC
+    LIMIT %(limit)s
+"""
+
+
+class WeatherDateline(BaseModel):
+    """What the desk knew, when — the block a weather section leads with."""
+    date: Optional[str] = None
+    tz: str = "America/Los_Angeles"
+    byline: str = WEATHER_BYLINE
+    # Invariant: a stored weather brief passed its verifier (the writer upserts
+    # only on PASS). True whenever a row was served; the empty case leaves the
+    # whole dateline null.
+    verified: bool = True
+    voice_version: Optional[str] = None
+
+
+class WeatherBrief(BaseModel):
+    """Render contract for Kelvin's weather brief. The tab binds to this shape.
+
+    brief_type is always present. Every other field is Optional because the
+    empty case (no brief written yet) returns this model with body/dateline/...
+    = null rather than a 404 — the section degrades quietly, same as the hub
+    brief.
+    """
+    brief_type: str
+    byline: Optional[str] = None
+    headline: Optional[str] = None
+    body: Optional[str] = None
+    brief_date: Optional[str] = None
+    word_count: Optional[int] = None
+    voice_version: Optional[str] = None
+    generated_at: Optional[str] = None
+    id: Optional[int] = None
+    dateline: Optional[WeatherDateline] = None
+    # Build-time freshness receipts from the bundle (sources_used.gates): per
+    # dataset {status, lifecycle_status, days_behind}. {} when the row predates
+    # the receipt-stamping writer.
+    gates: Optional[dict] = None
+    degraded_beats: Optional[list] = None
+    empty_beats: Optional[list] = None
+    bundle_version: Optional[str] = None
+    # Additive publication rider (Market Clock), same as the hub brief. Weather
+    # is not yet on the publication SCHEDULE (dispatch-only v0), so this reports
+    # status='unscheduled' until the cron is promoted — an honest reflection of
+    # the surface's current state.
+    publication: Optional[dict] = None
+
+
+class WeatherBriefHistoryItem(BaseModel):
+    """One row in the rolling verification strip — summary, not the full body."""
+    brief_date: Optional[str] = None
+    headline: Optional[str] = None
+    word_count: Optional[int] = None
+    voice_version: Optional[str] = None
+    generated_at: Optional[str] = None
+    id: Optional[int] = None
+    verified: bool = True
+    degraded_beats: Optional[list] = None
+    empty_beats: Optional[list] = None
+
+
+class WeatherBriefHistory(BaseModel):
+    brief_type: str
+    count: int
+    briefs: list[WeatherBriefHistoryItem]
+
+
+def _weather_sources(row: dict) -> dict:
+    """sources_used as a dict, tolerating NULL / non-dict legacy rows."""
+    su = row.get("sources_used")
+    return su if isinstance(su, dict) else {}
+
+
+def _shape_weather_brief(row: dict, now: _datetime) -> WeatherBrief:
+    bd = row["brief_date"]
+    ca = row["created_at"]
+    su = _weather_sources(row)
+    date_iso = bd.isoformat() if bd is not None else None
+    return WeatherBrief(
+        brief_type=BRIEF_TYPE_WEATHER,
+        byline=WEATHER_BYLINE,
+        headline=row.get("headline"),
+        body=row.get("content_md"),
+        brief_date=date_iso,
+        word_count=row.get("word_count"),
+        voice_version=row.get("voice_version"),
+        generated_at=ca.isoformat() if ca is not None else None,
+        id=row.get("id"),
+        dateline=WeatherDateline(
+            date=date_iso,
+            verified=True,
+            voice_version=row.get("voice_version"),
+        ),
+        gates=su.get("gates", {}),
+        degraded_beats=su.get("degraded_beats", []),
+        empty_beats=su.get("empty_beats", []),
+        bundle_version=su.get("bundle_version"),
+        publication=_compute_publication_status(
+            BRIEF_TYPE_WEATHER, bd, now, published_at=ca,
+        ).as_rider(),
+    )
+
+
+@app.get("/api/weather/brief/latest", response_model=WeatherBrief)
+async def weather_brief_latest(
+    brief_date: Optional[_date] = Query(
+        None, description="Pin a specific Pacific brief date (YYYY-MM-DD). "
+                          "Omit for the newest brief."),
+):
+    """The living weather brief — newest by default, or a pinned brief_date.
+
+    Empty case (no brief for the day / none yet) returns 200 with null fields
+    and an unscheduled publication rider, never 404 — the section degrades
+    quietly exactly like the hub brief.
+    """
+    assert _pool is not None
+    query = _WEATHER_BRIEF_SELECT
+    params: dict = {"brief_type": BRIEF_TYPE_WEATHER}
+    if brief_date is not None:
+        query += _WEATHER_BRIEF_DATE_FILTER
+        params["brief_date"] = brief_date
+    query += _WEATHER_BRIEF_ORDER_ONE
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    now = _utcnow()
+    if row is None:
+        return WeatherBrief(
+            brief_type=BRIEF_TYPE_WEATHER,
+            brief_date=brief_date.isoformat() if brief_date is not None else None,
+            publication=_compute_publication_status(
+                BRIEF_TYPE_WEATHER, brief_date, now, published_at=None,
+            ).as_rider(),
+        )
+    return _shape_weather_brief(row, now)
+
+
+@app.get("/api/weather/brief/history", response_model=WeatherBriefHistory)
+async def weather_brief_history(
+    limit: int = Query(
+        _WEATHER_HISTORY_DEFAULT, ge=1, le=_WEATHER_HISTORY_MAX,
+        description="How many recent briefs to return (newest first). "
+                    f"Default {_WEATHER_HISTORY_DEFAULT}, max {_WEATHER_HISTORY_MAX}."),
+):
+    """The rolling verification strip — a trailing window of briefs, summary
+    only (no body). Feeds the tab's Verification tile. Every returned brief
+    verified=true (a stored weather row is a passed row); the list is simply
+    empty when no brief exists yet."""
+    assert _pool is not None
+    query = _WEATHER_BRIEF_SELECT + _WEATHER_BRIEF_ORDER_MANY
+    params = {"brief_type": BRIEF_TYPE_WEATHER, "limit": limit}
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"query failed: {e}")
+
+    items: list[WeatherBriefHistoryItem] = []
+    for row in rows or []:
+        bd = row["brief_date"]
+        ca = row["created_at"]
+        su = _weather_sources(row)
+        items.append(WeatherBriefHistoryItem(
+            brief_date=bd.isoformat() if bd is not None else None,
+            headline=row.get("headline"),
+            word_count=row.get("word_count"),
+            voice_version=row.get("voice_version"),
+            generated_at=ca.isoformat() if ca is not None else None,
+            id=row.get("id"),
+            verified=True,
+            degraded_beats=su.get("degraded_beats", []),
+            empty_beats=su.get("empty_beats", []),
+        ))
+    return WeatherBriefHistory(
+        brief_type=BRIEF_TYPE_WEATHER, count=len(items), briefs=items,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # /api/wire/recent — Tape rebuild Phase 3a (2026-06-10)
 #
 # Successor to /api/tape/recent. Same item shape, plus `is_power_signal`,
