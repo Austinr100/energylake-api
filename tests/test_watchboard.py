@@ -20,6 +20,7 @@ Live receipts these fixtures mirror (verified against Neon 2026-07-21):
 
 import datetime
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -48,9 +49,11 @@ class _FakeCursor:
 
     async def execute(self, query, params=None):
         self._s["calls"].append({"query": query, "params": params})
-        if self._s.get("raise"):
-            raise RuntimeError("boom")
         if "timeseries_values" in query:
+            # Simulate a dropped connection on the hub read (per-attempt).
+            if self._s["fail_hub"] > 0:
+                self._s["fail_hub"] -= 1
+                raise self._s["exc"]
             datasets = set(params["datasets"])
             series = set(params["series"])
             lo = params["lo"]
@@ -60,6 +63,10 @@ class _FakeCursor:
             ]
         elif "atlas_pnode_lmp_snapshot" in query:
             m = params["market"]
+            # Simulate a dropped connection on this market's snapshot read.
+            if self._s["fail_snapshot"].get(m, 0) > 0:
+                self._s["fail_snapshot"][m] -= 1
+                raise self._s["exc"]
             pnodes = set(params["pnodes"])
             floor = datetime.date.fromisoformat(params["sentinel"])
             rows = [
@@ -115,13 +122,17 @@ def client():
     return TestClient(main.app)
 
 
-def use_scenario(snap_rows=None, hub_rows=None, raise_on_execute=False, now=None):
+def use_scenario(snap_rows=None, hub_rows=None, now=None,
+                 fail_snapshot=None, fail_hub=0, exc=None):
     if now is not None:
         main._utcnow = lambda: now
     scen = {
         "snap_rows": snap_rows or [],
         "hub_rows": hub_rows or [],
-        "raise": raise_on_execute,
+        # Per-source dropped-connection simulation (attempts to fail, per source).
+        "fail_snapshot": dict(fail_snapshot or {}),
+        "fail_hub": fail_hub,
+        "exc": exc or psycopg.OperationalError("SSL connection has been closed unexpectedly"),
         "calls": [],
     }
     pool = FakePool(scen)
@@ -440,12 +451,82 @@ def test_empty_board_returns_empty(client):
     assert resp.json() == {"count": 0, "tiles": {}}
 
 
-def test_db_error_is_503(client):
-    use_scenario(*_full_scenario(), raise_on_execute=True)
+# ---------------------------------------------------------------------------
+# Connection lifecycle + error honesty (the micro's core fix).
+# ---------------------------------------------------------------------------
+
+def test_dead_connection_retry_recovers(client):
+    # The RTD snapshot read drops its connection once; the retry succeeds, so the
+    # tile renders normally (assert-the-raise -> recover).
+    snap_rows, hub_rows = _full_scenario()
+    use_scenario(snap_rows, hub_rows, fail_snapshot={"RTD": 1})
     resp = post(client, [
         {"tile_id": "t", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTD", "view": "lmp"},
     ])
-    assert resp.status_code == 503
+    assert resp.status_code == 200
+    tile = resp.json()["tiles"]["t"]
+    assert "error" not in tile
+    assert tile["latest"]["lmp"] == 42.0
+    # Two RTD executes recorded: one failure + one successful retry.
+    rtd = [c for c in main._pool.scen["calls"]
+           if "atlas_pnode_lmp_snapshot" in c["query"] and c["params"]["market"] == "RTD"]
+    assert len(rtd) == 2
+
+
+def test_db_failure_is_per_tile_db_error_not_503(client):
+    # The RTD read fails both attempts (retry exhausted). The RTD tile gets an
+    # honest per-tile db_error; the batch still returns 200 and the RTPD basis
+    # tile (a healthy source) renders — a per-tile failure never sinks the board.
+    snap_rows, hub_rows = _full_scenario()
+    use_scenario(snap_rows, hub_rows, fail_snapshot={"RTD": 2})
+    resp = post(client, [
+        {"tile_id": "dead", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTD", "view": "lmp"},
+        {"tile_id": "live", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTPD", "view": "basis"},
+    ])
+    assert resp.status_code == 200
+    tiles = resp.json()["tiles"]
+    assert tiles["dead"] == {"error": "db_error"}
+    assert "error" not in tiles["live"]
+    assert tiles["live"]["latest"]["ts_utc"] == "2026-07-21T18:45:00+00:00"
+
+
+def test_db_error_is_distinct_from_empty(client):
+    # THE distinction: a failed read -> db_error; a fine read with zero rows ->
+    # an honest empty tile. Same board, same shape difference.
+    snap_rows, hub_rows = _full_scenario()
+    use_scenario(snap_rows, hub_rows, fail_snapshot={"RTD": 2})
+    resp = post(client, [
+        # RTD read fails -> db_error.
+        {"tile_id": "failed", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTD", "view": "lmp"},
+        # RTPD read is fine but this node has no rows -> empty tile, NOT db_error.
+        {"tile_id": "empty", "tile_type": "pnode", "pnode_id": "GHOST_9_N999", "market": "RTPD", "view": "lmp"},
+    ])
+    tiles = resp.json()["tiles"]
+    assert tiles["failed"] == {"error": "db_error"}
+    assert "error" not in tiles["empty"]
+    assert tiles["empty"]["empty"] is True
+    assert tiles["empty"]["as_of"] is None
+
+
+def test_dart_db_error_when_da_leg_read_fails(client):
+    # dart needs BOTH the RT leg (RTPD) and the DA leg (DAM). If DAM fails, the
+    # dart tile is db_error even though its RTPD read was fine.
+    snap_rows, hub_rows = _full_scenario()
+    use_scenario(snap_rows, hub_rows, fail_snapshot={"DAM": 2})
+    resp = post(client, [
+        {"tile_id": "d", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTPD", "view": "dart"},
+    ])
+    assert resp.json()["tiles"]["d"] == {"error": "db_error"}
+
+
+def test_basis_db_error_when_hub_read_fails(client):
+    # basis needs the hub read; if it fails, the basis tile is db_error.
+    snap_rows, hub_rows = _full_scenario()
+    use_scenario(snap_rows, hub_rows, fail_hub=2)
+    resp = post(client, [
+        {"tile_id": "b", "tile_type": "pnode", "pnode_id": PNODE, "market": "RTPD", "view": "basis"},
+    ])
+    assert resp.json()["tiles"]["b"] == {"error": "db_error"}
 
 
 # ---------------------------------------------------------------------------

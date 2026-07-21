@@ -37,7 +37,7 @@ Endpoints:
     GET /api/atlas/constraints             CAISO binding-constraint blotter league table (DAM/RTM, windowed), cached (D-07-11)
     GET /api/atlas/constraints/fingerprint per-node constraint fingerprint (delta/beta by pnode, geo-joined), newest-success-scoped, cached (D-07-12)
     GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
-    GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id substring (+area/node_type), from the latest instant (D-07-21)
+    GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id OR plant-name (Atlas crosswalk) substring (+area/node_type), from the latest instant (D-07-21)
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
 """
 
@@ -63,6 +63,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+import psycopg
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 
@@ -6039,6 +6040,47 @@ def _cockpit_build_basis(rows, hub_ts_map, market):
 # Two-step, index-driven (see the perf note above): latest instant, then a
 # substring filter over that ONE instant. IS NOT DISTINCT FROM keeps a NULL
 # interval matching itself. Optional area/node_type are exact, case-insensitive.
+# ── Connection lifecycle ─────────────────────────────────────────────────────
+# Neon idle-closes server-side sockets, so the shared pool can hand out a
+# connection whose TCP/SSL layer is already dead — the first statement then
+# raises "SSL connection has been closed unexpectedly" (psycopg.OperationalError)
+# / an InterfaceError. The proven endpoints acquire the same way
+# (`async with _pool.connection()`), and this lane conforms to that per-request
+# pattern; the ONE addition is recovery: run the read, and on a dropped
+# connection RETRY ONCE. Re-entering `_pool.connection()` returns (and the pool
+# discards) the stale connection, so the retry runs on a live one. A read that
+# raises anything else, or fails twice, propagates to the caller unchanged.
+_COCKPIT_DEAD_CONN_ERRORS = (psycopg.OperationalError, psycopg.InterfaceError)
+
+
+async def _cockpit_read(sql: str, params: dict) -> list:
+    """Acquire from the shared pool, run one query, return its rows — retrying
+    ONCE on a dropped/stale connection (see the note above). Mirrors the app's
+    per-request acquisition; it never opens a module-level or long-lived
+    connection of its own."""
+    assert _pool is not None
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(sql, params)
+                    return await cur.fetchall()
+        except _COCKPIT_DEAD_CONN_ERRORS as e:
+            last_exc = e  # stale connection — loop retries on a fresh one
+    assert last_exc is not None
+    raise last_exc
+
+
+# ── Node search ──────────────────────────────────────────────────────────────
+# Universe = the latest instant (index-driven). A node qualifies if its pnode_id
+# matches `q` OR it is reached from a plant whose name matches `q` via the Atlas
+# plant<->pnode crosswalk (atlas_pnode_crosswalk.plant_code -> atlas_plants).
+# plant_match collapses the (tiny) crosswalk to one row per pnode carrying the
+# q-matching plant name (if any) and a representative plant name; the result is
+# INTERSECTED with the priced universe (a LEFT JOIN from universe), so only real,
+# currently-priced nodes are ever returned and each still carries node_type/area.
+# plant_name is surfaced when known (required for a crosswalk match).
 _NODE_SEARCH_SQL = """
     WITH latest AS (
         SELECT market_date, market_hour, market_interval
@@ -6047,17 +6089,35 @@ _NODE_SEARCH_SQL = """
           AND market_date >= %(sentinel)s
         ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
         LIMIT 1
+    ),
+    universe AS (
+        SELECT s.pnode_id, s.node_type, s.area
+        FROM atlas_pnode_lmp_snapshot s, latest l
+        WHERE s.market = %(market)s
+          AND s.market_date = l.market_date
+          AND s.market_hour = l.market_hour
+          AND s.market_interval IS NOT DISTINCT FROM l.market_interval
+          AND (%(area)s::text IS NULL OR upper(s.area) = upper(%(area)s))
+          AND (%(node_type)s::text IS NULL OR upper(s.node_type) = upper(%(node_type)s))
+    ),
+    plant_match AS (
+        SELECT x.pnode_id,
+               min(p.plant_name) FILTER (
+                   WHERE p.plant_name ILIKE %(q)s ESCAPE '\\'
+               ) AS matched_plant,
+               min(p.plant_name) AS any_plant
+        FROM atlas_pnode_crosswalk x
+        JOIN atlas_plants p ON p.plant_code = x.plant_code
+        GROUP BY x.pnode_id
     )
-    SELECT s.pnode_id, s.node_type, s.area
-    FROM atlas_pnode_lmp_snapshot s, latest l
-    WHERE s.market = %(market)s
-      AND s.market_date = l.market_date
-      AND s.market_hour = l.market_hour
-      AND s.market_interval IS NOT DISTINCT FROM l.market_interval
-      AND s.pnode_id ILIKE %(q)s ESCAPE '\\'
-      AND (%(area)s::text IS NULL OR upper(s.area) = upper(%(area)s))
-      AND (%(node_type)s::text IS NULL OR upper(s.node_type) = upper(%(node_type)s))
-    ORDER BY s.pnode_id
+    SELECT u.pnode_id, u.node_type, u.area,
+           COALESCE(pm.matched_plant, pm.any_plant) AS plant_name,
+           (pm.matched_plant IS NOT NULL) AS matched_via_plant
+    FROM universe u
+    LEFT JOIN plant_match pm ON pm.pnode_id = u.pnode_id
+    WHERE u.pnode_id ILIKE %(q)s ESCAPE '\\'
+       OR pm.matched_plant IS NOT NULL
+    ORDER BY u.pnode_id
     LIMIT %(limit)s
 """
 
@@ -6084,16 +6144,24 @@ async def nodes_search(
     """
     Cockpit node search — up to 50 snapshot-distinct nodes.
 
-    Returns {pnode_id, node_type, area} for nodes whose pnode_id contains `q`
-    (case-insensitive substring), optionally narrowed by exact area / node_type.
-    The universe is the latest DAM instant (all markets price the same node set),
-    so the read is index-driven and fast — never a scan of all history.
+    Returns {pnode_id, node_type, area, plant_name?} for nodes whose pnode_id
+    contains `q` (case-insensitive substring) OR that are reached from a plant
+    whose name matches `q` via the Atlas plant<->pnode crosswalk — so "Alamitos"
+    or "Diablo" finds the ALAMT*/DIABLO* nodes. Optionally narrowed by exact
+    area / node_type. The universe is the latest DAM instant (all markets price
+    the same node set), so the read is index-driven — never a scan of all
+    history — and results are always real, currently-priced nodes.
+
+    `plant_name` is present when a plant is associated with the node (always for
+    a crosswalk match; `matched_via_plant` flags how the node qualified); it is
+    null for a pnode_id-only match with no crosswalk entry.
 
     Response:
         {
-          "query": "LAKE", "area": null, "node_type": "GEN", "count": 4,
-          "matches": [{"pnode_id": "BLUELAKE_7_GN001", "node_type": "GEN",
-                       "area": "CA"}, ...]
+          "query": "Alamitos", "area": null, "node_type": null, "count": 5,
+          "matches": [{"pnode_id": "ALAMT3G_7_B1", "node_type": "GEN",
+                       "area": "CA", "plant_name": "AES Alamitos LLC",
+                       "matched_via_plant": true}, ...]
         }
 
     No matches -> 200 with an empty list. DB unavailable -> 503.
@@ -6112,16 +6180,22 @@ async def nodes_search(
         "limit": NODE_SEARCH_MAX,
     }
 
+    # Single (non-tiled) endpoint: recover a stale connection via retry-once, and
+    # surface any hard failure as the house-standard 503 (conforms to the proven
+    # endpoints — a search either queries fine or is honestly unavailable).
     try:
-        async with _pool.connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(_NODE_SEARCH_SQL, params)
-                rows = await cur.fetchall()
+        rows = await _cockpit_read(_NODE_SEARCH_SQL, params)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
     matches = [
-        {"pnode_id": r["pnode_id"], "node_type": r["node_type"], "area": r["area"]}
+        {
+            "pnode_id": r["pnode_id"],
+            "node_type": r["node_type"],
+            "area": r["area"],
+            "plant_name": r["plant_name"],
+            "matched_via_plant": bool(r["matched_via_plant"]),
+        }
         for r in rows
     ]
     return {
@@ -6284,53 +6358,63 @@ async def watchboard(request: Request):
             hub_need_datasets.add(COCKPIT_MARKET_TO_HUB[plan["market"]])
             hub_need_series.add(plan["hub_ref"])
 
-    # ── Batched reads (one connection): snapshot per market, hub once ───────
-    snap: dict = {}      # (market, pnode) -> ascending rows [{ts, lmp, ...}]
-    hub_map: dict = {}   # (dataset, series) -> {ts_utc: value}
-    if snap_need or hub_need_datasets:
+    # ── Batched reads: one query per distinct market + one hub query, each with
+    # retry-once recovery (see _cockpit_read — Neon idle-closes sockets). A
+    # source that STILL fails after the retry is RECORDED, not raised: the tiles
+    # depending on it get an honest per-tile db_error below, while tiles whose
+    # data loaded fine still render. This is the contract's distinction —
+    # db_error = "the read failed"; empty = "queried fine, zero rows".
+    snap: dict = {}              # (market, pnode) -> ascending rows [{ts, lmp, ...}]
+    hub_map: dict = {}           # (dataset, series) -> {ts_utc: value}
+    failed_markets: set = set()  # markets whose snapshot read failed (post-retry)
+    hub_failed = False           # the hub read failed (post-retry)
+
+    for market_n, pnodes in snap_need.items():
         try:
-            async with _pool.connection() as conn:
-                async with conn.cursor() as cur:
-                    for market_n, pnodes in snap_need.items():
-                        await cur.execute(
-                            _COCKPIT_SNAPSHOT_SQL,
-                            {
-                                "market": market_n,
-                                "pnodes": list(pnodes),
-                                "sentinel": COCKPIT_SENTINEL_MIN_DATE,
-                            },
-                        )
-                        for r in await cur.fetchall():
-                            ts = _cockpit_interval_start_utc(
-                                market_n, r["market_date"],
-                                r["market_hour"], r["market_interval"],
-                            )
-                            snap.setdefault((market_n, r["pnode_id"]), []).append({
-                                "ts": ts,
-                                "lmp": _cockpit_num(r["lmp"]),
-                                "energy": _cockpit_num(r["energy"]),
-                                "congestion": _cockpit_num(r["congestion"]),
-                                "loss": _cockpit_num(r["loss"]),
-                                "ghg": _cockpit_num(r["ghg"]),
-                            })
-                    if hub_need_datasets:
-                        await cur.execute(
-                            _COCKPIT_HUB_SQL,
-                            {
-                                "datasets": list(hub_need_datasets),
-                                "series": list(hub_need_series),
-                                "lo": _utcnow() - _timedelta(days=8),
-                            },
-                        )
-                        for r in await cur.fetchall():
-                            if r["value"] is None:
-                                continue
-                            ts = r["ts"].astimezone(_timezone.utc)
-                            hub_map.setdefault((r["dataset"], r["series"]), {})[ts] = float(r["value"])
-        except Exception as e:
-            # A read failure is a whole-board data-availability condition -> 503
-            # (house standard). Per-tile errors are reserved for per-tile faults.
-            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+            rows = await _cockpit_read(
+                _COCKPIT_SNAPSHOT_SQL,
+                {
+                    "market": market_n,
+                    "pnodes": list(pnodes),
+                    "sentinel": COCKPIT_SENTINEL_MIN_DATE,
+                },
+            )
+        except Exception:
+            _cockpit_log.exception("watchboard snapshot read failed: market=%s", market_n)
+            failed_markets.add(market_n)
+            continue
+        for r in rows:
+            ts = _cockpit_interval_start_utc(
+                market_n, r["market_date"], r["market_hour"], r["market_interval"],
+            )
+            snap.setdefault((market_n, r["pnode_id"]), []).append({
+                "ts": ts,
+                "lmp": _cockpit_num(r["lmp"]),
+                "energy": _cockpit_num(r["energy"]),
+                "congestion": _cockpit_num(r["congestion"]),
+                "loss": _cockpit_num(r["loss"]),
+                "ghg": _cockpit_num(r["ghg"]),
+            })
+
+    if hub_need_datasets:
+        try:
+            rows = await _cockpit_read(
+                _COCKPIT_HUB_SQL,
+                {
+                    "datasets": list(hub_need_datasets),
+                    "series": list(hub_need_series),
+                    "lo": _utcnow() - _timedelta(days=8),
+                },
+            )
+        except Exception:
+            _cockpit_log.exception("watchboard hub read failed")
+            hub_failed = True
+        else:
+            for r in rows:
+                if r["value"] is None:
+                    continue
+                ts = r["ts"].astimezone(_timezone.utc)
+                hub_map.setdefault((r["dataset"], r["series"]), {})[ts] = float(r["value"])
 
     # ── Shape each tile (isolated: one tile's bug never sinks the batch) ─────
     now = _utcnow()
@@ -6341,10 +6425,23 @@ async def watchboard(request: Request):
             if "detail" in plan:
                 out[tid]["detail"] = plan["detail"]
             continue
+
+        pid, market_n, view_n, hub_ref = (
+            plan["pnode"], plan["market"], plan["view"], plan["hub_ref"]
+        )
+
+        # A required source that failed its read (post-retry) -> honest per-tile
+        # db_error, NEVER an empty tile. dart needs its RT market AND DAM; basis
+        # needs its market AND the hub.
+        if (
+            market_n in failed_markets
+            or (view_n == "dart" and "DAM" in failed_markets)
+            or (view_n == "basis" and hub_failed)
+        ):
+            out[tid] = {"error": "db_error"}
+            continue
+
         try:
-            pid, market_n, view_n, hub_ref = (
-                plan["pnode"], plan["market"], plan["view"], plan["hub_ref"]
-            )
             rows = snap.get((market_n, pid), [])
 
             if view_n == "lmp":
