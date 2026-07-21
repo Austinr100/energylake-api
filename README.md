@@ -176,6 +176,35 @@ from a server component or route handler and render the first chart
   sentinel rows pass through as-is (no-price is a client render concern).
   `Cache-Control: max-age=60`
 
+- `GET /api/weather/temp-matrix`
+  -> the 17-station WECC basket (ordered N→S from `station_metadata.json`), each
+  with a D1–D7 forecast hi/lo grid. Per station we use ONLY the latest issuance
+  of its `{station_id}_temperature` NWS series (hourly, Celsius), bucket each
+  hourly target into the station's **local** calendar date via its IANA tz
+  (`D1` = that station's local date at request time), and take max/min per day
+  (converted to °F). Each cell carries `hours_covered` + `partial` (< 18h) so
+  D1's afternoon partial is surfaced, not hidden; anomalies (`anom_hi/anom_lo`,
+  one decimal) are vs `station_normals_daily` (`window_label` carried in the
+  envelope — never hardcode a year range). A station with no issuance in the
+  last 24h is `degraded:true` with null cells and its last `issued_ts` — always
+  17 rows, never dropped. DB unavailable -> 503
+- `GET /api/weather/regime`
+  -> the driver/regime panel: five teleconnection chips (`oni`, `roni`, `pdo`,
+  `qbo`, `iod_dmi`) with latest value, `as_of` month, and `staleness_days` vs
+  today (never filtered — staleness is displayed); ONLY ONI carries a
+  deterministic `warm`/`cool`/`neutral` band. Plus CPC outlook vintages (6-10 &
+  8-14 temp/precip) as metadata (issued/valid window, format) with `lean:null,
+  lean_status:"pending render leg"` — parsed probabilities are the deferred
+  render leg, never faked from R2. Archive `depth` (min issued_date) once in the
+  envelope. DB unavailable -> 503
+- `GET /api/weather/station-walk`
+  -> per station (N→S), the latest daily observation vs normal: each station's
+  OWN latest `obs_date` (as-of grammar — a station lagging the shared latest
+  still appears at its own date), `tmax/tmin` (°C→°F), `hdd/cdd`,
+  `basis_complete`, the (month, day) normals (`hdd_norm/cdd_norm/tavg_norm_f`),
+  obs−norm anomalies (one decimal), and `days_behind`. Always 17 rows;
+  `window_label` + per-row `sample_count` carried through. DB unavailable -> 503
+
 ---
 
 ## Tests

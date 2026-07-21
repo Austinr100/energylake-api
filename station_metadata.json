@@ -1,0 +1,35 @@
+{
+  "_provenance": {
+    "what": "Authoritative lat/lon and IANA timezone for the 17-station WECC basket (the GHCNh/GHCNd/NWS basket in datasets.yaml). The station_id (GHCN) <-> icao crosswalk is the datasets.yaml basket; lat/lon/tz are sourced here so they are never fabricated (see weather_bundle.py docstring: the basket carries no coordinates by design).",
+    "source": "NOAA/NWS station registry — https://api.weather.gov/stations/{ICAO} (the official api.weather.gov station endpoint). geometry.coordinates gives [longitude, latitude]; properties.timeZone gives the IANA zone; properties.name gives the official station name.",
+    "captured": "2026-07-20",
+    "captured_by": "Kelvin Weather Desk lane (d072004), fetched per-ICAO, verbatim",
+    "notes": [
+      "lat/lon are decimal degrees, WGS84, as returned by api.weather.gov (longitude first in the source array; split into lat/lon fields here).",
+      "tz is the IANA zone from the source. Phoenix is America/Phoenix (no DST) — this is authoritative, not an assumption; it is the exact case the pantry's tz-free bundle beats were built to avoid guessing.",
+      "order is NORTH -> SOUTH by descending latitude (the ratified D1-matrix display contract). This ordering is the reason the reference exists; do not re-sort to dodge it.",
+      "metro is the datasets.yaml basket label (authoritative for display); name is the NWS official station name."
+    ]
+  },
+  "ordering": "north_to_south_by_latitude",
+  "count": 17,
+  "stations": [
+    {"station_id": "USW00024157", "icao": "KGEG", "metro": "Spokane",           "lat": 47.62139, "lon": -117.52778, "tz": "America/Los_Angeles", "name": "Spokane International Airport"},
+    {"station_id": "USW00024233", "icao": "KSEA", "metro": "Seattle",           "lat": 47.44472, "lon": -122.31361, "tz": "America/Los_Angeles", "name": "Seattle-Tacoma International Airport"},
+    {"station_id": "USW00024229", "icao": "KPDX", "metro": "Portland",          "lat": 45.59578, "lon": -122.60917, "tz": "America/Los_Angeles", "name": "Portland International Airport"},
+    {"station_id": "USW00024131", "icao": "KBOI", "metro": "Boise",             "lat": 43.56704, "lon": -116.24053, "tz": "America/Boise",       "name": "Boise Air Terminal"},
+    {"station_id": "USW00024127", "icao": "KSLC", "metro": "Salt Lake City",    "lat": 40.77069, "lon": -111.96503, "tz": "America/Denver",      "name": "Salt Lake City International Airport"},
+    {"station_id": "USW00024257", "icao": "KRDD", "metro": "Redding",           "lat": 40.51461, "lon": -122.29770, "tz": "America/Los_Angeles", "name": "Redding Municipal Airport"},
+    {"station_id": "USW00003017", "icao": "KDEN", "metro": "Denver",            "lat": 39.84658, "lon": -104.65622, "tz": "America/Denver",      "name": "Denver International Airport"},
+    {"station_id": "USW00023185", "icao": "KRNO", "metro": "Reno",              "lat": 39.50776, "lon": -119.76819, "tz": "America/Los_Angeles", "name": "Reno Tahoe International Airport"},
+    {"station_id": "USW00023232", "icao": "KSAC", "metro": "Sacramento",        "lat": 38.50674, "lon": -121.49597, "tz": "America/Los_Angeles", "name": "Sacramento Executive Airport"},
+    {"station_id": "USW00093193", "icao": "KFAT", "metro": "Fresno",            "lat": 36.78000, "lon": -119.71944, "tz": "America/Los_Angeles", "name": "Fresno Air Terminal"},
+    {"station_id": "USW00023169", "icao": "KLAS", "metro": "Las Vegas",         "lat": 36.07188, "lon": -115.16340, "tz": "America/Los_Angeles", "name": "Harry Reid International Airport"},
+    {"station_id": "USW00023050", "icao": "KABQ", "metro": "Albuquerque",       "lat": 35.04167, "lon": -106.61472, "tz": "America/Denver",      "name": "Albuquerque International Airport"},
+    {"station_id": "USW00023152", "icao": "KBUR", "metro": "Burbank",           "lat": 34.19967, "lon": -118.36538, "tz": "America/Los_Angeles", "name": "Bob Hope Airport"},
+    {"station_id": "USW00003102", "icao": "KONT", "metro": "Riverside/Ontario", "lat": 34.05316, "lon": -117.57685, "tz": "America/Los_Angeles", "name": "Ontario International Airport"},
+    {"station_id": "USW00023174", "icao": "KLAX", "metro": "Los Angeles",       "lat": 33.93806, "lon": -118.38889, "tz": "America/Los_Angeles", "name": "Los Angeles International Airport"},
+    {"station_id": "USW00023183", "icao": "KPHX", "metro": "Phoenix",           "lat": 33.42780, "lon": -112.00347, "tz": "America/Phoenix",     "name": "Phoenix Sky Harbor International Airport"},
+    {"station_id": "USW00023188", "icao": "KSAN", "metro": "San Diego",         "lat": 32.73361, "lon": -117.18306, "tz": "America/Los_Angeles", "name": "San Diego International Airport"}
+  ]
+}
