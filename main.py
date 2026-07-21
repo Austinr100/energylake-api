@@ -37,6 +37,8 @@ Endpoints:
     GET /api/atlas/constraints             CAISO binding-constraint blotter league table (DAM/RTM, windowed), cached (D-07-11)
     GET /api/atlas/constraints/fingerprint per-node constraint fingerprint (delta/beta by pnode, geo-joined), newest-success-scoped, cached (D-07-12)
     GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
+    GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id substring (+area/node_type), from the latest instant (D-07-21)
+    POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
 """
 
 import json
@@ -157,7 +159,10 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=VERCEL_PREVIEW_ORIGIN_REGEX,
     allow_credentials=True,
-    allow_methods=["GET"],
+    # POST joins GET for the Cockpit/Watchboard batch endpoint (/api/watchboard),
+    # the repo's first POST — a batched board read whose body carries the tile
+    # list. Every other route stays GET; this is purely additive.
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -5758,3 +5763,617 @@ async def atlas_constraints_geometry(response: Response):
     _atlas_geometry_cache["payload"] = (now_mono, payload)
     response.headers["Cache-Control"] = "max-age=300"
     return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/nodes/search  +  /api/watchboard — Cockpit / Watchboard v0 (PR-1, D-07-21)
+#
+# TWO endpoints behind the general Cockpit tile surface:
+#   * GET  /api/nodes/search  — type-ahead over the snapshot node universe.
+#   * POST /api/watchboard    — a batched, per-tile-isolated board read.
+#
+# DESIGN RULING (encoded, not debated): the Cockpit is a GENERAL tile surface;
+# the /api/watchboard contract is polymorphic on `tile_type`. v0 implements
+# tile_type="pnode" ONLY. Any other tile_type returns an explicit PER-TILE error
+# {"error": "unknown_tile_type"} — never a guess, never a 500 for the whole
+# batch. tile_type="series" (arbitrary dataset/series tiles) and a
+# /api/series/catalog browse endpoint are v1 and deliberately FENCED OUT here;
+# nothing in v0's shapes precludes them.
+#
+# ── P5 TIME CONVENTION (VERIFIED at build, not assumed) ─────────────────────
+# The snapshot hot tier carries NO interval-start timestamptz — only
+# market_date / market_hour (HE, 1-24) / market_interval (DAM:0 · RTPD:1-4 ·
+# RTD:1-12). The sibling /api/atlas/pnode-history deliberately PUNTS the time
+# axis to the client for exactly this reason. This lane cannot punt — basis and
+# dart must align a snapshot interval to a hub interval on a common UTC instant.
+#
+# So we reconstruct the interval-start and CONFORM TO THE EXISTING HUB READER
+# (/api/timeseries/caiso-hub-lmp), which is the repo's convention-of-record:
+# timeseries_values.ts is interval-start UTC, and "PT hour starts land on UTC
+# :00" (whole-hour offset). The reconstruction, verified live 2026-07-21 against
+# both the hub grid and Postgres AT TIME ZONE:
+#
+#   interval_start (PT wall-clock, naive)
+#       = market_date + (market_hour - 1)h + interval_offset
+#   interval_offset = 0                        for DAM (hourly, interval 0)
+#                   = (market_interval - 1) * step_minutes   for RT markets
+#   step_minutes: DAM 60 · RTPD 15 · RTD 5
+#   interval_start_utc = interval_start.localize(America/Los_Angeles).to_utc()
+#
+# DST is handled by tz localization (zoneinfo), NEVER by offset math — the same
+# rail the whole repo runs on. Worked receipts (all confirmed live):
+#   DAM  2026-07-21 HE12 int0  -> PT 11:00 -> 2026-07-21T18:00Z  (hub DA grid ✓)
+#   RTPD 2026-07-21 HE12 int4  -> PT 11:45 -> 2026-07-21T18:45Z  (hub FMM grid ✓)
+#   RTD  2026-07-21 HE12 int10 -> PT 11:45 -> 2026-07-21T18:45Z  (hub RTD grid ✓)
+# Basis hand-check (BLUELAKE_7_GN001, RTPD, that interval): node 36.92829 −
+# hub SP15 11.25682 = 25.67147.
+#
+# ── PERFORMANCE (schema-read-first, incl. pg_indexes 2026-07-21) ────────────
+# Indexes present: PK (pnode_id, market, market_date, market_hour,
+# market_interval) and idx_lmp_snap_market_time (market, market_date,
+# market_hour, market_interval). Consequences, both measured on the live tier:
+#   * A DISTINCT-over-all-history node search TIMES OUT (>60s) — it scans ~2.4M
+#     rows/market. INSTEAD, node search derives the universe from the LATEST
+#     INSTANT (idx_lmp_snap_market_time, backward index-only scan, LIMIT 1) and
+#     substring-filters that one ~14.8k-row instant: ~14 ms. This is the exact
+#     two-step shape the /api/atlas/pnode-lmp load-perf arc (D-07-17) landed on.
+#   * The board read is BATCHED: pnode_id = ANY(...) + market + the P2 sentinel
+#     floor, which rides the PK bitmap index (3 pnodes × full retention = ~2k
+#     rows in 12 ms). One snapshot query per distinct market, one hub query for
+#     all basis tiles — a full 24-tile board stays interactive.
+#
+# ── P2 SENTINEL (proven by test) ────────────────────────────────────────────
+# RTD+RTPD carry rows with market_date = 0001-01-01. EVERY query in this lane
+# filters market_date >= '2020-01-01'. Because the hot tier is a ~8-day rolling
+# window, that floor also bounds each batched read to the retained window.
+#
+# ── ERROR CONTRACT ──────────────────────────────────────────────────────────
+# Batch always returns 200 with a per-tile map; failures are per-tile, honest
+# error objects, never a 500 for the whole board:
+#   unknown_tile_type · unknown_view · unknown_market · missing_pnode_id ·
+#   unknown_hub_ref · dart_requires_rt_market · internal_error
+# A known node with no rows in the window is NOT an error — it is an honest
+# empty tile (as_of=null, lag_minutes=null, empty=true, empty payload arrays).
+# Only genuine ENVELOPE faults 400: non-JSON body, no tiles[] array, >24 tiles,
+# a tile without a usable string tile_id (it is the response key), duplicate
+# tile_ids. DB unreachable -> 503 (house standard).
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Shared vocabulary. Markets reuse the sibling LMP consts (RTD | RTPD | DAM) so
+# there is ONE source of truth; "FMM" stays a dashboard display name and is
+# rejected on the wire (send RTPD), matching /api/atlas/pnode-history.
+WATCHBOARD_MAX_TILES = 24
+WATCHBOARD_TILE_TYPE = "pnode"
+WATCHBOARD_VIEWS = ("lmp", "components", "dart", "basis")
+
+# P2 sentinel floor — applied by EVERY query in this lane. Also bounds a batched
+# read to the ~8-day retained window.
+COCKPIT_SENTINEL_MIN_DATE = "2020-01-01"
+
+# Interval-step minutes per market (P1 cadence): the (market_interval - 1)
+# multiplier in the P5 interval-start reconstruction. DAM is hourly (interval 0).
+COCKPIT_MARKET_STEP_MIN = {"DAM": 60, "RTPD": 15, "RTD": 5}
+
+# P4 market map -> the hub dataset a basis tile joins against.
+COCKPIT_MARKET_TO_HUB = {
+    "DAM":  "caiso_lmp_da_hourly",   # DA hourly
+    "RTPD": "caiso_lmp_rt_15min",    # FMM 15-min
+    "RTD":  "caiso_lmp_rt_5min",     # RTD 5-min
+}
+
+# Hub reference series for basis (P3): the bare hub labels, default SP15.
+COCKPIT_HUB_DEFAULT_REF = "SP15"
+COCKPIT_HUB_REF_SET = frozenset(HUB_LMP_HUBS)  # NP15 / SP15 / ZP26
+
+# Sparkline / run windows: 24h for the RT feeds, 7d for the DA schedule, anchored
+# on the latest AVAILABLE interval (staleness-by-design — never wall-clock now,
+# which would blank a legitimately stale board). dart is hourly -> a 24h run.
+COCKPIT_RT_WINDOW = _timedelta(hours=24)
+COCKPIT_DA_WINDOW = _timedelta(days=7)
+COCKPIT_DART_WINDOW = _timedelta(hours=24)
+
+# Node search reads the universe from ONE market's latest instant (all three
+# markets price the same node set — P1). DAM is the cleanest: a full 24h
+# schedule, interval 0, always the complete universe.
+NODE_SEARCH_MARKET = "DAM"
+NODE_SEARCH_MAX = 50
+
+_cockpit_log = logging.getLogger("energylake.cockpit")
+
+
+def _cockpit_num(x):
+    """Numeric -> float; None passes through (absence is not zero)."""
+    return float(x) if x is not None else None
+
+
+def _cockpit_like_escape(s: str) -> str:
+    """Escape LIKE/ILIKE metacharacters so a user substring matches literally.
+    Paired with `ESCAPE '\\'` in the query. Order matters — backslash first."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _cockpit_interval_start_utc(market, market_date, market_hour, market_interval):
+    """Reconstruct a snapshot interval's start instant as tz-aware UTC (P5).
+
+    PT wall-clock start = market_date + (market_hour-1)h + interval_offset, then
+    localized to America/Los_Angeles and converted to UTC. DST is resolved by
+    zoneinfo localization (the offset for that wall-clock instant), NEVER by
+    fixed offset math — verified to match both the hub `ts` grid and Postgres
+    AT TIME ZONE at build time. Conforms to the hub reader's convention.
+    """
+    step = COCKPIT_MARKET_STEP_MIN.get(market, 60)
+    if market == "DAM" or market_interval is None:
+        offset_min = 0
+    else:
+        offset_min = (int(market_interval) - 1) * step
+    naive_pt = _datetime.combine(market_date, _time()) + _timedelta(
+        hours=int(market_hour) - 1, minutes=offset_min
+    )
+    local = naive_pt.replace(tzinfo=ZoneInfo(MARKET_TZ))
+    return local.astimezone(_timezone.utc)
+
+
+def _cockpit_window_delta(market) -> "_timedelta":
+    """Sparkline/run look-back for a market: 7d for DA, 24h for the RT feeds."""
+    return COCKPIT_DA_WINDOW if market == "DAM" else COCKPIT_RT_WINDOW
+
+
+def _cockpit_window(rows, delta):
+    """Rows (ascending by `ts`) within [latest.ts - delta, latest.ts]. Anchored
+    on the latest AVAILABLE interval so a stale board still renders its window."""
+    if not rows:
+        return []
+    end = rows[-1]["ts"]
+    start = end - delta
+    return [r for r in rows if r["ts"] >= start]
+
+
+def _cockpit_components(row) -> dict:
+    """The five price components of one snapshot row (nulls preserved)."""
+    return {
+        "lmp": row["lmp"], "energy": row["energy"], "congestion": row["congestion"],
+        "loss": row["loss"], "ghg": row["ghg"],
+    }
+
+
+# ── Per-view builders. Each is pure: (rows already shaped + sorted ascending)
+# -> (as_of_dt | None, body_dict). as_of=None ⟹ honest empty tile. ────────────
+
+def _cockpit_build_lmp(rows, market):
+    """lmp view: latest LMP + its components + an LMP sparkline over the window."""
+    if not rows:
+        return None, {"latest": None, "sparkline": []}
+    win = _cockpit_window(rows, _cockpit_window_delta(market))
+    latest = rows[-1]
+    return latest["ts"], {
+        "latest": _cockpit_components(latest),
+        "sparkline": [{"ts_utc": r["ts"].isoformat(), "lmp": r["lmp"]} for r in win],
+    }
+
+
+def _cockpit_build_components(rows, market):
+    """components view: latest energy/congestion/loss/ghg + a congestion sparkline."""
+    if not rows:
+        return None, {"latest": None, "congestion_sparkline": []}
+    win = _cockpit_window(rows, _cockpit_window_delta(market))
+    latest = rows[-1]
+    return latest["ts"], {
+        "latest": {
+            "energy": latest["energy"], "congestion": latest["congestion"],
+            "loss": latest["loss"], "ghg": latest["ghg"],
+        },
+        "congestion_sparkline": [
+            {"ts_utc": r["ts"].isoformat(), "congestion": r["congestion"]} for r in win
+        ],
+    }
+
+
+def _cockpit_build_dart(da_rows, rt_rows):
+    """dart view: DA(HE) − RT(aligned interval), a signed hourly spread + 24h run.
+
+    RT intervals are bucketed to their clock hour (UTC floor == PT hour start,
+    per the hub reader) and averaged; a spread is emitted only for hours that
+    carry a DA price AND >=1 RT interval. Sign per spec/hub reader: POSITIVE =
+    DA over RT. DAM interval-start already lands on UTC :00, the hour key.
+    """
+    rt_by_hour: dict = {}
+    for r in rt_rows:
+        if r["lmp"] is None:
+            continue
+        hk = r["ts"].replace(minute=0, second=0, microsecond=0)
+        rt_by_hour.setdefault(hk, []).append(r["lmp"])
+
+    spreads = []  # (hour_key_dt, entry)
+    for r in da_rows:
+        if r["lmp"] is None:
+            continue
+        hk = r["ts"].replace(minute=0, second=0, microsecond=0)
+        ivs = rt_by_hour.get(hk)
+        if not ivs:
+            continue
+        avg_rt = sum(ivs) / len(ivs)
+        spreads.append((hk, {
+            "ts_utc": hk.isoformat(),
+            "spread": round(r["lmp"] - avg_rt, 5),
+            "da": r["lmp"],
+            "rt": round(avg_rt, 5),
+        }))
+
+    if not spreads:
+        return None, {"latest": None, "run": []}
+    end = spreads[-1][0]
+    start = end - COCKPIT_DART_WINDOW
+    run = [e for (hk, e) in spreads if hk >= start]
+    return end, {"latest": run[-1], "run": run}
+
+
+def _cockpit_build_basis(rows, hub_ts_map, market):
+    """basis view: node − hub_ref at UTC-aligned same-market intervals.
+
+    basis = snapshot.lmp − hub.value on a common interval-start instant. An
+    interval with no aligned hub value is SKIPPED (honest — never fabricated).
+    """
+    aligned = []  # (ts_dt, entry)
+    for r in rows:
+        if r["lmp"] is None:
+            continue
+        hv = hub_ts_map.get(r["ts"])
+        if hv is None:
+            continue
+        aligned.append((r["ts"], {
+            "ts_utc": r["ts"].isoformat(),
+            "basis": round(r["lmp"] - hv, 5),
+            "node": r["lmp"],
+            "hub": hv,
+        }))
+
+    if not aligned:
+        return None, {"latest": None, "run": []}
+    end = aligned[-1][0]
+    start = end - _cockpit_window_delta(market)
+    run = [e for (ts, e) in aligned if ts >= start]
+    return end, {"latest": run[-1], "run": run}
+
+
+# ── Node search ─────────────────────────────────────────────────────────────
+# Two-step, index-driven (see the perf note above): latest instant, then a
+# substring filter over that ONE instant. IS NOT DISTINCT FROM keeps a NULL
+# interval matching itself. Optional area/node_type are exact, case-insensitive.
+_NODE_SEARCH_SQL = """
+    WITH latest AS (
+        SELECT market_date, market_hour, market_interval
+        FROM atlas_pnode_lmp_snapshot
+        WHERE market = %(market)s
+          AND market_date >= %(sentinel)s
+        ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+        LIMIT 1
+    )
+    SELECT s.pnode_id, s.node_type, s.area
+    FROM atlas_pnode_lmp_snapshot s, latest l
+    WHERE s.market = %(market)s
+      AND s.market_date = l.market_date
+      AND s.market_hour = l.market_hour
+      AND s.market_interval IS NOT DISTINCT FROM l.market_interval
+      AND s.pnode_id ILIKE %(q)s ESCAPE '\\'
+      AND (%(area)s::text IS NULL OR upper(s.area) = upper(%(area)s))
+      AND (%(node_type)s::text IS NULL OR upper(s.node_type) = upper(%(node_type)s))
+    ORDER BY s.pnode_id
+    LIMIT %(limit)s
+"""
+
+
+@app.get("/api/nodes/search")
+async def nodes_search(
+    q: str = Query(
+        default="",
+        description=(
+            "Case-insensitive substring matched against pnode_id. Empty browses "
+            "the first matches by pnode_id. LIKE metacharacters are matched "
+            "literally."
+        ),
+    ),
+    area: Optional[str] = Query(
+        default=None,
+        description="Optional exact area filter (case-insensitive), e.g. CA, BPAT.",
+    ),
+    node_type: Optional[str] = Query(
+        default=None,
+        description="Optional exact node_type filter (case-insensitive), e.g. GEN, LOAD.",
+    ),
+):
+    """
+    Cockpit node search — up to 50 snapshot-distinct nodes.
+
+    Returns {pnode_id, node_type, area} for nodes whose pnode_id contains `q`
+    (case-insensitive substring), optionally narrowed by exact area / node_type.
+    The universe is the latest DAM instant (all markets price the same node set),
+    so the read is index-driven and fast — never a scan of all history.
+
+    Response:
+        {
+          "query": "LAKE", "area": null, "node_type": "GEN", "count": 4,
+          "matches": [{"pnode_id": "BLUELAKE_7_GN001", "node_type": "GEN",
+                       "area": "CA"}, ...]
+        }
+
+    No matches -> 200 with an empty list. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    q_clean = q.strip()
+    area_f = area.strip() if isinstance(area, str) and area.strip() else None
+    node_type_f = node_type.strip() if isinstance(node_type, str) and node_type.strip() else None
+    params = {
+        "market": NODE_SEARCH_MARKET,
+        "sentinel": COCKPIT_SENTINEL_MIN_DATE,
+        "q": "%" + _cockpit_like_escape(q_clean) + "%",
+        "area": area_f,
+        "node_type": node_type_f,
+        "limit": NODE_SEARCH_MAX,
+    }
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(_NODE_SEARCH_SQL, params)
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    matches = [
+        {"pnode_id": r["pnode_id"], "node_type": r["node_type"], "area": r["area"]}
+        for r in rows
+    ]
+    return {
+        "query": q_clean,
+        "area": area_f,
+        "node_type": node_type_f,
+        "count": len(matches),
+        "matches": matches,
+    }
+
+
+# ── Watchboard batch ──────────────────────────────────────────────────────────
+# One snapshot query per distinct market (pnode_id = ANY, P2 floor -> retained
+# window, PK bitmap index); one hub query for every basis tile at once.
+_COCKPIT_SNAPSHOT_SQL = """
+    SELECT pnode_id, market_date, market_hour, market_interval,
+           lmp, energy, congestion, loss, ghg,
+           feed_generated_at, snapshot_vintage
+    FROM atlas_pnode_lmp_snapshot
+    WHERE market = %(market)s
+      AND pnode_id = ANY(%(pnodes)s)
+      AND market_date >= %(sentinel)s
+    ORDER BY pnode_id, market_date, market_hour, market_interval
+"""
+
+_COCKPIT_HUB_SQL = """
+    SELECT ts, dataset, series, value
+    FROM timeseries_values
+    WHERE dataset = ANY(%(datasets)s)
+      AND series  = ANY(%(series)s)
+      AND value IS NOT NULL
+      AND ts >= %(lo)s
+    ORDER BY dataset, series, ts
+"""
+
+
+def _watchboard_validate_tile(t: dict) -> dict:
+    """Per-tile validation. Returns a plan dict — either {"error": ...[, detail]}
+    (an honest per-tile error) or a resolved
+    {"pnode", "market", "view", "hub_ref"} spec. Never raises."""
+    if t.get("tile_type") != WATCHBOARD_TILE_TYPE:
+        # v0 implements pnode only; anything else is an explicit per-tile error.
+        return {"error": "unknown_tile_type"}
+
+    view = t.get("view")
+    view_n = view.strip().lower() if isinstance(view, str) else ""
+    if view_n not in WATCHBOARD_VIEWS:
+        return {"error": "unknown_view", "detail": f"valid views: {list(WATCHBOARD_VIEWS)}"}
+
+    pid = t.get("pnode_id")
+    if not isinstance(pid, str) or not pid.strip():
+        return {"error": "missing_pnode_id"}
+    pid = pid.strip()
+
+    market = t.get("market")
+    market_n = market.strip().upper() if isinstance(market, str) else ""
+    if market_n not in _PNODE_LMP_MARKET_SET:
+        return {
+            "error": "unknown_market",
+            "detail": (
+                f"valid markets: {list(PNODE_LMP_MARKETS)} "
+                "('FMM' is a display name — send RTPD)"
+            ),
+        }
+
+    # dart is DA − RT: the tile's market is the RT leg, so DAM is nonsensical.
+    if view_n == "dart" and market_n == "DAM":
+        return {
+            "error": "dart_requires_rt_market",
+            "detail": "dart is DA − RT; send market RTD or RTPD (the RT leg).",
+        }
+
+    hub_ref = None
+    if view_n == "basis":
+        raw = t.get("hub_ref")
+        hub_ref = raw.strip().upper() if isinstance(raw, str) and raw.strip() else COCKPIT_HUB_DEFAULT_REF
+        if hub_ref not in COCKPIT_HUB_REF_SET:
+            return {
+                "error": "unknown_hub_ref",
+                "detail": f"valid hub_ref: {sorted(COCKPIT_HUB_REF_SET)}",
+            }
+
+    return {"pnode": pid, "market": market_n, "view": view_n, "hub_ref": hub_ref}
+
+
+@app.post("/api/watchboard")
+async def watchboard(request: Request):
+    """
+    Cockpit / Watchboard v0 — a batched, per-tile-isolated board read.
+
+    Body: {"tiles": [{"tile_id", "tile_type": "pnode", "pnode_id", "market",
+    "view": lmp|components|dart|basis, "hub_ref"?}]} — at most 24 tiles.
+
+    Response is keyed by tile_id; every tile carries `as_of` + `lag_minutes`,
+    then a payload by view (lmp / components / dart / basis). Per-tile failures
+    are honest per-tile error objects; the batch always returns 200. See the
+    module header for the full error and time-alignment contracts.
+
+        {
+          "count": 2,
+          "tiles": {
+            "t1": {"tile_type": "pnode", "pnode_id": "...", "market": "RTD",
+                   "view": "lmp", "as_of": "...Z", "lag_minutes": 15,
+                   "empty": false, "latest": {...}, "sparkline": [...]},
+            "t2": {"error": "unknown_tile_type"}
+          }
+        }
+    """
+    assert _pool is not None
+
+    # ── Envelope validation (the only 400s) ─────────────────────────────────
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="request body must be valid JSON.")
+    if not isinstance(body, dict) or not isinstance(body.get("tiles"), list):
+        raise HTTPException(
+            status_code=400, detail="body must be an object with a 'tiles' array."
+        )
+    tiles = body["tiles"]
+    if len(tiles) > WATCHBOARD_MAX_TILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"too many tiles: {len(tiles)} > {WATCHBOARD_MAX_TILES}.",
+        )
+
+    # tile_id is the response key: it must be present, a non-empty string, and
+    # unique. A violation corrupts the keyed contract, so it is an envelope 400.
+    keys = []
+    for i, t in enumerate(tiles):
+        if not isinstance(t, dict):
+            raise HTTPException(status_code=400, detail=f"tile[{i}] must be an object.")
+        tid = t.get("tile_id")
+        if not isinstance(tid, str) or not tid.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"tile[{i}] is missing a string tile_id (the response key).",
+            )
+        keys.append(tid)
+    if len(set(keys)) != len(keys):
+        raise HTTPException(
+            status_code=400, detail="tile_id values must be unique (they key the response)."
+        )
+
+    # ── Per-tile validation + data-requirement collection ───────────────────
+    plans: dict = {}
+    snap_need: dict = {}          # market -> set(pnode_id)
+    hub_need_datasets: set = set()
+    hub_need_series: set = set()
+    for t in tiles:
+        tid = t["tile_id"]
+        plan = _watchboard_validate_tile(t)
+        plans[tid] = plan
+        if "error" in plan:
+            continue
+        snap_need.setdefault(plan["market"], set()).add(plan["pnode"])
+        if plan["view"] == "dart":
+            snap_need.setdefault("DAM", set()).add(plan["pnode"])  # the DA leg
+        if plan["view"] == "basis":
+            hub_need_datasets.add(COCKPIT_MARKET_TO_HUB[plan["market"]])
+            hub_need_series.add(plan["hub_ref"])
+
+    # ── Batched reads (one connection): snapshot per market, hub once ───────
+    snap: dict = {}      # (market, pnode) -> ascending rows [{ts, lmp, ...}]
+    hub_map: dict = {}   # (dataset, series) -> {ts_utc: value}
+    if snap_need or hub_need_datasets:
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    for market_n, pnodes in snap_need.items():
+                        await cur.execute(
+                            _COCKPIT_SNAPSHOT_SQL,
+                            {
+                                "market": market_n,
+                                "pnodes": list(pnodes),
+                                "sentinel": COCKPIT_SENTINEL_MIN_DATE,
+                            },
+                        )
+                        for r in await cur.fetchall():
+                            ts = _cockpit_interval_start_utc(
+                                market_n, r["market_date"],
+                                r["market_hour"], r["market_interval"],
+                            )
+                            snap.setdefault((market_n, r["pnode_id"]), []).append({
+                                "ts": ts,
+                                "lmp": _cockpit_num(r["lmp"]),
+                                "energy": _cockpit_num(r["energy"]),
+                                "congestion": _cockpit_num(r["congestion"]),
+                                "loss": _cockpit_num(r["loss"]),
+                                "ghg": _cockpit_num(r["ghg"]),
+                            })
+                    if hub_need_datasets:
+                        await cur.execute(
+                            _COCKPIT_HUB_SQL,
+                            {
+                                "datasets": list(hub_need_datasets),
+                                "series": list(hub_need_series),
+                                "lo": _utcnow() - _timedelta(days=8),
+                            },
+                        )
+                        for r in await cur.fetchall():
+                            if r["value"] is None:
+                                continue
+                            ts = r["ts"].astimezone(_timezone.utc)
+                            hub_map.setdefault((r["dataset"], r["series"]), {})[ts] = float(r["value"])
+        except Exception as e:
+            # A read failure is a whole-board data-availability condition -> 503
+            # (house standard). Per-tile errors are reserved for per-tile faults.
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # ── Shape each tile (isolated: one tile's bug never sinks the batch) ─────
+    now = _utcnow()
+    out: dict = {}
+    for tid, plan in plans.items():
+        if "error" in plan:
+            out[tid] = {"error": plan["error"]}
+            if "detail" in plan:
+                out[tid]["detail"] = plan["detail"]
+            continue
+        try:
+            pid, market_n, view_n, hub_ref = (
+                plan["pnode"], plan["market"], plan["view"], plan["hub_ref"]
+            )
+            rows = snap.get((market_n, pid), [])
+
+            if view_n == "lmp":
+                as_of, body_out = _cockpit_build_lmp(rows, market_n)
+            elif view_n == "components":
+                as_of, body_out = _cockpit_build_components(rows, market_n)
+            elif view_n == "dart":
+                da_rows = snap.get(("DAM", pid), [])
+                as_of, body_out = _cockpit_build_dart(da_rows, rows)
+                body_out = {"da_market": "DAM", "rt_market": market_n, **body_out}
+            else:  # basis
+                ds = COCKPIT_MARKET_TO_HUB[market_n]
+                hub_ts_map = hub_map.get((ds, hub_ref), {})
+                as_of, body_out = _cockpit_build_basis(rows, hub_ts_map, market_n)
+                body_out = {"hub_ref": hub_ref, **body_out}
+
+            lag = None if as_of is None else max(0, int((now - as_of).total_seconds() // 60))
+            out[tid] = {
+                "tile_type": WATCHBOARD_TILE_TYPE,
+                "pnode_id": pid,
+                "market": market_n,
+                "view": view_n,
+                "as_of": as_of.isoformat() if as_of is not None else None,
+                "lag_minutes": lag,
+                "empty": as_of is None,
+                **body_out,
+            }
+        except Exception as e:  # noqa: BLE001 — per-tile isolation is the contract
+            _cockpit_log.exception("watchboard tile %s failed", tid)
+            out[tid] = {"error": "internal_error", "detail": str(e)}
+
+    return {"count": len(out), "tiles": out}
