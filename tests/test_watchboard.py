@@ -578,3 +578,135 @@ def test_dst_boundary_basis_alignment_synthetic(client):
     assert tile["latest"]["ts_utc"] == "2026-11-01T17:00:00+00:00"
     assert tile["latest"]["basis"] == 35.0  # 55.0 - 20.0
     assert tile["lag_minutes"] == 60
+
+
+# ---------------------------------------------------------------------------
+# v0.2 — per-tile window override (24h / 7d) + additive window/points fields.
+# ---------------------------------------------------------------------------
+
+def _multiday_scenario():
+    """RTD + DAM rows spanning >24h so a 24h vs 7d window serves a different
+    point count. Latest instant is 2026-07-21T19:00Z (< pinned NOW 20:00Z)."""
+    old = datetime.date(2026, 7, 18)
+    snap_rows = [
+        # RTD: one point 3 days back, two on the latest day.
+        snap(PNODE, "RTD", 12, 10, 10.0, md=old),       # 2026-07-18 18:45Z
+        snap(PNODE, "RTD", 12, 10, 42.0),               # 2026-07-21 18:45Z
+        snap(PNODE, "RTD", 13, 1, 43.0),                # 2026-07-21 19:00Z
+        # DAM: same spread of days.
+        snap(PNODE, "DAM", 12, 0, 20.0, md=old),        # 2026-07-18 18:00Z
+        snap(PNODE, "DAM", 12, 0, 50.0),                # 2026-07-21 18:00Z
+        snap(PNODE, "DAM", 13, 0, 51.0),                # 2026-07-21 19:00Z
+    ]
+    return snap_rows, []
+
+
+def _tile(tid, market, view, **extra):
+    return {"tile_id": tid, "tile_type": "pnode", "pnode_id": PNODE,
+            "market": market, "view": view, **extra}
+
+
+def test_effective_window_routing_unit():
+    ew = main._cockpit_effective_window
+    H24, D7 = datetime.timedelta(hours=24), datetime.timedelta(days=7)
+    # Defaults (window=None): 24h for RT views, 7d for DA, 24h for dart.
+    assert ew(None, "RTD", "lmp") == ("24h", H24)
+    assert ew(None, "RTPD", "basis") == ("24h", H24)
+    assert ew(None, "DAM", "lmp") == ("7d", D7)
+    assert ew(None, "RTPD", "dart") == ("24h", H24)
+    # Explicit override wins regardless of market/view.
+    assert ew("7d", "RTD", "lmp") == ("7d", D7)
+    assert ew("24h", "DAM", "lmp") == ("24h", H24)
+    assert ew("7d", "RTPD", "dart") == ("7d", D7)
+
+
+def test_additive_fields_present_and_default_window(client):
+    use_scenario(*_full_scenario())
+    resp = post(client, [
+        _tile("lmp1", "RTD", "lmp"),
+        _tile("cmp1", "RTD", "components"),
+        _tile("drt1", "RTPD", "dart"),
+        _tile("bas1", "RTPD", "basis"),
+    ])
+    tiles = resp.json()["tiles"]
+    # Every healthy tile gains window + points (additive), default RT = 24h.
+    for tid in ("lmp1", "cmp1", "drt1", "bas1"):
+        assert tiles[tid]["window"] == "24h"
+        assert isinstance(tiles[tid]["points"], int)
+    # points equals the served series length.
+    assert tiles["lmp1"]["points"] == len(tiles["lmp1"]["sparkline"])
+    assert tiles["cmp1"]["points"] == len(tiles["cmp1"]["congestion_sparkline"])
+    assert tiles["drt1"]["points"] == len(tiles["drt1"]["run"])
+    assert tiles["bas1"]["points"] == len(tiles["bas1"]["run"])
+
+
+def test_default_dam_window_is_7d(client):
+    use_scenario(*_multiday_scenario())
+    resp = post(client, [_tile("d", "DAM", "lmp")])
+    tile = resp.json()["tiles"]["d"]
+    # DA default is 7d -> all three points across the days.
+    assert tile["window"] == "7d"
+    assert tile["points"] == 3
+
+
+def test_explicit_7d_widens_rt_series(client):
+    use_scenario(*_multiday_scenario())
+    resp = post(client, [
+        _tile("def", "RTD", "lmp"),                 # default 24h
+        _tile("wide", "RTD", "lmp", window="7d"),   # widened
+    ])
+    tiles = resp.json()["tiles"]
+    # Default 24h sees only the two latest-day points; 7d sees all three.
+    assert tiles["def"]["window"] == "24h"
+    assert tiles["def"]["points"] == 2
+    assert tiles["wide"]["window"] == "7d"
+    assert tiles["wide"]["points"] == 3
+    assert [p["lmp"] for p in tiles["wide"]["sparkline"]] == [10.0, 42.0, 43.0]
+
+
+def test_explicit_24h_narrows_dam_series(client):
+    use_scenario(*_multiday_scenario())
+    resp = post(client, [_tile("n", "DAM", "lmp", window="24h")])
+    tile = resp.json()["tiles"]["n"]
+    assert tile["window"] == "24h"
+    assert tile["points"] == 2  # only the latest-day DAM points
+
+
+def test_window_override_reflected_on_dart_and_basis(client):
+    use_scenario(*_full_scenario())
+    resp = post(client, [
+        _tile("d", "RTPD", "dart", window="7d"),
+        _tile("b", "RTPD", "basis", window="7d"),
+    ])
+    tiles = resp.json()["tiles"]
+    assert tiles["d"]["window"] == "7d"
+    assert tiles["b"]["window"] == "7d"
+
+
+def test_bad_window_is_per_tile(client):
+    use_scenario(*_full_scenario())
+    resp = post(client, [
+        _tile("bad", "RTD", "lmp", window="12h"),
+        _tile("good", "RTD", "lmp"),
+    ])
+    assert resp.status_code == 200
+    tiles = resp.json()["tiles"]
+    assert tiles["bad"]["error"] == "bad_window"
+    # Batch stays healthy: the sibling tile renders normally.
+    assert "error" not in tiles["good"]
+    assert tiles["good"]["window"] == "24h"
+
+
+def test_window_case_insensitive(client):
+    use_scenario(*_multiday_scenario())
+    resp = post(client, [_tile("w", "RTD", "lmp", window="7D")])
+    assert resp.json()["tiles"]["w"]["window"] == "7d"
+
+
+def test_empty_tile_still_reports_window_and_zero_points(client):
+    use_scenario(*_full_scenario())
+    resp = post(client, [_tile("e", "RTD", "lmp", pnode_id="GHOST_9_N999")])
+    tile = resp.json()["tiles"]["e"]
+    assert tile["empty"] is True
+    assert tile["window"] == "24h"
+    assert tile["points"] == 0
