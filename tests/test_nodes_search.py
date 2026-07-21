@@ -15,6 +15,7 @@ DB rows are faked as psycopg's `dict_row` would yield them from the SELECT
 (pnode_id, node_type, area).
 """
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,14 +23,17 @@ import main
 
 
 # ---------------------------------------------------------------------------
-# In-memory fake pool (single canned result set + query/param capture).
+# In-memory fake pool. Canned result set + query/param capture, and an optional
+# retry simulation: the first `fail_times` execute() calls raise `exc` (default
+# a dropped-connection error). The attempt counter lives on the pool so it is
+# shared across the fresh connection each retry acquires.
 # ---------------------------------------------------------------------------
 
 class _FakeCursor:
-    def __init__(self, rows, sink, raise_on_execute):
+    def __init__(self, rows, sink, state):
         self._rows = rows
         self._sink = sink
-        self._raise = raise_on_execute
+        self._state = state
 
     async def __aenter__(self):
         return self
@@ -40,18 +44,19 @@ class _FakeCursor:
     async def execute(self, query, params=None):
         self._sink["query"] = query
         self._sink["params"] = params
-        if self._raise:
-            raise RuntimeError("boom")
+        self._state["attempts"] += 1
+        if self._state["attempts"] <= self._state["fail_times"]:
+            raise self._state["exc"]
 
     async def fetchall(self):
         return list(self._rows)
 
 
 class _FakeConn:
-    def __init__(self, rows, sink, raise_on_execute):
+    def __init__(self, rows, sink, state):
         self._rows = rows
         self._sink = sink
-        self._raise = raise_on_execute
+        self._state = state
 
     async def __aenter__(self):
         return self
@@ -60,17 +65,21 @@ class _FakeConn:
         return False
 
     def cursor(self):
-        return _FakeCursor(self._rows, self._sink, self._raise)
+        return _FakeCursor(self._rows, self._sink, self._state)
 
 
 class FakePool:
-    def __init__(self, rows, raise_on_execute=False):
+    def __init__(self, rows, fail_times=0, exc=None):
         self._rows = rows
-        self._raise = raise_on_execute
         self.sink = {}
+        self.state = {
+            "attempts": 0,
+            "fail_times": fail_times,
+            "exc": exc or psycopg.OperationalError("SSL connection has been closed unexpectedly"),
+        }
 
     def connection(self):
-        return _FakeConn(self._rows, self.sink, self._raise)
+        return _FakeConn(self._rows, self.sink, self.state)
 
 
 @pytest.fixture
@@ -78,14 +87,17 @@ def client():
     return TestClient(main.app)
 
 
-def use_rows(rows, raise_on_execute=False):
-    pool = FakePool(rows, raise_on_execute)
+def use_rows(rows, fail_times=0, exc=None):
+    pool = FakePool(rows, fail_times=fail_times, exc=exc)
     main._pool = pool
     return pool
 
 
-def _node(pnode_id, node_type, area):
-    return {"pnode_id": pnode_id, "node_type": node_type, "area": area}
+def _node(pnode_id, node_type, area, plant_name=None, matched_via_plant=False):
+    return {
+        "pnode_id": pnode_id, "node_type": node_type, "area": area,
+        "plant_name": plant_name, "matched_via_plant": matched_via_plant,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +117,8 @@ def test_returns_matches_shape(client):
     assert body["area"] is None and body["node_type"] is None
     assert body["count"] == 2
     assert body["matches"][0] == {
-        "pnode_id": "BLUELAKE_7_GN001", "node_type": "GEN", "area": "CA"
+        "pnode_id": "BLUELAKE_7_GN001", "node_type": "GEN", "area": "CA",
+        "plant_name": None, "matched_via_plant": False,
     }
 
 
@@ -175,6 +188,64 @@ def test_area_and_node_type_filters_bind(client):
 # ---------------------------------------------------------------------------
 
 def test_db_error_is_503(client):
-    use_rows([], raise_on_execute=True)
+    # Two consecutive dropped connections (retry exhausted) -> honest 503.
+    use_rows([], fail_times=2)
     resp = client.get("/api/nodes/search?q=x")
     assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# Plant-name search via the Atlas crosswalk (captain request).
+# ---------------------------------------------------------------------------
+
+def test_query_joins_plant_crosswalk(client):
+    pool = use_rows([])
+    client.get("/api/nodes/search?q=Alamitos")
+    q = pool.sink["query"]
+    # The crosswalk (plant_code -> pnode_id) and atlas_plants (plant_name) are
+    # joined, intersected with the priced universe, and plant_name matched.
+    assert "atlas_pnode_crosswalk" in q
+    assert "atlas_plants" in q
+    assert "plant_name ILIKE %(q)s" in q
+    # Still bounded by the latest-instant universe + the P2 floor.
+    assert "market_date >= %(sentinel)s" in q
+    assert "LIMIT %(limit)s" in q
+
+
+def test_plant_name_and_flag_surfaced(client):
+    use_rows([
+        _node("ALAMT3G_7_B1", "GEN", "CA", plant_name="AES Alamitos LLC", matched_via_plant=True),
+        _node("ALAMITOS_2_N001", "LOAD", "CA", plant_name=None, matched_via_plant=False),
+    ])
+    resp = client.get("/api/nodes/search?q=Alamitos")
+    assert resp.status_code == 200
+    matches = resp.json()["matches"]
+    assert matches[0] == {
+        "pnode_id": "ALAMT3G_7_B1", "node_type": "GEN", "area": "CA",
+        "plant_name": "AES Alamitos LLC", "matched_via_plant": True,
+    }
+    # A pnode_id-only match carries a null plant_name and matched_via_plant False.
+    assert matches[1]["plant_name"] is None
+    assert matches[1]["matched_via_plant"] is False
+
+
+# ---------------------------------------------------------------------------
+# Connection lifecycle — recover a stale connection with a single retry.
+# ---------------------------------------------------------------------------
+
+def test_retry_once_recovers_dropped_connection(client):
+    # First execute raises a dropped-connection error; the retry succeeds.
+    pool = use_rows([_node("BLUELAKE_7_GN001", "GEN", "CA")], fail_times=1)
+    resp = client.get("/api/nodes/search?q=LAKE")
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 1
+    assert pool.state["attempts"] == 2  # one failure + one successful retry
+
+
+def test_non_connection_error_is_not_retried(client):
+    # A non-connection error is not a stale-socket case: surface it (503) without
+    # a spurious retry.
+    pool = use_rows([], fail_times=1, exc=ValueError("bad sql"))
+    resp = client.get("/api/nodes/search?q=x")
+    assert resp.status_code == 503
+    assert pool.state["attempts"] == 1  # no retry for a non-connection error
