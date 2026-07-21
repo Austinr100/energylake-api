@@ -39,11 +39,14 @@ Endpoints:
     GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
 """
 
+import json
 import logging
 import os
 import re
 import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
+from pathlib import Path as _Path
 from datetime import date as _date
 from datetime import datetime as _datetime
 from datetime import time as _time
@@ -2083,6 +2086,460 @@ async def weather_brief_history(
     return WeatherBriefHistory(
         brief_type=BRIEF_TYPE_WEATHER, count=len(items), briefs=items,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Kelvin Tier-1 weather tiles — three read-only grids (D-07-20-02, 2026-07-21)
+#
+# Backs the /weather RESERVED tiles: a D1–D7 temp matrix, a driver/regime
+# panel, and a station-walk. Pure reads; no migrations, no crons.
+#
+# The 17-station WECC basket's N→S order and per-station IANA timezone come
+# from station_metadata.json (vendored beside this module from the pantry's
+# ruled source — the basket carries no coordinates/tz by design). Deriving a
+# tz-aware daily hi/lo from the hourly NWS forecast is the whole build, so the
+# tz map is authoritative, never improvised (spec P3 STOP condition).
+#
+# Data receipts verified live 2026-07-21 (architect + Neon connector):
+#   * forecasts_nws is HOURLY, long-format, series '{station_id}_temperature'.
+#     GOTCHA: '{station_id}_dew_point_temperature' also ends in '_temperature',
+#     so we match the EXACT series string per station, never a LIKE — a naive
+#     '%_temperature' would double the basket with dew points.
+#   * Stored `value` is CELSIUS even though meta.unit_src='F' (that describes
+#     the SOURCE; LAX 21.11 ≈ 70°F confirms). We convert C→°F here.
+#   * station_normals_daily is keyed (station_id, month, day); window_label
+#     ('2011-2025') is carried in the envelope so the dashboard never hardcodes
+#     a "15-yr" label.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# The ruled N→S basket (order + IANA tz), loaded once at import. Vendored from
+# the pantry so the deployed API has it (Railway ships the repo). Read relative
+# to this file, not the CWD.
+_STATION_METADATA_PATH = _Path(__file__).with_name("station_metadata.json")
+
+
+def _load_weather_stations() -> list[dict]:
+    """Load the 17-station basket, N→S. Fails loud (spec P3) if the ruled tz is
+    absent — an improvised tz map is exactly what this reference exists to avoid.
+    """
+    with open(_STATION_METADATA_PATH, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    stations = doc.get("stations") or []
+    for s in stations:
+        if not s.get("tz") or not s.get("station_id"):
+            raise RuntimeError(
+                "station_metadata.json is missing tz/station_id for "
+                f"{s.get('station_id') or s!r} — refusing to improvise a tz map "
+                "(spec P3 STOP)."
+            )
+    return stations
+
+
+_WEATHER_STATIONS: list[dict] = _load_weather_stations()
+
+# Temp-matrix knobs.
+_TEMP_MATRIX_DAYS = 7                       # D1–D7
+_TEMP_MATRIX_PARTIAL_HOURS = 18             # < 18 hourly points → partial cell
+_TEMP_MATRIX_DEGRADED_AFTER = _timedelta(hours=24)  # no issuance in 24h → degraded
+
+
+def _c_to_f(celsius) -> float:
+    """°C → °F. Values in forecasts_nws / ghcnd are Celsius (see receipts)."""
+    return float(celsius) * 9.0 / 5.0 + 32.0
+
+
+def _display_f(celsius) -> int:
+    """Integer °F for grid display (anomalies keep a decimal; the cell does not)."""
+    return int(round(_c_to_f(celsius)))
+
+
+def _oni_band(value: float | None) -> str | None:
+    """Deterministic ENSO band for ONI only — warm ≥ +0.5 / cool ≤ −0.5 /
+    neutral. Nothing editorial (spec: the chip states the number and its band,
+    no narrative)."""
+    if value is None:
+        return None
+    if value >= 0.5:
+        return "warm"
+    if value <= -0.5:
+        return "cool"
+    return "neutral"
+
+
+@app.get("/api/weather/temp-matrix")
+async def weather_temp_matrix():
+    """Per station (N→S), the D1–D7 forecast hi/lo grid with normal anomalies.
+
+    Per station we use ONLY the latest issuance of its '{station_id}_temperature'
+    series, bucket each hourly target into the station's LOCAL calendar date via
+    its IANA tz (D1 = that station's local date at request time), and take
+    max/min per day. Each cell carries `hours_covered` and `partial` (< 18h) so
+    D1's usual afternoon partial is surfaced, never hidden. A station with no
+    issuance in the last 24h is DEGRADED — null cells, its last issued_ts, still
+    a row. Always 17 rows. DB unavailable → 503.
+    """
+    assert _pool is not None
+
+    now = _utcnow()
+    stations = _WEATHER_STATIONS
+    series_by_station = {s["station_id"]: f"{s['station_id']}_temperature"
+                         for s in stations}
+    series_list = list(series_by_station.values())
+
+    # Per station, the seven LOCAL dates D1–D7 (D1 = today in that station's tz).
+    days_by_station: dict[str, list[_date]] = {}
+    for s in stations:
+        local_today = now.astimezone(ZoneInfo(s["tz"])).date()
+        days_by_station[s["station_id"]] = [
+            local_today + _timedelta(days=i) for i in range(_TEMP_MATRIX_DAYS)
+        ]
+    needed_months = sorted({d.month for days in days_by_station.values()
+                            for d in days})
+
+    # (1) latest-issuance hourly rows for every station's temperature series;
+    # (2) normals for the (month, day) window (fetched by month, filtered in
+    #     Python — trivially small, and avoids composite-tuple IN adaptation).
+    forecast_sql = """
+        WITH latest AS (
+            SELECT series, MAX(issued_ts) AS issued_ts
+            FROM forecasts_nws
+            WHERE series = ANY(%(series)s)
+            GROUP BY series
+        )
+        SELECT f.series, f.issued_ts, f.target_ts, f.value
+        FROM forecasts_nws f
+        JOIN latest l ON l.series = f.series AND l.issued_ts = f.issued_ts
+        WHERE f.value IS NOT NULL
+    """
+    normals_sql = """
+        SELECT station_id, month, day, tmax_norm_f, tmin_norm_f, window_label
+        FROM station_normals_daily
+        WHERE station_id = ANY(%(sids)s) AND month = ANY(%(months)s)
+    """
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(forecast_sql, {"series": series_list})
+                fc_rows = await cur.fetchall()
+                await cur.execute(normals_sql, {
+                    "sids": list(series_by_station.keys()),
+                    "months": needed_months,
+                })
+                norm_rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # Group forecast rows by series → issued_ts + list of (target_ts, value_c).
+    fc_by_series: dict[str, dict] = defaultdict(
+        lambda: {"issued_ts": None, "rows": []})
+    for r in fc_rows or []:
+        e = fc_by_series[r["series"]]
+        e["issued_ts"] = r["issued_ts"]
+        e["rows"].append((r["target_ts"], r["value"]))
+
+    # Normals lookup keyed (station_id, month, day); window_label for the envelope.
+    norm_by_key: dict[tuple, dict] = {}
+    window_label: str | None = None
+    for r in norm_rows or []:
+        norm_by_key[(r["station_id"], r["month"], r["day"])] = r
+        if window_label is None:
+            window_label = r.get("window_label")
+
+    out_stations = []
+    for order, s in enumerate(stations, start=1):
+        sid = s["station_id"]
+        tz = ZoneInfo(s["tz"])
+        series = series_by_station[sid]
+        entry = fc_by_series.get(series)
+        issued_ts = entry["issued_ts"] if entry else None
+        degraded = (
+            issued_ts is None
+            or (now - issued_ts) > _TEMP_MATRIX_DEGRADED_AFTER
+        )
+
+        # Bucket this issuance's hourly points into local dates (skip when
+        # degraded — a stale issuance's cells are nulled, not shown).
+        buckets: dict[_date, list] = defaultdict(list)
+        if not degraded and entry:
+            for target_ts, value_c in entry["rows"]:
+                local_d = target_ts.astimezone(tz).date()
+                buckets[local_d].append(value_c)
+
+        days = []
+        for d in days_by_station[sid]:
+            vals = buckets.get(d, [])
+            if vals:
+                hi_f = _display_f(max(vals))
+                lo_f = _display_f(min(vals))
+                norm = norm_by_key.get((sid, d.month, d.day))
+                anom_hi = (round(hi_f - float(norm["tmax_norm_f"]), 1)
+                           if norm and norm.get("tmax_norm_f") is not None else None)
+                anom_lo = (round(lo_f - float(norm["tmin_norm_f"]), 1)
+                           if norm and norm.get("tmin_norm_f") is not None else None)
+                hours = len(vals)
+                days.append({
+                    "date_local": d.isoformat(),
+                    "hi_f": hi_f,
+                    "lo_f": lo_f,
+                    "anom_hi": anom_hi,
+                    "anom_lo": anom_lo,
+                    "hours_covered": hours,
+                    "partial": hours < _TEMP_MATRIX_PARTIAL_HOURS,
+                })
+            else:
+                # No hourly coverage for this local day (degraded station, or a
+                # day past the issuance's horizon) — cell present, values null.
+                days.append({
+                    "date_local": d.isoformat(),
+                    "hi_f": None,
+                    "lo_f": None,
+                    "anom_hi": None,
+                    "anom_lo": None,
+                    "hours_covered": 0,
+                    "partial": True,
+                })
+
+        out_stations.append({
+            "station_id": sid,
+            "name": s.get("name"),
+            "metro": s.get("metro"),
+            "icao": s.get("icao"),
+            "order": order,
+            "tz": s["tz"],
+            "issued_ts": issued_ts.isoformat() if issued_ts is not None else None,
+            "degraded": degraded,
+            "days": days,
+        })
+
+    return {
+        "as_of": now.isoformat(),
+        "window_label": window_label,
+        "stations": out_stations,
+    }
+
+
+# Driver chips: (display key, timeseries dataset). One series per dataset.
+_REGIME_DRIVERS = [
+    ("oni", "cpc_oni_monthly"),
+    ("roni", "cpc_roni_monthly"),
+    ("pdo", "climate_pdo_monthly"),
+    ("qbo", "climate_qbo_monthly"),
+    ("iod_dmi", "climate_iod_dmi_monthly"),
+]
+
+# CPC outlook families → the cpc_outlook_vintage.product code for each.
+_REGIME_CPC_FAMILIES = [
+    ("6-10 temp", "610temp"),
+    ("6-10 precip", "610prcp"),
+    ("8-14 temp", "814temp"),
+    ("8-14 precip", "814prcp"),
+]
+
+
+@app.get("/api/weather/regime")
+async def weather_regime():
+    """The driver/regime panel: five teleconnection chips + the CPC outlook
+    vintages.
+
+    Driver chips (oni, roni, pdo, qbo, iod_dmi) report the latest monthly value,
+    its `as_of` month, and `staleness_days` vs today — NEVER dropped, staleness
+    is displayed not filtered. ONLY ONI carries a deterministic warm/cool/neutral
+    band; nothing editorial. CPC chips report the latest vintage per family as
+    METADATA (issued/valid window, format) with `lean: null` — parsed
+    probabilities are the deferred D2 render leg (spec P5), never faked from R2.
+    DB unavailable → 503.
+    """
+    assert _pool is not None
+
+    now = _utcnow()
+    today = now.astimezone(ZoneInfo(MARKET_TZ)).date()
+
+    drivers_sql = """
+        SELECT DISTINCT ON (dataset) dataset, series, ts, value
+        FROM timeseries_values
+        WHERE dataset = ANY(%(datasets)s)
+        ORDER BY dataset, ts DESC
+    """
+    cpc_sql = """
+        SELECT DISTINCT ON (product)
+               product, issued_date, valid_start, valid_end, artifact_format
+        FROM cpc_outlook_vintage
+        WHERE product = ANY(%(products)s)
+        ORDER BY product, issued_date DESC
+    """
+    cpc_depth_sql = "SELECT MIN(issued_date) AS depth FROM cpc_outlook_vintage"
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(drivers_sql, {
+                    "datasets": [ds for _, ds in _REGIME_DRIVERS]})
+                driver_rows = await cur.fetchall()
+                await cur.execute(cpc_sql, {
+                    "products": [p for _, p in _REGIME_CPC_FAMILIES]})
+                cpc_rows = await cur.fetchall()
+                await cur.execute(cpc_depth_sql)
+                depth_row = await cur.fetchone()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    by_dataset = {r["dataset"]: r for r in (driver_rows or [])}
+    drivers = []
+    for key, dataset in _REGIME_DRIVERS:
+        r = by_dataset.get(dataset)
+        if r is None:
+            drivers.append({
+                "key": key, "value": None, "as_of": None,
+                "staleness_days": None, "band": None,
+            })
+            continue
+        value = float(r["value"]) if r["value"] is not None else None
+        # Monthly drivers are stamped midnight-UTC on the 1st, so the "value
+        # month" is the UTC date — converting to Pacific would push a May stamp
+        # back into April and mislabel the month.
+        as_of = r["ts"].astimezone(_timezone.utc).date()
+        drivers.append({
+            "key": key,
+            "value": value,
+            "as_of": as_of.isoformat(),
+            "staleness_days": (today - as_of).days,
+            "band": _oni_band(value) if key == "oni" else None,
+        })
+
+    by_product = {r["product"]: r for r in (cpc_rows or [])}
+    cpc_chips = []
+    for family, product in _REGIME_CPC_FAMILIES:
+        r = by_product.get(product)
+        cpc_chips.append({
+            "family": family,
+            "product": product,
+            "issued_date": r["issued_date"].isoformat() if r else None,
+            "valid_start": r["valid_start"].isoformat() if r else None,
+            "valid_end": r["valid_end"].isoformat() if r else None,
+            "artifact_format": r["artifact_format"] if r else None,
+            "lean": None,
+            "lean_status": "pending render leg",
+        })
+
+    depth = depth_row.get("depth") if depth_row else None
+    return {
+        "as_of": now.isoformat(),
+        "drivers": drivers,
+        "cpc": {
+            "depth": depth.isoformat() if depth is not None else None,
+            "chips": cpc_chips,
+        },
+    }
+
+
+@app.get("/api/weather/station-walk")
+async def weather_station_walk():
+    """Per station (N→S), the latest daily observation vs normal.
+
+    Each station reports ITS OWN latest obs_date (as-of grammar, not omission —
+    a station missing at the shared latest date still appears at its own latest),
+    tmax/tmin (°C→°F), hdd/cdd, basis_complete, the (month, day) normals
+    (hdd_norm/cdd_norm/tavg_norm_f), obs−norm anomalies, and days_behind vs
+    today. Always 17 rows; window_label carried in the envelope. DB
+    unavailable → 503.
+    """
+    assert _pool is not None
+
+    now = _utcnow()
+    today = now.astimezone(ZoneInfo(MARKET_TZ)).date()
+    sids = [s["station_id"] for s in _WEATHER_STATIONS]
+
+    # Per station: its latest degree-day row (carries hdd/cdd/tavg_f/basis),
+    # the same-date ghcnd obs (tmax/tmin), and that date's normals.
+    walk_sql = """
+        WITH latest_dd AS (
+            SELECT DISTINCT ON (station_id)
+                   station_id, obs_date, tavg_f, hdd, cdd, basis_complete
+            FROM station_degree_days_daily
+            WHERE station_id = ANY(%(sids)s)
+            ORDER BY station_id, obs_date DESC
+        )
+        SELECT dd.station_id, dd.obs_date, dd.tavg_f, dd.hdd, dd.cdd,
+               dd.basis_complete,
+               g.tmax_c, g.tmin_c,
+               n.hdd_norm, n.cdd_norm, n.tavg_norm_f, n.sample_count,
+               n.window_label
+        FROM latest_dd dd
+        LEFT JOIN ghcnd_weather_daily g
+               ON g.station_id = dd.station_id AND g.obs_date = dd.obs_date
+        LEFT JOIN station_normals_daily n
+               ON n.station_id = dd.station_id
+              AND n.month = EXTRACT(MONTH FROM dd.obs_date)::int
+              AND n.day = EXTRACT(DAY FROM dd.obs_date)::int
+    """
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(walk_sql, {"sids": sids})
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    by_station = {r["station_id"]: r for r in (rows or [])}
+    window_label = next(
+        (r.get("window_label") for r in (rows or []) if r.get("window_label")),
+        None,
+    )
+
+    def _anom(obs, norm):
+        if obs is None or norm is None:
+            return None
+        return round(float(obs) - float(norm), 1)
+
+    out_stations = []
+    for order, s in enumerate(_WEATHER_STATIONS, start=1):
+        sid = s["station_id"]
+        r = by_station.get(sid)
+        if r is None:
+            # No degree-day row at all — still a row, as-of null (never omitted).
+            out_stations.append({
+                "station_id": sid, "name": s.get("name"), "metro": s.get("metro"),
+                "icao": s.get("icao"), "order": order, "tz": s["tz"],
+                "obs_date": None, "days_behind": None,
+                "tmax_f": None, "tmin_f": None, "tavg_f": None,
+                "hdd": None, "cdd": None, "basis_complete": None,
+                "hdd_norm": None, "cdd_norm": None, "tavg_norm_f": None,
+                "anom_tavg": None, "anom_hdd": None, "anom_cdd": None,
+                "sample_count": None,
+            })
+            continue
+        obs_date = r["obs_date"]
+        tavg_f = r.get("tavg_f")
+        hdd = r.get("hdd")
+        cdd = r.get("cdd")
+        out_stations.append({
+            "station_id": sid,
+            "name": s.get("name"),
+            "metro": s.get("metro"),
+            "icao": s.get("icao"),
+            "order": order,
+            "tz": s["tz"],
+            "obs_date": obs_date.isoformat() if obs_date is not None else None,
+            "days_behind": (today - obs_date).days if obs_date is not None else None,
+            "tmax_f": _display_f(r["tmax_c"]) if r.get("tmax_c") is not None else None,
+            "tmin_f": _display_f(r["tmin_c"]) if r.get("tmin_c") is not None else None,
+            "tavg_f": tavg_f,
+            "hdd": hdd,
+            "cdd": cdd,
+            "basis_complete": r.get("basis_complete"),
+            "hdd_norm": float(r["hdd_norm"]) if r.get("hdd_norm") is not None else None,
+            "cdd_norm": float(r["cdd_norm"]) if r.get("cdd_norm") is not None else None,
+            "tavg_norm_f": float(r["tavg_norm_f"]) if r.get("tavg_norm_f") is not None else None,
+            "anom_tavg": _anom(tavg_f, r.get("tavg_norm_f")),
+            "anom_hdd": _anom(hdd, r.get("hdd_norm")),
+            "anom_cdd": _anom(cdd, r.get("cdd_norm")),
+            "sample_count": r.get("sample_count"),
+        })
+
+    return {
+        "as_of": now.isoformat(),
+        "window_label": window_label,
+        "stations": out_stations,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
