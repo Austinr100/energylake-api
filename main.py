@@ -40,6 +40,8 @@ Endpoints:
     GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id OR plant-name (Atlas crosswalk) substring (+area/node_type), from the latest instant (D-07-21)
     GET /api/nodes/facets                  Cockpit facets: distinct area / node_type categories with node counts over the same latest-instant universe as /nodes/search, cached (D-07-21)
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
+    GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the R2 archive (D-07-22)
+    GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame (PNG/JSON) from R2, d2/-allowlisted, long immutable cache (D-07-22)
 """
 
 import json
@@ -63,6 +65,7 @@ from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 import psycopg
 from psycopg_pool import AsyncConnectionPool
@@ -6647,3 +6650,302 @@ async def watchboard(request: Request):
             out[tid] = {"error": "internal_error", "detail": str(e)}
 
     return {"count": len(out), "tiles": out}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Model Room — R2 archive proxy (D2 synoptic frames)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Two read-only proxy endpoints onto the D2 render archive in Cloudflare R2
+# (the ratified Model Room spec; the key scheme is FROZEN):
+#
+#   d2/synoptic/{model}/{date}/{cycle}Z/<artifact>
+#     model   e.g. "gfs"       (lowercase feed slug)
+#     date    e.g. "20260721"  (YYYYMMDD, the run's UTC date)
+#     cycle   e.g. "18"        (two-digit UTC synoptic hour; the "Z" is the
+#                               literal partition suffix carried in the key)
+#
+#   GET /api/model-room/cycles?model=gfs&days=7
+#       → [{model, date, cycle}] for the cycles present under
+#         d2/synoptic/{model}/ within the last `days` UTC dates, newest first.
+#         v0 availability = the three seed artifacts present (asserted by object
+#         COUNT — see _cycle_is_available; manifest-presence is the marked seam).
+#   GET /api/model-room/frame/{key}
+#       → streams the R2 object (PNG or JSON) with a long immutable cache. The
+#         key is VALIDATED against the d2/ prefix allowlist (no traversal, no
+#         other prefixes) BEFORE it ever touches R2.
+#
+# Auth: a READ-ONLY R2 token scoped to d2/ on the archive bucket, provisioned by
+# the captain (account-token doctrine) and supplied via the R2_* env vars below.
+# When those are absent the endpoints answer 503 and the rest of the API is
+# unaffected — boto3/R2 is imported and touched ONLY inside this section, lazily.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# R2 (S3-compatible) config — all via environment (set in Railway). The token is
+# READ-ONLY and d2/-scoped; this service never writes to the archive bucket.
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", "")
+R2_ARCHIVE_BUCKET = os.environ.get("R2_ARCHIVE_BUCKET", "")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+# Endpoint defaults to the account's R2 S3 endpoint; override only if the token
+# is issued against a custom/jurisdictional endpoint.
+R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "") or (
+    f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else ""
+)
+
+# The ONE allowed prefix + the frozen key scheme. The Model Room serves only the
+# d2/ subtree; nothing else is reachable through the frame proxy.
+_MODEL_ROOM_KEY_PREFIX = "d2/"
+_MODEL_ROOM_SYNOPTIC_ROOT = "d2/synoptic/"
+_MODEL_ROOM_MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+_MODEL_ROOM_DATE_RE = re.compile(r"^\d{8}$")          # YYYYMMDD partition token
+_MODEL_ROOM_CYCLE_DIR_RE = re.compile(r"^(\d{2})Z$")  # "18Z" -> cycle "18"
+_MODEL_ROOM_MAX_DAYS = 31
+
+# v0 availability assertion. A cycle counts as "published" when its three seed
+# artifacts are present under d2/synoptic/{model}/{date}/{cycle}Z/. We assert on
+# object COUNT (>= 3) rather than exact artifact names so the check survives an
+# artifact rename. ─── SEAM: when the render leg starts writing a manifest, flip
+# _cycle_is_available to assert manifest presence (a {prefix}manifest.json key)
+# instead of the count. ───
+_MODEL_ROOM_SEED_ARTIFACT_COUNT = 3
+
+# Content types the proxy serves. R2's stored ContentType wins; this is the
+# fallback when the object carries none.
+_FRAME_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".json": "application/json",
+    ".webp": "image/webp",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+}
+_FRAME_IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+
+_r2_client = None
+
+
+def _model_room_configured() -> bool:
+    """True once the captain has provisioned the read-only R2 token (all four
+    connection env vars present). Endpoints answer 503 until then."""
+    return bool(R2_ARCHIVE_BUCKET and R2_ACCESS_KEY_ID
+                and R2_SECRET_ACCESS_KEY and R2_ENDPOINT)
+
+
+def _get_r2_client():
+    """Lazily build (and cache) the read-only S3 client for R2. boto3 is imported
+    HERE, not at module top, so the rest of the API neither imports nor depends
+    on it until a Model Room route is actually hit."""
+    global _r2_client
+    if _r2_client is None:
+        try:
+            import boto3
+            from botocore.config import Config as _BotoConfig
+        except ImportError as e:  # pragma: no cover - deploy misconfiguration
+            raise HTTPException(
+                status_code=503,
+                detail=f"model room storage client unavailable: {e}",
+            )
+        _r2_client = boto3.client(
+            "s3",
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_ACCESS_KEY_ID,
+            aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+            region_name="auto",  # R2 ignores region, but SigV4 still needs one
+            config=_BotoConfig(
+                signature_version="s3v4",
+                retries={"max_attempts": 2, "mode": "standard"},
+            ),
+        )
+    return _r2_client
+
+
+def _r2_error_code(e) -> str:
+    """Best-effort S3 error code from a botocore ClientError (or the class name)."""
+    resp = getattr(e, "response", None)
+    if isinstance(resp, dict):
+        return str(resp.get("Error", {}).get("Code") or type(e).__name__)
+    return type(e).__name__
+
+
+def _r2_error_status(e) -> int:
+    """A genuinely-absent object is a 404; anything else (auth/config/transport)
+    is our side, surfaced as 502 so the caller never sees an opaque 500."""
+    return 404 if _r2_error_code(e) in ("NoSuchKey", "404", "NoSuchBucket") else 502
+
+
+def _validate_frame_key(key: str) -> str:
+    """Validate a frame key against the d2/ allowlist. Rejects traversal,
+    absolute paths, empty/dot segments, NUL/backslash, and any prefix other than
+    d2/. Returns the key unchanged when safe; raises HTTPException otherwise.
+
+    This runs BEFORE any R2 call, so a hostile key never reaches the bucket.
+    """
+    if not key or "\x00" in key or "\\" in key:
+        raise HTTPException(status_code=400, detail="invalid frame key")
+    # Reject absolute paths and any traversal / empty / dot segments. A leading
+    # slash yields an empty first segment; a trailing slash (a directory, not an
+    # object) yields an empty last segment — both caught here, as is "..".
+    segments = key.split("/")
+    if any(seg in ("", ".", "..") for seg in segments):
+        raise HTTPException(status_code=400, detail="invalid frame key (traversal)")
+    # Single allowed prefix; the key must live UNDER it (never the bare prefix).
+    if segments[0] != "d2" or not key.startswith(_MODEL_ROOM_KEY_PREFIX):
+        raise HTTPException(
+            status_code=403, detail="frame key outside the d2/ allowlist")
+    return key
+
+
+def _frame_content_type(key: str) -> str:
+    dot = key.rfind(".")
+    ext = key[dot:].lower() if dot != -1 else ""
+    return _FRAME_CONTENT_TYPES.get(ext, "application/octet-stream")
+
+
+def _r2_common_prefixes(client, bucket: str, prefix: str) -> list[str]:
+    """Immediate child 'directory' names under prefix (delimiter='/'), stripped
+    of the prefix and the trailing slash. Paginated."""
+    out: list[str] = []
+    token = None
+    while True:
+        kw = {"Bucket": bucket, "Prefix": prefix, "Delimiter": "/"}
+        if token:
+            kw["ContinuationToken"] = token
+        resp = client.list_objects_v2(**kw)
+        for cp in resp.get("CommonPrefixes", []):
+            child = cp.get("Prefix", "")[len(prefix):].rstrip("/")
+            if child:
+                out.append(child)
+        if resp.get("IsTruncated"):
+            token = resp.get("NextContinuationToken")
+        else:
+            break
+    return out
+
+
+def _r2_iter_keys(client, bucket: str, prefix: str):
+    """Yield every object key under prefix (recursive, paginated)."""
+    token = None
+    while True:
+        kw = {"Bucket": bucket, "Prefix": prefix}
+        if token:
+            kw["ContinuationToken"] = token
+        resp = client.list_objects_v2(**kw)
+        for obj in resp.get("Contents", []):
+            k = obj.get("Key")
+            if k:
+                yield k
+        if resp.get("IsTruncated"):
+            token = resp.get("NextContinuationToken")
+        else:
+            break
+
+
+def _cycle_is_available(artifact_count: int) -> bool:
+    """v0 availability: the three seed artifacts present (object COUNT). ─── SEAM:
+    swap for manifest presence when the render leg writes
+    d2/synoptic/{model}/{date}/{cycle}Z/manifest.json — assert that key exists
+    instead of counting. ───"""
+    return artifact_count >= _MODEL_ROOM_SEED_ARTIFACT_COUNT
+
+
+@app.get("/api/model-room/cycles")
+async def model_room_cycles(
+    model: str = Query(..., description="feed slug, e.g. gfs"),
+    days: int = Query(
+        7, ge=1, le=_MODEL_ROOM_MAX_DAYS,
+        description="how many UTC dates back to scan (inclusive of today)"),
+):
+    """The published synoptic cycles for `model` over the last `days` UTC dates,
+    newest first, wrapped in the platform envelope: {"cycles": [{model, date,
+    cycle}]}. A cycle is 'published' when its seed artifacts are present under
+    d2/synoptic/{model}/{date}/{cycle}Z/ (v0: object count; manifest-presence is
+    the marked seam in _cycle_is_available).
+
+    R2 unprovisioned → 503. Bad model slug → 400.
+    """
+    if not _MODEL_ROOM_MODEL_RE.match(model):
+        raise HTTPException(status_code=400, detail="invalid model slug")
+    if not _model_room_configured():
+        raise HTTPException(status_code=503, detail="model room storage not configured")
+
+    client = _get_r2_client()
+    bucket = R2_ARCHIVE_BUCKET
+    model_root = f"{_MODEL_ROOM_SYNOPTIC_ROOT}{model}/"
+
+    # UTC date cutoff (inclusive). date tokens are YYYYMMDD, so a lexicographic
+    # compare against the cutoff token is identical to a chronological one.
+    cutoff_token = (_utcnow().date() - _timedelta(days=days - 1)).strftime("%Y%m%d")
+
+    def _list_cycles() -> list[tuple[str, str]]:
+        date_dirs = _r2_common_prefixes(client, bucket, model_root)
+        keep_dates = sorted(
+            d for d in date_dirs
+            if _MODEL_ROOM_DATE_RE.match(d) and d >= cutoff_token
+        )
+        found: list[tuple[str, str]] = []
+        for date_token in keep_dates:
+            date_root = f"{model_root}{date_token}/"
+            # One recursive listing per date; group objects by their cycle dir.
+            counts: dict[str, int] = defaultdict(int)
+            for k in _r2_iter_keys(client, bucket, date_root):
+                parts = k[len(date_root):].split("/")
+                # parts like ["18Z", "500mb.png"] — need a cycle dir AND a real
+                # object leaf (guards against any bare directory markers).
+                if len(parts) < 2 or not parts[-1]:
+                    continue
+                m = _MODEL_ROOM_CYCLE_DIR_RE.match(parts[0])
+                if m:
+                    counts[m.group(1)] += 1
+            for cycle, n in counts.items():
+                if _cycle_is_available(n):
+                    found.append((date_token, cycle))
+        return found
+
+    try:
+        found = await run_in_threadpool(_list_cycles)
+    except HTTPException:
+        raise
+    except Exception as e:  # botocore ClientError / transport
+        raise HTTPException(
+            status_code=502, detail=f"cycle listing failed: {_r2_error_code(e)}")
+
+    # Newest first: date desc, then cycle desc. Wrapped in the {"cycles": [...]}
+    # platform envelope (the convention every other route follows — no bare array).
+    found.sort(reverse=True)
+    return {"cycles": [{"model": model, "date": d, "cycle": c} for d, c in found]}
+
+
+@app.get("/api/model-room/frame/{key:path}")
+async def model_room_frame(
+    key: str = Path(..., description="R2 object key under d2/"),
+):
+    """Stream one archived frame object (PNG or JSON) from R2, long-immutable
+    cached. The key is validated against the d2/ allowlist FIRST — no traversal,
+    no prefixes other than d2/. Missing object → 404; R2 unprovisioned → 503.
+    """
+    safe_key = _validate_frame_key(key)
+    if not _model_room_configured():
+        raise HTTPException(status_code=503, detail="model room storage not configured")
+
+    client = _get_r2_client()
+
+    def _fetch():
+        obj = client.get_object(Bucket=R2_ARCHIVE_BUCKET, Key=safe_key)
+        return obj, obj["Body"].read()
+
+    try:
+        obj, body = await run_in_threadpool(_fetch)
+    except HTTPException:
+        raise
+    except Exception as e:  # botocore ClientError / transport
+        raise HTTPException(
+            status_code=_r2_error_status(e),
+            detail=f"frame fetch failed: {_r2_error_code(e)}")
+
+    # Honor the object's stored content-type; fall back to the extension.
+    ctype = obj.get("ContentType") or _frame_content_type(safe_key)
+    headers = {"Cache-Control": _FRAME_IMMUTABLE_CACHE}
+    etag = obj.get("ETag")
+    if etag:
+        headers["ETag"] = etag
+    return Response(content=body, media_type=ctype, headers=headers)
