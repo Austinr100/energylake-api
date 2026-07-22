@@ -2310,6 +2310,12 @@ async def weather_temp_matrix():
             "station_id": sid,
             "name": s.get("name"),
             "metro": s.get("metro"),
+            # D-07-22-03 (additive): the display label + USPS state the row carries
+            # for the frontend, sourced verbatim from station_metadata.json. Purely
+            # additive to the ratified envelope — no existing key renamed or
+            # reordered (metro/name/icao/order/tz/... all unchanged).
+            "display_name": s.get("display_name"),
+            "state": s.get("state"),
             "icao": s.get("icao"),
             "order": order,
             "tz": s["tz"],
