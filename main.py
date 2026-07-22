@@ -5873,6 +5873,17 @@ COCKPIT_RT_WINDOW = _timedelta(hours=24)
 COCKPIT_DA_WINDOW = _timedelta(days=7)
 COCKPIT_DART_WINDOW = _timedelta(hours=24)
 
+# Explicit per-tile window override (v0.2, Atlas chart grammar). A tile may pass
+# window="24h" | "7d"; when absent, the per-view DEFAULT is preserved verbatim
+# (24h RT · 7d DA · 24h dart) so pinned payloads are unchanged. "7d" on an RT
+# view widens to the full snapshot-retention series (RTD 5-min ≈ up to ~2,016
+# pts, RTPD ≈ 672); the batched read is already bounded to retention by the P2
+# floor, and each tile reports the window it served + its point count.
+COCKPIT_WINDOWS = {
+    "24h": _timedelta(hours=24),
+    "7d": _timedelta(days=7),
+}
+
 # Node search reads the universe from ONE market's latest instant (all three
 # markets price the same node set — P1). DAM is the cleanest: a full 24h
 # schedule, interval 0, always the complete universe.
@@ -5919,6 +5930,21 @@ def _cockpit_window_delta(market) -> "_timedelta":
     return COCKPIT_DA_WINDOW if market == "DAM" else COCKPIT_RT_WINDOW
 
 
+def _cockpit_effective_window(window, market, view) -> tuple:
+    """Resolve the (label, delta) a tile serves. An explicit window="24h"|"7d"
+    overrides; when absent (None), the per-view default is preserved verbatim —
+    24h for RT lmp/components/basis and dart, 7d for DA — so default payloads are
+    byte-for-byte unchanged from v0.1."""
+    if window in COCKPIT_WINDOWS:
+        return window, COCKPIT_WINDOWS[window]
+    # Default (window is None): the v0.1 per-view behavior.
+    if view == "dart":
+        return "24h", COCKPIT_DART_WINDOW
+    if market == "DAM":
+        return "7d", COCKPIT_DA_WINDOW
+    return "24h", COCKPIT_RT_WINDOW
+
+
 def _cockpit_window(rows, delta):
     """Rows (ascending by `ts`) within [latest.ts - delta, latest.ts]. Anchored
     on the latest AVAILABLE interval so a stale board still renders its window."""
@@ -5940,11 +5966,11 @@ def _cockpit_components(row) -> dict:
 # ── Per-view builders. Each is pure: (rows already shaped + sorted ascending)
 # -> (as_of_dt | None, body_dict). as_of=None ⟹ honest empty tile. ────────────
 
-def _cockpit_build_lmp(rows, market):
-    """lmp view: latest LMP + its components + an LMP sparkline over the window."""
+def _cockpit_build_lmp(rows, delta):
+    """lmp view: latest LMP + its components + an LMP sparkline over `delta`."""
     if not rows:
         return None, {"latest": None, "sparkline": []}
-    win = _cockpit_window(rows, _cockpit_window_delta(market))
+    win = _cockpit_window(rows, delta)
     latest = rows[-1]
     return latest["ts"], {
         "latest": _cockpit_components(latest),
@@ -5952,11 +5978,11 @@ def _cockpit_build_lmp(rows, market):
     }
 
 
-def _cockpit_build_components(rows, market):
+def _cockpit_build_components(rows, delta):
     """components view: latest energy/congestion/loss/ghg + a congestion sparkline."""
     if not rows:
         return None, {"latest": None, "congestion_sparkline": []}
-    win = _cockpit_window(rows, _cockpit_window_delta(market))
+    win = _cockpit_window(rows, delta)
     latest = rows[-1]
     return latest["ts"], {
         "latest": {
@@ -5969,8 +5995,8 @@ def _cockpit_build_components(rows, market):
     }
 
 
-def _cockpit_build_dart(da_rows, rt_rows):
-    """dart view: DA(HE) − RT(aligned interval), a signed hourly spread + 24h run.
+def _cockpit_build_dart(da_rows, rt_rows, delta):
+    """dart view: DA(HE) − RT(aligned interval), a signed hourly spread + run.
 
     RT intervals are bucketed to their clock hour (UTC floor == PT hour start,
     per the hub reader) and averaged; a spread is emitted only for hours that
@@ -6003,12 +6029,12 @@ def _cockpit_build_dart(da_rows, rt_rows):
     if not spreads:
         return None, {"latest": None, "run": []}
     end = spreads[-1][0]
-    start = end - COCKPIT_DART_WINDOW
+    start = end - delta
     run = [e for (hk, e) in spreads if hk >= start]
     return end, {"latest": run[-1], "run": run}
 
 
-def _cockpit_build_basis(rows, hub_ts_map, market):
+def _cockpit_build_basis(rows, hub_ts_map, delta):
     """basis view: node − hub_ref at UTC-aligned same-market intervals.
 
     basis = snapshot.lmp − hub.value on a common interval-start instant. An
@@ -6031,15 +6057,11 @@ def _cockpit_build_basis(rows, hub_ts_map, market):
     if not aligned:
         return None, {"latest": None, "run": []}
     end = aligned[-1][0]
-    start = end - _cockpit_window_delta(market)
+    start = end - delta
     run = [e for (ts, e) in aligned if ts >= start]
     return end, {"latest": run[-1], "run": run}
 
 
-# ── Node search ─────────────────────────────────────────────────────────────
-# Two-step, index-driven (see the perf note above): latest instant, then a
-# substring filter over that ONE instant. IS NOT DISTINCT FROM keeps a NULL
-# interval matching itself. Optional area/node_type are exact, case-insensitive.
 # ── Connection lifecycle ─────────────────────────────────────────────────────
 # Neon idle-closes server-side sockets, so the shared pool can hand out a
 # connection whose TCP/SSL layer is already dead — the first statement then
@@ -6278,7 +6300,21 @@ def _watchboard_validate_tile(t: dict) -> dict:
                 "detail": f"valid hub_ref: {sorted(COCKPIT_HUB_REF_SET)}",
             }
 
-    return {"pnode": pid, "market": market_n, "view": view_n, "hub_ref": hub_ref}
+    # Optional window override (v0.2). Absent -> None (per-view default). Checked
+    # last so it never changes the precedence of the existing per-tile errors.
+    window = t.get("window")
+    if window is not None:
+        window = window.strip().lower() if isinstance(window, str) else window
+        if window not in COCKPIT_WINDOWS:
+            return {
+                "error": "bad_window",
+                "detail": f"valid windows: {sorted(COCKPIT_WINDOWS)}",
+            }
+
+    return {
+        "pnode": pid, "market": market_n, "view": view_n,
+        "hub_ref": hub_ref, "window": window,
+    }
 
 
 @app.post("/api/watchboard")
@@ -6287,18 +6323,23 @@ async def watchboard(request: Request):
     Cockpit / Watchboard v0 — a batched, per-tile-isolated board read.
 
     Body: {"tiles": [{"tile_id", "tile_type": "pnode", "pnode_id", "market",
-    "view": lmp|components|dart|basis, "hub_ref"?}]} — at most 24 tiles.
+    "view": lmp|components|dart|basis, "hub_ref"?, "window"?}]} — at most 24
+    tiles. Optional per-tile window="24h"|"7d" (v0.2) overrides the per-view
+    default (24h RT · 7d DA · 24h dart); an unknown value is a per-tile
+    {error: "bad_window"}. "7d" on an RT view widens to the retained series.
 
     Response is keyed by tile_id; every tile carries `as_of` + `lag_minutes`,
-    then a payload by view (lmp / components / dart / basis). Per-tile failures
-    are honest per-tile error objects; the batch always returns 200. See the
-    module header for the full error and time-alignment contracts.
+    the `window` it served and its `points` count, then a payload by view
+    (lmp / components / dart / basis). Per-tile failures are honest per-tile
+    error objects; the batch always returns 200. See the module header for the
+    full error and time-alignment contracts.
 
         {
           "count": 2,
           "tiles": {
             "t1": {"tile_type": "pnode", "pnode_id": "...", "market": "RTD",
-                   "view": "lmp", "as_of": "...Z", "lag_minutes": 15,
+                   "view": "lmp", "window": "24h", "points": 288,
+                   "as_of": "...Z", "lag_minutes": 15,
                    "empty": false, "latest": {...}, "sparkline": [...]},
             "t2": {"error": "unknown_tile_type"}
           }
@@ -6443,20 +6484,25 @@ async def watchboard(request: Request):
 
         try:
             rows = snap.get((market_n, pid), [])
+            win_label, delta = _cockpit_effective_window(plan["window"], market_n, view_n)
 
             if view_n == "lmp":
-                as_of, body_out = _cockpit_build_lmp(rows, market_n)
+                as_of, body_out = _cockpit_build_lmp(rows, delta)
+                series = body_out["sparkline"]
             elif view_n == "components":
-                as_of, body_out = _cockpit_build_components(rows, market_n)
+                as_of, body_out = _cockpit_build_components(rows, delta)
+                series = body_out["congestion_sparkline"]
             elif view_n == "dart":
                 da_rows = snap.get(("DAM", pid), [])
-                as_of, body_out = _cockpit_build_dart(da_rows, rows)
+                as_of, body_out = _cockpit_build_dart(da_rows, rows, delta)
                 body_out = {"da_market": "DAM", "rt_market": market_n, **body_out}
+                series = body_out["run"]
             else:  # basis
                 ds = COCKPIT_MARKET_TO_HUB[market_n]
                 hub_ts_map = hub_map.get((ds, hub_ref), {})
-                as_of, body_out = _cockpit_build_basis(rows, hub_ts_map, market_n)
+                as_of, body_out = _cockpit_build_basis(rows, hub_ts_map, delta)
                 body_out = {"hub_ref": hub_ref, **body_out}
+                series = body_out["run"]
 
             lag = None if as_of is None else max(0, int((now - as_of).total_seconds() // 60))
             out[tid] = {
@@ -6464,6 +6510,10 @@ async def watchboard(request: Request):
                 "pnode_id": pid,
                 "market": market_n,
                 "view": view_n,
+                # v0.2 additive fields: the window actually served + its point
+                # count (the sparkline/run shapes above are unchanged).
+                "window": win_label,
+                "points": len(series),
                 "as_of": as_of.isoformat() if as_of is not None else None,
                 "lag_minutes": lag,
                 "empty": as_of is None,
