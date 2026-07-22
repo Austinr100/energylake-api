@@ -38,6 +38,7 @@ Endpoints:
     GET /api/atlas/constraints/fingerprint per-node constraint fingerprint (delta/beta by pnode, geo-joined), newest-success-scoped, cached (D-07-12)
     GET /api/atlas/nodes/fingerprint       inverse fingerprint: constraints ranked by how they move one pnode, newest-success-scoped, cached (D-07-12)
     GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id OR plant-name (Atlas crosswalk) substring (+area/node_type), from the latest instant (D-07-21)
+    GET /api/nodes/facets                  Cockpit facets: distinct area / node_type categories with node counts over the same latest-instant universe as /nodes/search, cached (D-07-21)
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
 """
 
@@ -6227,6 +6228,122 @@ async def nodes_search(
         "count": len(matches),
         "matches": matches,
     }
+
+
+# ── Facets ────────────────────────────────────────────────────────────────────
+# Dropdown feed for the Cockpit node picker (v0.3): the distinct `area` and
+# `node_type` categories — each with its node count — that actually exist in the
+# node universe, so the client can offer real, node-backed choices instead of a
+# blind text box.
+#
+# UNIVERSE = the EXACT universe /api/nodes/search browses: the latest DAM instant
+# (index-driven LIMIT 1), P2-sentinel-floored, all three markets pricing the same
+# node set (P1). Sharing the universe is the whole point — a category offered
+# here is guaranteed to return nodes there; the dropdowns never promise a filter
+# the search can't satisfy.
+#
+# One query. The `latest`/`universe` CTEs are byte-for-byte the search lane's
+# (minus the pnode_id/plant projection), then two GROUPed aggregates are stacked
+# with a `kind` discriminator. `latest` is cross-joined into each branch so every
+# row carries the instant identity (it is a single row -> constant, so grouping
+# by it changes nothing) — that is the `as_of` reconstruction input, read once.
+# NULL area/node_type rows are dropped in the Python layer: a null category is
+# not a value search's `upper(area) = upper(%(area)s)` filter can ever match, so
+# offering it would break the "never promise nodes the search can't find" rule.
+_NODE_FACETS_SQL = """
+    WITH latest AS (
+        SELECT market_date, market_hour, market_interval
+        FROM atlas_pnode_lmp_snapshot
+        WHERE market = %(market)s
+          AND market_date >= %(sentinel)s
+        ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+        LIMIT 1
+    ),
+    universe AS (
+        SELECT s.node_type, s.area
+        FROM atlas_pnode_lmp_snapshot s, latest l
+        WHERE s.market = %(market)s
+          AND s.market_date = l.market_date
+          AND s.market_hour = l.market_hour
+          AND s.market_interval IS NOT DISTINCT FROM l.market_interval
+    )
+    SELECT 'area' AS kind, u.area AS label, count(*) AS n,
+           l.market_date AS md, l.market_hour AS mh, l.market_interval AS mi
+    FROM universe u CROSS JOIN latest l
+    GROUP BY u.area, l.market_date, l.market_hour, l.market_interval
+    UNION ALL
+    SELECT 'node_type' AS kind, u.node_type AS label, count(*) AS n,
+           l.market_date AS md, l.market_hour AS mh, l.market_interval AS mi
+    FROM universe u CROSS JOIN latest l
+    GROUP BY u.node_type, l.market_date, l.market_hour, l.market_interval
+"""
+
+# In-process cache. The universe turns over once a day (a new DAM instant), so a
+# single slot on a 5-min TTL — mirroring the constraints/fingerprint discipline —
+# is ample and keeps a picker-open storm off the DB. No params -> one slot.
+_NODE_FACETS_CACHE_TTL = 300.0  # 5 minutes
+_node_facets_cache: "tuple[float, dict] | None" = None
+
+
+@app.get("/api/nodes/facets")
+async def nodes_facets(response: Response):
+    """
+    Cockpit facets — the selectable `area` and `node_type` categories, counted.
+
+    Feeds the node picker's dropdowns (v0.3). Each entry is a category that
+    genuinely exists in the node universe /api/nodes/search browses — the latest
+    DAM instant, P2-floored — with the number of nodes carrying it, so the client
+    can render "LOAD · 8,214" and know the filter will return that many nodes.
+    Lists are ordered by count descending, then label ascending. NULL categories
+    (not matchable by search's exact filter) are omitted.
+
+    Response:
+        {
+          "areas":      [{"area": "CA", "count": 12043}, ...],
+          "node_types": [{"node_type": "LOAD", "count": 8214}, ...],
+          "as_of": "2026-07-21T07:00:00+00:00"   // latest DAM instant, UTC (P5)
+        }
+
+    Empty universe -> empty lists, as_of null. DB unavailable -> 503. The per-list
+    counts sum to the (non-null) universe size. Cached in-process (5-min TTL).
+    """
+    global _node_facets_cache
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    if _node_facets_cache is not None and (now_mono - _node_facets_cache[0]) < _NODE_FACETS_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=300"
+        return _node_facets_cache[1]
+
+    params = {"market": NODE_SEARCH_MARKET, "sentinel": COCKPIT_SENTINEL_MIN_DATE}
+    try:
+        rows = await _cockpit_read(_NODE_FACETS_SQL, params)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    areas: list[dict] = []
+    node_types: list[dict] = []
+    as_of = None
+    for r in rows:
+        if r["label"] is None:  # a null category is not a search-selectable filter
+            continue
+        if as_of is None:
+            as_of = _cockpit_interval_start_utc(
+                NODE_SEARCH_MARKET, r["md"], r["mh"], r["mi"]
+            ).isoformat()
+        if r["kind"] == "area":
+            areas.append({"area": r["label"], "count": int(r["n"])})
+        else:
+            node_types.append({"node_type": r["label"], "count": int(r["n"])})
+
+    # Biggest categories first (then alphabetical) — the useful dropdown order.
+    areas.sort(key=lambda d: (-d["count"], d["area"]))
+    node_types.sort(key=lambda d: (-d["count"], d["node_type"]))
+
+    payload = {"areas": areas, "node_types": node_types, "as_of": as_of}
+    _node_facets_cache = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=300"
+    return payload
 
 
 # ── Watchboard batch ──────────────────────────────────────────────────────────
