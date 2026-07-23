@@ -129,6 +129,32 @@ def test_matrix_always_17_rows_and_nsouth_order(client, monkeypatch):
     print("ok matrix_always_17_rows_and_nsouth_order")
 
 
+def test_matrix_station_labels_display_name_and_state(client, monkeypatch):
+    """D-07-22-03: every row carries display_name + state from
+    station_metadata.json, ADDITIVE to the ratified envelope. Receipt: KSAC →
+    'Sacramento', CA. The pre-existing keys are untouched (no rename/reorder)."""
+    freeze_now(monkeypatch, _dt(2026, 7, 21, 12))
+    use_routes([("forecasts_nws", []), ("station_normals_daily", [])])
+    d = client.get("/api/weather/temp-matrix").json()
+    # The pinned receipt: Sacramento's label + state.
+    ksac = next(s for s in d["stations"] if s["icao"] == "KSAC")
+    assert ksac["display_name"] == "Sacramento"
+    assert ksac["state"] == "CA"
+    # Every station carries both new fields, non-null (all 17 are populated).
+    for s in d["stations"]:
+        assert isinstance(s["display_name"], str) and s["display_name"]
+        assert isinstance(s["state"], str) and len(s["state"]) == 2
+    # Spot-check the N and S anchors carry the right states.
+    assert next(s for s in d["stations"] if s["icao"] == "KGEG")["state"] == "WA"
+    assert next(s for s in d["stations"] if s["icao"] == "KSAN")["state"] == "CA"
+    # ADDITIVE: the original envelope keys are all still present and unchanged.
+    lax = next(s for s in d["stations"] if s["station_id"] == LAX)
+    for k in ("station_id", "name", "metro", "icao", "order", "tz",
+              "issued_ts", "degraded", "days"):
+        assert k in lax
+    print("ok matrix_station_labels_display_name_and_state")
+
+
 def test_matrix_assert_the_raise_stale_issuance_is_flagged_not_vanished(
         client, monkeypatch):
     """A station whose latest issuance is >24h old must APPEAR, flagged degraded

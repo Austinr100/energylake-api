@@ -1,3 +1,6 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 psycopg[binary,pool]>=3.2.10
+# Model Room R2 archive proxy (D-07-22): S3-compatible client for Cloudflare R2.
+# Only imported lazily inside the /api/model-room/* routes.
+boto3>=1.34

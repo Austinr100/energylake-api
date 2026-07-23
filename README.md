@@ -205,6 +205,26 @@ from a server component or route handler and render the first chart
   obs−norm anomalies (one decimal), and `days_behind`. Always 17 rows;
   `window_label` + per-row `sample_count` carried through. DB unavailable -> 503
 
+- `GET /api/model-room/cycles?model=gfs&days=7`
+  -> the published D2 synoptic cycles for `model` over the last `days` UTC dates,
+  newest first, wrapped in the platform envelope:
+  `{"cycles": [{model, date, cycle}]}` (date = `YYYYMMDD`, cycle = two-digit
+  UTC hour). A cycle is "published" when its seed artifacts are present under
+  `d2/synoptic/{model}/{date}/{cycle}Z/` in the R2 archive (v0: asserted by
+  object count; manifest-presence is a marked seam). Bad model slug -> 400;
+  R2 token unprovisioned -> 503
+
+- `GET /api/model-room/frame/{key}`
+  -> streams one archived D2 frame object (PNG or JSON) straight from R2 with a
+  long immutable cache (`Cache-Control: public, max-age=31536000, immutable`).
+  The key is validated against the `d2/` prefix allowlist BEFORE it touches R2
+  (no traversal, no other prefixes) — a bad key is rejected 400/403 and never
+  reaches the bucket. Missing object -> 404; R2 token unprovisioned -> 503
+
+  Both Model Room routes read from a **read-only** R2 token scoped to `d2/` on
+  the archive bucket (see `R2_*` in `.env.example`). This service never writes
+  to the bucket; `boto3` is imported lazily, only when a Model Room route is hit.
+
 ---
 
 ## Tests
