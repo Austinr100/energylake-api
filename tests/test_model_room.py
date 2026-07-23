@@ -13,10 +13,14 @@ The path-traversal + allowlist rejections are proven two ways: directly against
 the validator (main._validate_frame_key), and end-to-end through the frame route
 (where a rejected key must NEVER reach the fake bucket).
 
-NOTE (STOP-GATE): the LIVE receipts — a real listing showing the published
-gfs/20260721/18Z cycle, and the frame route streaming the real PNG bytes — need
-the captain-provisioned read-only R2 token and are run post-provisioning. These
-fake-client tests pin the SHAPE and the security contract that don't need it.
+LIVE RECEIPTS (captured against production 2026-07-23, R2 token provisioned):
+  * /cycles?model=gfs&days=7 -> {"cycles":[{gfs,20260721,18},{gfs,20260721,12}]}
+    (pinned byte-for-byte in test_cycles_live_payload_pin_seed_era).
+  * /frame/d2/synoptic/gfs/20260721/18Z/anomaly_map.png -> 200, image/png,
+    134,435 bytes, PNG magic 89 50 4e 47 0d 0a 1a 0a, and
+    Cache-Control: public, max-age=31536000, immutable.
+These fake-client tests reproduce that live layout so the shape + security
+contract regress-guard without a live bucket in CI.
 """
 
 import datetime
@@ -119,10 +123,15 @@ def client():
     return TestClient(main.app)
 
 
-# Three seed artifacts under a cycle = "published" (v0 availability).
+# The three real seed artifacts the merged render code writes under a seed-era
+# cycle (loose objects under d2/synoptic/, confirmed live 2026-07-23). Their
+# presence (object count >= 3) = "published" for the v0 availability seam.
+_SEED_ARTIFACTS = ["anomaly_map.png", "synoptic.json", "receipt.md"]
+
+
 def _cycle_keys(model, date, cycle, n=3):
-    names = ["500mb.png", "mslp.png", "precip.png", "meta.json"][:n]
-    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}" for a in names]
+    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}"
+            for a in _SEED_ARTIFACTS[:n]]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -149,6 +158,38 @@ def test_cycles_lists_published_cycles_newest_first(client, monkeypatch):
         {"model": "gfs", "date": "20260720", "cycle": "00"},
     ]}
     print("ok cycles_lists_published_cycles_newest_first")
+
+
+def test_cycles_live_payload_pin_seed_era(client, monkeypatch):
+    """PINNED LIVE PAYLOAD (D-07-22, verified against production 2026-07-23):
+    the seed era's truth is exactly the two loose-object cycles gfs/20260721/18Z
+    and /12Z, each carrying the three real seed artifacts. This reproduces the
+    live R2 layout under a fake client and pins the byte-for-byte /cycles
+    envelope the deployed service returns.
+
+    NA-era manifested cycles write to d2/renders/ (the extended scheme), which
+    the count-seam over d2/synoptic/ is designed to be blind to — so they do NOT
+    appear here. When the manifest-presence seam flip (pointed at d2/renders/)
+    lands as its ledgered follow-up, THIS pin is the one that gets re-pinned.
+    """
+    # Freeze to the live server date so days=7 spans 20260721. The store holds
+    # ONLY the two seed cycles that actually exist in R2 today.
+    freeze_now(monkeypatch, _dt(2026, 7, 23, 3, 0))
+    keys = (
+        _cycle_keys("gfs", "20260721", "18")   # anomaly_map.png/synoptic.json/receipt.md
+        + _cycle_keys("gfs", "20260721", "12")
+    )
+    fake = FakeR2(keys=keys)
+    configure(monkeypatch, fake)
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/json; charset=utf-8"
+    # The exact live payload, verbatim.
+    assert r.json() == {"cycles": [
+        {"model": "gfs", "date": "20260721", "cycle": "18"},
+        {"model": "gfs", "date": "20260721", "cycle": "12"},
+    ]}
+    print("ok cycles_live_payload_pin_seed_era")
 
 
 def test_cycles_excludes_incomplete_cycle_seam(client, monkeypatch):
