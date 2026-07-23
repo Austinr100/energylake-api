@@ -14,10 +14,15 @@ the validator (main._validate_frame_key), and end-to-end through the frame route
 (where a rejected key must NEVER reach the fake bucket).
 
 LIVE RECEIPTS (captured against production 2026-07-23, R2 token provisioned):
-  * /cycles?model=gfs&days=7 -> {"cycles":[{gfs,20260721,18},{gfs,20260721,12}]}
-    (pinned byte-for-byte in test_cycles_live_payload_pin_seed_era).
-  * /frame/d2/synoptic/gfs/20260721/18Z/anomaly_map.png -> 200, image/png,
-    134,435 bytes, PNG magic 89 50 4e 47 0d 0a 1a 0a, and
+  * /cycles?model=gfs&days=7 -> {"cycles":[{gfs,20260723,00}]}
+    (pinned byte-for-byte in test_cycles_live_payload_pin_manifest_era). The
+    first machine-made render manifest is live: d2/renders/gfs/20260723/00Z/
+    manifest.json (etag b7ab5acd268fde7267cebe6d912372ea, WECC 41/41, NA 33/41).
+    The seed-era loose cycles at d2/synoptic/ (20260721 18Z/12Z) carry NO
+    manifest under d2/renders/, so the manifest-presence seam drops them off the
+    listing — ruled-expected.
+  * /frame/d2/renders/gfs/20260723/00Z/manifest.json -> 200, application/json,
+    etag "b7ab5acd268fde7267cebe6d912372ea", and
     Cache-Control: public, max-age=31536000, immutable.
 These fake-client tests reproduce that live layout so the shape + security
 contract regress-guard without a live bucket in CI.
@@ -123,15 +128,28 @@ def client():
     return TestClient(main.app)
 
 
-# The three real seed artifacts the merged render code writes under a seed-era
-# cycle (loose objects under d2/synoptic/, confirmed live 2026-07-23). Their
-# presence (object count >= 3) = "published" for the v0 availability seam.
+# A render cycle's objects under d2/renders/ (the extended FHR-sequence layout
+# the pantry d2.sequence CLI writes). The manifest.json leaf is the availability
+# assertion — written LAST, only once the fail-fraction gate passes; the PNG
+# ladder is present but never counted. `manifest=False` models a render still in
+# flight (frames landing, manifest not yet written) — correctly NOT available.
+def _render_cycle_keys(model, date, cycle, manifest=True, frames=3,
+                       region="north_america", param="z500_anom"):
+    base = f"d2/renders/{model}/{date}/{cycle}Z"
+    keys = [f"{base}/{param}/{region}/f{f * 6:03d}.png" for f in range(frames)]
+    if manifest:
+        keys.append(f"{base}/manifest.json")
+    return keys
+
+
+# The seed-era loose objects still live under the DIFFERENT d2/synoptic/ prefix.
+# They are servable through /frame but carry no manifest under d2/renders/, so
+# the manifest-presence seam never lists them (ruled-expected).
 _SEED_ARTIFACTS = ["anomaly_map.png", "synoptic.json", "receipt.md"]
 
 
-def _cycle_keys(model, date, cycle, n=3):
-    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}"
-            for a in _SEED_ARTIFACTS[:n]]
+def _seed_cycle_keys(model, date, cycle):
+    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}" for a in _SEED_ARTIFACTS]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -139,66 +157,70 @@ def _cycle_keys(model, date, cycle, n=3):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_cycles_lists_published_cycles_newest_first(client, monkeypatch):
-    """The pinned-shape receipt: gfs/20260721/18Z (and 12Z) present, newest
-    first, each row {model, date, cycle}. Mirrors the live receipt the captain
-    runs once the token is provisioned."""
+    """The shape receipt: three manifested render cycles present, newest first,
+    each row {model, date, cycle}. Availability = manifest.json present under
+    d2/renders/."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
     keys = (
-        _cycle_keys("gfs", "20260721", "18")
-        + _cycle_keys("gfs", "20260721", "12")
-        + _cycle_keys("gfs", "20260720", "00")
+        _render_cycle_keys("gfs", "20260722", "00")
+        + _render_cycle_keys("gfs", "20260721", "18")
+        + _render_cycle_keys("gfs", "20260721", "12")
     )
     fake = FakeR2(keys=keys)
     configure(monkeypatch, fake)
     d = client.get("/api/model-room/cycles?model=gfs&days=7").json()
     # Platform envelope: {"cycles": [...]} (no bare array).
     assert d == {"cycles": [
+        {"model": "gfs", "date": "20260722", "cycle": "00"},
         {"model": "gfs", "date": "20260721", "cycle": "18"},
         {"model": "gfs", "date": "20260721", "cycle": "12"},
-        {"model": "gfs", "date": "20260720", "cycle": "00"},
     ]}
     print("ok cycles_lists_published_cycles_newest_first")
 
 
-def test_cycles_live_payload_pin_seed_era(client, monkeypatch):
-    """PINNED LIVE PAYLOAD (D-07-22, verified against production 2026-07-23):
-    the seed era's truth is exactly the two loose-object cycles gfs/20260721/18Z
-    and /12Z, each carrying the three real seed artifacts. This reproduces the
-    live R2 layout under a fake client and pins the byte-for-byte /cycles
-    envelope the deployed service returns.
+def test_cycles_live_payload_pin_manifest_era(client, monkeypatch):
+    """PINNED LIVE PAYLOAD (D-07-23, verified against production web-production-
+    497cb 2026-07-23): with the manifest-presence seam live, /cycles?model=gfs&
+    days=7 returns exactly the one machine-made render cycle gfs/20260723/00 —
+    whose manifest d2/renders/gfs/20260723/00Z/manifest.json is served live
+    (etag b7ab5acd268fde7267cebe6d912372ea, WECC 41/41, NA 33/41).
 
-    NA-era manifested cycles write to d2/renders/ (the extended scheme), which
-    the count-seam over d2/synoptic/ is designed to be blind to — so they do NOT
-    appear here. When the manifest-presence seam flip (pointed at d2/renders/)
-    lands as its ledgered follow-up, THIS pin is the one that gets re-pinned.
+    The seed-era loose cycles gfs/20260721/18Z and /12Z live under the DIFFERENT
+    d2/synoptic/ prefix with NO manifest under d2/renders/, so the manifest-
+    presence seam drops them off — ruled-expected, and asserted here by seeding
+    them alongside and proving they do NOT appear. This store reproduces the live
+    R2 layout under a fake client and pins the byte-for-byte /cycles envelope the
+    deployed service returns.
     """
-    # Freeze to the live server date so days=7 spans 20260721. The store holds
-    # ONLY the two seed cycles that actually exist in R2 today.
-    freeze_now(monkeypatch, _dt(2026, 7, 23, 3, 0))
+    # Freeze to the live server date so days=7 spans 20260723 (and 20260721).
+    freeze_now(monkeypatch, _dt(2026, 7, 23, 15, 0))
     keys = (
-        _cycle_keys("gfs", "20260721", "18")   # anomaly_map.png/synoptic.json/receipt.md
-        + _cycle_keys("gfs", "20260721", "12")
+        _render_cycle_keys("gfs", "20260723", "00")   # the live manifested cycle
+        + _seed_cycle_keys("gfs", "20260721", "18")   # d2/synoptic seeds — no manifest
+        + _seed_cycle_keys("gfs", "20260721", "12")
     )
     fake = FakeR2(keys=keys)
     configure(monkeypatch, fake)
     r = client.get("/api/model-room/cycles?model=gfs&days=7")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/json; charset=utf-8"
-    # The exact live payload, verbatim.
+    # The exact live payload, verbatim: the manifest-era truth, seeds gone.
     assert r.json() == {"cycles": [
-        {"model": "gfs", "date": "20260721", "cycle": "18"},
-        {"model": "gfs", "date": "20260721", "cycle": "12"},
+        {"model": "gfs", "date": "20260723", "cycle": "00"},
     ]}
-    print("ok cycles_live_payload_pin_seed_era")
+    print("ok cycles_live_payload_pin_manifest_era")
 
 
 def test_cycles_excludes_incomplete_cycle_seam(client, monkeypatch):
-    """A cycle with fewer than the three seed artifacts is NOT yet published —
-    the v0 availability seam. 18Z has 3 artifacts (published); 06Z has 2 (not)."""
+    """The availability seam: manifest-presence. 18Z has a manifest (published);
+    06Z has frames landing but NO manifest yet (render in flight) -> excluded.
+    A seed-era d2/synoptic cycle (no manifest under d2/renders) is likewise out.
+    """
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
     keys = (
-        _cycle_keys("gfs", "20260721", "18", n=3)
-        + _cycle_keys("gfs", "20260721", "06", n=2)   # incomplete -> excluded
+        _render_cycle_keys("gfs", "20260721", "18", manifest=True)
+        + _render_cycle_keys("gfs", "20260721", "06", manifest=False)  # in flight
+        + _seed_cycle_keys("gfs", "20260721", "00")                    # synoptic only
     )
     fake = FakeR2(keys=keys)
     configure(monkeypatch, fake)
@@ -212,8 +234,8 @@ def test_cycles_respects_days_window(client, monkeypatch):
     days=7 the cutoff is 07-16, so a 07-10 cycle is out of window."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
     keys = (
-        _cycle_keys("gfs", "20260721", "18")
-        + _cycle_keys("gfs", "20260710", "00")   # older than the 7-day window
+        _render_cycle_keys("gfs", "20260721", "18")
+        + _render_cycle_keys("gfs", "20260710", "00")   # older than the 7-day window
     )
     fake = FakeR2(keys=keys)
     configure(monkeypatch, fake)

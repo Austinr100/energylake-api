@@ -6653,23 +6653,33 @@ async def watchboard(request: Request):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Model Room — R2 archive proxy (D2 synoptic frames)
+# Model Room — R2 archive proxy (D2 render frames)
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Two read-only proxy endpoints onto the D2 render archive in Cloudflare R2
-# (the ratified Model Room spec; the key scheme is FROZEN):
+# (the ratified Model Room spec; the key scheme is FROZEN). The FHR-sequence
+# render leg writes under the extended layout (pantry d2/sequence.py):
 #
-#   d2/synoptic/{model}/{date}/{cycle}Z/<artifact>
+#   d2/renders/{model}/{date}/{cycle}Z/{param}/{region}/f{fhr:03d}.png
+#   d2/renders/{model}/{date}/{cycle}Z/manifest.json   ← written LAST
 #     model   e.g. "gfs"       (lowercase feed slug)
-#     date    e.g. "20260721"  (YYYYMMDD, the run's UTC date)
-#     cycle   e.g. "18"        (two-digit UTC synoptic hour; the "Z" is the
+#     date    e.g. "20260723"  (YYYYMMDD, the run's UTC date)
+#     cycle   e.g. "00"        (two-digit UTC synoptic hour; the "Z" is the
 #                               literal partition suffix carried in the key)
 #
+# The manifest is written LAST by the render CLI, and only after its
+# fail-fraction gate passes — so its PRESENCE is the honest "this cycle is
+# complete-as-declared" assertion. The Phase-A seed objects at the DIFFERENT
+# prefix d2/synoptic/{model}/{date}/{cycle}Z/ are untouched and still servable
+# through /frame, but they no longer make a cycle "available" (see the seam
+# flip in _cycle_is_available: manifest-presence over d2/renders/ replaced the
+# seed-era object COUNT over d2/synoptic/, so those loose seed cycles now drop
+# off the /cycles listing — ruled-expected).
+#
 #   GET /api/model-room/cycles?model=gfs&days=7
-#       → [{model, date, cycle}] for the cycles present under
-#         d2/synoptic/{model}/ within the last `days` UTC dates, newest first.
-#         v0 availability = the three seed artifacts present (asserted by object
-#         COUNT — see _cycle_is_available; manifest-presence is the marked seam).
+#       → [{model, date, cycle}] for the cycles whose render manifest is present
+#         under d2/renders/{model}/ within the last `days` UTC dates, newest
+#         first. Availability = manifest-presence — see _cycle_is_available.
 #   GET /api/model-room/frame/{key}
 #       → streams the R2 object (PNG or JSON) with a long immutable cache. The
 #         key is VALIDATED against the d2/ prefix allowlist (no traversal, no
@@ -6694,21 +6704,16 @@ R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "") or (
 )
 
 # The ONE allowed prefix + the frozen key scheme. The Model Room serves only the
-# d2/ subtree; nothing else is reachable through the frame proxy.
+# d2/ subtree; nothing else is reachable through the frame proxy. Cycle listing
+# reads the render leg's d2/renders/ subtree; the frame proxy still serves ANY
+# d2/ key (d2/renders AND the seed-era d2/synoptic objects alike).
 _MODEL_ROOM_KEY_PREFIX = "d2/"
-_MODEL_ROOM_SYNOPTIC_ROOT = "d2/synoptic/"
+_MODEL_ROOM_RENDERS_ROOT = "d2/renders/"
+_MODEL_ROOM_MANIFEST_LEAF = "manifest.json"
 _MODEL_ROOM_MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _MODEL_ROOM_DATE_RE = re.compile(r"^\d{8}$")          # YYYYMMDD partition token
 _MODEL_ROOM_CYCLE_DIR_RE = re.compile(r"^(\d{2})Z$")  # "18Z" -> cycle "18"
 _MODEL_ROOM_MAX_DAYS = 31
-
-# v0 availability assertion. A cycle counts as "published" when its three seed
-# artifacts are present under d2/synoptic/{model}/{date}/{cycle}Z/. We assert on
-# object COUNT (>= 3) rather than exact artifact names so the check survives an
-# artifact rename. ─── SEAM: when the render leg starts writing a manifest, flip
-# _cycle_is_available to assert manifest presence (a {prefix}manifest.json key)
-# instead of the count. ───
-_MODEL_ROOM_SEED_ARTIFACT_COUNT = 3
 
 # Content types the proxy serves. R2's stored ContentType wins; this is the
 # fallback when the object carries none.
@@ -6822,30 +6827,25 @@ def _r2_common_prefixes(client, bucket: str, prefix: str) -> list[str]:
     return out
 
 
-def _r2_iter_keys(client, bucket: str, prefix: str):
-    """Yield every object key under prefix (recursive, paginated)."""
-    token = None
-    while True:
-        kw = {"Bucket": bucket, "Prefix": prefix}
-        if token:
-            kw["ContinuationToken"] = token
-        resp = client.list_objects_v2(**kw)
-        for obj in resp.get("Contents", []):
-            k = obj.get("Key")
-            if k:
-                yield k
-        if resp.get("IsTruncated"):
-            token = resp.get("NextContinuationToken")
-        else:
-            break
+def _cycle_manifest_key(model: str, date: str, cycle: str) -> str:
+    """The render-cycle completion manifest key under d2/renders/ — the exact
+    object pantry's d2.sequence.sequence_manifest_key writes:
+    d2/renders/{model}/{YYYYMMDD}/{cc}Z/manifest.json. `cycle` is the two-digit
+    dir token (e.g. "00"), carried through as the "Z"-suffixed partition."""
+    return (f"{_MODEL_ROOM_RENDERS_ROOT}{model}/{date}/{cycle}Z/"
+            f"{_MODEL_ROOM_MANIFEST_LEAF}")
 
 
-def _cycle_is_available(artifact_count: int) -> bool:
-    """v0 availability: the three seed artifacts present (object COUNT). ─── SEAM:
-    swap for manifest presence when the render leg writes
-    d2/synoptic/{model}/{date}/{cycle}Z/manifest.json — assert that key exists
-    instead of counting. ───"""
-    return artifact_count >= _MODEL_ROOM_SEED_ARTIFACT_COUNT
+def _cycle_is_available(client, bucket: str, manifest_key: str) -> bool:
+    """AVAILABILITY SEAM (manifest-presence). A (model, date, cycle) is available
+    iff its render manifest object exists under d2/renders/ — the manifest the
+    pantry d2.sequence CLI writes LAST, only once its fail-fraction gate passes.
+    Presence IS the whole assertion; the seed-era d2/synoptic object-COUNT path
+    is gone (seed cycles with no manifest under d2/renders drop off the listing —
+    ruled-expected). A MaxKeys=1 prefix list (not head_object) keeps this on the
+    one S3 verb the rest of the module already speaks."""
+    resp = client.list_objects_v2(Bucket=bucket, Prefix=manifest_key, MaxKeys=1)
+    return any(obj.get("Key") == manifest_key for obj in resp.get("Contents", []))
 
 
 @app.get("/api/model-room/cycles")
@@ -6855,11 +6855,11 @@ async def model_room_cycles(
         7, ge=1, le=_MODEL_ROOM_MAX_DAYS,
         description="how many UTC dates back to scan (inclusive of today)"),
 ):
-    """The published synoptic cycles for `model` over the last `days` UTC dates,
+    """The published render cycles for `model` over the last `days` UTC dates,
     newest first, wrapped in the platform envelope: {"cycles": [{model, date,
-    cycle}]}. A cycle is 'published' when its seed artifacts are present under
-    d2/synoptic/{model}/{date}/{cycle}Z/ (v0: object count; manifest-presence is
-    the marked seam in _cycle_is_available).
+    cycle}]}. A cycle is 'published' when its render manifest object is present
+    under d2/renders/{model}/{date}/{cycle}Z/manifest.json — manifest-presence is
+    the availability assertion in _cycle_is_available.
 
     R2 unprovisioned → 503. Bad model slug → 400.
     """
@@ -6870,7 +6870,7 @@ async def model_room_cycles(
 
     client = _get_r2_client()
     bucket = R2_ARCHIVE_BUCKET
-    model_root = f"{_MODEL_ROOM_SYNOPTIC_ROOT}{model}/"
+    model_root = f"{_MODEL_ROOM_RENDERS_ROOT}{model}/"
 
     # UTC date cutoff (inclusive). date tokens are YYYYMMDD, so a lexicographic
     # compare against the cutoff token is identical to a chronological one.
@@ -6885,19 +6885,17 @@ async def model_room_cycles(
         found: list[tuple[str, str]] = []
         for date_token in keep_dates:
             date_root = f"{model_root}{date_token}/"
-            # One recursive listing per date; group objects by their cycle dir.
-            counts: dict[str, int] = defaultdict(int)
-            for k in _r2_iter_keys(client, bucket, date_root):
-                parts = k[len(date_root):].split("/")
-                # parts like ["18Z", "500mb.png"] — need a cycle dir AND a real
-                # object leaf (guards against any bare directory markers).
-                if len(parts) < 2 or not parts[-1]:
+            # The cycle 'directories' under this date; a cycle is AVAILABLE only
+            # when its manifest.json leaf exists (a render mid-flight has frames
+            # but no manifest yet, so it is correctly excluded).
+            for cyc_dir in _r2_common_prefixes(client, bucket, date_root):
+                m = _MODEL_ROOM_CYCLE_DIR_RE.match(cyc_dir)
+                if not m:
                     continue
-                m = _MODEL_ROOM_CYCLE_DIR_RE.match(parts[0])
-                if m:
-                    counts[m.group(1)] += 1
-            for cycle, n in counts.items():
-                if _cycle_is_available(n):
+                cycle = m.group(1)
+                if _cycle_is_available(
+                        client, bucket,
+                        _cycle_manifest_key(model, date_token, cycle)):
                     found.append((date_token, cycle))
         return found
 
