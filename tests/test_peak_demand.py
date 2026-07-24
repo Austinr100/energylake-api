@@ -15,6 +15,11 @@ The PINNED fixture below is a REAL slice of today's banked pull
 ingested 2026-07-23): the verbatim 24-hour CA ISO-TAC vector for PT operating
 date 2026-07-23, plus the real peaks of the three IOU TACs and one neighbouring
 BA on that date. The endpoint must derive exactly those peaks and hour-endings.
+
+This feed reads on its DIAGONAL: each operating date is served by the vintage
+issued 7 days prior (date - 7d @ 16:10Z). So each day carries its own `issued`,
+and the top-level `issued_ts` is the frontier — the latest vintage in the
+payload (MAX publish_time), never the earliest.
 """
 
 import datetime
@@ -102,6 +107,13 @@ def use_rows(rows):
 _PUBLISH_TIME = "2026-07-16T16:10:00+00:00"  # real meta.publish_time (issue time)
 
 
+def _diag_pt(op_date_iso):
+    """The diagonal vintage for a PT operating date: issued 7 days prior at 16:10Z
+    (e.g. 2026-07-23 -> 2026-07-16T16:10:00+00:00)."""
+    d = datetime.date.fromisoformat(op_date_iso) - datetime.timedelta(days=7)
+    return f"{d.isoformat()}T16:10:00+00:00"
+
+
 def _row(series, ts_utc, value, publish_time=_PUBLISH_TIME):
     return {
         "ts": datetime.datetime.fromisoformat(ts_utc),
@@ -156,15 +168,26 @@ def _ca_iso_tac_rows():
 # ---------------------------------------------------------------------------
 
 def test_pinned_ca_iso_tac_peak_from_real_banked_day(client):
-    # A real 24-hour PT day derives to exactly one peak MW + HE, non-partial.
-    use_rows(_ca_iso_tac_rows())
+    # The real 24-hour 07-23 vector (vintage 07-16) plus the next diagonal day
+    # (07-24, vintage 07-17), so the per-day `issued` and the frontier `issued_ts`
+    # (= MAX publish_time, never the min) are both pinned across two dates.
+    rows = _ca_iso_tac_rows() + [
+        # PT operating date 2026-07-24, served by its own 7-days-prior vintage
+        # (07-17). Peak interval only — exercises the second point on the diagonal.
+        _row("CA ISO-TAC", "2026-07-25T01:00:00+00:00", 37697.0,   # PT 18 -> HE19
+             publish_time=_diag_pt("2026-07-24")),
+    ]
+    use_rows(rows)
     body = client.get("/api/timeseries/caiso-peak-demand").json()
 
     assert body["dataset"] == "caiso_load_fcst_7day"
     assert body["tz"] == "America/Los_Angeles"
     assert body["unit"] == "MW"
-    assert body["issued_ts"] == _PUBLISH_TIME          # the receipt line
-    assert body["operating_dates"] == ["2026-07-23"]
+    # Frontier vintage = the LATEST publish_time in the payload (07-24's 07-17
+    # vintage), never the earliest (07-23's 07-16 vintage).
+    assert body["issued_ts"] == _diag_pt("2026-07-24")   # 2026-07-17T16:10:00+00:00
+    assert body["issued_ts"] == max(_diag_pt("2026-07-23"), _diag_pt("2026-07-24"))
+    assert body["operating_dates"] == ["2026-07-23", "2026-07-24"]
     assert body["count"] == 1
 
     area = body["areas"][0]
@@ -173,14 +196,21 @@ def test_pinned_ca_iso_tac_peak_from_real_banked_day(client):
     assert area["role"] == "system"
     assert area["order"] == 0
 
-    day = area["days"][0]
-    assert day == {
+    # The real 07-23 day derives to exactly one peak MW + HE, non-partial, and
+    # carries its own diagonal vintage (07-23 - 7d @ 16:10Z).
+    assert area["days"][0] == {
         "date": "2026-07-23",
         "peak_mw": 38454.05,   # real max over the 24-hour vector
         "peak_he": 19,         # PT hour 18 (01:00 UTC) -> hour-ending 19
         "hours_covered": 24,
         "partial": False,
+        "issued": _diag_pt("2026-07-23"),
     }
+
+    # Per-day issued rides the diagonal for BOTH dates: each == date - 7d @ 16:10Z.
+    assert area["days"][0]["issued"] == "2026-07-16T16:10:00+00:00"
+    assert area["days"][1]["date"] == "2026-07-24"
+    assert area["days"][1]["issued"] == "2026-07-17T16:10:00+00:00"
 
 
 def test_pinned_primary_tacs_real_peaks_and_ordering(client):
@@ -280,7 +310,39 @@ def test_missing_date_for_one_series_is_a_null_cell(client):
         "peak_he": None,
         "hours_covered": 0,
         "partial": True,
+        # `issued` is a property of the operating-date column (its vintage), so a
+        # null cell still carries the date's vintage, not None.
+        "issued": _PUBLISH_TIME,
     }
+
+
+# ---------------------------------------------------------------------------
+# The frontier vintage (top-level issued_ts)
+# ---------------------------------------------------------------------------
+
+def test_top_level_issued_ts_is_the_max_publish_time_never_the_min(client):
+    # Mixed vintages in the payload -> the top-level issued_ts is the FRONTIER
+    # (MAX publish_time), never the earliest one encountered. Each day still
+    # carries its own vintage.
+    use_rows([
+        _row("CA ISO-TAC", "2026-07-24T01:00:00+00:00", 38454.05,
+             publish_time="2026-07-16T16:10:00+00:00"),  # 07-23 PT, min vintage
+        _row("CA ISO-TAC", "2026-07-25T01:00:00+00:00", 37697.0,
+             publish_time="2026-07-17T16:10:00+00:00"),  # 07-24 PT
+        _row("CA ISO-TAC", "2026-07-26T01:00:00+00:00", 36000.0,
+             publish_time="2026-07-18T16:10:00+00:00"),  # 07-25 PT, frontier
+    ])
+    body = client.get("/api/timeseries/caiso-peak-demand").json()
+
+    assert body["issued_ts"] == "2026-07-18T16:10:00+00:00"   # the MAX
+    assert body["issued_ts"] != "2026-07-16T16:10:00+00:00"   # never the min
+
+    days = body["areas"][0]["days"]
+    assert [d["issued"] for d in days] == [
+        "2026-07-16T16:10:00+00:00",
+        "2026-07-17T16:10:00+00:00",
+        "2026-07-18T16:10:00+00:00",
+    ]
 
 
 # ---------------------------------------------------------------------------
