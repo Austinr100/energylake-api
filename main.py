@@ -23,6 +23,7 @@ Endpoints:
     GET /api/timeseries/caiso-forecast-vs-actual  load/solar/wind actual-vs-forecast, wide,
                                                    date-/range-addressable (?date, ?start/?end)
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
+    GET /api/timeseries/caiso-peak-demand         derived daily peak MW + peak HE per TAC area (from caiso_load_fcst_7day)
     GET /api/timeseries/caiso-hub-lmp      CAISO trading-hub LMP (DA/RTPD/RTD + DART), prev+current PT day
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
     GET /api/newswire/recent               Joule Newswire items
@@ -3196,6 +3197,221 @@ async def caiso_demand_stack(
         "last_scored_ts": last_scored_ts,
         "count": len(points),
         "points": points,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/timeseries/caiso-peak-demand — derived daily peak demand per TAC area.
+#
+# Source: timeseries_values, dataset 'caiso_load_fcst_7day' — CAISO's 7-day-ahead
+# hourly load forecast (OASIS SLD_FCST, market_run_id=7DA) for each of the 36 TAC
+# areas it publishes: the 'CA ISO-TAC' system total, the CAISO internal TACs
+# (PGE-TAC, SCE-TAC, SDGE-TAC, VEA-TAC, MWD-TAC, BANC*), and the neighbouring WECC
+# balancing authorities CAISO forecasts. One series per TAC area; hourly MW; UTC
+# interval-beginning; single-issuance and immutable (NOT a vintage — there is one
+# issuance to read, so no latest-vintage DISTINCT ON is needed here).
+#
+# The daily PEAK is DERIVED here at read time, never stored: per TAC area, per
+# Pacific operating date, peak_mw = the max hourly MW and peak_he = the HOUR-
+# ENDING of the interval that carries it (ties -> earliest hour). CAISO is a
+# Pacific market, so operating dates and HE ride the PT clock — the same
+# AT-TIME-ZONE discipline the fuel-mix / demand-stack windows use (midnight PT ==
+# 07:00 UTC under PDT; a full PT day is 24 hourly rows). Each day also carries
+# hours_covered and partial (< 24h) so an edge day the issuance only half-spans
+# is surfaced, never hidden.
+#
+# Peaks ONLY — day-over-day deltas are the frontend's job (the /weather strip
+# colours them in its temp-matrix grammar). `issued_ts` is the forecast issue
+# time (meta.publish_time), the strip's receipt line. Rows are ordered system
+# first (CA ISO-TAC), then the IOU TACs (SCE / PGE / SDGE), then every other area
+# (role "ba") alphabetically for the strip's "more" affordance.
+#
+# Honest-empty on purpose (differs from the 404 siblings): no banked rows -> 200
+# with areas: [] so the strip renders its holding state, not an error. DB
+# unavailable -> 503.
+# ═══════════════════════════════════════════════════════════════════════════
+
+PEAK_DEMAND_DATASET = "caiso_load_fcst_7day"
+_PEAK_DEMAND_FULL_DAY_HOURS = 24  # < 24 hourly points in a PT day -> partial peak
+
+# The strip's primary rows, in ratified order: the CA ISO-TAC system total, then
+# the three big IOU TACs. Every other series in the dataset (VEA-TAC, MWD-TAC,
+# the BANC sub-LSEs, and the neighbouring WECC BAs) rides along as role "ba" for
+# the frontend's "more" affordance, alphabetical after these.
+#   (series, label, role)
+_PEAK_DEMAND_PRIMARY: list[tuple[str, str, str]] = [
+    ("CA ISO-TAC", "CA ISO-TAC", "system"),
+    ("SCE-TAC", "SCE", "tac"),
+    ("PGE-TAC", "PGE", "tac"),
+    ("SDGE-TAC", "SDGE", "tac"),
+]
+_PEAK_DEMAND_PRIMARY_INDEX = {
+    series: i for i, (series, _label, _role) in enumerate(_PEAK_DEMAND_PRIMARY)
+}
+
+
+def _peak_area_meta(series: str) -> tuple[int, str, str]:
+    """(sort_rank, label, role) for a series — primary rows keep their ratified
+    rank; everything else sorts after them (rank == len(primary)) as role "ba"
+    with the raw series code as its label."""
+    idx = _PEAK_DEMAND_PRIMARY_INDEX.get(series)
+    if idx is not None:
+        _series, label, role = _PEAK_DEMAND_PRIMARY[idx]
+        return idx, label, role
+    return len(_PEAK_DEMAND_PRIMARY), series, "ba"
+
+
+@app.get("/api/timeseries/caiso-peak-demand")
+async def caiso_peak_demand():
+    """Derived daily peak demand (MW + hour-ending) per CAISO TAC area.
+
+    Reads the single immutable 7-day-ahead hourly load forecast
+    ('caiso_load_fcst_7day') and, per TAC area per Pacific operating date, takes
+    the max hourly MW (`peak_mw`) and the hour-ending of the interval that
+    carries it (`peak_he`; ties -> earliest hour). Each day also carries
+    `hours_covered` and `partial` (< 24h). Peaks only — the frontend derives the
+    day-over-day deltas.
+
+    Rows are ordered system first (CA ISO-TAC), then the IOU TACs (SCE / PGE /
+    SDGE), then every other area (role "ba") alphabetically for the "more"
+    affordance. `issued_ts` is the forecast issue time (meta.publish_time) — the
+    strip's receipt line.
+
+    Envelope:
+        {
+          "dataset": "caiso_load_fcst_7day",
+          "as_of": "2026-07-24T00:00:00+00:00",   # request instant, UTC
+          "issued_ts": "2026-07-16T16:10:00+00:00",# meta.publish_time
+          "tz": "America/Los_Angeles",
+          "unit": "MW",
+          "operating_dates": ["2026-07-23", ...],  # every PT date the pull spans
+          "count": N,                              # number of areas
+          "areas": [
+            {"series": "CA ISO-TAC", "label": "CA ISO-TAC", "role": "system",
+             "order": 0, "days": [
+               {"date": "2026-07-23", "peak_mw": 38454.05, "peak_he": 19,
+                "hours_covered": 24, "partial": false}, ...]},
+            ...
+          ]
+        }
+
+    Honest-empty: no banked rows -> 200 with areas: []. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    now = _utcnow()
+    tz = ZoneInfo(MARKET_TZ)
+
+    # Single immutable issuance -> a plain read of the dataset; the peak/argmax
+    # is derived in Python (mirrors the temp-matrix per-day bucketing). value is
+    # nullable in the schema, so drop nulls before they reach the max.
+    query = """
+        SELECT ts, series, value, meta
+        FROM timeseries_values
+        WHERE dataset = %(dataset)s AND value IS NOT NULL
+        ORDER BY series ASC, ts ASC
+    """
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(query, {"dataset": PEAK_DEMAND_DATASET})
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # Honest-empty: the strip renders its holding state, never an error page.
+    if not rows:
+        return {
+            "dataset": PEAK_DEMAND_DATASET,
+            "as_of": now.isoformat(),
+            "issued_ts": None,
+            "tz": MARKET_TZ,
+            "unit": "MW",
+            "operating_dates": [],
+            "count": 0,
+            "areas": [],
+        }
+
+    # Derive peak per (series, PT operating date). Rows arrive ts-ascending within
+    # a series, so a strict `>` keeps the EARLIEST hour on ties. HE = the interval-
+    # beginning local hour + 1 (the interval [H:00, H+1:00) ends at hour H+1).
+    peaks: dict[str, dict[_date, dict]] = defaultdict(dict)
+    all_dates: set[_date] = set()
+    issued_ts: str | None = None
+    for r in rows:
+        if issued_ts is None:
+            meta = r.get("meta")
+            if isinstance(meta, dict):
+                pt = meta.get("publish_time")
+                if isinstance(pt, str) and pt:
+                    issued_ts = pt
+        local = r["ts"].astimezone(tz)
+        op_date = local.date()
+        all_dates.add(op_date)
+        he = local.hour + 1
+        mw = float(r["value"])
+        day = peaks[r["series"]].get(op_date)
+        if day is None:
+            peaks[r["series"]][op_date] = {
+                "peak_mw": mw,
+                "peak_he": he,
+                "hours_covered": 1,
+            }
+        else:
+            day["hours_covered"] += 1
+            if mw > day["peak_mw"]:
+                day["peak_mw"] = mw
+                day["peak_he"] = he
+
+    operating_dates = sorted(all_dates)
+
+    # Primary rows first (system, then the IOU TACs), then every other area
+    # alphabetically under role "ba" for the "more" tray.
+    ordered_series = sorted(peaks.keys(), key=lambda s: (_peak_area_meta(s)[0], s))
+
+    areas = []
+    for order, series in enumerate(ordered_series):
+        _rank, label, role = _peak_area_meta(series)
+        by_date = peaks[series]
+        days = []
+        for d in operating_dates:
+            day = by_date.get(d)
+            if day is None:
+                # This series has no coverage for a date another series carries —
+                # a null cell, present but empty (never dropped from the grid).
+                days.append({
+                    "date": d.isoformat(),
+                    "peak_mw": None,
+                    "peak_he": None,
+                    "hours_covered": 0,
+                    "partial": True,
+                })
+            else:
+                hc = day["hours_covered"]
+                days.append({
+                    "date": d.isoformat(),
+                    "peak_mw": day["peak_mw"],
+                    "peak_he": day["peak_he"],
+                    "hours_covered": hc,
+                    "partial": hc < _PEAK_DEMAND_FULL_DAY_HOURS,
+                })
+        areas.append({
+            "series": series,
+            "label": label,
+            "role": role,
+            "order": order,
+            "days": days,
+        })
+
+    return {
+        "dataset": PEAK_DEMAND_DATASET,
+        "as_of": now.isoformat(),
+        "issued_ts": issued_ts,
+        "tz": MARKET_TZ,
+        "unit": "MW",
+        "operating_dates": [d.isoformat() for d in operating_dates],
+        "count": len(areas),
+        "areas": areas,
     }
 
 
