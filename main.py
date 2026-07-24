@@ -3221,10 +3221,12 @@ async def caiso_demand_stack(
 # is surfaced, never hidden.
 #
 # Peaks ONLY — day-over-day deltas are the frontend's job (the /weather strip
-# colours them in its temp-matrix grammar). `issued_ts` is the forecast issue
-# time (meta.publish_time), the strip's receipt line. Rows are ordered system
-# first (CA ISO-TAC), then the IOU TACs (SCE / PGE / SDGE), then every other area
-# (role "ba") alphabetically for the strip's "more" affordance.
+# colours them in its temp-matrix grammar). This feed reads on its DIAGONAL: each
+# operating date = its 7-days-prior vintage, so `issued_ts` is the latest vintage
+# in the payload (MAX publish_time) and each day carries its own `issued`. Rows
+# are ordered system first (CA ISO-TAC), then the IOU TACs (SCE / PGE / SDGE),
+# then every other area (role "ba") alphabetically for the strip's "more"
+# affordance.
 #
 # Honest-empty on purpose (differs from the 404 siblings): no banked rows -> 200
 # with areas: [] so the strip renders its holding state, not an error. DB
@@ -3248,6 +3250,15 @@ _PEAK_DEMAND_PRIMARY: list[tuple[str, str, str]] = [
 _PEAK_DEMAND_PRIMARY_INDEX = {
     series: i for i, (series, _label, _role) in enumerate(_PEAK_DEMAND_PRIMARY)
 }
+
+
+def _publish_key(ts: str) -> _datetime:
+    """Sort key for a publish_time string — the frontier vintage is the MAX. An
+    unparseable value sorts before every real timestamp so it never wins."""
+    try:
+        return _datetime.fromisoformat(ts)
+    except ValueError:
+        return _datetime.min.replace(tzinfo=_timezone.utc)
 
 
 def _peak_area_meta(series: str) -> tuple[int, str, str]:
@@ -3274,14 +3285,15 @@ async def caiso_peak_demand():
 
     Rows are ordered system first (CA ISO-TAC), then the IOU TACs (SCE / PGE /
     SDGE), then every other area (role "ba") alphabetically for the "more"
-    affordance. `issued_ts` is the forecast issue time (meta.publish_time) — the
-    strip's receipt line.
+    affordance. This feed reads on its DIAGONAL: each operating date = its
+    7-days-prior vintage, so top-level `issued_ts` is the latest vintage in the
+    payload (MAX publish_time) and each day carries its own `issued`.
 
     Envelope:
         {
           "dataset": "caiso_load_fcst_7day",
           "as_of": "2026-07-24T00:00:00+00:00",   # request instant, UTC
-          "issued_ts": "2026-07-16T16:10:00+00:00",# meta.publish_time
+          "issued_ts": "2026-07-23T16:10:00+00:00",# MAX publish_time (frontier vintage)
           "tz": "America/Los_Angeles",
           "unit": "MW",
           "operating_dates": ["2026-07-23", ...],  # every PT date the pull spans
@@ -3290,7 +3302,8 @@ async def caiso_peak_demand():
             {"series": "CA ISO-TAC", "label": "CA ISO-TAC", "role": "system",
              "order": 0, "days": [
                {"date": "2026-07-23", "peak_mw": 38454.05, "peak_he": 19,
-                "hours_covered": 24, "partial": false}, ...]},
+                "hours_covered": 24, "partial": false,
+                "issued": "2026-07-16T16:10:00+00:00"}, ...]},  # date - 7d vintage
             ...
           ]
         }
@@ -3335,19 +3348,27 @@ async def caiso_peak_demand():
     # Derive peak per (series, PT operating date). Rows arrive ts-ascending within
     # a series, so a strict `>` keeps the EARLIEST hour on ties. HE = the interval-
     # beginning local hour + 1 (the interval [H:00, H+1:00) ends at hour H+1).
+    # Per operating date, the forecast vintage that serves it (its own
+    # meta.publish_time). On the diagonal each date carries a single vintage; take
+    # the max within a date defensively. Top-level issued_ts is the frontier — the
+    # latest of these vintages across the whole payload.
     peaks: dict[str, dict[_date, dict]] = defaultdict(dict)
     all_dates: set[_date] = set()
-    issued_ts: str | None = None
+    date_issued: dict[_date, str] = {}
     for r in rows:
-        if issued_ts is None:
-            meta = r.get("meta")
-            if isinstance(meta, dict):
-                pt = meta.get("publish_time")
-                if isinstance(pt, str) and pt:
-                    issued_ts = pt
+        pt: str | None = None
+        meta = r.get("meta")
+        if isinstance(meta, dict):
+            p = meta.get("publish_time")
+            if isinstance(p, str) and p:
+                pt = p
         local = r["ts"].astimezone(tz)
         op_date = local.date()
         all_dates.add(op_date)
+        if pt is not None:
+            prev = date_issued.get(op_date)
+            if prev is None or _publish_key(pt) > _publish_key(prev):
+                date_issued[op_date] = pt
         he = local.hour + 1
         mw = float(r["value"])
         day = peaks[r["series"]].get(op_date)
@@ -3364,6 +3385,11 @@ async def caiso_peak_demand():
                 day["peak_he"] = he
 
     operating_dates = sorted(all_dates)
+
+    # Frontier vintage: the latest publish_time in the payload (never the min).
+    issued_ts = (
+        max(date_issued.values(), key=_publish_key) if date_issued else None
+    )
 
     # Primary rows first (system, then the IOU TACs), then every other area
     # alphabetically under role "ba" for the "more" tray.
@@ -3385,6 +3411,7 @@ async def caiso_peak_demand():
                     "peak_he": None,
                     "hours_covered": 0,
                     "partial": True,
+                    "issued": date_issued.get(d),
                 })
             else:
                 hc = day["hours_covered"]
@@ -3394,6 +3421,7 @@ async def caiso_peak_demand():
                     "peak_he": day["peak_he"],
                     "hours_covered": hc,
                     "partial": hc < _PEAK_DEMAND_FULL_DAY_HOURS,
+                    "issued": date_issued.get(d),
                 })
         areas.append({
             "series": series,
