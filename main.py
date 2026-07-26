@@ -2560,6 +2560,339 @@ async def weather_station_walk():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/delta-board — Weather Phase 2, the weather tab's front door
+# (2026-07-26)
+#
+# Regions × next 7 days, each cell colored by how the load-weighted-temperature
+# forecast CHANGED run-over-run — the first Pivotal question ("what changed")
+# before any absolute number. Read-time compute over forecasts_nws region
+# vintages (series = region id, meta.agg_version = 'asof_v1'); no new tables, no
+# writes, no pantry changes.
+#
+# THE RULED MODEL (spec "Ruled decisions", do not redesign):
+#   1. Synoptic bucketing — floor each region event's issued_ts to a 6-hour
+#      synoptic window (00/06/12/18Z); the latest event per (region, bucket)
+#      wins. Delta = current bucket vs the most recent PRIOR populated bucket for
+#      THAT region (buckets are sparse per region — walk back, don't assume
+#      adjacency; cap the walk-back at 4 buckets / 24h, else the cell is no-data).
+#   2. Cell metric — Δ daily-max LWT °F. Per target day, max over that day's
+#      target hours in the current composition minus the same in the prior,
+#      compared ONLY over hours present in BOTH buckets. If the shared overlap is
+#      too thin to form an honest daily max (< 12 shared hours on a full day; the
+#      leading partial day — the forecast's first, issuance-day date — is exempt),
+#      the cell is no-data (null) rather than a fake delta.
+#   3. Day boundary — region-local, mirrored from the pantry's ruled region→tz
+#      table (see _LWT_REGIONS below; that mapping lives only in the pantry, so
+#      per spec P3 it is replicated here, never improvised).
+#   5. Streak — per region × target day, the number of consecutive
+#      bucket-over-bucket deltas with the SAME sign ending at the current bucket
+#      ("N runs warmer/cooler in a row"), over the available vintage record,
+#      display-capped at 5+.
+#
+# RE-ISSUE ZEROS (a data reality this endpoint handles deliberately, verified
+# live 2026-07-26): NWS re-issues a gridpoint on its own updateTime WITHOUT
+# changing the hourly values, so a later synoptic bucket is frequently a
+# byte-identical re-composition of the earlier one → an honest Δ0 cell (NOT
+# no-data; the two runs genuinely agree). For the CELL this is reported as 0. For
+# the STREAK a Δ0 is NEUTRAL — it carries no new forecast, so it neither counts
+# as a run nor breaks the trend; the streak reflects the last genuine directional
+# move. Treating re-issues as trend-breakers would pin every streak at ≤1 given
+# how often the 12Z bucket merely re-stamps 06Z, defeating the "keeps trending
+# one way" signal the streak exists to surface.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# The 17 LWT regions in the yaml's declaration order (CAISO TACs first, then WECC
+# BAs) with each region's DOMINANT day-boundary timezone. REPLICATED verbatim
+# from the pantry's ruled source — energylake-pantry
+# weights/region_station_weights.yaml (the `tz:` per region), consumed by
+# ingesters/lwt.py. That yaml is the single authority for region day boundaries
+# and is not exposed to this service, so per the delta-board spec (ruled decision
+# #3 / STOP-don't-improvise) it is mirrored here. Keep in sync if the pantry adds
+# or re-tzs a region.
+_LWT_REGIONS: list[tuple[str, str]] = [
+    # CAISO Transmission Access Charge (TAC) areas
+    ("PGE-TAC",  "America/Los_Angeles"),
+    ("SCE-TAC",  "America/Los_Angeles"),
+    ("SDGE-TAC", "America/Los_Angeles"),
+    ("VEA-TAC",  "America/Los_Angeles"),
+    # WECC balancing authorities (CAISO 7DA feed order)
+    ("BPAT",     "America/Los_Angeles"),
+    ("AZPS",     "America/Phoenix"),
+    ("SRP",      "America/Phoenix"),
+    ("NEVP",     "America/Los_Angeles"),
+    ("PACE",     "America/Denver"),
+    ("PACW",     "America/Los_Angeles"),
+    ("PSEI",     "America/Los_Angeles"),
+    ("LADWP",    "America/Los_Angeles"),
+    ("BANC",     "America/Los_Angeles"),
+    ("IPCO",     "America/Boise"),
+    ("PNM",      "America/Denver"),
+    ("TEPC",     "America/Phoenix"),
+    ("EPE",      "America/Denver"),
+]
+
+_DELTA_BOARD_DAYS = 7                 # columns: D1 (region-local today) … D7
+_DELTA_SYNOPTIC_HOURS = 6             # 00/06/12/18Z synoptic bucketing
+_DELTA_WALKBACK_BUCKETS = 4           # cap prior-bucket walk-back at 4 buckets/24h
+_DELTA_MIN_SHARED_HOURS = 12          # a full-day daily-max needs ≥12 shared hours
+_DELTA_STREAK_CAP = 5                 # display cap — a streak ≥ 5 renders "5+"
+_DELTA_LOOKBACK_DAYS = 8              # compute window; bounds the streak history
+_DELTA_AGG_VERSION = "asof_v1"        # meta.agg_version marking composed region rows
+# The maximum gap a streak / prior walk-back will bridge between two populated
+# buckets (4 synoptic slots = 24h).
+_DELTA_MAX_GAP = _timedelta(hours=_DELTA_SYNOPTIC_HOURS * _DELTA_WALKBACK_BUCKETS)
+
+
+def _synoptic_bucket(ts: _datetime) -> _datetime:
+    """Floor a tz-aware instant to its 6-hour synoptic window in UTC (00/06/12/18Z)."""
+    u = ts.astimezone(_timezone.utc)
+    floored_hour = (u.hour // _DELTA_SYNOPTIC_HOURS) * _DELTA_SYNOPTIC_HOURS
+    return u.replace(hour=floored_hour, minute=0, second=0, microsecond=0)
+
+
+def _delta_pair(
+    newer: dict, older: dict, tz: ZoneInfo, target_date: _date, leading_exempt: bool
+):
+    """Δ daily-max °F for `target_date`, comparing ONLY target hours present in
+    BOTH compositions (the honest run-over-run daily max).
+
+    `newer`/`older` map target_ts → value (°F). Returns
+    (delta_f, current_max_f, prior_max_f, shared_hours) or None when there is no
+    shared coverage, or the shared overlap is below the full-day minimum and the
+    date is not the leading (partial, issuance-day) column.
+    """
+    shared: list[tuple[float, float]] = []
+    for ts, cur_v in newer.items():
+        old_v = older.get(ts)
+        if old_v is None:
+            continue
+        if ts.astimezone(tz).date() == target_date:
+            shared.append((cur_v, old_v))
+    if not shared:
+        return None
+    if not leading_exempt and len(shared) < _DELTA_MIN_SHARED_HOURS:
+        return None
+    cur_max = max(c for c, _ in shared)
+    pri_max = max(p for _, p in shared)
+    return (round(cur_max - pri_max, 2), round(cur_max, 2), round(pri_max, 2), len(shared))
+
+
+def _delta_streak(buckets_asc: list, tz: ZoneInfo, target_date: _date) -> tuple[int, int]:
+    """Trailing same-sign run of run-over-run deltas for `target_date`, ending at
+    the current bucket. Δ0 (a re-issue that changed nothing) is neutral: it is
+    skipped, neither counting nor breaking the run. A sign flip, a bucket gap
+    > 24h, or a pair with no honest daily max ends the run.
+
+    `buckets_asc` is ascending [(bucket_ts, issued_ts, comp, earliest_date), …].
+    Returns (count, direction) where direction is +1 warmer / −1 cooler / 0 none.
+    Count is uncapped here; the route applies the 5+ display cap.
+    """
+    run_sign = 0
+    count = 0
+    for i in range(len(buckets_asc) - 1, 0, -1):
+        newer = buckets_asc[i]
+        older = buckets_asc[i - 1]
+        if newer[0] - older[0] > _DELTA_MAX_GAP:
+            break  # a > 24h gap between populated buckets ends the record we trust
+        leading = target_date == newer[3]
+        res = _delta_pair(newer[2], older[2], tz, target_date, leading)
+        if res is None:
+            break  # can't determine this run's direction → the chain ends here
+        delta = res[0]
+        if delta == 0:
+            continue  # re-issue / no change: neutral (see RE-ISSUE ZEROS above)
+        sign = 1 if delta > 0 else -1
+        if run_sign == 0:
+            run_sign = sign
+            count = 1
+        elif sign == run_sign:
+            count += 1
+        else:
+            break
+    return count, run_sign
+
+
+def _compute_delta_board(rows: list[dict], now: _datetime) -> dict:
+    """Pure composition of the delta-board payload from raw forecasts_nws region
+    rows (no DB, no clock — `now` is injected). See the section header for the
+    ruled model. Always emits all 17 regions in yaml order; regions with sparse
+    history degrade to no-data cells, never an error."""
+    # region → issued_ts → {"targets": {target_ts: value}, "cov": min, "age": max}
+    by_region: dict[str, dict[_datetime, dict]] = defaultdict(dict)
+    for r in rows:
+        region = r["series"]
+        iss = r["issued_ts"]
+        val = r["value"]
+        if val is None:
+            continue
+        comp = by_region[region].get(iss)
+        if comp is None:
+            comp = {"targets": {}, "cov": None, "age": None}
+            by_region[region][iss] = comp
+        comp["targets"][r["target_ts"]] = float(val)
+        cov = r.get("coverage")
+        if cov is not None:
+            comp["cov"] = cov if comp["cov"] is None else min(comp["cov"], cov)
+        age = r.get("max_age_hours")
+        if age is not None:
+            comp["age"] = age if comp["age"] is None else max(comp["age"], age)
+
+    out_regions = []
+    global_current: _datetime | None = None
+
+    for region, tz_name in _LWT_REGIONS:
+        tz = ZoneInfo(tz_name)
+        today_local = now.astimezone(tz).date()
+        target_dates = [today_local + _timedelta(days=i) for i in range(_DELTA_BOARD_DAYS)]
+
+        issuances = by_region.get(region, {})
+        # Latest event per synoptic bucket wins.
+        bucket_winner: dict[_datetime, _datetime] = {}
+        for iss in issuances:
+            b = _synoptic_bucket(iss)
+            if b not in bucket_winner or iss > bucket_winner[b]:
+                bucket_winner[b] = iss
+        # Ascending [(bucket_ts, issued_ts, comp_targets, earliest_local_date)].
+        buckets_asc = []
+        for b in sorted(bucket_winner):
+            iss = bucket_winner[b]
+            comp = issuances[iss]
+            targets = comp["targets"]
+            earliest = min((ts.astimezone(tz).date() for ts in targets), default=None)
+            buckets_asc.append((b, iss, targets, earliest))
+
+        current = buckets_asc[-1] if buckets_asc else None
+        prior = None
+        if len(buckets_asc) >= 2:
+            cand = buckets_asc[-2]
+            if current[0] - cand[0] <= _DELTA_MAX_GAP:  # within the 24h walk-back cap
+                prior = cand
+
+        # Envelope-level bookkeeping for the header "AZ vs BZ" label.
+        if current is not None and (global_current is None or current[0] > global_current):
+            global_current = current[0]
+
+        cur_comp = current[2] if current else {}
+        cur_leading = current[3] if current else None
+        days = []
+        for d in target_dates:
+            cell = None
+            if current is not None and prior is not None:
+                cell = _delta_pair(cur_comp, prior[2], tz, d, leading_exempt=(d == cur_leading))
+            count, direction = (0, 0)
+            if current is not None:
+                count, direction = _delta_streak(buckets_asc, tz, d)
+            if cell is None:
+                days.append({
+                    "date": d.isoformat(),
+                    "delta_f": None,
+                    "current_max_f": None,
+                    "prior_max_f": None,
+                    "shared_hours": 0,
+                    "streak": min(count, _DELTA_STREAK_CAP),
+                    "streak_dir": "warmer" if direction > 0 else "cooler" if direction < 0 else None,
+                })
+            else:
+                delta_f, cur_max, pri_max, shared = cell
+                days.append({
+                    "date": d.isoformat(),
+                    "delta_f": delta_f,
+                    "current_max_f": cur_max,
+                    "prior_max_f": pri_max,
+                    "shared_hours": shared,
+                    "streak": min(count, _DELTA_STREAK_CAP),
+                    "streak_dir": "warmer" if direction > 0 else "cooler" if direction < 0 else None,
+                })
+
+        cov = issuances[current[1]]["cov"] if current else None
+        age = issuances[current[1]]["age"] if current else None
+
+        out_regions.append({
+            "region": region,
+            "tz": tz_name,
+            "current_bucket": current[0].isoformat() if current else None,
+            "current_issued_ts": current[1].isoformat() if current else None,
+            "prior_bucket": prior[0].isoformat() if prior else None,
+            "prior_issued_ts": prior[1].isoformat() if prior else None,
+            "coverage": cov,
+            "max_age_hours": age,
+            "days": days,
+        })
+
+    # Header label: the board's current bucket is the freshest across the fleet;
+    # its prior is the most common prior among regions actually sitting on that
+    # bucket (they move together at NWS issuance cadence).
+    prior_tally: dict[str, int] = defaultdict(int)
+    for reg in out_regions:
+        if reg["current_bucket"] == (global_current.isoformat() if global_current else None) \
+                and reg["prior_bucket"] is not None:
+            prior_tally[reg["prior_bucket"]] += 1
+    board_prior = max(prior_tally, key=prior_tally.get) if prior_tally else None
+
+    return {
+        "generated_at": now.isoformat(),
+        "current_bucket": global_current.isoformat() if global_current else None,
+        "prior_bucket": board_prior,
+        "days": _DELTA_BOARD_DAYS,
+        "streak_cap": _DELTA_STREAK_CAP,
+        "regions": out_regions,
+    }
+
+
+# In-process response cache: single entry, 60s TTL. The underlying vintages turn
+# over only at NWS issuance cadence, so a brief window absorbs board scans
+# without hammering Neon.
+_DELTA_BOARD_CACHE_TTL = 60.0
+_delta_board_cache: dict[str, tuple[float, dict]] = {}
+
+
+@app.get("/api/weather/delta-board")
+async def weather_delta_board(response: Response):
+    """The delta board: 17 LWT regions × next 7 days, each cell the run-over-run
+    change in daily-max load-weighted temperature (°F) between the two most
+    recent synoptic issuance buckets, plus a same-sign streak per cell. Read-only
+    over forecasts_nws region vintages; always 17 regions; sparse history
+    degrades to no-data cells. Cached 60s. DB unavailable → 503."""
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    cached = _delta_board_cache.get("board")
+    if cached is not None and (now_mono - cached[0]) < _DELTA_BOARD_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=60"
+        return cached[1]
+
+    now = _utcnow()
+    regions = [r for r, _ in _LWT_REGIONS]
+    since = now - _timedelta(days=_DELTA_LOOKBACK_DAYS)
+    board_sql = """
+        SELECT series, issued_ts, target_ts,
+               value::float8                   AS value,
+               (meta->>'coverage')::float8     AS coverage,
+               (meta->>'max_age_hours')::float8 AS max_age_hours
+        FROM forecasts_nws
+        WHERE series = ANY(%(regions)s)
+          AND meta->>'agg_version' = %(agg)s
+          AND issued_ts >= %(since)s
+    """
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(board_sql, {
+                    "regions": regions,
+                    "agg": _DELTA_AGG_VERSION,
+                    "since": since,
+                })
+                rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    payload = _compute_delta_board(rows or [], now)
+    _delta_board_cache["board"] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=60"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # /api/wire/recent — Tape rebuild Phase 3a (2026-06-10)
 #
 # Successor to /api/tape/recent. Same item shape, plus `is_power_signal`,
