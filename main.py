@@ -2893,6 +2893,361 @@ async def weather_delta_board(response: Response):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/meteogram — Weather Phase 2.5, the Delta Board's tap-through
+# (2026-07-26)
+#
+# One overlaid temperature timeline for a REGION or a STATION (the `series` param
+# is the discriminator; the payload's `kind` flag tells the UI which). Four
+# layers, composed here — the endpoint owns composition, the UI only renders:
+#   1. actuals — trailing ~72h.
+#        region : timeseries_values dataset 'lwt_temp_hourly' (already °F).
+#        station: 'ghcnh_weather_hourly' (history AUTHORITY) with
+#                 'nws_obs_hourly' filling only the trailing edge ghcnh has not
+#                 yet ingested (the lwt.py composition pattern), °C→°F.
+#   2. current issuance — solid forecast, now→horizon: the latest event in the
+#        newest populated SYNOPTIC bucket (00/06/12/18Z), reusing the delta
+#        board's _synoptic_bucket + walk-back verbatim so the board and the
+#        meteogram AGREE on which run is "current" (acceptance #1).
+#   3. ghosts — the latest event in each of the 1–2 prior populated buckets,
+#        walked back over sparse buckets with the board's 24h gap cap (so the
+#        solid + first ghost are exactly the board's current + prior run).
+#   4. normals band — daily normal max/min behind everything.
+#        station: station_normals_daily directly (its own basis).
+#        region : SAME-BASIS composition needs the region's DD-basis station
+#                 WEIGHTS, which live only in the pantry's
+#                 region_station_weights.yaml (the DD set differs from the LWT
+#                 composition set — e.g. PGE-TAC's band excludes KSFO even after
+#                 KSFO joins the LWT composition). Those weights are NOT a stable
+#                 ruled scalar like the region→tz map (they changed the day KSFO
+#                 merged), so an API-side copy would silently DRIFT — the exact
+#                 trap the "no pantry changes / not a workaround site" constraint
+#                 warns against. So the region band is returned EMPTY here (UI
+#                 shows its honest "no normals" note) pending the ruled fix: the
+#                 pantry PUBLISHES composed region normals as a dataset (it
+#                 already computes them for the temp-matrix anomaly leg), so this
+#                 service reads DATA, not config. `normals_basis` names the state
+#                 ('station' | 'none' | 'region_pending') — additive, honest.
+#
+# Forecast values: REGION series are already °F (like the delta board);
+# STATION '{id}_temperature' series are Celsius (unit_src='F' describes the NWS
+# SOURCE — the stored value is °C; see the temp-matrix receipts) → °C→°F.
+#
+# Read-only; no writes; no pantry changes. Cached 60s per series. DB down → 503.
+# ═══════════════════════════════════════════════════════════════════════════
+
+_METEOGRAM_ACTUALS_HOURS = 72            # trailing actuals window
+_METEOGRAM_MAX_GHOSTS = 2                # up to 2 prior issuances behind the solid
+_METEOGRAM_FC_LOOKBACK_DAYS = _DELTA_LOOKBACK_DAYS  # issuance history for the buckets
+_METEOGRAM_MODEL = "nws"                 # Phase-3 hook: constant today, one model
+_METEOGRAM_CACHE_TTL = 60.0
+
+# region → tz (dict view of the ruled board table) and the station basket lookups
+# (GHCN id / ICAO), reused for series resolution.
+_LWT_REGION_TZ: dict[str, str] = dict(_LWT_REGIONS)
+_STATION_BY_ID: dict[str, dict] = {s["station_id"]: s for s in _WEATHER_STATIONS}
+_STATION_BY_ICAO: dict[str, dict] = {
+    s["icao"]: s for s in _WEATHER_STATIONS if s.get("icao")
+}
+
+# Per-series response cache: 60s TTL (vintages turn over at NWS cadence). Bounded
+# by the finite region + station universe.
+_meteogram_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _resolve_meteogram_series(series: str) -> tuple[str, str, str | None, str]:
+    """(kind, tz_name, station_id, forecast_series) for a `series` param.
+
+    Region when `series` is one of the 17 LWT regions (forecast series = the
+    region id, actuals from the composed lwt_temp_hourly). Otherwise a station,
+    resolved by GHCN id, ICAO, or a '<id>_temperature' string; tz comes from the
+    ruled station basket (Pacific fallback for an off-basket id, so a station that
+    starts flowing forecasts before it joins the basket still renders in a sane
+    local frame rather than erroring)."""
+    if series in _LWT_REGION_TZ:
+        return "region", _LWT_REGION_TZ[series], None, series
+    sid = series[: -len("_temperature")] if series.endswith("_temperature") else series
+    meta = _STATION_BY_ID.get(sid) or _STATION_BY_ICAO.get(series) or _STATION_BY_ICAO.get(sid)
+    if meta is not None:
+        sid = meta["station_id"]
+        tz_name = meta["tz"]
+    else:
+        tz_name = "America/Los_Angeles"
+    return "station", tz_name, sid, f"{sid}_temperature"
+
+
+def _meteo_build_issuances(fc_rows: list[dict], is_region: bool, seam: _datetime):
+    """(current, ghosts) from raw forecasts_nws rows. Same synoptic bucketing +
+    24h-capped walk-back as the delta board, so the solid line and first ghost are
+    the board's current and prior runs. Points are clipped to `seam` (the last
+    actual instant) forward, so the forecast reads now→horizon and joins the
+    actuals as one timeline. Region values are °F as stored; station values are
+    °C→°F. Ghosts carry no coverage/max_age badge (they are context)."""
+    by_iss: dict[_datetime, dict] = {}
+    for r in fc_rows:
+        v = r.get("value")
+        if v is None:
+            continue
+        e = by_iss.get(r["issued_ts"])
+        if e is None:
+            e = {"targets": {}, "cov": None, "age": None}
+            by_iss[r["issued_ts"]] = e
+        e["targets"][r["target_ts"]] = float(v)
+        cov = r.get("coverage")
+        if cov is not None:
+            e["cov"] = cov if e["cov"] is None else min(e["cov"], cov)
+        age = r.get("max_age_hours")
+        if age is not None:
+            e["age"] = age if e["age"] is None else max(e["age"], age)
+
+    bucket_winner: dict[_datetime, _datetime] = {}
+    for iss in by_iss:
+        b = _synoptic_bucket(iss)
+        if b not in bucket_winner or iss > bucket_winner[b]:
+            bucket_winner[b] = iss
+    buckets_asc = sorted(bucket_winner.items())  # [(bucket_ts, issued_ts), …]
+
+    def pack(bucket_ts: _datetime, issued_ts: _datetime) -> dict:
+        comp = by_iss[issued_ts]
+        points = []
+        for ts in sorted(comp["targets"]):
+            if ts < seam:
+                continue
+            val = comp["targets"][ts]
+            temp = round(val, 1) if is_region else round(_c_to_f(val), 1)
+            points.append({"ts": ts.isoformat(), "temp_f": temp})
+        return {
+            "model": _METEOGRAM_MODEL,
+            "bucket": bucket_ts.isoformat(),
+            "issued_ts": issued_ts.isoformat(),
+            "points": points,
+            "coverage": comp["cov"],
+            "max_age_hours": comp["age"],
+        }
+
+    if not buckets_asc:
+        return None, []
+    cb, ci = buckets_asc[-1]
+    current = pack(cb, ci)
+    ghosts = []
+    i = len(buckets_asc) - 1
+    while len(ghosts) < _METEOGRAM_MAX_GHOSTS and i >= 1:
+        nb, _ni = buckets_asc[i]
+        ob, oi = buckets_asc[i - 1]
+        if nb - ob > _DELTA_MAX_GAP:
+            break  # a > 24h gap between populated buckets — same cut as the board
+        ghosts.append(pack(ob, oi))
+        i -= 1
+    return current, ghosts
+
+
+def _meteo_region_actuals(rows: list[dict]) -> list[tuple[_datetime, float]]:
+    """Composed region LWT actuals — already °F — as (ts, °F), ascending."""
+    out = [(r["ts"], round(float(r["value"]), 1)) for r in rows if r.get("value") is not None]
+    out.sort(key=lambda p: p[0])
+    return out
+
+
+def _meteo_station_actuals(
+    ghcnh_rows: list[dict], nws_rows: list[dict]
+) -> list[tuple[_datetime, float]]:
+    """Station actuals: ghcnh is the history AUTHORITY; nws_obs fills only the
+    trailing edge past ghcnh's latest instant (the lwt.py composition pattern).
+    °C→°F. Returns (ts, °F) ascending."""
+    auth: dict[_datetime, float] = {}
+    for r in ghcnh_rows:
+        if r.get("value") is not None:
+            auth[r["ts"]] = _c_to_f(float(r["value"]))
+    latest = max(auth) if auth else None
+    for r in nws_rows:
+        if r.get("value") is None:
+            continue
+        ts = r["ts"]
+        if latest is None or ts > latest:
+            auth[ts] = _c_to_f(float(r["value"]))
+    return [(ts, round(auth[ts], 1)) for ts in sorted(auth)]
+
+
+def _local_date_span(start: _datetime, end: _datetime, tz: ZoneInfo) -> list[_date]:
+    """Inclusive local calendar dates from `start` to `end` in `tz`."""
+    d = start.astimezone(tz).date()
+    last = end.astimezone(tz).date()
+    out = []
+    while d <= last:
+        out.append(d)
+        d += _timedelta(days=1)
+    return out
+
+
+def _meteo_station_normals(normals_rows: list[dict], dates: list[_date]) -> list[dict]:
+    """The daily normals band for a station over `dates`, from station_normals_daily
+    keyed (month, day). A day missing either bound is omitted (no faked half-band)."""
+    by_key = {(r["month"], r["day"]): r for r in normals_rows}
+    out = []
+    for d in dates:
+        r = by_key.get((d.month, d.day))
+        if r and r.get("tmax_norm_f") is not None and r.get("tmin_norm_f") is not None:
+            out.append({
+                "date": d.isoformat(),
+                "normal_max_f": round(float(r["tmax_norm_f"]), 1),
+                "normal_min_f": round(float(r["tmin_norm_f"]), 1),
+            })
+    return out
+
+
+def _compute_meteogram(
+    series: str,
+    kind: str,
+    tz_name: str,
+    now: _datetime,
+    actuals_pts: list[tuple[_datetime, float]],
+    fc_rows: list[dict],
+    normals_rows: list[dict] | None,
+) -> dict:
+    """Pure composition of the meteogram payload (no DB, no clock — `now` injected).
+    See the section header for the ruled model and the region-normals STOP."""
+    tz = ZoneInfo(tz_name)
+    is_region = kind == "region"
+    now_floor = now.replace(minute=0, second=0, microsecond=0)
+
+    actuals_pts = sorted(actuals_pts, key=lambda p: p[0])
+    seam = actuals_pts[-1][0] if actuals_pts else now_floor
+    current, ghosts = _meteo_build_issuances(fc_rows, is_region, seam)
+    actuals = [{"ts": ts.isoformat(), "temp_f": v} for ts, v in actuals_pts]
+
+    # Normals. Region band is blocked on the pantry DD-basis weights (see header)
+    # → empty; station band composes directly over the plotted span.
+    if is_region:
+        normals: list[dict] = []
+        normals_basis = "region_pending"
+    else:
+        fc_targets = [r["target_ts"] for r in fc_rows if r.get("value") is not None]
+        span_start = actuals_pts[0][0] if actuals_pts else (now - _timedelta(hours=_METEOGRAM_ACTUALS_HOURS))
+        span_end = max(fc_targets) if fc_targets else seam
+        dates = _local_date_span(span_start, span_end, tz)
+        normals = _meteo_station_normals(normals_rows or [], dates)
+        normals_basis = "station" if normals else "none"
+
+    return {
+        "series": series,
+        "kind": kind,
+        "tz": tz_name,
+        "generated_at": now.isoformat(),
+        "actuals": actuals,
+        "current": current,
+        "ghosts": ghosts,
+        "normals": normals,
+        # Additive honesty flag (UI-optional): why the band is or isn't present.
+        "normals_basis": normals_basis,
+    }
+
+
+_METEO_REGION_ACTUALS_SQL = """
+    SELECT ts, value::float8 AS value
+    FROM timeseries_values
+    WHERE dataset = 'lwt_temp_hourly' AND series = %(s)s
+      AND ts >= %(since)s AND ts <= %(now)s
+    ORDER BY ts
+"""
+_METEO_REGION_FC_SQL = """
+    SELECT issued_ts, target_ts, value::float8 AS value,
+           (meta->>'coverage')::float8      AS coverage,
+           (meta->>'max_age_hours')::float8 AS max_age_hours
+    FROM forecasts_nws
+    WHERE series = %(s)s AND meta->>'agg_version' = %(agg)s
+      AND issued_ts >= %(since)s
+"""
+_METEO_STATION_FC_SQL = """
+    SELECT issued_ts, target_ts, value::float8 AS value
+    FROM forecasts_nws
+    WHERE series = %(s)s AND issued_ts >= %(since)s
+"""
+_METEO_OBS_SQL = """
+    SELECT ts, value::float8 AS value
+    FROM timeseries_values
+    WHERE dataset = %(ds)s AND series = %(s)s
+      AND ts >= %(since)s AND ts <= %(now)s
+    ORDER BY ts
+"""
+_METEO_NORMALS_SQL = """
+    SELECT month, day,
+           tmax_norm_f::float8 AS tmax_norm_f,
+           tmin_norm_f::float8 AS tmin_norm_f
+    FROM station_normals_daily
+    WHERE station_id = %(sid)s AND month = ANY(%(months)s)
+"""
+
+
+@app.get("/api/weather/meteogram")
+async def weather_meteogram(
+    response: Response,
+    series: str = Query(
+        ...,
+        min_length=1,
+        description="The LWT region id (e.g. 'PGE-TAC') or a station "
+        "(GHCN id, ICAO, or '<id>_temperature'). The response's `kind` flag "
+        "reports which was resolved.",
+    ),
+):
+    """The meteogram for one series: trailing actuals, the current NWS issuance,
+    1–2 ghosted prior issuances (same synoptic buckets as the delta board), and —
+    for stations — the daily normals band. Region normals are pending the pantry's
+    composed-region-normals dataset (see the section header) and return empty with
+    `normals_basis='region_pending'`. Read-only; cached 60s per series; DB
+    unavailable → 503."""
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    cached = _meteogram_cache.get(series)
+    if cached is not None and (now_mono - cached[0]) < _METEOGRAM_CACHE_TTL:
+        response.headers["Cache-Control"] = "max-age=60"
+        return cached[1]
+
+    now = _utcnow()
+    kind, tz_name, sid, fc_series = _resolve_meteogram_series(series)
+    tz = ZoneInfo(tz_name)
+    since = now - _timedelta(hours=_METEOGRAM_ACTUALS_HOURS)
+    fsince = now - _timedelta(days=_METEOGRAM_FC_LOOKBACK_DAYS)
+    normals_rows: list[dict] | None = None
+
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                if kind == "region":
+                    await cur.execute(_METEO_REGION_ACTUALS_SQL,
+                                      {"s": series, "since": since, "now": now})
+                    act_rows = await cur.fetchall()
+                    await cur.execute(_METEO_REGION_FC_SQL,
+                                      {"s": series, "agg": _DELTA_AGG_VERSION, "since": fsince})
+                    fc_rows = await cur.fetchall()
+                    actuals_pts = _meteo_region_actuals(act_rows or [])
+                else:
+                    await cur.execute(_METEO_STATION_FC_SQL, {"s": fc_series, "since": fsince})
+                    fc_rows = await cur.fetchall()
+                    await cur.execute(_METEO_OBS_SQL,
+                                      {"ds": "ghcnh_weather_hourly", "s": fc_series,
+                                       "since": since, "now": now})
+                    ghcnh_rows = await cur.fetchall()
+                    await cur.execute(_METEO_OBS_SQL,
+                                      {"ds": "nws_obs_hourly", "s": fc_series,
+                                       "since": since, "now": now})
+                    nws_rows = await cur.fetchall()
+                    months = sorted({
+                        d.month for d in _local_date_span(
+                            since, now + _timedelta(days=_METEOGRAM_FC_LOOKBACK_DAYS), tz)
+                    })
+                    await cur.execute(_METEO_NORMALS_SQL, {"sid": sid, "months": months})
+                    normals_rows = await cur.fetchall()
+                    actuals_pts = _meteo_station_actuals(ghcnh_rows or [], nws_rows or [])
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    payload = _compute_meteogram(series, kind, tz_name, now, actuals_pts, fc_rows or [], normals_rows)
+    _meteogram_cache[series] = (now_mono, payload)
+    response.headers["Cache-Control"] = "max-age=60"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # /api/wire/recent — Tape rebuild Phase 3a (2026-06-10)
 #
 # Successor to /api/tape/recent. Same item shape, plus `is_power_signal`,
