@@ -2914,19 +2914,23 @@ async def weather_delta_board(response: Response):
 #   4. normals band — daily normal max/min behind everything.
 #        station: station_normals_daily directly (its own basis).
 #        region : SAME-BASIS composition needs the region's DD-basis station
-#                 WEIGHTS, which live only in the pantry's
-#                 region_station_weights.yaml (the DD set differs from the LWT
-#                 composition set — e.g. PGE-TAC's band excludes KSFO even after
-#                 KSFO joins the LWT composition). Those weights are NOT a stable
-#                 ruled scalar like the region→tz map (they changed the day KSFO
-#                 merged), so an API-side copy would silently DRIFT — the exact
-#                 trap the "no pantry changes / not a workaround site" constraint
-#                 warns against. So the region band is returned EMPTY here (UI
-#                 shows its honest "no normals" note) pending the ruled fix: the
-#                 pantry PUBLISHES composed region normals as a dataset (it
-#                 already computes them for the temp-matrix anomaly leg), so this
-#                 service reads DATA, not config. `normals_basis` names the state
-#                 ('station' | 'none' | 'region_pending') — additive, honest.
+#                 WEIGHTS, which live only in the pantry (the DD set differs from
+#                 the LWT composition set — e.g. PGE-TAC's band excludes KSFO even
+#                 after KSFO joins the LWT composition), and those weights are NOT
+#                 a stable ruled scalar like the region→tz map, so an API-side copy
+#                 would silently DRIFT. The ruled fix landed: the pantry now
+#                 PUBLISHES composed region normals as the 'lwt_normals_daily'
+#                 dataset — series '<REGION>.TMAX_NORM' / '.TMIN_NORM' (°F), a
+#                 366-day climatological year materialized on the 2012 leap
+#                 reference year (Feb 29 keyed there), ts at local midnight in the
+#                 region tz, DD-basis station set/weights in meta. So this service
+#                 READS that DATA (not config): the region branch maps the plotted
+#                 local dates onto the 2012 (month, day) keys and serves the band,
+#                 exactly the station shape. `normals_basis` names the state
+#                 ('station' | 'none' | 'region' | 'region_pending') — additive,
+#                 honest: 'region' when the band is non-empty, 'region_pending'
+#                 when the dataset has no rows yet for that region (the pantry may
+#                 not have written, or the region failed the coverage gate).
 #
 # Forecast values: REGION series are already °F (like the delta board);
 # STATION '{id}_temperature' series are Celsius (unit_src='F' describes the NWS
@@ -3094,6 +3098,44 @@ def _meteo_station_normals(normals_rows: list[dict], dates: list[_date]) -> list
     return out
 
 
+def _meteo_region_normals(
+    normals_rows: list[dict], dates: list[_date], tz: ZoneInfo
+) -> list[dict]:
+    """The daily normals band for a region over `dates`, from the pantry's
+    'lwt_normals_daily' dataset. The two series '<REGION>.TMAX_NORM' / '.TMIN_NORM'
+    are a 366-day climatological year (°F) materialized on the 2012 leap reference
+    year (Feb 29 keyed there), each row's ts at local midnight in the region tz.
+    Each row's (month, day) key is recovered by reading ts back in the region tz
+    (inverting the pantry's local-midnight convention), so the plotted local dates
+    map straight on — Feb 29 in a leap plotted year lands on the 2012 Feb 29 row.
+    A day missing either bound is omitted (no faked half-band; same rule as the
+    station band). Emits the exact station shape: {date, normal_max_f, normal_min_f}."""
+    max_by_key: dict[tuple[int, int], float] = {}
+    min_by_key: dict[tuple[int, int], float] = {}
+    for r in normals_rows:
+        v = r.get("value")
+        if v is None:
+            continue
+        series = r.get("series", "")
+        key = (r["ts"].astimezone(tz).month, r["ts"].astimezone(tz).day)
+        if series.endswith(".TMAX_NORM"):
+            max_by_key[key] = float(v)
+        elif series.endswith(".TMIN_NORM"):
+            min_by_key[key] = float(v)
+    out = []
+    for d in dates:
+        key = (d.month, d.day)
+        mx = max_by_key.get(key)
+        mn = min_by_key.get(key)
+        if mx is not None and mn is not None:
+            out.append({
+                "date": d.isoformat(),
+                "normal_max_f": round(mx, 1),
+                "normal_min_f": round(mn, 1),
+            })
+    return out
+
+
 def _compute_meteogram(
     series: str,
     kind: str,
@@ -3114,16 +3156,18 @@ def _compute_meteogram(
     current, ghosts = _meteo_build_issuances(fc_rows, is_region, seam)
     actuals = [{"ts": ts.isoformat(), "temp_f": v} for ts, v in actuals_pts]
 
-    # Normals. Region band is blocked on the pantry DD-basis weights (see header)
-    # → empty; station band composes directly over the plotted span.
+    # Normals band over the plotted local-date span (actuals start → last forecast
+    # target), same span both paths. Region reads the pantry's published
+    # lwt_normals_daily (empty until the pantry writes → region_pending); station
+    # composes station_normals_daily directly.
+    fc_targets = [r["target_ts"] for r in fc_rows if r.get("value") is not None]
+    span_start = actuals_pts[0][0] if actuals_pts else (now - _timedelta(hours=_METEOGRAM_ACTUALS_HOURS))
+    span_end = max(fc_targets) if fc_targets else seam
+    dates = _local_date_span(span_start, span_end, tz)
     if is_region:
-        normals: list[dict] = []
-        normals_basis = "region_pending"
+        normals = _meteo_region_normals(normals_rows or [], dates, tz)
+        normals_basis = "region" if normals else "region_pending"
     else:
-        fc_targets = [r["target_ts"] for r in fc_rows if r.get("value") is not None]
-        span_start = actuals_pts[0][0] if actuals_pts else (now - _timedelta(hours=_METEOGRAM_ACTUALS_HOURS))
-        span_end = max(fc_targets) if fc_targets else seam
-        dates = _local_date_span(span_start, span_end, tz)
         normals = _meteo_station_normals(normals_rows or [], dates)
         normals_basis = "station" if normals else "none"
 
@@ -3175,6 +3219,11 @@ _METEO_NORMALS_SQL = """
     FROM station_normals_daily
     WHERE station_id = %(sid)s AND month = ANY(%(months)s)
 """
+_METEO_REGION_NORMALS_SQL = """
+    SELECT series, ts, value::float8 AS value
+    FROM timeseries_values
+    WHERE dataset = 'lwt_normals_daily' AND series = ANY(%(series)s)
+"""
 
 
 @app.get("/api/weather/meteogram")
@@ -3189,10 +3238,11 @@ async def weather_meteogram(
     ),
 ):
     """The meteogram for one series: trailing actuals, the current NWS issuance,
-    1–2 ghosted prior issuances (same synoptic buckets as the delta board), and —
-    for stations — the daily normals band. Region normals are pending the pantry's
-    composed-region-normals dataset (see the section header) and return empty with
-    `normals_basis='region_pending'`. Read-only; cached 60s per series; DB
+    1–2 ghosted prior issuances (same synoptic buckets as the delta board), and the
+    daily normals band. Station bands read station_normals_daily; region bands read
+    the pantry's published 'lwt_normals_daily' dataset (`normals_basis='region'`),
+    falling back to empty with `normals_basis='region_pending'` when that dataset
+    has no rows yet for the region. Read-only; cached 60s per series; DB
     unavailable → 503."""
     assert _pool is not None
 
@@ -3219,6 +3269,9 @@ async def weather_meteogram(
                     await cur.execute(_METEO_REGION_FC_SQL,
                                       {"s": series, "agg": _DELTA_AGG_VERSION, "since": fsince})
                     fc_rows = await cur.fetchall()
+                    await cur.execute(_METEO_REGION_NORMALS_SQL,
+                                      {"series": [f"{series}.TMAX_NORM", f"{series}.TMIN_NORM"]})
+                    normals_rows = await cur.fetchall()
                     actuals_pts = _meteo_region_actuals(act_rows or [])
                 else:
                     await cur.execute(_METEO_STATION_FC_SQL, {"s": fc_series, "since": fsince})

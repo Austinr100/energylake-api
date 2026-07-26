@@ -8,10 +8,12 @@ delta board, the ghcnh-authority/nws-trailing actuals compose, and the station
 normals band), so most tests exercise those directly with hand-built rows and an
 injected `now` — no DB, no clock. Route-level tests cover the SQL/cache wiring
 and the DB-down 503 via a fake pool that dispatches rows by query (the region
-path fires 2 queries, the station path 4), mirroring test_weather_delta_board.
+path fires 3 queries — actuals, forecasts, normals — the station path 4),
+mirroring test_weather_delta_board.
 """
 
 import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +24,7 @@ import main
 UTC = datetime.timezone.utc
 NOW = datetime.datetime(2026, 7, 26, 19, 0, tzinfo=UTC)  # 12:00 PDT
 LA = "America/Los_Angeles"
+LA_TZ = ZoneInfo(LA)
 
 
 def _dt(y, mo, dd, h=0, mi=0):
@@ -46,6 +49,19 @@ def _fc_rows(series, issued_ts, targets, coverage=None, max_age=None):
 def _hourly(start, hours, value):
     """[(ts, value)] hourly from `start` for `hours` steps at a constant value."""
     return [(start + datetime.timedelta(hours=h), value) for h in range(hours)]
+
+
+def _norm_rows(region, entries, tz=LA_TZ):
+    """lwt_normals_daily rows for a region: a TMAX_NORM + TMIN_NORM pair per entry.
+    `entries` is [(month, day, tmax_f, tmin_f)]; ts is local midnight in `tz` on the
+    2012 leap reference year (Feb 29 keyed there), stored as the UTC instant the way
+    a timestamptz round-trips from the DB."""
+    rows = []
+    for mo, dd, tmax, tmin in entries:
+        ts = datetime.datetime(2012, mo, dd, 0, 0, tzinfo=tz).astimezone(UTC)
+        rows.append({"series": f"{region}.TMAX_NORM", "ts": ts, "value": float(tmax)})
+        rows.append({"series": f"{region}.TMIN_NORM", "ts": ts, "value": float(tmin)})
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -172,15 +188,62 @@ def test_station_actuals_ghcnh_authority_nws_trailing_edge():
 # Full payload composition
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Region normals band — maps plotted local dates onto the 2012 (month, day) keys
+# ---------------------------------------------------------------------------
+
+def test_region_normals_map_local_dates_onto_2012_keys():
+    rows = _norm_rows("PGE-TAC", [(7, 26, 90.0, 58.0), (7, 27, 91.0, 59.0)])
+    dates = [datetime.date(2026, 7, 26), datetime.date(2026, 7, 27)]
+    band = main._meteo_region_normals(rows, dates, LA_TZ)
+    by_date = {b["date"]: b for b in band}
+    assert by_date["2026-07-26"] == {"date": "2026-07-26", "normal_max_f": 90.0, "normal_min_f": 58.0}
+    assert by_date["2026-07-27"]["normal_max_f"] == 91.0
+
+
+def test_region_normals_feb29_maps_to_2012_reference():
+    # Feb 29 keyed on the 2012 reference year; a leap plotted year (2028) lands on it.
+    rows = _norm_rows("PGE-TAC", [(2, 29, 62.0, 44.0)])
+    band = main._meteo_region_normals(rows, [datetime.date(2028, 2, 29)], LA_TZ)
+    assert band == [{"date": "2028-02-29", "normal_max_f": 62.0, "normal_min_f": 44.0}]
+
+
+def test_region_normals_omit_day_missing_a_bound():
+    # A TMAX row with no matching TMIN → half-band, omitted (same rule as stations).
+    ts = datetime.datetime(2012, 7, 26, 0, 0, tzinfo=LA_TZ).astimezone(UTC)
+    rows = [{"series": "PGE-TAC.TMAX_NORM", "ts": ts, "value": 90.0}]
+    assert main._meteo_region_normals(rows, [datetime.date(2026, 7, 26)], LA_TZ) == []
+
+
+def test_region_normals_empty_rows_yield_empty_band():
+    assert main._meteo_region_normals([], [datetime.date(2026, 7, 26)], LA_TZ) == []
+
+
 def test_region_payload_omits_band_with_region_pending_basis():
+    # Empty dataset (pantry hasn't written, or the region failed the coverage gate):
+    # None and [] both fall to region_pending — not faked, not borrowed.
     actuals = [(_dt(2026, 7, 26, 18), 80.0)]
     fc = _fc_rows("PGE-TAC", _dt(2026, 7, 26, 12, 25), _hourly(_dt(2026, 7, 26, 19), 6, 100))
-    payload = main._compute_meteogram("PGE-TAC", "region", LA, NOW, actuals, fc, None)
+    for empty in (None, []):
+        payload = main._compute_meteogram("PGE-TAC", "region", LA, NOW, actuals, fc, empty)
+        assert payload["kind"] == "region"
+        assert payload["tz"] == LA
+        assert payload["current"]["bucket"] == _dt(2026, 7, 26, 12).isoformat()
+        assert payload["normals"] == []
+        assert payload["normals_basis"] == "region_pending"
+
+
+def test_region_payload_builds_band_with_region_basis():
+    actuals = [(_dt(2026, 7, 26, 18), 80.0)]
+    fc = _fc_rows("PGE-TAC", _dt(2026, 7, 26, 12, 25), _hourly(_dt(2026, 7, 26, 19), 6, 100))
+    normals = _norm_rows("PGE-TAC", [(7, 26, 90.0, 58.0), (7, 27, 91.0, 59.0)])
+    payload = main._compute_meteogram("PGE-TAC", "region", LA, NOW, actuals, fc, normals)
     assert payload["kind"] == "region"
-    assert payload["tz"] == LA
-    assert payload["current"]["bucket"] == _dt(2026, 7, 26, 12).isoformat()
-    assert payload["normals"] == []
-    assert payload["normals_basis"] == "region_pending"  # not faked, not borrowed
+    assert payload["normals_basis"] == "region"
+    days = {n["date"]: n for n in payload["normals"]}
+    assert "2026-07-26" in days
+    assert days["2026-07-26"]["normal_max_f"] == 90.0
+    assert days["2026-07-26"]["normal_min_f"] == 58.0
 
 
 def test_station_payload_builds_band_from_normals():
@@ -237,6 +300,8 @@ class _FakeCursor:
         params = params or {}
         if "lwt_temp_hourly" in query:
             self._next = self._plan.get("region_actuals", [])
+        elif "lwt_normals_daily" in query:
+            self._next = self._plan.get("region_normals", [])
         elif "agg_version" in query:
             self._next = self._plan.get("region_fc", [])
         elif "station_normals_daily" in query:
@@ -288,6 +353,7 @@ def test_route_region_returns_payload_and_caches(monkeypatch):
         "region_fc": _fc_rows("PGE-TAC", _dt(2026, 7, 26, 12, 25),
                               _hourly(_dt(2026, 7, 26, 19), 6, 100),
                               coverage=1.0, max_age=3.0),
+        "region_normals": _norm_rows("PGE-TAC", [(7, 26, 90.0, 58.0), (7, 27, 91.0, 59.0)]),
     }
     monkeypatch.setattr(main, "_pool", _FakePool(plan))
     client = TestClient(main.app)
@@ -296,12 +362,30 @@ def test_route_region_returns_payload_and_caches(monkeypatch):
     body = resp.json()
     assert body["kind"] == "region"
     assert body["current"]["bucket"] == _dt(2026, 7, 26, 12).isoformat()
-    assert body["normals"] == []
-    assert body["normals_basis"] == "region_pending"
+    assert body["normals_basis"] == "region"
+    assert any(n["date"] == "2026-07-26" for n in body["normals"])
     assert resp.headers.get("Cache-Control") == "max-age=60"
     # Second call served from cache even if the pool would now fail.
     monkeypatch.setattr(main, "_pool", _FakePool({}, fail=True))
     assert client.get("/api/weather/meteogram", params={"series": "PGE-TAC"}).status_code == 200
+
+
+def test_route_region_empty_normals_is_pending(monkeypatch):
+    # The pantry hasn't published this region's normals yet: the normals query
+    # returns no rows and the band stays region_pending (empty ≠ error).
+    monkeypatch.setattr(main, "_utcnow", lambda: NOW)
+    plan = {
+        "region_actuals": [{"ts": _dt(2026, 7, 26, 18), "value": 80.0}],
+        "region_fc": _fc_rows("PGE-TAC", _dt(2026, 7, 26, 12, 25),
+                              _hourly(_dt(2026, 7, 26, 19), 6, 100)),
+    }
+    monkeypatch.setattr(main, "_pool", _FakePool(plan))
+    client = TestClient(main.app)
+    resp = client.get("/api/weather/meteogram", params={"series": "PGE-TAC"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["normals"] == []
+    assert body["normals_basis"] == "region_pending"
 
 
 def test_route_station_builds_band(monkeypatch):
