@@ -31,6 +31,7 @@ Endpoints:
     GET /api/briefs/daily/latest           most recent daily Joule brief (Tape 3a)
     GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
+    GET /api/weather/outlooks              CPC climate-outlook tab: shelves of outlook products (freshness + published graphic registry + discussion) + state outlooks, honest-absence + fail-loud (2026-07-29)
     GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
@@ -3297,6 +3298,313 @@ async def weather_meteogram(
     payload = _compute_meteogram(series, kind, tz_name, now, actuals_pts, fc_rows or [], normals_rows)
     _meteogram_cache[series] = (now_mono, payload)
     response.headers["Cache-Control"] = "max-age=60"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/outlooks — CPC climate-outlook tab (2026-07-29)
+#
+# Lights the merged Outlooks dashboard tab. Doctrine: PUBLISH DATA, NEVER
+# REPLICATE CONFIG. The graphic registry the frontend deleted (the old CPC_MAPS
+# const) now lives here, ONCE, server-side, and is *published* in the response —
+# the frontend renders whatever arrives and must never regrow a hardcoded map
+# list.
+#
+# Sources (Neon, read-only):
+#   forecasts_climate_outlook — six outlook_type families; per type serve the
+#     LATEST row by generated_ts (discussion text + freshness).
+#   forecasts_state_outlook   — per outlook_period, the latest generated_ts
+#     batch, all states in that batch.
+#   (cpc_outlook_vintage is the shapefile ANALYTICAL lane — NOT touched here.)
+#
+# Honest absence is non-negotiable: a product with no warehouse rows still
+# appears in its shelf as {data: null, reason: "no_rows_in_warehouse"} — never
+# silently omitted, because the frontend's honest-absence rendering depends on
+# the slot existing. Same for a graphic whose URL failed build-time verification
+# ({url: null, reason: "source_url_unverified"}, link_url still populated) and
+# for empty state outlooks ({periods: [], reason: "no_rows_in_warehouse"}).
+#
+# Fail-loud: a DB failure is a 503 with a plain body, never a fabricated 200
+# with empty shelves. A 200 here asserts the warehouse was actually read.
+#
+# Read-only; no writes; no pantry changes. Cache-Control: public, max-age=300
+# (CPC issues ~daily; a 5-min edge cache is generous). DB down → 503.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Staleness threshold, in days. Grader-calibrated: 5 days for all six
+# climate-outlook products (the CPC-trio override, migration 112) and 5 days for
+# state outlooks. Hardcoded as a module constant per v0 — the source of truth is
+# `datasets.stale_after_override`, but we deliberately do NOT query the registry
+# per-request here; if the override moves, update this constant.
+_OUTLOOK_STALE_AFTER_DAYS = 5.0
+_STATE_OUTLOOK_STALE_AFTER_DAYS = 5.0
+
+# The published graphic registry — the reincarnation of the frontend's deleted
+# CPC_MAPS, in its one legal home. Keyed by product_id (the same key the response
+# nests graphics under), each value a list of graphic entries. ENSO is
+# discussion-only (no map). `url` is the CPC product-image hotlink; `link_url`
+# is the human CPC product page. The shape is COURIER-COMPATIBLE: when the
+# courier follow-on banks these PNGs to R2, only `url` changes — nothing else
+# moves.
+#
+# STOP-gate (spec): every `url` must be verified at build time to resolve to a
+# current image (HTTP 200 + image/* content-type) before it is served live —
+# "do not trust URL patterns from memory or from this spec." A graphic_id is
+# served with its live `url` ONLY if it is in `_VERIFIED_GRAPHIC_IDS` below;
+# otherwise it ships as honest absence ({url: null, reason:
+# "source_url_unverified"}) with `link_url` still populated. Run
+# scripts/verify_outlook_graphics.py from a network with egress to
+# www.cpc.ncep.noaa.gov to produce the verification log and populate that set.
+OUTLOOK_GRAPHICS: dict[str, list[dict]] = {
+    "cpc_6_10_day": [
+        {"graphic_id": "610temp", "title": "Temperature Probability", "kind": "temp",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610temp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/"},
+        {"graphic_id": "610prcp", "title": "Precipitation Probability", "kind": "pcpn",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610prcp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/"},
+    ],
+    "cpc_8_14_day": [
+        {"graphic_id": "814temp", "title": "Temperature Probability", "kind": "temp",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814temp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/"},
+        {"graphic_id": "814prcp", "title": "Precipitation Probability", "kind": "pcpn",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814prcp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/"},
+    ],
+    "cpc_week_3_4": [
+        {"graphic_id": "wk34temp", "title": "Temperature Probability", "kind": "temp",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gth_new/34pt_temp.png",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/"},
+        {"graphic_id": "wk34prcp", "title": "Precipitation Probability", "kind": "pcpn",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gth_new/34pt_prcp.png",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/"},
+    ],
+    "cpc_30_day": [
+        {"graphic_id": "monthtemp", "title": "Temperature Probability", "kind": "temp",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/30day/off14_temp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/30day/"},
+        {"graphic_id": "monthprcp", "title": "Precipitation Probability", "kind": "pcpn",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/30day/off14_prcp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/30day/"},
+    ],
+    "cpc_90_day": [
+        {"graphic_id": "seastemp", "title": "Temperature Probability", "kind": "temp",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/long_range/lead01/off01_temp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/long_range/"},
+        {"graphic_id": "seasprcp", "title": "Precipitation Probability", "kind": "pcpn",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/long_range/lead01/off01_prcp.gif",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/long_range/"},
+    ],
+    "enso": [],  # ENSO is discussion-only — no map.
+}
+
+# Which graphic_ids passed the build-time STOP-gate (200 + image/*) and may be
+# served with a live `url`. EMPTY until scripts/verify_outlook_graphics.py is run
+# from a network with egress to CPC — this build environment's egress policy
+# blocks www.cpc.ncep.noaa.gov, so the gate could not be run here and NO url is
+# asserted verified. Every graphic therefore currently ships as honest absence
+# ({url: null, reason: "source_url_unverified"}) with its link_url intact.
+_VERIFIED_GRAPHIC_IDS: set[str] = set()
+
+# The three shelves and the products on each, in render order. product_id ==
+# forecasts_climate_outlook.outlook_type. Titles are display copy owned here.
+_OUTLOOK_SHELVES: list[dict] = [
+    {"shelf_id": "short_lead", "title": "6–10 & 8–14 Day",
+     "products": ["cpc_6_10_day", "cpc_8_14_day"]},
+    {"shelf_id": "extended", "title": "Week 3–4 & Monthly",
+     "products": ["cpc_week_3_4", "cpc_30_day"]},
+    {"shelf_id": "seasonal", "title": "Seasonal & ENSO",
+     "products": ["cpc_90_day", "enso"]},
+]
+
+_OUTLOOK_PRODUCT_TITLES: dict[str, str] = {
+    "cpc_6_10_day": "6–10 Day Outlook",
+    "cpc_8_14_day": "8–14 Day Outlook",
+    "cpc_week_3_4": "Week 3–4 Outlook",
+    "cpc_30_day": "Monthly (30-Day) Outlook",
+    "cpc_90_day": "Seasonal (90-Day) Outlook",
+    "enso": "ENSO Advisory",
+}
+
+# State-outlook periods to publish, in order (forecasts_state_outlook currently
+# carries the two short-lead periods; extra periods pass through unchanged).
+_STATE_OUTLOOK_PERIODS: list[str] = ["cpc_6_10_day", "cpc_8_14_day"]
+
+_OUTLOOK_CLIMATE_SQL = """
+    SELECT DISTINCT ON (outlook_type)
+           outlook_type, generated_ts, discussion_text, source_url, char_count
+    FROM forecasts_climate_outlook
+    ORDER BY outlook_type, generated_ts DESC
+"""
+
+# Latest generated_ts batch per outlook_period, all states in that batch.
+_OUTLOOK_STATE_SQL = """
+    SELECT s.outlook_period, s.generated_ts, s.valid_start, s.valid_end,
+           s.state_code, s.temp_anomaly, s.pcpn_anomaly
+    FROM forecasts_state_outlook s
+    JOIN (
+        SELECT outlook_period, MAX(generated_ts) AS mx
+        FROM forecasts_state_outlook
+        GROUP BY outlook_period
+    ) latest
+      ON latest.outlook_period = s.outlook_period
+     AND latest.mx = s.generated_ts
+    ORDER BY s.outlook_period, s.state_code
+"""
+
+
+def _days_behind(generated_ts: _datetime, as_of: _datetime) -> float:
+    """Age of a row vs assembly time, in days, 2 decimals."""
+    return round((as_of - generated_ts).total_seconds() / 86400.0, 2)
+
+
+def _outlook_graphics(product_id: str) -> list[dict]:
+    """The published graphics for a product. Each entry ships with its live `url`
+    only when its graphic_id passed the build-time STOP-gate
+    (`_VERIFIED_GRAPHIC_IDS`); otherwise honest absence — {url: null, reason:
+    "source_url_unverified"} — with `link_url` kept so the UI can still deep-link
+    to the CPC product page."""
+    out = []
+    for g in OUTLOOK_GRAPHICS.get(product_id, []):
+        if g["graphic_id"] in _VERIFIED_GRAPHIC_IDS:
+            out.append({
+                "graphic_id": g["graphic_id"], "title": g["title"], "kind": g["kind"],
+                "url": g["url"], "attribution": g["attribution"], "link_url": g["link_url"],
+            })
+        else:
+            out.append({
+                "graphic_id": g["graphic_id"], "title": g["title"], "kind": g["kind"],
+                "url": None, "reason": "source_url_unverified",
+                "attribution": g["attribution"], "link_url": g["link_url"],
+            })
+    return out
+
+
+def _outlook_product(product_id: str, row: dict | None, as_of: _datetime) -> dict:
+    """One product slot. Honest absence when the warehouse has no row for this
+    outlook_type: {product_id, title, data: null, reason}. Otherwise the full
+    slot — freshness (days_behind vs as_of, FRESH/STALE against the module
+    threshold), published graphics, and the discussion."""
+    title = _OUTLOOK_PRODUCT_TITLES.get(product_id, product_id)
+    if row is None:
+        return {"product_id": product_id, "title": title,
+                "data": None, "reason": "no_rows_in_warehouse"}
+    gts = row["generated_ts"]
+    db = _days_behind(gts, as_of)
+    return {
+        "product_id": product_id,
+        "title": title,
+        "freshness": {
+            "generated_ts": gts.isoformat(),
+            "days_behind": db,
+            "status": "STALE" if db > _OUTLOOK_STALE_AFTER_DAYS else "FRESH",
+        },
+        "graphics": _outlook_graphics(product_id),
+        "discussion": {
+            "text": row.get("discussion_text"),
+            "generated_ts": gts.isoformat(),
+            "source_url": row.get("source_url"),
+        },
+    }
+
+
+def _outlook_state_periods(state_rows: list[dict], as_of: _datetime) -> dict:
+    """The state_outlooks block. Groups the latest-batch rows by period (preserving
+    the SQL's state_code ordering), stamps each period's freshness, and attaches
+    its states. Empty warehouse → {periods: [], reason: "no_rows_in_warehouse"}."""
+    by_period: dict[str, dict] = {}
+    order: list[str] = []
+    for r in state_rows:
+        p = r["outlook_period"]
+        e = by_period.get(p)
+        if e is None:
+            vs = r.get("valid_start")
+            ve = r.get("valid_end")
+            gts = r["generated_ts"]
+            db = _days_behind(gts, as_of)
+            e = {
+                "outlook_period": p,
+                "generated_ts": gts.isoformat(),
+                "valid_start": vs.isoformat() if vs is not None else None,
+                "valid_end": ve.isoformat() if ve is not None else None,
+                "freshness": {
+                    "days_behind": db,
+                    "status": "STALE" if db > _STATE_OUTLOOK_STALE_AFTER_DAYS else "FRESH",
+                },
+                "states": [],
+            }
+            by_period[p] = e
+            order.append(p)
+        e["states"].append({
+            "state_code": r["state_code"],
+            "temp_anomaly": r.get("temp_anomaly"),
+            "pcpn_anomaly": r.get("pcpn_anomaly"),
+        })
+    if not order:
+        return {"periods": [], "reason": "no_rows_in_warehouse"}
+    # Known periods first (in ruled order), then any extra periods the warehouse
+    # carries — never drop a period the DB returned.
+    ordered = [p for p in _STATE_OUTLOOK_PERIODS if p in by_period]
+    ordered += [p for p in order if p not in ordered]
+    return {"periods": [by_period[p] for p in ordered]}
+
+
+def _assemble_outlooks(
+    as_of: _datetime, climate_rows: list[dict], state_rows: list[dict]
+) -> dict:
+    """Pure assembly of the outlooks payload (no DB, no clock — `as_of` injected).
+    Every shelf/product slot in `_OUTLOOK_SHELVES` is emitted whether or not the
+    warehouse returned a row (honest absence fills the gaps)."""
+    latest_by_type = {r["outlook_type"]: r for r in climate_rows}
+    shelves = []
+    for shelf in _OUTLOOK_SHELVES:
+        shelves.append({
+            "shelf_id": shelf["shelf_id"],
+            "title": shelf["title"],
+            "products": [
+                _outlook_product(pid, latest_by_type.get(pid), as_of)
+                for pid in shelf["products"]
+            ],
+        })
+    return {
+        "as_of": as_of.isoformat(),
+        "shelves": shelves,
+        "state_outlooks": _outlook_state_periods(state_rows, as_of),
+    }
+
+
+@app.get("/api/weather/outlooks")
+async def weather_outlooks(response: Response):
+    """The CPC climate-outlook tab: three shelves (short-lead, extended,
+    seasonal) of outlook products, each with freshness, the published graphic
+    registry, and the CPC discussion; plus per-period state outlooks. Missing
+    products/graphics/state batches render as honest absence, never omission.
+    Read-only; Cache-Control public max-age=300; DB unavailable → 503."""
+    assert _pool is not None
+    as_of = _utcnow()
+    try:
+        async with _pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(_OUTLOOK_CLIMATE_SQL)
+                climate_rows = await cur.fetchall()
+                await cur.execute(_OUTLOOK_STATE_SQL)
+                state_rows = await cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    payload = _assemble_outlooks(as_of, climate_rows or [], state_rows or [])
+    response.headers["Cache-Control"] = "public, max-age=300"
     return payload
 
 
