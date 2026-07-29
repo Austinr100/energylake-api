@@ -328,27 +328,37 @@ def test_usdm_is_absent_from_the_drought_registry():
 # The build-time STOP-gate, carried into the new contract
 # ---------------------------------------------------------------------------
 
-def test_verified_set_is_exactly_what_the_stop_gate_passed():
-    # Pinned to the 2026-07-29 run of scripts/verify_outlook_graphics.py over
-    # BOTH registries: all twelve returned 200 + image/* (ten CPC gifs, the two
-    # CPC drought pngs). Every url was read off its page's declared `img src`.
-    assert main._VERIFIED_GRAPHIC_IDS == set(ALL_TILES) | set(DROUGHT_TILES)
+def _all_registry_ids() -> list[str]:
+    """Every gated graphic_id across every registry the gate walks."""
+    ids = []
+    for registry in (main.OUTLOOK_GRAPHICS, main.SHELF_GRAPHICS, main.DRIVERS_GRAPHICS):
+        ids += [g["graphic_id"] for gs in registry.values() for g in gs]
+    return ids
+
+
+def test_outlooks_verified_ids_are_exactly_what_the_stop_gate_passed():
+    # Pinned to the 2026-07-29 gate run: the outlooks surface's twelve urls all
+    # returned 200 + image/* (ten CPC gifs, the two CPC drought pngs). Every url
+    # was read off its page's declared `img src`. Drivers ids are pinned in
+    # test_weather_drivers.py; this asserts the outlooks slice, not the whole
+    # set, so the two surfaces stay independently pinned.
+    outlooks_ids = {g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs}
+    outlooks_ids |= {g["graphic_id"] for gs in main.SHELF_GRAPHICS.values() for g in gs}
+    assert outlooks_ids == set(ALL_TILES) | set(DROUGHT_TILES)
+    assert outlooks_ids <= main._VERIFIED_GRAPHIC_IDS
 
 
 def test_every_registered_graphic_is_gate_verified():
     # No graphic ships dark today — if a source moves a path and the gate drops
     # an id, this fails loudly rather than the shelf quietly shrinking. Covers
-    # BOTH registries, so a new shelf cannot skip the gate.
-    registered = {g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs}
-    registered |= {g["graphic_id"] for gs in main.SHELF_GRAPHICS.values() for g in gs}
-    assert registered == main._VERIFIED_GRAPHIC_IDS
+    # EVERY registry, so a new surface cannot skip the gate.
+    assert set(_all_registry_ids()) == main._VERIFIED_GRAPHIC_IDS
 
 
-def test_graphic_ids_are_unique_across_both_registries():
+def test_graphic_ids_are_unique_across_every_registry():
     # `product` is the client's React key and the gate's id — a collision would
-    # silently drop a tile.
-    ids = [g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs]
-    ids += [g["graphic_id"] for gs in main.SHELF_GRAPHICS.values() for g in gs]
+    # silently drop a tile, and the two surfaces share one verified set.
+    ids = _all_registry_ids()
     assert len(ids) == len(set(ids))
 
 

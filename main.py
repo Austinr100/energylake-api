@@ -3461,9 +3461,20 @@ SHELF_GRAPHICS: dict[str, list[dict]] = {
 # whenever a source moves a path; anything that fails is dropped from this set
 # and its tile is omitted rather than served with a dead url.
 _VERIFIED_GRAPHIC_IDS: set[str] = {
+    # outlooks · cpc shelf
     "610temp", "610prcp", "814temp", "814prcp", "wk34temp", "wk34prcp",
     "monthtemp", "monthprcp", "seastemp", "seasprcp",
+    # outlooks · drought shelf
     "cpc_mdo", "cpc_sdo",
+    # drivers · mjo shelf
+    "mjo_rmm_obs", "mjo_rmm_gefs", "mjo_rmm_verif7", "mjo_olr_hov",
+    "mjo_olr_spatial", "mjo_u850_hov", "mjo_u200_hov", "mjo_vpot200_hov",
+    # drivers · teleconnections shelf
+    "tele_ao_obs", "tele_ao_gefs", "tele_nao_obs", "tele_nao_gefs",
+    "tele_pna_obs", "tele_pna_gefs", "tele_aao_obs", "tele_aao_gefs",
+    # drivers · enso shelf
+    "enso_ssta_week", "enso_nino_ts", "enso_ssta_tlon", "enso_subsurface",
+    "enso_olr_tlon", "enso_uv850", "enso_uv200",
 }
 
 # The shelves the consumer keys off, in reading order. The frontend supplies
@@ -3606,13 +3617,14 @@ def _cpc_shelf_products(climate_rows: list[dict], state_rows: list[dict]) -> lis
     return products
 
 
-def _shelf_graphic_products(shelf_id: str) -> list[dict]:
-    """A non-CPC shelf's tiles, in registry order. Same OutlookProduct shape and
-    same gate rule as the CPC shelf; the dates ship null because no warehouse
-    lane states this shelf's issuance yet (v0 metadata rule — the frame renders
-    that as "——" rather than the desk inventing a window)."""
+def _shelf_graphic_products(registry: dict[str, list[dict]], shelf_id: str) -> list[dict]:
+    """A registry-driven shelf's tiles, in registry order. Same OutlookProduct
+    shape and same gate rule as the CPC shelf; the dates ship null because no
+    warehouse lane states these issuances yet (v0 metadata rule — the frame
+    renders that as "——" rather than the desk inventing a window). Shared by the
+    outlooks shelves and every drivers shelf."""
     products: list[dict] = []
-    for g in SHELF_GRAPHICS.get(shelf_id, []):
+    for g in registry.get(shelf_id, []):
         if g["graphic_id"] not in _VERIFIED_GRAPHIC_IDS:
             continue
         products.append({
@@ -3642,7 +3654,7 @@ def _assemble_outlooks(
         products = (
             _cpc_shelf_products(climate_rows, state_rows)
             if shelf_id == "cpc"
-            else _shelf_graphic_products(shelf_id)
+            else _shelf_graphic_products(SHELF_GRAPHICS, shelf_id)
         )
         shelf = {
             "id": shelf_id,
@@ -3682,6 +3694,171 @@ async def weather_outlooks(response: Response):
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
     payload = _assemble_outlooks(as_of, climate_rows or [], state_rows or [])
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/drivers — Climate Drivers Observatory v0 (2026-07-29)
+#
+# The Weather desk's third sub-tab. SAME top-level grammar as
+# /api/weather/outlooks — {as_of, shelves:[{id, depth, kelvin, products:[]}]} —
+# so the dashboard's GraphicsShelf/useOutlooks machinery assembles it without a
+# new component family, and the same isOutlooks-shaped guard passes.
+#
+# Three shelves: mjo · teleconnections · enso. Every url was read off the `img
+# src` its CPC product page declares and verified 200 + image/* by
+# scripts/verify_outlook_graphics.py (log in the commit message). Same STOP-gate
+# as the outlooks registries: an id absent from _VERIFIED_GRAPHIC_IDS is omitted,
+# never served with a dead url.
+#
+# NO WAREHOUSE LANE. This endpoint reads no DB — the registry is the whole
+# payload — so there is no 503 path and no query. Per the v0 metadata rule every
+# tile's issued/valid ships null (the frame renders "——"); issuance is neither
+# scraped from page text nor parsed out of filenames. Index *data* lanes (the
+# RMM revival) are a separate pantry arc; nothing here derives or interprets a
+# value. No lean, no labels beyond what the source's own alt text says.
+#
+# Read-only. Cache-Control: public, max-age=300.
+# ═══════════════════════════════════════════════════════════════════════════
+
+_DRIVERS_SHELF_IDS: list[str] = ["mjo", "teleconnections", "enso"]
+
+# Products that the ruled method could NOT source, pinned here so the gap is a
+# stated fact rather than a silent short shelf. Neither is served:
+#
+#   ECMWF / ECMWF-extended RMM phase diagrams — CPC's MJO page declares no
+#     ECMWF graphic at all (zero `ecmwf`/`ecmf` references in the page source).
+#     Treated as expected-fail per the ruling: one extraction attempt, omitted,
+#     moved on. The GEFS RMM plume and the CPC WH-index observed panel below are
+#     unaffected.
+#   CPC official ENSO probability bar chart — the ENSO advisory page declares no
+#     product image (chrome only), and the monitoring page does not carry it.
+#
+# Both are re-sourceable the moment a CPC page declares them, or via the courier
+# lane. Reconstructing their paths stays forbidden.
+_DRIVERS_OMITTED: dict[str, str] = {
+    "ecmwf_rmm": "source_page_declares_no_src:cpc_mjo_page_has_no_ecmwf_graphic",
+    "enso_probability": "source_page_declares_no_src:cpc_enso_advisory_declares_no_product_image",
+}
+
+# The drivers graphic registry. Same entry shape as SHELF_GRAPHICS. `title` is
+# taken from the source page's own alt text wherever the page supplies one, so
+# the tile says what CPC says it is — the desk adds no interpretation.
+DRIVERS_GRAPHICS: dict[str, list[dict]] = {
+    # Source page: /products/precip/CWlink/MJO/mjo.shtml
+    "mjo": [
+        {"graphic_id": "mjo_rmm_obs", "label": "RMM INDEX", "measure": "OBSERVED",
+         "title": "CPC version of the WH MJO index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/rmm_obs40.png"},
+        {"graphic_id": "mjo_rmm_gefs", "label": "RMM INDEX", "measure": "GEFS PLUME",
+         "title": "GFS MJO index ensemble plume",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/GEFS_BC.png"},
+        {"graphic_id": "mjo_rmm_verif7", "label": "RMM INDEX", "measure": "7-DAY VERIFICATION",
+         "title": "7-day verification of MJO index from GFS",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/rmm_verif1_GEFS_BC.png"},
+        {"graphic_id": "mjo_olr_hov", "label": "OLR ANOMALY", "measure": "TIME–LONGITUDE",
+         "title": "time-longitude OLR anomalies",
+         "url": "https://www.cpc.ncep.noaa.gov/products/intraseasonal/olr_hov_last180days_2.gif"},
+        {"graphic_id": "mjo_olr_spatial", "label": "OLR ANOMALY", "measure": "SPATIAL",
+         "title": "spatial OLR anomalies",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/olra_last30days-3plots_2.gif"},
+        {"graphic_id": "mjo_u850_hov", "label": "850-hPa ZONAL WIND", "measure": "TIME–LONGITUDE",
+         "title": "time-longitude 850 zonal wind",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/hov_u850_2.gif"},
+        {"graphic_id": "mjo_u200_hov", "label": "200-hPa ZONAL WIND", "measure": "TIME–LONGITUDE",
+         "title": "time-longitude 200 zonal wind",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/hov_u200_2.gif"},
+        {"graphic_id": "mjo_vpot200_hov", "label": "200-hPa VELOCITY POTENTIAL",
+         "measure": "TIME–LONGITUDE",
+         "title": "time-longitude 200 velocity potential",
+         "url": "https://www.cpc.ncep.noaa.gov/products/intraseasonal/tlon_vpot_web_2.gif"},
+    ],
+    # Source pages: daily_ao_index/ao.shtml · pna/nao.shtml · pna/pna.shtml ·
+    # daily_ao_index/aao/aao.shtml. Each declares exactly two panels — the
+    # observed index and the GEFS forecast — so the shelf is 4 indices x 2.
+    "teleconnections": [
+        {"graphic_id": "tele_ao_obs", "label": "AO", "measure": "OBSERVED",
+         "title": "Arctic Oscillation observed index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/ao.obs.gif"},
+        {"graphic_id": "tele_ao_gefs", "label": "AO", "measure": "GEFS FORECAST",
+         "title": "Arctic Oscillation GEFS forecast index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/ao.gefs.fcst.png"},
+        {"graphic_id": "tele_nao_obs", "label": "NAO", "measure": "OBSERVED",
+         "title": "North Atlantic Oscillation observed index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/pna/nao.mrf.obs.gif"},
+        {"graphic_id": "tele_nao_gefs", "label": "NAO", "measure": "GEFS FORECAST",
+         "title": "North Atlantic Oscillation GEFS forecast index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/pna/nao.gefs.fcst.png"},
+        {"graphic_id": "tele_pna_obs", "label": "PNA", "measure": "OBSERVED",
+         "title": "Pacific/North American pattern observed index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/pna/pna.mrf.obs.gif"},
+        {"graphic_id": "tele_pna_gefs", "label": "PNA", "measure": "GEFS FORECAST",
+         "title": "Pacific/North American pattern GEFS forecast index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/pna/pna.gefs.fcst.png"},
+        {"graphic_id": "tele_aao_obs", "label": "AAO", "measure": "OBSERVED",
+         "title": "Antarctic Oscillation observed index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/aao.obs.gif"},
+        {"graphic_id": "tele_aao_gefs", "label": "AAO", "measure": "GEFS FORECAST",
+         "title": "Antarctic Oscillation GEFS forecast index",
+         "url": "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/aao.gefs.fcst.png"},
+    ],
+    # Source page: /products/precip/CWlink/MJO/enso.shtml (titles are that
+    # page's own alt text).
+    "enso": [
+        {"graphic_id": "enso_ssta_week", "label": "SST ANOMALY", "measure": "WEEKLY MAP",
+         "title": "weekly sea surface temperature anomalies",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/ssta-week.gif"},
+        {"graphic_id": "enso_nino_ts", "label": "NIÑO REGIONS", "measure": "SST TIME SERIES",
+         "title": "time series of weekly sea surface temperature anomalies for the 4 Niño regions",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/ssta_c.gif"},
+        {"graphic_id": "enso_ssta_tlon", "label": "SST ANOMALY", "measure": "TIME–LONGITUDE",
+         "title": "time-longitude section of sea surface temperature anomalies (5°N–5°S)",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/ssttlon5_c.gif"},
+        {"graphic_id": "enso_subsurface", "label": "EQUATORIAL SUBSURFACE",
+         "measure": "TEMPERATURE ANOMALY",
+         "title": "equatorial Pacific temperature-depth anomalies",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/ocean/anim/wkxzteq_anm.gif"},
+        {"graphic_id": "enso_olr_tlon", "label": "OLR ANOMALY", "measure": "TIME–LONGITUDE",
+         "title": "time-longitude section of anomalous OLR",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/olra-30d.gif"},
+        {"graphic_id": "enso_uv850", "label": "850-hPa WIND", "measure": "ANOMALY · 30 DAY",
+         "title": "850 hPa winds for the last 30 days",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/uv850-30d.gif"},
+        {"graphic_id": "enso_uv200", "label": "200-hPa WIND", "measure": "ANOMALY · 30 DAY",
+         "title": "200 hPa winds for the last 30 days",
+         "url": "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso_update/uv200-30d.gif"},
+    ],
+}
+
+
+def _assemble_drivers(as_of: _datetime) -> dict:
+    """Pure assembly of the drivers payload. All three shelves are ALWAYS
+    emitted, in reading order, each with a `products` LIST (never null — the
+    consumer's shape guard requires an array on every shelf). `depth` and
+    `kelvin` ship null: no archive lane states an envelope depth, and the
+    drivers stanza that fills Kelvin's per-shelf read does not exist yet."""
+    return {
+        "as_of": as_of.isoformat(),
+        "shelves": [
+            {
+                "id": shelf_id,
+                "depth": None,
+                "kelvin": None,
+                "products": _shelf_graphic_products(DRIVERS_GRAPHICS, shelf_id),
+            }
+            for shelf_id in _DRIVERS_SHELF_IDS
+        ],
+    }
+
+
+@app.get("/api/weather/drivers")
+async def weather_drivers(response: Response):
+    """The climate-drivers tab: three shelves — mjo · teleconnections · enso —
+    of gate-verified CPC graphics, in the same grammar as /api/weather/outlooks.
+    Registry-only: no DB read, so no 503 path. Every tile's issued/valid ships
+    null (v0 has no issuance lane). Cache-Control public, max-age=300."""
+    payload = _assemble_drivers(_utcnow())
     response.headers["Cache-Control"] = "public, max-age=300"
     return payload
 
