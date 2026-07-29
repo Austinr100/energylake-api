@@ -149,10 +149,18 @@ def test_enso_is_discussion_only_no_graphics():
     assert _products_by_id(body)["enso"]["graphics"] == []
 
 
+def test_verified_set_is_exactly_what_the_stop_gate_passed():
+    # Pinned to the 2026-07-29 run of scripts/verify_outlook_graphics.py: the
+    # 30-day and seasonal urls returned 200 + image/*; the 6-10, 8-14 and
+    # week-3-4 urls returned a genuine 404 and stay unverified.
+    assert main._VERIFIED_GRAPHIC_IDS == {
+        "monthtemp", "monthprcp", "seastemp", "seasprcp"}
+
+
 def test_graphics_ship_unverified_by_default_with_link_url():
-    # _VERIFIED_GRAPHIC_IDS is empty in this build → every graphic is honest
-    # absence: url null, reason set, link_url still populated.
-    assert main._VERIFIED_GRAPHIC_IDS == set()
+    # 610temp/610prcp did not pass the gate → honest absence: url null, reason
+    # set, link_url still populated.
+    assert not {"610temp", "610prcp"} & main._VERIFIED_GRAPHIC_IDS
     body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
     g = _products_by_id(body)["cpc_6_10_day"]["graphics"]
     assert [x["graphic_id"] for x in g] == ["610temp", "610prcp"]

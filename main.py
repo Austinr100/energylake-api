@@ -3410,12 +3410,16 @@ OUTLOOK_GRAPHICS: dict[str, list[dict]] = {
 }
 
 # Which graphic_ids passed the build-time STOP-gate (200 + image/*) and may be
-# served with a live `url`. EMPTY until scripts/verify_outlook_graphics.py is run
-# from a network with egress to CPC — this build environment's egress policy
-# blocks www.cpc.ncep.noaa.gov, so the gate could not be run here and NO url is
-# asserted verified. Every graphic therefore currently ships as honest absence
-# ({url: null, reason: "source_url_unverified"}) with its link_url intact.
-_VERIFIED_GRAPHIC_IDS: set[str] = set()
+# served with a live `url`. Populated from a real run of
+# scripts/verify_outlook_graphics.py on 2026-07-29 against www.cpc.ncep.noaa.gov
+# (verification log in that commit message). Four of ten passed; the six
+# short-lead/week-3-4 urls returned a genuine 404 (text/html), NOT an egress
+# failure — CPC has moved or retired those product-image paths. They stay in
+# OUTLOOK_GRAPHICS unchanged and ship as honest absence ({url: null, reason:
+# "source_url_unverified"}) with link_url intact; per the STOP-gate, no
+# alternate URL pattern is improvised here. Re-run the script after confirming
+# the current CPC paths to re-verify them.
+_VERIFIED_GRAPHIC_IDS: set[str] = {"monthtemp", "monthprcp", "seastemp", "seasprcp"}
 
 # The three shelves and the products on each, in render order. product_id ==
 # forecasts_climate_outlook.outlook_type. Titles are display copy owned here.
