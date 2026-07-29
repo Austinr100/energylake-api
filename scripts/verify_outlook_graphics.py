@@ -30,19 +30,25 @@ import urllib.request
 # the warehouse join key); SHELF_GRAPHICS is the non-CPC shelves (keyed by shelf
 # id, no warehouse lane behind them).
 sys.path.insert(0, ".")
-from main import OUTLOOK_GRAPHICS, SHELF_GRAPHICS  # noqa: E402
+from main import DRIVERS_GRAPHICS, OUTLOOK_GRAPHICS, SHELF_GRAPHICS  # noqa: E402
 
 TIMEOUT = 25
 
+# Every registry the gate covers, in report order. Adding a shelf registry here
+# is what keeps a new surface from silently skipping verification.
+REGISTRIES = (
+    ("outlooks/cpc", OUTLOOK_GRAPHICS),
+    ("outlooks", SHELF_GRAPHICS),
+    ("drivers", DRIVERS_GRAPHICS),
+)
+
 
 def registry_entries():
-    """(group, graphic) for every gated url, CPC shelf first then the rest."""
-    for product_id, graphics in OUTLOOK_GRAPHICS.items():
-        for g in graphics:
-            yield product_id, g
-    for shelf_id, graphics in SHELF_GRAPHICS.items():
-        for g in graphics:
-            yield shelf_id, g
+    """(group, graphic) for every gated url, in report order."""
+    for surface, registry in REGISTRIES:
+        for key, graphics in registry.items():
+            for g in graphics:
+                yield f"{surface}:{key}", g
 
 
 def check(url: str) -> tuple[int, str, bool]:
@@ -63,11 +69,11 @@ def check(url: str) -> tuple[int, str, bool]:
 def main() -> int:
     verified: list[str] = []
     failed: list[str] = []
-    print(f"{'graphic_id':<12} {'status':<6} {'content-type':<28} url")
+    print(f"{'graphic_id':<18} {'status':<6} {'content-type':<14} url")
     print("-" * 100)
     for _group, g in registry_entries():
         status, ctype, ok = check(g["url"])
-        print(f"{g['graphic_id']:<12} {status:<6} {ctype[:28]:<28} {g['url']}")
+        print(f"{g['graphic_id']:<18} {status:<6} {ctype[:14]:<14} {g['url']}")
         (verified if ok else failed).append(g["graphic_id"])
 
     print("-" * 100)
