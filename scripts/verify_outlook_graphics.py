@@ -25,11 +25,24 @@ from __future__ import annotations
 import sys
 import urllib.request
 
-# Import the single source of truth rather than re-listing URLs here.
+# Import the single source of truth rather than re-listing URLs here. Both
+# registries are gated: OUTLOOK_GRAPHICS is the CPC shelf (keyed by outlook_type,
+# the warehouse join key); SHELF_GRAPHICS is the non-CPC shelves (keyed by shelf
+# id, no warehouse lane behind them).
 sys.path.insert(0, ".")
-from main import OUTLOOK_GRAPHICS  # noqa: E402
+from main import OUTLOOK_GRAPHICS, SHELF_GRAPHICS  # noqa: E402
 
 TIMEOUT = 25
+
+
+def registry_entries():
+    """(group, graphic) for every gated url, CPC shelf first then the rest."""
+    for product_id, graphics in OUTLOOK_GRAPHICS.items():
+        for g in graphics:
+            yield product_id, g
+    for shelf_id, graphics in SHELF_GRAPHICS.items():
+        for g in graphics:
+            yield shelf_id, g
 
 
 def check(url: str) -> tuple[int, str, bool]:
@@ -52,11 +65,10 @@ def main() -> int:
     failed: list[str] = []
     print(f"{'graphic_id':<12} {'status':<6} {'content-type':<28} url")
     print("-" * 100)
-    for product_id, graphics in OUTLOOK_GRAPHICS.items():
-        for g in graphics:
-            status, ctype, ok = check(g["url"])
-            print(f"{g['graphic_id']:<12} {status:<6} {ctype[:28]:<28} {g['url']}")
-            (verified if ok else failed).append(g["graphic_id"])
+    for _group, g in registry_entries():
+        status, ctype, ok = check(g["url"])
+        print(f"{g['graphic_id']:<12} {status:<6} {ctype[:28]:<28} {g['url']}")
+        (verified if ok else failed).append(g["graphic_id"])
 
     print("-" * 100)
     print(f"verified: {len(verified)}  failed: {len(failed)}")

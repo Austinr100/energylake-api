@@ -3421,18 +3421,49 @@ OUTLOOK_GRAPHICS: dict[str, list[dict]] = {
     "enso": [],  # ENSO is discussion-only — no map.
 }
 
+# The non-CPC shelves' graphics. Same STOP-gate, same honest-absence spelling as
+# OUTLOOK_GRAPHICS — the difference is that NO warehouse lane backs these, so
+# there is no outlook_type to join on and each entry carries its own label /
+# measure. Per the v0 metadata rule the tiles ship issued/valid null (the frame
+# renders that as "——", the spelling the week-3-4 tiles already set on screen);
+# issuance is NOT scraped from page text and NOT parsed out of filenames.
+#
+# Every url here was taken from the `img src` its source's live product page
+# declares — see the verification log in this commit. A source whose page does
+# not declare a static src (a JS map viewer) has NO entry: the product is
+# omitted, which is this contract's honest absence, rather than pattern-guessed.
+SHELF_GRAPHICS: dict[str, list[dict]] = {
+    # EMPTY — see _OUTLOOK_SHELF_ABSENCE. SPC (convective + fire weather) and WPC
+    # (excessive rainfall) render their outlooks through JS map viewers that
+    # declare no product `img src`, so none of the eight hazard products could be
+    # sourced by the ruled method. They are omitted, not guessed.
+    "hazards": [],
+    "drought": [
+        {"graphic_id": "cpc_mdo", "label": "MONTHLY", "measure": "DROUGHT OUTLOOK",
+         "title": "CPC monthly drought outlook",
+         "url": "https://www.cpc.ncep.noaa.gov/products/expert_assessment/mdohomeweb.png",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/expert_assessment/mdo_summary.php"},
+        {"graphic_id": "cpc_sdo", "label": "SEASONAL", "measure": "DROUGHT OUTLOOK",
+         "title": "CPC seasonal drought outlook",
+         "url": "https://www.cpc.ncep.noaa.gov/products/expert_assessment/sdohomeweb.png",
+         "attribution": "NOAA CPC",
+         "link_url": "https://www.cpc.ncep.noaa.gov/products/expert_assessment/sdo_summary.php"},
+    ],
+}
+
 # Which graphic_ids passed the build-time STOP-gate (200 + image/*) and may be
 # served with a live `url`. Populated from a real run of
-# scripts/verify_outlook_graphics.py on 2026-07-29 against www.cpc.ncep.noaa.gov
-# (verification log in that commit message): all ten returned 200 + image/gif.
-# The six short-lead/week-3-4 urls above were re-sourced by reading the `img
-# src` each CPC product page actually declares — not by guessing a pattern — so
-# the honest-absence branch below is currently unexercised in production. Re-run
-# the script whenever CPC moves a path; anything that fails goes back to
-# {url: null, reason: "source_url_unverified"} rather than being patched blind.
+# scripts/verify_outlook_graphics.py on 2026-07-29 against the sources' own
+# product pages (verification log in the commit messages). Every url in both
+# registries was re-sourced by reading the `img src` the page actually declares
+# — never a guessed pattern — then verified 200 + image/*. Re-run the script
+# whenever a source moves a path; anything that fails is dropped from this set
+# and its tile is omitted rather than served with a dead url.
 _VERIFIED_GRAPHIC_IDS: set[str] = {
     "610temp", "610prcp", "814temp", "814prcp", "wk34temp", "wk34prcp",
     "monthtemp", "monthprcp", "seastemp", "seasprcp",
+    "cpc_mdo", "cpc_sdo",
 }
 
 # The shelves the consumer keys off, in reading order. The frontend supplies
@@ -3440,12 +3471,19 @@ _VERIFIED_GRAPHIC_IDS: set[str] = {
 # joins on. `reason` is set on the shelves with no source lane behind them.
 _OUTLOOK_SHELF_IDS: list[str] = ["cpc", "hazards", "drought"]
 
-# Why hazards/drought are empty. Not "CPC issued nothing" — there is no ingest
-# lane feeding these shelves at all. SPC/WPC (hazards) and USDM/CPC drought are
-# unbuilt arcs; when either lands, it fills `products` and drops its reason.
+# Why a shelf is empty — and ONLY while it is empty. A reason here states that no
+# source lane feeds the shelf at all, which is a different claim from "the source
+# issued nothing today"; the moment a shelf carries products its reason is
+# dropped (see _assemble_outlooks), so the two can never be asserted together.
+#
+# drought is NOT listed: it carries the two CPC drought outlooks. The U.S.
+# Drought Monitor CONUS map is still missing from it — the USDM page declares
+# only a DATED snapshot path (…/data/png/YYYYMMDD/YYYYMMDD_usdm.png) and no
+# stable "current" url, so serving it would freeze on one week's map and, with
+# issued shipping null per the v0 metadata rule, the tile could not even say
+# which week. Omitted until a stable url or an issuance lane exists.
 _OUTLOOK_SHELF_ABSENCE: dict[str, str] = {
     "hazards": "source_lane_not_built:spc_wpc_hazard_outlooks",
-    "drought": "source_lane_not_built:usdm_cpc_drought_outlooks",
 }
 
 # The `label` half of the frontend's `${label} · ${measure}` tile title, per CPC
@@ -3568,6 +3606,29 @@ def _cpc_shelf_products(climate_rows: list[dict], state_rows: list[dict]) -> lis
     return products
 
 
+def _shelf_graphic_products(shelf_id: str) -> list[dict]:
+    """A non-CPC shelf's tiles, in registry order. Same OutlookProduct shape and
+    same gate rule as the CPC shelf; the dates ship null because no warehouse
+    lane states this shelf's issuance yet (v0 metadata rule — the frame renders
+    that as "——" rather than the desk inventing a window)."""
+    products: list[dict] = []
+    for g in SHELF_GRAPHICS.get(shelf_id, []):
+        if g["graphic_id"] not in _VERIFIED_GRAPHIC_IDS:
+            continue
+        products.append({
+            "product": g["graphic_id"],
+            "label": g["label"],
+            "measure": g["measure"],
+            "image_url": g["url"],
+            "alt": g["title"].lower(),
+            "issued_date": None,
+            "valid_start": None,
+            "valid_end": None,
+            "artifact_format": _artifact_format(g["url"]),
+        })
+    return products
+
+
 def _assemble_outlooks(
     as_of: _datetime, climate_rows: list[dict], state_rows: list[dict]
 ) -> dict:
@@ -3576,17 +3637,24 @@ def _assemble_outlooks(
     a `products` LIST (never null — the consumer's shape guard requires an array
     on every shelf). `depth` and `kelvin` ship null: there is no archive lane to
     state an envelope depth from, and Kelvin's per-shelf read arms at v5."""
-    products_by_shelf = {"cpc": _cpc_shelf_products(climate_rows, state_rows)}
     shelves = []
     for shelf_id in _OUTLOOK_SHELF_IDS:
+        products = (
+            _cpc_shelf_products(climate_rows, state_rows)
+            if shelf_id == "cpc"
+            else _shelf_graphic_products(shelf_id)
+        )
         shelf = {
             "id": shelf_id,
             "depth": None,
             "kelvin": None,
-            "products": products_by_shelf.get(shelf_id, []),
+            "products": products,
         }
+        # A reason is an assertion that NOTHING feeds this shelf — it cannot
+        # stand next to products. Whichever way the registry moves, the two stay
+        # mutually exclusive without anyone having to remember to unset it.
         reason = _OUTLOOK_SHELF_ABSENCE.get(shelf_id)
-        if reason:
+        if reason and not products:
             shelf["reason"] = reason
         shelves.append(shelf)
     return {"as_of": as_of.isoformat(), "shelves": shelves}

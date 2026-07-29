@@ -46,9 +46,13 @@ SHELF_IDS = ["cpc", "hazards", "drought"]
 PRODUCT_KEYS = {"product", "label", "measure", "image_url", "alt",
                 "issued_date", "valid_start", "valid_end", "artifact_format"}
 
-# Every gate-verified graphic, in registry reading order.
+# The CPC shelf's gate-verified graphics, in registry reading order.
 ALL_TILES = ["610temp", "610prcp", "814temp", "814prcp", "wk34temp", "wk34prcp",
              "monthtemp", "monthprcp", "seastemp", "seasprcp"]
+
+# The drought shelf's, likewise. The U.S. Drought Monitor CONUS map is NOT here:
+# the USDM page declares only a dated snapshot path and no stable current url.
+DROUGHT_TILES = ["cpc_mdo", "cpc_sdo"]
 
 
 def _dt(y, mo, dd, h=0, mi=0):
@@ -239,22 +243,85 @@ def test_enso_contributes_no_tile():
 # Honest absence — the empty shelves
 # ---------------------------------------------------------------------------
 
-def test_hazards_and_drought_are_empty_with_a_reason_naming_the_unbuilt_lane():
+def test_hazards_is_empty_with_a_reason_naming_the_unbuilt_lane():
+    # SPC and WPC render their outlooks through JS map viewers that declare no
+    # product `img src`, so no hazard product could be sourced by the ruled
+    # method. Empty because the lane does not exist — NOT because SPC/WPC issued
+    # nothing today.
+    s = _shelves_by_id(main._assemble_outlooks(AS_OF, _all_fresh_climate(), []))["hazards"]
+    assert s["products"] == []
+    assert s["reason"] == "source_lane_not_built:spc_wpc_hazard_outlooks"
+
+
+def test_a_shelf_with_products_never_also_carries_an_absence_reason(monkeypatch):
+    # The two claims are mutually exclusive by construction: a reason asserts
+    # nothing feeds the shelf. Drive it from the hazards registry so the
+    # invariant is tested rather than just observed on today's data.
+    monkeypatch.setitem(main.SHELF_GRAPHICS, "hazards", [
+        {"graphic_id": "fake_hz", "label": "DAY 1", "measure": "CONVECTIVE",
+         "title": "test hazard", "url": "https://example.test/hz.png",
+         "attribution": "TEST", "link_url": "https://example.test/"},
+    ])
+    monkeypatch.setattr(main, "_VERIFIED_GRAPHIC_IDS",
+                        main._VERIFIED_GRAPHIC_IDS | {"fake_hz"})
+    body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
+    for s in body["shelves"]:
+        assert not (s["products"] and "reason" in s), s["id"]
+    assert _shelves_by_id(body)["hazards"]["products"][0]["product"] == "fake_hz"
+
+
+def test_shelves_that_carry_products_carry_no_reason():
     body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
     shelves = _shelves_by_id(body)
-    for shelf_id in ("hazards", "drought"):
-        s = shelves[shelf_id]
-        assert s["products"] == []
-        # Empty because the source lane does not exist — NOT because the source
-        # issued nothing today.
-        assert s["reason"].startswith("source_lane_not_built:")
-    assert "spc_wpc" in shelves["hazards"]["reason"]
-    assert "drought" in shelves["drought"]["reason"]
+    assert "reason" not in shelves["cpc"]
+    assert "reason" not in shelves["drought"]
 
 
-def test_the_cpc_shelf_carries_no_absence_reason_when_it_has_products():
+# ---------------------------------------------------------------------------
+# The drought shelf
+# ---------------------------------------------------------------------------
+
+def test_drought_shelf_carries_the_two_cpc_drought_outlooks():
     body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
-    assert "reason" not in _shelves_by_id(body)["cpc"]
+    assert [p["product"] for p in _tiles(body, "drought")] == DROUGHT_TILES
+
+
+def test_drought_tiles_satisfy_the_same_product_shape_as_cpc_tiles():
+    body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
+    for p in _tiles(body, "drought"):
+        assert set(p) == PRODUCT_KEYS, p["product"]
+        assert p["image_url"].startswith("https://www.cpc.ncep.noaa.gov/")
+        assert p["artifact_format"] == "png"
+        assert p["alt"]
+    t = _tiles_by_product(body, "drought")
+    assert t["cpc_mdo"]["label"] == "MONTHLY"
+    assert t["cpc_sdo"]["label"] == "SEASONAL"
+    assert {p["measure"] for p in _tiles(body, "drought")} == {"DROUGHT OUTLOOK"}
+
+
+def test_drought_tiles_ship_null_dates_no_warehouse_lane_behind_them():
+    # v0 metadata rule: no lane states these issuances, so they ship as the null
+    # spelling the frame renders "——". Issuance is neither scraped from page
+    # text nor parsed out of a filename.
+    body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
+    for p in _tiles(body, "drought"):
+        assert p["issued_date"] is None
+        assert p["valid_start"] is None and p["valid_end"] is None
+
+
+def test_drought_tiles_are_independent_of_the_warehouse():
+    # An empty warehouse costs the CPC shelf its dates; it costs drought nothing.
+    empty = _tiles(main._assemble_outlooks(AS_OF, [], []), "drought")
+    full = _tiles(main._assemble_outlooks(AS_OF, _all_fresh_climate(), []), "drought")
+    assert empty == full
+
+
+def test_usdm_is_absent_from_the_drought_registry():
+    # Pins the omission: the USDM page declares only a DATED snapshot path, so
+    # serving it would freeze on one week's map with no way to say which week.
+    # If a stable url is ever adopted, this test is the thing that says so.
+    urls = " ".join(g["url"] for g in main.SHELF_GRAPHICS["drought"])
+    assert "droughtmonitor" not in urls
 
 
 # ---------------------------------------------------------------------------
@@ -262,17 +329,31 @@ def test_the_cpc_shelf_carries_no_absence_reason_when_it_has_products():
 # ---------------------------------------------------------------------------
 
 def test_verified_set_is_exactly_what_the_stop_gate_passed():
-    # Pinned to the 2026-07-29 re-run of scripts/verify_outlook_graphics.py
-    # after the six short-lead/week-3-4 urls were re-sourced from the `img src`
-    # the CPC product pages declare: all ten returned 200 + image/gif.
-    assert main._VERIFIED_GRAPHIC_IDS == set(ALL_TILES)
+    # Pinned to the 2026-07-29 run of scripts/verify_outlook_graphics.py over
+    # BOTH registries: all twelve returned 200 + image/* (ten CPC gifs, the two
+    # CPC drought pngs). Every url was read off its page's declared `img src`.
+    assert main._VERIFIED_GRAPHIC_IDS == set(ALL_TILES) | set(DROUGHT_TILES)
 
 
 def test_every_registered_graphic_is_gate_verified():
-    # No graphic ships dark today — if CPC moves a path and the gate drops an
-    # id, this fails loudly rather than the shelf quietly shrinking.
+    # No graphic ships dark today — if a source moves a path and the gate drops
+    # an id, this fails loudly rather than the shelf quietly shrinking. Covers
+    # BOTH registries, so a new shelf cannot skip the gate.
     registered = {g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs}
+    registered |= {g["graphic_id"] for gs in main.SHELF_GRAPHICS.values() for g in gs}
     assert registered == main._VERIFIED_GRAPHIC_IDS
+
+
+def test_graphic_ids_are_unique_across_both_registries():
+    # `product` is the client's React key and the gate's id — a collision would
+    # silently drop a tile.
+    ids = [g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs]
+    ids += [g["graphic_id"] for gs in main.SHELF_GRAPHICS.values() for g in gs]
+    assert len(ids) == len(set(ids))
+
+
+def test_every_shelf_registry_key_is_a_real_shelf():
+    assert set(main.SHELF_GRAPHICS) <= set(main._OUTLOOK_SHELF_IDS)
 
 
 def test_unverified_graphics_are_omitted_not_served_with_a_dead_url(monkeypatch):
