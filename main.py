@@ -3312,17 +3312,37 @@ async def weather_meteogram(
 #
 # Sources (Neon, read-only):
 #   forecasts_climate_outlook — six outlook_type families; per type serve the
-#     LATEST row by generated_ts (discussion text + freshness).
+#     LATEST row by generated_ts (supplies each tile's issued_date).
 #   forecasts_state_outlook   — per outlook_period, the latest generated_ts
-#     batch, all states in that batch.
+#     batch; supplies each family's valid_start/valid_end window.
 #   (cpc_outlook_vintage is the shapefile ANALYTICAL lane — NOT touched here.)
 #
-# Honest absence is non-negotiable: a product with no warehouse rows still
-# appears in its shelf as {data: null, reason: "no_rows_in_warehouse"} — never
-# silently omitted, because the frontend's honest-absence rendering depends on
-# the slot existing. Same for a graphic whose URL failed build-time verification
-# ({url: null, reason: "source_url_unverified"}, link_url still populated) and
-# for empty state outlooks ({periods: [], reason: "no_rows_in_warehouse"}).
+# THE CONTRACT IS THE CONSUMER'S. This response is shaped to exactly what
+# dashboard `OutlooksShelves` (src/components/weather/OutlooksShelves.tsx, via
+# useOutlooks + the isOutlooks guard in outlooks.ts) reads, and nothing else:
+#
+#   {as_of, shelves: [{id, depth, kelvin, products: [OutlookProduct]}]}
+#
+# with shelf ids "cpc" | "hazards" | "drought" in reading order. The frontend
+# owns the shelf titles, source notes and empty copy; the feed carries identity
+# and products only ("a shelf is FEED-DRIVEN, never a registry const").
+#
+# Honest absence, in the grammar this consumer actually implements: an absent
+# shelf is `products: []`, NOT `data: null`. The isOutlooks guard requires
+# Array.isArray(products) on EVERY shelf — a null there fails the guard, and a
+# failed guard blanks all three shelves behind "The outlook feed is
+# unavailable." So hazards and drought ship as empty product lists (the frontend
+# then renders its own "No hazard outlooks issued.") and carry an additive
+# `reason` naming why the lane is empty. `reason` is documentation for direct
+# API callers — the frontend ignores it — but it is the honest record that these
+# shelves are empty because the source lane does not exist, not because CPC
+# issued nothing today.
+#
+# A CPC tile is emitted ONLY for a graphic in _VERIFIED_GRAPHIC_IDS. This
+# contract has no url-null slot: an unverified url would render as a live <img>
+# and paint the shelf's amber GRAPHIC UNAVAILABLE tile. Omitting the product is
+# the honest-absence equivalent here — the shelf shows what is verified, and an
+# entirely unverified shelf falls through to the frontend's empty state.
 #
 # Fail-loud: a DB failure is a 503 with a plain body, never a fabricated 200
 # with empty shelves. A 200 here asserts the warehouse was actually read.
@@ -3330,14 +3350,6 @@ async def weather_meteogram(
 # Read-only; no writes; no pantry changes. Cache-Control: public, max-age=300
 # (CPC issues ~daily; a 5-min edge cache is generous). DB down → 503.
 # ═══════════════════════════════════════════════════════════════════════════
-
-# Staleness threshold, in days. Grader-calibrated: 5 days for all six
-# climate-outlook products (the CPC-trio override, migration 112) and 5 days for
-# state outlooks. Hardcoded as a module constant per v0 — the source of truth is
-# `datasets.stale_after_override`, but we deliberately do NOT query the registry
-# per-request here; if the override moves, update this constant.
-_OUTLOOK_STALE_AFTER_DAYS = 5.0
-_STATE_OUTLOOK_STALE_AFTER_DAYS = 5.0
 
 # The published graphic registry — the reincarnation of the frontend's deleted
 # CPC_MAPS, in its one legal home. Keyed by product_id (the same key the response
@@ -3423,29 +3435,45 @@ _VERIFIED_GRAPHIC_IDS: set[str] = {
     "monthtemp", "monthprcp", "seastemp", "seasprcp",
 }
 
-# The three shelves and the products on each, in render order. product_id ==
-# forecasts_climate_outlook.outlook_type. Titles are display copy owned here.
-_OUTLOOK_SHELVES: list[dict] = [
-    {"shelf_id": "short_lead", "title": "6–10 & 8–14 Day",
-     "products": ["cpc_6_10_day", "cpc_8_14_day"]},
-    {"shelf_id": "extended", "title": "Week 3–4 & Monthly",
-     "products": ["cpc_week_3_4", "cpc_30_day"]},
-    {"shelf_id": "seasonal", "title": "Seasonal & ENSO",
-     "products": ["cpc_90_day", "enso"]},
-]
+# The shelves the consumer keys off, in reading order. The frontend supplies
+# each shelf's title, source note and empty copy; `id` is the only thing it
+# joins on. `reason` is set on the shelves with no source lane behind them.
+_OUTLOOK_SHELF_IDS: list[str] = ["cpc", "hazards", "drought"]
 
-_OUTLOOK_PRODUCT_TITLES: dict[str, str] = {
-    "cpc_6_10_day": "6–10 Day Outlook",
-    "cpc_8_14_day": "8–14 Day Outlook",
-    "cpc_week_3_4": "Week 3–4 Outlook",
-    "cpc_30_day": "Monthly (30-Day) Outlook",
-    "cpc_90_day": "Seasonal (90-Day) Outlook",
-    "enso": "ENSO Advisory",
+# Why hazards/drought are empty. Not "CPC issued nothing" — there is no ingest
+# lane feeding these shelves at all. SPC/WPC (hazards) and USDM/CPC drought are
+# unbuilt arcs; when either lands, it fills `products` and drops its reason.
+_OUTLOOK_SHELF_ABSENCE: dict[str, str] = {
+    "hazards": "source_lane_not_built:spc_wpc_hazard_outlooks",
+    "drought": "source_lane_not_built:usdm_cpc_drought_outlooks",
 }
 
-# State-outlook periods to publish, in order (forecasts_state_outlook currently
-# carries the two short-lead periods; extra periods pass through unchanged).
-_STATE_OUTLOOK_PERIODS: list[str] = ["cpc_6_10_day", "cpc_8_14_day"]
+# The `label` half of the frontend's `${label} · ${measure}` tile title, per CPC
+# family. En dash matches the dashboard's own day-range grammar (cpcTileTitle).
+# product_id == forecasts_climate_outlook.outlook_type. ENSO is discussion-only
+# — it has no graphic, so it contributes no tile to the shelf.
+_CPC_TILE_LABELS: dict[str, str] = {
+    "cpc_6_10_day": "6–10 DAY",
+    "cpc_8_14_day": "8–14 DAY",
+    "cpc_week_3_4": "WEEK 3–4",
+    "cpc_30_day": "MONTHLY",
+    "cpc_90_day": "SEASONAL",
+}
+
+# The `measure` half, off the registry's own `kind`.
+_CPC_TILE_MEASURES: dict[str, str] = {
+    "temp": "TEMPERATURE",
+    "pcpn": "PRECIPITATION",
+}
+
+# Long-form family names, used only to build each tile's `alt` text.
+_OUTLOOK_PRODUCT_TITLES: dict[str, str] = {
+    "cpc_6_10_day": "6–10 day outlook",
+    "cpc_8_14_day": "8–14 day outlook",
+    "cpc_week_3_4": "week 3–4 outlook",
+    "cpc_30_day": "monthly (30-day) outlook",
+    "cpc_90_day": "seasonal (90-day) outlook",
+}
 
 _OUTLOOK_CLIMATE_SQL = """
     SELECT DISTINCT ON (outlook_type)
@@ -3470,132 +3498,108 @@ _OUTLOOK_STATE_SQL = """
 """
 
 
-def _days_behind(generated_ts: _datetime, as_of: _datetime) -> float:
-    """Age of a row vs assembly time, in days, 2 decimals."""
-    return round((as_of - generated_ts).total_seconds() / 86400.0, 2)
+def _outlook_valid_windows(state_rows: list[dict]) -> dict[str, tuple]:
+    """{outlook_period: (valid_start, valid_end)} off the latest state batch.
+    The state lane is the only place the warehouse states a family's validity
+    window, and every state in a batch shares it — so the first row per period
+    wins. Periods the lane does not carry simply have no window."""
+    windows: dict[str, tuple] = {}
+    for r in state_rows:
+        p = r["outlook_period"]
+        if p in windows:
+            continue
+        vs, ve = r.get("valid_start"), r.get("valid_end")
+        windows[p] = (
+            vs.isoformat() if vs is not None else None,
+            ve.isoformat() if ve is not None else None,
+        )
+    return windows
 
 
-def _outlook_graphics(product_id: str) -> list[dict]:
-    """The published graphics for a product. Each entry ships with its live `url`
-    only when its graphic_id passed the build-time STOP-gate
-    (`_VERIFIED_GRAPHIC_IDS`); otherwise honest absence — {url: null, reason:
-    "source_url_unverified"} — with `link_url` kept so the UI can still deep-link
-    to the CPC product page."""
-    out = []
-    for g in OUTLOOK_GRAPHICS.get(product_id, []):
-        if g["graphic_id"] in _VERIFIED_GRAPHIC_IDS:
-            out.append({
-                "graphic_id": g["graphic_id"], "title": g["title"], "kind": g["kind"],
-                "url": g["url"], "attribution": g["attribution"], "link_url": g["link_url"],
-            })
-        else:
-            out.append({
-                "graphic_id": g["graphic_id"], "title": g["title"], "kind": g["kind"],
-                "url": None, "reason": "source_url_unverified",
-                "attribution": g["attribution"], "link_url": g["link_url"],
-            })
-    return out
+def _artifact_format(url: str) -> str | None:
+    """The banked artifact's format, off the url's own extension ("gif"). The
+    frontend surfaces it as the caption's hover title."""
+    head, _, ext = url.rpartition(".")
+    return ext.lower() if head and ext and "/" not in ext else None
 
 
-def _outlook_product(product_id: str, row: dict | None, as_of: _datetime) -> dict:
-    """One product slot. Honest absence when the warehouse has no row for this
-    outlook_type: {product_id, title, data: null, reason}. Otherwise the full
-    slot — freshness (days_behind vs as_of, FRESH/STALE against the module
-    threshold), published graphics, and the discussion."""
-    title = _OUTLOOK_PRODUCT_TITLES.get(product_id, product_id)
-    if row is None:
-        return {"product_id": product_id, "title": title,
-                "data": None, "reason": "no_rows_in_warehouse"}
-    gts = row["generated_ts"]
-    db = _days_behind(gts, as_of)
+def _cpc_product(product_id: str, g: dict, row: dict | None,
+                 window: tuple) -> dict:
+    """One OutlookProduct tile. `product` is the join key AND the stable id the
+    build-time STOP-gate verifies; `image_url` is the gate-verified url. Dates
+    are honest nulls when the warehouse has no row / no state batch for the
+    family — the frontend captions those as "—" rather than inventing a
+    window."""
+    label = _CPC_TILE_LABELS[product_id]
+    measure = _CPC_TILE_MEASURES.get(g["kind"], g["kind"].upper())
+    family = _OUTLOOK_PRODUCT_TITLES.get(product_id, product_id)
+    vs, ve = window
     return {
-        "product_id": product_id,
-        "title": title,
-        "freshness": {
-            "generated_ts": gts.isoformat(),
-            "days_behind": db,
-            "status": "STALE" if db > _OUTLOOK_STALE_AFTER_DAYS else "FRESH",
-        },
-        "graphics": _outlook_graphics(product_id),
-        "discussion": {
-            "text": row.get("discussion_text"),
-            "generated_ts": gts.isoformat(),
-            "source_url": row.get("source_url"),
-        },
+        "product": g["graphic_id"],
+        "label": label,
+        "measure": measure,
+        "image_url": g["url"],
+        "alt": f"CPC {family} — {g['title'].lower()}",
+        "issued_date": row["generated_ts"].date().isoformat() if row else None,
+        "valid_start": vs,
+        "valid_end": ve,
+        "artifact_format": _artifact_format(g["url"]),
     }
 
 
-def _outlook_state_periods(state_rows: list[dict], as_of: _datetime) -> dict:
-    """The state_outlooks block. Groups the latest-batch rows by period (preserving
-    the SQL's state_code ordering), stamps each period's freshness, and attaches
-    its states. Empty warehouse → {periods: [], reason: "no_rows_in_warehouse"}."""
-    by_period: dict[str, dict] = {}
-    order: list[str] = []
-    for r in state_rows:
-        p = r["outlook_period"]
-        e = by_period.get(p)
-        if e is None:
-            vs = r.get("valid_start")
-            ve = r.get("valid_end")
-            gts = r["generated_ts"]
-            db = _days_behind(gts, as_of)
-            e = {
-                "outlook_period": p,
-                "generated_ts": gts.isoformat(),
-                "valid_start": vs.isoformat() if vs is not None else None,
-                "valid_end": ve.isoformat() if ve is not None else None,
-                "freshness": {
-                    "days_behind": db,
-                    "status": "STALE" if db > _STATE_OUTLOOK_STALE_AFTER_DAYS else "FRESH",
-                },
-                "states": [],
-            }
-            by_period[p] = e
-            order.append(p)
-        e["states"].append({
-            "state_code": r["state_code"],
-            "temp_anomaly": r.get("temp_anomaly"),
-            "pcpn_anomaly": r.get("pcpn_anomaly"),
-        })
-    if not order:
-        return {"periods": [], "reason": "no_rows_in_warehouse"}
-    # Known periods first (in ruled order), then any extra periods the warehouse
-    # carries — never drop a period the DB returned.
-    ordered = [p for p in _STATE_OUTLOOK_PERIODS if p in by_period]
-    ordered += [p for p in order if p not in ordered]
-    return {"periods": [by_period[p] for p in ordered]}
+def _cpc_shelf_products(climate_rows: list[dict], state_rows: list[dict]) -> list[dict]:
+    """The CPC shelf's tiles, in registry reading order (6-10 → 8-14 → wk3-4 →
+    monthly → seasonal, temp before pcpn). ONLY gate-verified graphics are
+    emitted: this contract has no url-null slot, so an unverified url would
+    render as a broken tile rather than an honest gap."""
+    latest_by_type = {r["outlook_type"]: r for r in climate_rows}
+    windows = _outlook_valid_windows(state_rows)
+    products: list[dict] = []
+    for product_id, graphics in OUTLOOK_GRAPHICS.items():
+        if product_id not in _CPC_TILE_LABELS:
+            continue  # enso — discussion-only, contributes no tile
+        for g in graphics:
+            if g["graphic_id"] not in _VERIFIED_GRAPHIC_IDS:
+                continue
+            products.append(_cpc_product(
+                product_id, g, latest_by_type.get(product_id),
+                windows.get(product_id, (None, None)),
+            ))
+    return products
 
 
 def _assemble_outlooks(
     as_of: _datetime, climate_rows: list[dict], state_rows: list[dict]
 ) -> dict:
-    """Pure assembly of the outlooks payload (no DB, no clock — `as_of` injected).
-    Every shelf/product slot in `_OUTLOOK_SHELVES` is emitted whether or not the
-    warehouse returned a row (honest absence fills the gaps)."""
-    latest_by_type = {r["outlook_type"]: r for r in climate_rows}
+    """Pure assembly of the outlooks payload (no DB, no clock — `as_of`
+    injected). All three shelves are ALWAYS emitted, in reading order, each with
+    a `products` LIST (never null — the consumer's shape guard requires an array
+    on every shelf). `depth` and `kelvin` ship null: there is no archive lane to
+    state an envelope depth from, and Kelvin's per-shelf read arms at v5."""
+    products_by_shelf = {"cpc": _cpc_shelf_products(climate_rows, state_rows)}
     shelves = []
-    for shelf in _OUTLOOK_SHELVES:
-        shelves.append({
-            "shelf_id": shelf["shelf_id"],
-            "title": shelf["title"],
-            "products": [
-                _outlook_product(pid, latest_by_type.get(pid), as_of)
-                for pid in shelf["products"]
-            ],
-        })
-    return {
-        "as_of": as_of.isoformat(),
-        "shelves": shelves,
-        "state_outlooks": _outlook_state_periods(state_rows, as_of),
-    }
+    for shelf_id in _OUTLOOK_SHELF_IDS:
+        shelf = {
+            "id": shelf_id,
+            "depth": None,
+            "kelvin": None,
+            "products": products_by_shelf.get(shelf_id, []),
+        }
+        reason = _OUTLOOK_SHELF_ABSENCE.get(shelf_id)
+        if reason:
+            shelf["reason"] = reason
+        shelves.append(shelf)
+    return {"as_of": as_of.isoformat(), "shelves": shelves}
+
 
 
 @app.get("/api/weather/outlooks")
 async def weather_outlooks(response: Response):
-    """The CPC climate-outlook tab: three shelves (short-lead, extended,
-    seasonal) of outlook products, each with freshness, the published graphic
-    registry, and the CPC discussion; plus per-period state outlooks. Missing
-    products/graphics/state batches render as honest absence, never omission.
+    """The outlooks feed: three shelves — cpc · hazards · drought — each a list
+    of outlook-graphic products with their issued/valid window. The CPC shelf is
+    built from the climate + state outlook lanes and carries only gate-verified
+    graphics; hazards and drought ship empty with a `reason` naming the unbuilt
+    source lane. Shape is exactly the dashboard's OutlooksShelves contract.
     Read-only; Cache-Control public max-age=300; DB unavailable → 503."""
     assert _pool is not None
     as_of = _utcnow()
