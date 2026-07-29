@@ -150,17 +150,26 @@ def test_enso_is_discussion_only_no_graphics():
 
 
 def test_verified_set_is_exactly_what_the_stop_gate_passed():
-    # Pinned to the 2026-07-29 run of scripts/verify_outlook_graphics.py: the
-    # 30-day and seasonal urls returned 200 + image/*; the 6-10, 8-14 and
-    # week-3-4 urls returned a genuine 404 and stay unverified.
+    # Pinned to the 2026-07-29 re-run of scripts/verify_outlook_graphics.py
+    # after the six short-lead/week-3-4 urls were re-sourced from the `img src`
+    # the CPC product pages declare: all ten returned 200 + image/gif.
     assert main._VERIFIED_GRAPHIC_IDS == {
-        "monthtemp", "monthprcp", "seastemp", "seasprcp"}
+        "610temp", "610prcp", "814temp", "814prcp", "wk34temp", "wk34prcp",
+        "monthtemp", "monthprcp", "seastemp", "seasprcp",
+    }
 
 
-def test_graphics_ship_unverified_by_default_with_link_url():
-    # 610temp/610prcp did not pass the gate → honest absence: url null, reason
-    # set, link_url still populated.
-    assert not {"610temp", "610prcp"} & main._VERIFIED_GRAPHIC_IDS
+def test_every_registered_graphic_is_gate_verified():
+    # No graphic ships dark today — if CPC moves a path and the gate drops an
+    # id, this fails loudly rather than the endpoint quietly going absent.
+    registered = {g["graphic_id"] for gs in main.OUTLOOK_GRAPHICS.values() for g in gs}
+    assert registered == main._VERIFIED_GRAPHIC_IDS
+
+
+def test_graphics_ship_unverified_when_gate_did_not_pass_them(monkeypatch):
+    # The honest-absence branch: url null, reason set, link_url still populated.
+    # Nothing is unverified in the shipped set, so drive it explicitly.
+    monkeypatch.setattr(main, "_VERIFIED_GRAPHIC_IDS", set())
     body = main._assemble_outlooks(AS_OF, _all_fresh_climate(), [])
     g = _products_by_id(body)["cpc_6_10_day"]["graphics"]
     assert [x["graphic_id"] for x in g] == ["610temp", "610prcp"]

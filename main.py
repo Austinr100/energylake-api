@@ -3358,31 +3358,31 @@ _STATE_OUTLOOK_STALE_AFTER_DAYS = 5.0
 OUTLOOK_GRAPHICS: dict[str, list[dict]] = {
     "cpc_6_10_day": [
         {"graphic_id": "610temp", "title": "Temperature Probability", "kind": "temp",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610temp.gif",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610temp.new.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/"},
         {"graphic_id": "610prcp", "title": "Precipitation Probability", "kind": "pcpn",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610prcp.gif",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/610prcp.new.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/610day/"},
     ],
     "cpc_8_14_day": [
         {"graphic_id": "814temp", "title": "Temperature Probability", "kind": "temp",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814temp.gif",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814temp.new.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/"},
         {"graphic_id": "814prcp", "title": "Precipitation Probability", "kind": "pcpn",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814prcp.gif",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/814prcp.new.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/814day/"},
     ],
     "cpc_week_3_4": [
         {"graphic_id": "wk34temp", "title": "Temperature Probability", "kind": "temp",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gth_new/34pt_temp.png",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gifs/WK34temp.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/"},
         {"graphic_id": "wk34prcp", "title": "Precipitation Probability", "kind": "pcpn",
-         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gth_new/34pt_prcp.png",
+         "url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/gifs/WK34prcp.gif",
          "attribution": "NOAA CPC",
          "link_url": "https://www.cpc.ncep.noaa.gov/products/predictions/WK34/"},
     ],
@@ -3412,14 +3412,16 @@ OUTLOOK_GRAPHICS: dict[str, list[dict]] = {
 # Which graphic_ids passed the build-time STOP-gate (200 + image/*) and may be
 # served with a live `url`. Populated from a real run of
 # scripts/verify_outlook_graphics.py on 2026-07-29 against www.cpc.ncep.noaa.gov
-# (verification log in that commit message). Four of ten passed; the six
-# short-lead/week-3-4 urls returned a genuine 404 (text/html), NOT an egress
-# failure — CPC has moved or retired those product-image paths. They stay in
-# OUTLOOK_GRAPHICS unchanged and ship as honest absence ({url: null, reason:
-# "source_url_unverified"}) with link_url intact; per the STOP-gate, no
-# alternate URL pattern is improvised here. Re-run the script after confirming
-# the current CPC paths to re-verify them.
-_VERIFIED_GRAPHIC_IDS: set[str] = {"monthtemp", "monthprcp", "seastemp", "seasprcp"}
+# (verification log in that commit message): all ten returned 200 + image/gif.
+# The six short-lead/week-3-4 urls above were re-sourced by reading the `img
+# src` each CPC product page actually declares — not by guessing a pattern — so
+# the honest-absence branch below is currently unexercised in production. Re-run
+# the script whenever CPC moves a path; anything that fails goes back to
+# {url: null, reason: "source_url_unverified"} rather than being patched blind.
+_VERIFIED_GRAPHIC_IDS: set[str] = {
+    "610temp", "610prcp", "814temp", "814prcp", "wk34temp", "wk34prcp",
+    "monthtemp", "monthprcp", "seastemp", "seasprcp",
+}
 
 # The three shelves and the products on each, in render order. product_id ==
 # forecasts_climate_outlook.outlook_type. Titles are display copy owned here.
