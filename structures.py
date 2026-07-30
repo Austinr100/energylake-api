@@ -372,11 +372,13 @@ def normalize_definition(raw: dict, *, known_gas_indices: set[str] | None = None
             raise StructureError("gas_index", "required for an HRCO.")
         gi = gi.strip()
         if known_gas_indices is not None and gi not in known_gas_indices:
-            # Offer exactly the banked indices BY NAME. An unbanked index is a
-            # 400 that lists what is actually held — never a silent proxy.
+            # Offer exactly the SELECTABLE indices BY NAME. Anything else is a
+            # 400 that lists what may actually be struck off — never a silent
+            # proxy. Banked-but-not-selectable lanes are named and explained at
+            # the route (main._STRUCT_GAS_LANES_NOT_SELECTABLE).
             raise StructureError(
                 "gas_index",
-                f"'{gi}' is not a banked gas index; banked indices are "
+                f"'{gi}' is not a selectable gas index; selectable indices are "
                 f"{sorted(known_gas_indices)}.",
             )
         out["gas_index"] = gi

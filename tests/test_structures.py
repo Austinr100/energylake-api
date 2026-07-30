@@ -883,6 +883,53 @@ def test_evaluate_hrco_end_to_end_matches_the_hand_derivation(client):
     assert "not a forward mark" in body["diagram_basis"]["reason"]
 
 
+def test_evaluate_rejects_caiso_fuel_as_a_gas_leg_and_says_why(client):
+    """caiso_fuel_prices is banked, so 'not banked' would be a lie. It is
+    refused because it is not a STRIKE BASIS: lifecycle 'planned' (demoted by
+    migration 117), ~60 days stale, and frscec at ~$8/MMBtu against SP15 at
+    ~$32/MWh implies a market heat rate of 3.9 — no gas unit runs there."""
+    c = client(FakePool(power={"SP15": _power_strip()}, gas=_gas_strip(),
+                        inventory=_INVENTORY))
+    hrco = {"structure": "hrco_daily", "leg": {"kind": "hub", "id": "SP15"},
+            "block": "7x16", "size_mw": _HRCO_MW, "heat_rate": _HRCO_HEAT_RATE,
+            "vom_adder": _HRCO_VOM}
+
+    r = c.post(f"{main.STRUCTURES_PREFIX}/evaluate",
+               json={**hrco, "gas_index": "caiso_fuel.frscec"})
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert detail.startswith("gas_index:")
+    assert "not a selectable gas index" in detail
+    assert "migration 117" in detail and "heat rate of 3.9" in detail
+
+    # The valid set still evaluates — the exclusion is one lane, not the leg.
+    ok = c.post(f"{main.STRUCTURES_PREFIX}/evaluate",
+                json={**hrco, "gas_index": "eia_hh.HENRY_HUB"})
+    assert ok.status_code == 200
+
+
+def test_the_selectable_gas_set_is_the_eia_lanes_only(client):
+    """The rejection for an unknown index enumerates ONLY the selectable set —
+    caiso_fuel.* is banked and inventoried but never on that menu."""
+    c = client(FakePool(power={"SP15": _power_strip()}, gas=_gas_strip(),
+                        inventory=_INVENTORY))
+    r = c.post(f"{main.STRUCTURES_PREFIX}/evaluate", json={
+        "structure": "hrco_monthly", "leg": {"kind": "hub", "id": "SP15"},
+        "heat_rate": 7.5, "gas_index": "eia_spot.socal_citygate",
+    })
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "eia_hh.HENRY_HUB" in detail and "eia_spot.socal_border" in detail
+    assert "caiso_fuel" not in detail
+
+    # ...and it stays VISIBLE in the catalog inventory, flagged for the picker.
+    gas = c.get(f"{main.STRUCTURES_PREFIX}/catalog").json()["gas_indices"]
+    frscec = next(g for g in gas if g["id"] == "caiso_fuel.frscec")
+    assert frscec["selectable"] is False
+    assert "not a strike basis" in frscec["not_selectable_reason"]
+    assert all(g["selectable"] for g in gas if g["lane"] != "caiso_fuel")
+
+
 def test_evaluate_honest_absence_still_returns_a_diagram(client):
     """A leg with nothing banked gets the payoff shape (a pure function of the
     inputs) and an EMPTY replay carrying its reason — never a fabricated month."""
