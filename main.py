@@ -8495,3 +8495,1090 @@ async def model_room_frame(
     if etag:
         headers["ETag"] = etag
     return Response(content=body, media_type=ctype, headers=headers)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE ANALYTICS DEPARTMENT, ROOM 2 — STRUCTURES  (/api/analytics/structures/*)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The payoff sandbox: swaps, monthly-average (Asian) options, HRCOs. Explore,
+# replay, rank. NEVER ADVISE.
+#
+# THE POSTURE — three rails, load-bearing, and the reason this room is allowed
+# to exist at all. They are restated in structures.py (the arithmetic) and in
+# every payload this section emits, because a calculator that forgets them is
+# indistinguishable from a pricing desk:
+#
+#   1. NO FORWARD PRICING. v0 computes payoff GIVEN user inputs and REALIZED
+#      history. No vol surfaces, no premium valuation, no forecast of any
+#      settle. The words "would have paid" appear wherever history is shown.
+#
+#   2. DEPTH-HONEST EVERYWHERE. Every replay states its window. Hub strips run
+#      years deep; nodal legs run weeks. A month is banked WHOLE or it is not
+#      replayed — see the measured depth report below.
+#
+#   3. RANKINGS ARE DESCRIPTIVE SORTS of historical arithmetic ("ranked by
+#      realized payoff over N banked months"), never a recommendation register.
+#
+# ───────────────────────────────────────────────────────────────────────────
+# THE MEASURED DEPTH REPORT (2026-07-30, against the live pantry). Every
+# number here was counted, not assumed, and the endpoints recompute rather
+# than trust these — they are written down so a reader knows what shipped.
+#
+# POWER LEGS (dataset caiso_lmp_da_hourly, DA hourly, $/MWh):
+#   * Hubs SP15 / NP15 / ZP26 — 88,344 hourly rows each, 2016-01-01..2026-07-31.
+#     118 BANKED COMPLETE 7x16 MONTHS each (2016-01..2026-06). The four
+#     non-banked months are exactly the coverage holes this repo already
+#     documents — 2016-02 (20/29d), 2016-08 (11/31d), 2019-01 (30/31d) — plus
+#     the in-progress 2026-07. 2016-03..2016-07 are wholly absent (the CAISO
+#     archive hole). The completeness gate REPRODUCING the documented holes
+#     with no special-casing is this lane's strongest arbiter.
+#   * Nodal legs — 2,376 `*-APND` series, 2026-06-07..2026-07-31, of which
+#     2,342 carry identity in atlas_pnode_universe. ZERO BANKED COMPLETE
+#     MONTHS: June 2026 is missing days 1-6 (history starts mid-month) and
+#     July 2026 stands at 485/496 block hours. The first complete nodal month
+#     will be 2026-07, the moment 2026-07-31 finishes publishing. Nodal replay
+#     is therefore HONEST ABSENCE today — computed, never hardcoded, so it
+#     lights up on its own.
+#
+# NODAL LEG NAMESPACE — A SPEC DEVIATION, STATED LOUDLY. The spec asks for the
+# leg picker "via the same node-search component v0 built". /api/nodes/search
+# browses atlas_pnode_lmp_snapshot: 14,827 nodes over an 8-DAY hot tier, and
+# NOT ONE of its pnode_ids appears among the 2,376 replay-capable `-APND`
+# series (measured: the intersection is empty; only 8 `-APND` ids exist in the
+# snapshot at all, all BCHA_5_*). Pointing this room's builder at that picker
+# would offer thousands of legs that can never be replayed. So the COMPONENT
+# is reused but its universe is not: /catalog serves the replay-capable leg
+# universe, and a `node` leg outside it is a 400 that says so. Never promise a
+# leg the replay cannot serve.
+#
+# GAS INDICES — the lane's first act was the gas-leg reality check, and the
+# STOP-gate did NOT trip: banked, usable gas series exist. What is held:
+#   * eia_gas_henry_hub_daily / HENRY_HUB — 5,066 rows, 2006-06-19..2026-07-20.
+#     BUSINESS-DAY cadence (~19-22 prints/month, no weekend rows). The only
+#     gas index with depth matching the hub power strips. Superseded by
+#     eia_gas_spot_prices (migration 105) but RETAINED as archive, and the
+#     succession note says plainly there is no backfill path for the new lane.
+#   * eia_gas_spot_prices — 10 regional indices INCLUDING socal_border,
+#     pge_citygate, el_paso_san_juan, northwest_sumas. Daily business-day
+#     cadence, $/MMBtu. Depth 2026-07-09..2026-07-28: 14 prints, NO COMPLETE
+#     MONTH. Offered by name; will not replay a month until one banks.
+#   * caiso_fuel_prices — 126 CAISO fuel regions (PRC_FUEL), CALENDAR-daily
+#     (weekend rows present), 2017-11..2026-05-30, dispatch-canonical. Deep but
+#     PATCHY (2026-03 holds 9 days, 2026-04 none, 2026-05 twenty-one) and
+#     STALE since 2026-05-30 with lifecycle_status 'planned'.
+#
+# DATA-ROADMAP GAPS FILED (not improvised around — rail 1 forbids a proxy):
+#   (a) No daily SoCal CITYGATE index is banked anywhere. socal_border is
+#       held, and it is a different delivery point; the calculator names it
+#       socal_border and never calls it citygate.
+#   (b) The dispatch-canonical caiso_fuel_prices lane is ~2 months stale and
+#       marked 'planned'. It is offered with its staleness stated in days.
+#   (c) eia_gas_spot_prices has no banked complete month, so the WECC-relevant
+#       physical indices cannot yet replay one. Henry Hub can — and Henry Hub
+#       is NOT the right basis for a California HRCO. The calculator says so
+#       in the catalog rather than quietly defaulting a user into it.
+#   (d) NERC-holiday calendar divergence: main._NERC_HOLIDAYS uses OBSERVED
+#       dates (2026-07-03) while the pantry's caiso_blocks_daily 6x16 lane uses
+#       ACTUAL dates. 6x16 is therefore ABSENT from this room's block menu —
+#       see structures.py. The three blocks shipped are holiday-independent.
+#
+# MEASURED RUNTIMES (EXPLAIN ANALYZE, cold buffers, live pantry):
+#   * one hub leg, full 118-month depth  ->  472 ms (58,896 hrs -> 3,681 days)
+#   * 3 hubs, 24-month window            ->   75 ms (default screener shape)
+#   * 3 hubs, full depth                 ->  907 ms
+#   * 40 nodal legs, full nodal depth     -> 1,470 ms (of which ~105 ms was a
+#     LIKE-based leg discovery scan — which is why legs are ALWAYS bound by an
+#     explicit series list here, never discovered inside the sweep query)
+# Every read is index-served by idx_tsv_series_ts (dataset, series, ts DESC).
+# ═══════════════════════════════════════════════════════════════════════════
+
+import structures as _st
+
+STRUCTURES_PREFIX = "/api/analytics/structures"
+
+# Power leg source. Same dataset the almanac + hub-LMP lanes read.
+_STRUCT_POWER_DATASET = LMP_DATASET  # caiso_lmp_da_hourly
+
+# The replay-capable hub legs. Deliberately the SAME set _VALID_HUBS pins, so
+# a hub that replays here is a hub that charts everywhere else.
+_STRUCT_HUB_LEGS = tuple(sorted(_VALID_HUBS))  # NP15, SP15, ZP26
+
+# Nodal legs live in the same dataset under an "-APND" suffix. The suffix is
+# the namespace marker (see the deviation note above), so it is appended on
+# the way into SQL and stripped on the way out.
+_STRUCT_NODE_SUFFIX = "-APND"
+
+# Gas datasets, by the id the wire uses. Cadence and unit are stated as FACTS
+# ABOUT THE BANKED SERIES, measured on 2026-07-30, not aspirations:
+#   cadence "business_day"  -> Mon-Fri ex-holiday prints; non-trade days carry
+#                              the prior trade day (the gas-day convention).
+#   cadence "calendar_day"  -> a print for every calendar day.
+_STRUCT_GAS_DATASETS: dict[str, dict] = {
+    "eia_hh": {
+        "id": "eia_hh",
+        "dataset": "eia_gas_henry_hub_daily",
+        "label": "EIA Henry Hub spot (daily archive)",
+        "unit": "$/MMBtu",
+        "cadence": "business_day",
+        "basis_note": (
+            "Henry Hub is the national benchmark, NOT a California delivered-gas "
+            "basis. An HRCO struck off Henry Hub for a CAISO leg omits the "
+            "basis to the burner tip. It is offered because it is the only gas "
+            "index banked deeply enough to replay the hub power strips."
+        ),
+        "lifecycle": (
+            "Superseded by eia_gas_spot_prices (migration 105, 2026-07-28) and "
+            "retained as archive; the successor has no backfill path."
+        ),
+    },
+    "eia_spot": {
+        "id": "eia_spot",
+        "dataset": "eia_gas_spot_prices",
+        "label": "EIA daily regional gas spot",
+        "unit": "$/MMBtu",
+        "cadence": "business_day",
+        "basis_note": (
+            "Regional physical delivery points. socal_border and pge_citygate "
+            "are the WECC-relevant legs. socal_border is the BORDER, not the "
+            "SoCal citygate — no citygate index is banked (roadmap gap)."
+        ),
+        "lifecycle": "Active. Backfill starts 2026-07-09; no month has banked yet.",
+    },
+    "caiso_fuel": {
+        "id": "caiso_fuel",
+        "dataset": "caiso_fuel_prices",
+        "label": "CAISO fuel-region reference price (PRC_FUEL)",
+        "unit": "$/MMBtu",
+        "cadence": "calendar_day",
+        "basis_note": (
+            "Dispatch-canonical: what CAISO itself uses to clear the day-ahead "
+            "market. Region ids ending 'ghg' bake in cap-and-trade allowance "
+            "cost. The closest banked thing to a California burner-tip basis."
+        ),
+        "lifecycle": (
+            "lifecycle_status 'planned' in the pantry and stale since "
+            "2026-05-30 — staleness is reported in days on every catalog read."
+        ),
+    },
+}
+
+# gas_index ids on the wire are "<dataset_key>.<series>", e.g.
+# "eia_hh.HENRY_HUB", "eia_spot.socal_border", "caiso_fuel.frscec". Explicit
+# and collision-free across the three lanes.
+_STRUCT_GAS_ID_SEP = "."
+
+# How far back to reach for a gas carry-in print so the FIRST day of a replay
+# window can resolve under the gas-day convention. 10 days clears any holiday
+# weekend; the fill span itself is still gated at 4 days per month in
+# structures.replay (a longer run means the index has a hole, not a weekend).
+_STRUCT_GAS_CARRY_IN_DAYS = 10
+
+# Screener bounds. PROPOSED BY THIS LANE, MEASURED (see the runtime block
+# above), and stated in the payload so a caller never mistakes a bound for a
+# complete sweep:
+#   * the three hubs are the default sweep — 75 ms at 24 months, 907 ms at
+#     full depth;
+#   * nodal legs are opt-in via an explicit list, capped at 40 (~1.5 s cold).
+# No silent truncation: an over-cap request is a 400, and the payload always
+# carries `bound` describing what was swept.
+_STRUCT_SCREENER_MAX_NODE_LEGS = 40
+
+# In-process catalog cache. The catalog is a depth report over ~137 gas series
+# plus three hub strips, and it turns over once a day when the ingesters run —
+# so one slot on a 15-minute TTL, mirroring the constraints/facets discipline.
+_STRUCT_CATALOG_CACHE_TTL = 900.0
+_struct_catalog_cache: "tuple[float, dict] | None" = None
+
+# The posture, as the payload states it. Emitted on EVERY response in this
+# section — an endpoint that can be consumed without the rails is an endpoint
+# that will be.
+_STRUCT_POSTURE = {
+    "what_this_is": (
+        "A calculator and a replay engine. It computes what a structure pays "
+        "given your inputs and realized history."
+    ),
+    "what_this_is_not": (
+        "Not a pricing desk and not advice. No option premium, no volatility, "
+        "no greeks, no forward curve, no forecast of any settle."
+    ),
+    "rails": [
+        "No forward pricing — payoff is computed GIVEN inputs and realized history.",
+        "Depth-honest — every replay states its window; a month is banked whole or not replayed.",
+        "Rankings are descriptive sorts of historical arithmetic, never a recommendation register.",
+    ],
+    "history_wording": "would have paid",
+}
+
+
+def _struct_gas_id(dataset_key: str, series: str) -> str:
+    return f"{dataset_key}{_STRUCT_GAS_ID_SEP}{series}"
+
+
+def _struct_split_gas_id(gas_id: str) -> tuple[str, str]:
+    """'eia_spot.socal_border' -> ('eia_spot', 'socal_border')."""
+    key, _, series = gas_id.partition(_STRUCT_GAS_ID_SEP)
+    if not key or not series or key not in _STRUCT_GAS_DATASETS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"malformed gas_index '{gas_id}'; expected "
+                f"'<lane>.<series>' where lane is one of "
+                f"{sorted(_STRUCT_GAS_DATASETS)}."
+            ),
+        )
+    return key, series
+
+
+def _struct_leg_series(leg: dict) -> str:
+    """Map a validated leg to its timeseries_values.series name."""
+    if leg["kind"] == "hub":
+        return leg["id"]
+    return leg["id"] if leg["id"].endswith(_STRUCT_NODE_SUFFIX) else (
+        leg["id"] + _STRUCT_NODE_SUFFIX
+    )
+
+
+def _struct_leg_display(kind: str, series: str) -> dict:
+    if kind == "hub":
+        return {"kind": "hub", "id": series}
+    return {"kind": "node",
+            "id": series[: -len(_STRUCT_NODE_SUFFIX)]
+            if series.endswith(_STRUCT_NODE_SUFFIX) else series}
+
+
+# ── The power read ───────────────────────────────────────────────────────────
+# One index-served range scan per sweep, aggregated to (series, PT day) in SQL.
+# Daily grain — NOT monthly — because the daily-exercise HRCO needs a per-day
+# block average, and a monthly average is recoverable from dailies by
+# hour-weighting while the reverse is not. The completeness gate then runs in
+# Python, where the expected hour count per date comes from the tz database
+# (23/24/25-hour days) rather than a calendar hardcoded into SQL.
+_STRUCT_POWER_SQL = """
+    SELECT v.series AS series,
+           (v.ts AT TIME ZONE 'America/Los_Angeles')::date AS d,
+           SUM(v.value::numeric) AS block_sum,
+           COUNT(*) AS n_hours
+    FROM timeseries_values v
+    WHERE v.dataset = %(dataset)s
+      AND v.series = ANY(%(series_list)s::text[])
+      AND (%(start)s::timestamptz IS NULL OR v.ts >= %(start)s::timestamptz)
+      AND EXTRACT(HOUR FROM v.ts AT TIME ZONE 'America/Los_Angeles')
+          = ANY(%(hours)s::int[])
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+"""
+
+# ── The gas read ─────────────────────────────────────────────────────────────
+# One series, one range scan, ordered ascending. The forward-fill to non-trade
+# days happens in Python so the fill span per day is VISIBLE and gateable —
+# a SQL LATERAL would hide how far each print was carried.
+_STRUCT_GAS_SQL = """
+    SELECT (v.ts AT TIME ZONE 'UTC')::date AS d,
+           v.value::numeric AS price
+    FROM timeseries_values v
+    WHERE v.dataset = %(dataset)s
+      AND v.series  = %(series)s
+      AND (%(start)s::date IS NULL OR (v.ts AT TIME ZONE 'UTC')::date >= %(start)s::date)
+    ORDER BY 1
+"""
+
+# ── The gas inventory read (catalog) ────────────────────────────────────────
+# Per-series first/last/held-day counts across the three gas lanes. Small
+# tables (caiso_fuel_prices ~130k rows, the EIA lanes ~5k), one grouped scan
+# per lane via idx_tsv_dataset_ts.
+_STRUCT_GAS_INVENTORY_SQL = """
+    SELECT v.dataset AS dataset,
+           v.series  AS series,
+           MIN((v.ts AT TIME ZONE 'UTC')::date) AS first_day,
+           MAX((v.ts AT TIME ZONE 'UTC')::date) AS last_day,
+           COUNT(DISTINCT (v.ts AT TIME ZONE 'UTC')::date) AS days_held
+    FROM timeseries_values v
+    WHERE v.dataset = ANY(%(datasets)s::text[])
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+"""
+
+# ── The nodal leg universe read (catalog) ───────────────────────────────────
+# The replay-capable nodal legs, with the depth each actually carries. Bounded
+# by construction: one grouped scan of the dataset's nodal series, and the
+# route returns counts plus a bounded sample rather than 2,376 rows on every
+# catalog hit.
+_STRUCT_NODE_UNIVERSE_SQL = """
+    SELECT v.series AS series,
+           MIN((v.ts AT TIME ZONE 'America/Los_Angeles')::date) AS first_day,
+           MAX((v.ts AT TIME ZONE 'America/Los_Angeles')::date) AS last_day,
+           COUNT(*) AS n_hours
+    FROM timeseries_values v
+    WHERE v.dataset = %(dataset)s
+      AND v.series LIKE %(suffix_pattern)s
+    GROUP BY 1
+    ORDER BY 1
+"""
+
+
+async def _struct_read(sql: str, params: dict) -> list:
+    """One read, retry-once on a dropped connection, 503 on hard failure.
+
+    Same discipline as the Cockpit lane's _cockpit_read: Neon idles pooled
+    connections out, and a structures page open in a tab is exactly the shape
+    that finds a stale one.
+    """
+    assert _pool is not None
+    last: Exception | None = None
+    for _attempt in range(2):
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(sql, params)
+                    return await cur.fetchall()
+        except Exception as e:  # noqa: BLE001 — retried once, then surfaced
+            last = e
+    raise HTTPException(status_code=503, detail=f"db unavailable: {last}")
+
+
+def _struct_resolve_gas(rows: list, days: list) -> dict:
+    """Resolve a gas price for every power day under the gas-day convention.
+
+    Non-trade days (weekends, gas holidays) carry the LAST TRADE DAY's print —
+    that is what the market does (the weekend package prices Sat/Sun/Mon), not
+    interpolation and not invented data. Each resolved day reports the trade
+    date it came from and how many days it was carried, so the caller can see
+    exactly how a month was assembled and structures.replay can gate a carry
+    longer than a holiday weekend.
+
+    A CALENDAR-daily index should never carry at all; a span > 0 there means
+    the index has a hole, and the span is reported so the month gets gated.
+    """
+    held = {r["d"]: float(r["price"]) for r in rows if r["price"] is not None}
+    out: dict = {}
+    trade_dates = sorted(held)
+    i = 0
+    last_d = None
+    for day in days:
+        while i < len(trade_dates) and trade_dates[i] <= day:
+            last_d = trade_dates[i]
+            i += 1
+        if last_d is None:
+            out[day] = {"price": None, "trade_date": None, "fill_span_days": None}
+            continue
+        out[day] = {
+            "price": held[last_d],
+            "trade_date": last_d,
+            "fill_span_days": (day - last_d).days,
+        }
+    return out
+
+
+def _struct_gas_meta(dataset_key: str, series: str, inv: dict,
+                     today: _date) -> dict:
+    """A gas index as the catalog states it: name, cadence, depth, staleness."""
+    lane = _STRUCT_GAS_DATASETS[dataset_key]
+    first_day = inv.get("first_day")
+    last_day = inv.get("last_day")
+    stale_days = (today - last_day).days if last_day else None
+    return {
+        "id": _struct_gas_id(dataset_key, series),
+        "lane": dataset_key,
+        "series": series,
+        "dataset": lane["dataset"],
+        "label": f"{lane['label']} — {series}",
+        "unit": lane["unit"],
+        "cadence": lane["cadence"],
+        "cadence_statement": (
+            "Business-day prints only; non-trade days carry the prior trade "
+            "day's index (the gas-day convention)."
+            if lane["cadence"] == "business_day" else
+            "A print for every calendar day; any carry-forward means the index "
+            "has a hole, not a weekend."
+        ),
+        "first_day": first_day.isoformat() if first_day else None,
+        "last_day": last_day.isoformat() if last_day else None,
+        "days_held": int(inv["days_held"]) if inv.get("days_held") else 0,
+        "stale_days": stale_days,
+        "basis_note": lane["basis_note"],
+        "lifecycle": lane["lifecycle"],
+    }
+
+
+# ── GET /api/analytics/structures/catalog ────────────────────────────────────
+
+@app.get(f"{STRUCTURES_PREFIX}/catalog")
+async def structures_catalog(response: Response):
+    """
+    The banked-reality menu: what this room can actually build and replay.
+
+    The builder panel reads this and offers NOTHING ELSE. That is the whole
+    contract — a structure the catalog does not list is a structure the
+    calculator will refuse, and a leg or gas index the catalog does not list is
+    one the replay cannot serve. Nothing about the menu is hardcoded on the
+    client, and the depth figures are MEASURED on every (cached) read rather
+    than written down, so the room tells the truth as the pantry changes.
+
+    Envelope:
+        {
+          "as_of": "...",
+          "posture": {...the three rails...},
+          "structures": [{id, label, requires, settlement, needs_gas, y_basis}],
+          "blocks":     [{id, label, definition, nominal_hours_per_day}],
+          "legs": {
+            "hubs":  [{id, kind, banked_months, first_month, last_month, ...}],
+            "nodal": {universe_size, banked_months, replayable_legs, ...}
+          },
+          "gas_indices": [{id, lane, series, cadence, first_day, last_day,
+                           days_held, stale_days, basis_note, lifecycle}],
+          "gas_leg_reality_check": {...the STOP-gate verdict + filed gaps...},
+          "bounds": {...screener bounds, measured...},
+          "sources": {...}
+        }
+
+    Cached 15 minutes in-process. DB unavailable -> 503.
+    """
+    global _struct_catalog_cache
+    now = time.time()
+    if _struct_catalog_cache is not None:
+        stamped, cached = _struct_catalog_cache
+        if now - stamped < _STRUCT_CATALOG_CACHE_TTL:
+            response.headers["X-Cache"] = "hit"
+            return cached
+
+    today = _utcnow().date()
+
+    # ── Hub depth: measure the banked complete months per hub, per block.
+    # 7x16 is the headline (the captain's settlement grammar), but every block
+    # is reported because their DST hour counts differ — a caller choosing 7x24
+    # deserves 7x24's depth, not 7x16's.
+    #
+    # One index-served scan per block rather than one ATC scan re-bucketed:
+    # the read aggregates to (series, PT day) in SQL, so the individual hours
+    # are already gone by the time the rows arrive and a subset block cannot be
+    # recovered from them. Three narrow scans beat shipping 265k hourly rows to
+    # Python to re-bucket. This is the only route here that reads full depth
+    # unwindowed, which is why it is the one that gets cached.
+    hub_depth: dict[str, dict] = {}
+    for block_id in _st.BLOCKS:
+        rows = await _struct_read(_STRUCT_POWER_SQL, {
+            "dataset": _STRUCT_POWER_DATASET,
+            "series_list": list(_STRUCT_HUB_LEGS),
+            "start": None,
+            "hours": _st.block_hour_list(block_id),
+        })
+        # Seed EVERY hub leg, so a block that returned no rows reports
+        # banked_months 0 rather than vanishing from depth_by_block. A missing
+        # key would leave the client unable to tell "no depth here" from "this
+        # block is not offered" — which is the honest-absence rule applied to
+        # the menu itself.
+        per_leg: dict[str, list] = {leg: [] for leg in _STRUCT_HUB_LEGS}
+        for r in rows:
+            per_leg.setdefault(r["series"], []).append(
+                {"day": r["d"], "block_sum": r["block_sum"], "n_hours": r["n_hours"]}
+            )
+        for leg_series, daily in per_leg.items():
+            probe = _st.normalize_definition({
+                "structure": "swap", "fixed_price": 0.0, "block": block_id,
+                "leg": {"kind": "hub", "id": leg_series}, "size_mw": 1.0,
+            })
+            rep = _st.replay(probe, daily)
+            hub_depth.setdefault(leg_series, {})[block_id] = {
+                "banked_months": rep["months"],
+                "first_month": rep["window"]["first_month"],
+                "last_month": rep["window"]["last_month"],
+                "months_rejected": len(rep["months_rejected"]),
+                "depth_statement": rep["depth_statement"],
+            }
+
+    hubs = [
+        {
+            "kind": "hub",
+            "id": leg,
+            "label": f"TH_{leg}_GEN — CAISO {leg} trading hub",
+            "source": {"dataset": _STRUCT_POWER_DATASET, "market": "DA", "cadence": "hourly"},
+            "depth_by_block": hub_depth.get(leg, {}),
+        }
+        for leg in _STRUCT_HUB_LEGS
+    ]
+
+    # ── Nodal universe: how many legs exist and how many can replay a month.
+    node_rows = await _struct_read(_STRUCT_NODE_UNIVERSE_SQL, {
+        "dataset": _STRUCT_POWER_DATASET,
+        "suffix_pattern": f"%{_STRUCT_NODE_SUFFIX}",
+    })
+    node_first = min((r["first_day"] for r in node_rows), default=None)
+    node_last = max((r["last_day"] for r in node_rows), default=None)
+
+    # A nodal leg can replay iff at least one calendar month between its first
+    # and last banked day is whole. Cheap sufficient test without re-reading
+    # every leg's hours: a leg whose span does not CONTAIN a whole calendar
+    # month cannot possibly bank one. Legs that clear that test are then
+    # gated for real by /evaluate, which reads their hours.
+    def _spans_whole_month(a: _date | None, b: _date | None) -> bool:
+        if a is None or b is None:
+            return False
+        probe = _date(a.year, a.month, 1)
+        if a.day != 1:
+            probe = (_date(a.year + 1, 1, 1) if a.month == 12
+                     else _date(a.year, a.month + 1, 1))
+        dim = _st.days_in_month(probe.year, probe.month)
+        return b >= _date(probe.year, probe.month, dim)
+
+    replayable = [r["series"] for r in node_rows
+                  if _spans_whole_month(r["first_day"], r["last_day"])]
+
+    nodal = {
+        "universe_size": len(node_rows),
+        "history_begins": node_first.isoformat() if node_first else None,
+        "history_ends": node_last.isoformat() if node_last else None,
+        "legs_spanning_a_whole_month": len(replayable),
+        "sample_legs": [_struct_leg_display("node", r["series"])["id"]
+                        for r in node_rows[:25]],
+        "source": {"dataset": _STRUCT_POWER_DATASET, "market": "DA",
+                   "cadence": "hourly", "series_suffix": _STRUCT_NODE_SUFFIX},
+        "depth_statement": (
+            f"{len(node_rows)} nodal legs banked "
+            f"{node_first.isoformat() if node_first else '—'} through "
+            f"{node_last.isoformat() if node_last else '—'}; "
+            f"{len(replayable)} span at least one whole calendar month. "
+            "Nodal legs run WEEKS where hub strips run YEARS — a nodal replay "
+            "is not comparable to a hub replay."
+        ),
+        "picker_note": (
+            "This is NOT the /api/nodes/search universe. That lane browses an "
+            "8-day hot tier (atlas_pnode_lmp_snapshot) whose pnode_ids do not "
+            "intersect these replay-capable series at all. The leg picker "
+            "component is shared; its universe is this list."
+        ),
+    }
+
+    # ── Gas indices: the banked inventory, by name, with cadence + staleness.
+    inv_rows = await _struct_read(_STRUCT_GAS_INVENTORY_SQL, {
+        "datasets": [lane["dataset"] for lane in _STRUCT_GAS_DATASETS.values()],
+    })
+    by_dataset = {lane["dataset"]: key for key, lane in _STRUCT_GAS_DATASETS.items()}
+    gas_indices = []
+    for r in inv_rows:
+        key = by_dataset.get(r["dataset"])
+        if key is None:
+            continue
+        gas_indices.append(_struct_gas_meta(key, r["series"], r, today))
+    gas_indices.sort(key=lambda g: (g["lane"], g["series"]))
+
+    hrco_available = bool(gas_indices)
+    reality_check = {
+        "verdict": "PASS" if hrco_available else "STOP",
+        "statement": (
+            "Banked gas series exist, so HRCO ships. The calculator offers "
+            "exactly the indices below, by name, each with its measured "
+            "cadence, depth and staleness."
+            if hrco_available else
+            "No banked gas series is usable. HRCO renders as an honest absence "
+            "('requires gas index — coming'); the swap and Asian structures "
+            "are unaffected."
+        ),
+        "gaps_filed": [
+            "No daily SoCal CITYGATE index is banked. socal_border is held and "
+            "is a different delivery point; it is never labelled citygate.",
+            "caiso_fuel_prices (dispatch-canonical) is lifecycle 'planned' and "
+            "stale — staleness is reported in days per index.",
+            "eia_gas_spot_prices has no banked complete month yet, so the "
+            "WECC-relevant physical indices cannot replay one.",
+            "Henry Hub is the only gas index deep enough to match the hub power "
+            "strips, and it is NOT a California delivered-gas basis.",
+        ],
+        "no_proxy_rule": (
+            "A missing index is a filed gap, never an improvised proxy. The "
+            "calculator will not substitute one basis for another."
+        ),
+    }
+
+    body = {
+        "as_of": _utcnow().isoformat(),
+        "posture": _STRUCT_POSTURE,
+        "structures": [
+            {
+                "id": s["id"],
+                "label": s["label"],
+                "requires": list(s["requires"]),
+                "settlement": s["settlement"],
+                "needs_gas": s["needs_gas"],
+                "y_basis": s["y_basis"],
+                "available": (not s["needs_gas"]) or hrco_available,
+                "unavailable_reason": (
+                    None if (not s["needs_gas"]) or hrco_available
+                    else "requires gas index — coming"
+                ),
+            }
+            for s in _st.STRUCTURES.values()
+        ],
+        "blocks": [
+            {
+                "id": b["id"],
+                "label": b["label"],
+                "definition": b["definition"],
+                "nominal_hours_per_day": b["nominal_hours_per_day"],
+                "dst_note": (
+                    "Hour counts are derived per date from the tz database: "
+                    "7x16 is 16 hours every day, 7x24 is 23/24/25 across the "
+                    "PST/PDT switch, and 7x8 absorbs the difference at 7/8/9."
+                ),
+            }
+            for b in _st.BLOCKS.values()
+        ],
+        "blocks_omitted": [
+            {
+                "id": "6x16",
+                "reason": (
+                    "The NERC on-peak block needs a holiday calendar, and this "
+                    "codebase holds two that disagree: main._NERC_HOLIDAYS uses "
+                    "OBSERVED dates (2026-07-03) while the pantry's "
+                    "caiso_blocks_daily 6x16 lane uses ACTUAL dates. Shipping "
+                    "6x16 would ship a block that silently disagrees with the "
+                    "pantry's own column. Filed, not papered over."
+                ),
+            }
+        ],
+        "legs": {"hubs": hubs, "nodal": nodal},
+        "gas_indices": gas_indices,
+        "gas_leg_reality_check": reality_check,
+        "bounds": {
+            "screener_default_legs": list(_STRUCT_HUB_LEGS),
+            "screener_max_node_legs": _STRUCT_SCREENER_MAX_NODE_LEGS,
+            "measured_runtimes_ms": {
+                "one_hub_leg_full_depth": 472,
+                "three_hubs_24_months": 75,
+                "three_hubs_full_depth": 907,
+                "forty_node_legs_full_nodal_depth": 1470,
+            },
+            "bound_statement": (
+                "The three hubs are the default sweep. Nodal legs are opt-in "
+                "via an explicit list, capped at "
+                f"{_STRUCT_SCREENER_MAX_NODE_LEGS}. An over-cap request is a "
+                "400, never a silent truncation."
+            ),
+        },
+        "sources": {
+            "power": {"dataset": _STRUCT_POWER_DATASET, "market": "DA",
+                      "cadence": "hourly", "unit": "$/MWh", "tz": MARKET_TZ},
+            "gas": [
+                {"lane": k, "dataset": v["dataset"], "unit": v["unit"],
+                 "cadence": v["cadence"]}
+                for k, v in _STRUCT_GAS_DATASETS.items()
+            ],
+            "block_arbiter": (
+                "7x16 and 7x24 computed from caiso_lmp_da_hourly by these hour "
+                "sets reproduce the independently-built caiso_blocks_daily lane "
+                "to the last decimal on every fully-covered day checked."
+            ),
+        },
+    }
+    _struct_catalog_cache = (now, body)
+    response.headers["X-Cache"] = "miss"
+    return body
+
+
+# ── POST /api/analytics/structures/evaluate ──────────────────────────────────
+#
+# Stateless. The structure definition IS the contract: what normalize_definition
+# accepts and what this route returns are pinned in tests/test_structures.py
+# next to the Python mirror of the client's shape guard. Nothing is stored — no
+# saved structures in v0 (that is Phase 2, with the budget overlay).
+
+async def _struct_evaluate(definition: dict) -> dict:
+    """Shared engine for /evaluate and the screener's per-leg sweep.
+
+    Reads the power leg (and the gas leg for an HRCO), gates months whole, and
+    returns the diagram + replay envelope. Pure arithmetic lives in
+    structures.py; this function is the read and the assembly.
+    """
+    block = definition["block"]
+    leg_series = _struct_leg_series(definition["leg"])
+
+    # Window: trim the READ, not just the result. `window_months` counts BANKED
+    # months, and a month can be gated out, so the read reaches back further
+    # than the request asks for (padding for gated months) and the exact
+    # trim-to-N happens in structures.replay against banked months only.
+    start = None
+    wm = definition.get("window_months")
+    if wm is not None:
+        # Pad by 6 months so gated months inside the window (a coverage hole)
+        # cannot silently shorten the replay below the requested count.
+        back = wm + 6
+        anchor = _utcnow().date().replace(day=1)
+        yr, mo = anchor.year, anchor.month - back
+        while mo <= 0:
+            mo += 12
+            yr -= 1
+        start = _datetime(yr, mo, 1, tzinfo=_timezone.utc) - _timedelta(days=2)
+
+    rows = await _struct_read(_STRUCT_POWER_SQL, {
+        "dataset": _STRUCT_POWER_DATASET,
+        "series_list": [leg_series],
+        "start": start,
+        "hours": _st.block_hour_list(block),
+    })
+    daily = [
+        {"day": r["d"], "block_sum": r["block_sum"], "n_hours": r["n_hours"]}
+        for r in rows if r["series"] == leg_series
+    ]
+
+    # ── Gas leg (HRCO only) ──────────────────────────────────────────────────
+    gas_by_day = None
+    gas_meta = None
+    latest_gas = None
+    if _st.needs_gas(definition):
+        lane_key, series = _struct_split_gas_id(definition["gas_index"])
+        lane = _STRUCT_GAS_DATASETS[lane_key]
+        gas_start = None
+        if daily:
+            gas_start = min(r["day"] for r in daily) - _timedelta(
+                days=_STRUCT_GAS_CARRY_IN_DAYS
+            )
+        gas_rows = await _struct_read(_STRUCT_GAS_SQL, {
+            "dataset": lane["dataset"],
+            "series": series,
+            "start": gas_start,
+        })
+        if not gas_rows:
+            # The index name validated against the catalog, but this lane holds
+            # nothing in range. Honest absence, not a 500.
+            gas_by_day = {}
+        else:
+            gas_by_day = _struct_resolve_gas(
+                gas_rows, sorted({r["day"] for r in daily})
+            )
+            last = gas_rows[-1]
+            latest_gas = {"date": last["d"].isoformat(), "price": float(last["price"])}
+        gas_meta = _struct_gas_meta(
+            lane_key, series,
+            {
+                "first_day": gas_rows[0]["d"] if gas_rows else None,
+                "last_day": gas_rows[-1]["d"] if gas_rows else None,
+                "days_held": len(gas_rows),
+            },
+            _utcnow().date(),
+        )
+
+    rep = _st.replay(definition, daily, gas_by_day)
+
+    # ── The diagram ──────────────────────────────────────────────────────────
+    # RAIL 1: an HRCO's strike is heat_rate x gas + adder, so the diagram needs
+    # a gas price. It uses the MOST RECENT BANKED PRINT and labels it with its
+    # date — a realized observation, never a forward mark. If no gas is banked,
+    # the diagram is honestly withheld rather than drawn off a guess.
+    diagram_strike = None
+    diagram_basis = None
+    if _st.needs_gas(definition):
+        if latest_gas is None:
+            diagram_basis = {
+                "available": False,
+                "reason": (
+                    "No banked print for this gas index, so no strike can be "
+                    "derived. The payoff shape needs a gas price; it is "
+                    "withheld rather than drawn off an assumption."
+                ),
+            }
+        else:
+            diagram_strike = (definition["heat_rate"] * latest_gas["price"]
+                              + definition["vom_adder"])
+            diagram_basis = {
+                "available": True,
+                "gas_price": latest_gas["price"],
+                "gas_as_of": latest_gas["date"],
+                "strike": round(diagram_strike, 6),
+                "derivation": (
+                    f"strike = heat_rate {definition['heat_rate']} x gas "
+                    f"{latest_gas['price']} + adder {definition['vom_adder']}"
+                ),
+                "reason": (
+                    "Struck off the most recent BANKED gas print, stated with "
+                    "its date. A realized observation, not a forward mark."
+                ),
+            }
+
+    # MWh for the diagram's dollar axis: the LAST banked month's block hours,
+    # labelled. Never a guessed 30-day month — if nothing is banked, the
+    # diagram ships per-MWh only and the client scales.
+    diagram_mwh = None
+    diagram_mwh_basis = None
+    if rep["rows"]:
+        last_row = rep["rows"][-1]
+        diagram_mwh = last_row["mwh"]
+        diagram_mwh_basis = (
+            f"{last_row['month']} — {last_row['block_hours']} {block} hours x "
+            f"{definition['size_mw']} MW"
+        )
+
+    if _st.needs_gas(definition) and diagram_strike is None:
+        diagram = None
+    else:
+        diagram = _st.payoff_diagram(definition, strike=diagram_strike,
+                                     mwh=diagram_mwh)
+        diagram["mwh_basis"] = diagram_mwh_basis
+
+    return {
+        "posture": _STRUCT_POSTURE,
+        "definition": definition,
+        "leg_resolved": {"series": leg_series,
+                         **_struct_leg_display(definition["leg"]["kind"], leg_series)},
+        "diagram": diagram,
+        "diagram_basis": diagram_basis,
+        "replay": rep,
+        "gas_index": gas_meta,
+        "sources": {
+            "power": {"dataset": _STRUCT_POWER_DATASET, "market": "DA",
+                      "cadence": "hourly", "unit": "$/MWh", "tz": MARKET_TZ,
+                      "block": block,
+                      "block_definition": _st.BLOCKS[block]["definition"]},
+            "gas": (None if gas_meta is None else
+                    {"dataset": gas_meta["dataset"], "series": gas_meta["series"],
+                     "unit": gas_meta["unit"], "cadence": gas_meta["cadence"]}),
+        },
+    }
+
+
+async def _struct_known_gas_ids() -> set[str]:
+    """Every banked gas index id, for definition validation.
+
+    Reads the catalog's own inventory so /evaluate and /catalog can never
+    disagree about what is on the menu.
+    """
+    rows = await _struct_read(_STRUCT_GAS_INVENTORY_SQL, {
+        "datasets": [lane["dataset"] for lane in _STRUCT_GAS_DATASETS.values()],
+    })
+    by_dataset = {lane["dataset"]: key for key, lane in _STRUCT_GAS_DATASETS.items()}
+    return {
+        _struct_gas_id(by_dataset[r["dataset"]], r["series"])
+        for r in rows if r["dataset"] in by_dataset
+    }
+
+
+@app.post(f"{STRUCTURES_PREFIX}/evaluate")
+async def structures_evaluate(request: Request):
+    """
+    Structure definition in — payoff diagram + historical replay out.
+
+    Stateless and side-effect free. Request body (the pinned contract):
+        {
+          "structure": "swap" | "asian_call" | "asian_put"
+                     | "asian_digital_call" | "asian_digital_put"
+                     | "hrco_monthly" | "hrco_daily",
+          "leg": {"kind": "hub" | "node", "id": "SP15"},
+          "block": "7x16" | "7x8" | "7x24",        # default 7x16
+          "size_mw": 50,                            # default 1
+          "fixed_price": 26.0,                      # swap
+          "strike": 26.0,                           # asian + digital
+          "payout": 100000.0,                       # digital (lump sum $/month)
+          "heat_rate": 7.5,                         # hrco (MMBtu/MWh)
+          "vom_adder": 3.50,                        # hrco, default 0
+          "gas_index": "eia_hh.HENRY_HUB",          # hrco, from /catalog
+          "window_months": 24                       # null = all banked months
+        }
+
+    Response carries `diagram` (a pure function of the inputs — renders even
+    when the replay is empty), `replay` (month-by-month over banked history,
+    with the depth statement and every gated month's receipt), and the posture
+    rails. An unknown structure/block/leg/gas index, or a malformed number, is
+    a 400 that NAMES the offending field. DB unavailable -> 503.
+
+    The replay is realized history only: every figure is what the structure
+    WOULD HAVE PAID. There is no premium, no valuation, and no forecast.
+    """
+    try:
+        raw = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="body must be JSON.")
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=400, detail="body must be a JSON object.")
+
+    # Validate the gas index against the banked inventory, but only pay for the
+    # inventory read when the structure actually needs one.
+    known = None
+    kind = raw.get("structure")
+    if isinstance(kind, str) and _st.STRUCTURES.get(kind, {}).get("needs_gas"):
+        known = await _struct_known_gas_ids()
+
+    try:
+        definition = _st.normalize_definition(raw, known_gas_indices=known)
+    except _st.StructureError as e:
+        raise HTTPException(status_code=400, detail=f"{e.field}: {e.message}")
+
+    # A node leg must be in the replay-capable universe. Rejecting here — with
+    # the reason — is what keeps the room from offering a leg it cannot serve
+    # (see the namespace deviation note at the top of this section).
+    if definition["leg"]["kind"] == "node":
+        leg_series = _struct_leg_series(definition["leg"])
+        probe = await _struct_read(
+            "SELECT 1 AS ok FROM timeseries_values WHERE dataset = %(dataset)s "
+            "AND series = %(series)s LIMIT 1",
+            {"dataset": _STRUCT_POWER_DATASET, "series": leg_series},
+        )
+        if not probe:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"leg.id: '{definition['leg']['id']}' is not a "
+                    "replay-capable nodal leg. The replay-capable universe is "
+                    f"served by GET {STRUCTURES_PREFIX}/catalog (legs.nodal); "
+                    "it is NOT the /api/nodes/search universe."
+                ),
+            )
+
+    return await _struct_evaluate(definition)
+
+
+# ── GET /api/analytics/structures/screener ───────────────────────────────────
+
+@app.get(f"{STRUCTURES_PREFIX}/screener")
+async def structures_screener(
+    response: Response,
+    structure: str = Query(
+        default="asian_call",
+        description=f"Structure id. One of {sorted(_st.STRUCTURES)}.",
+    ),
+    block: str = Query(default="7x16", description="Block id: 7x16, 7x8 or 7x24."),
+    size_mw: float = Query(default=1.0, description="Size in MW. Default 1."),
+    fixed_price: Optional[float] = Query(default=None, description="Swap fixed price."),
+    strike: Optional[float] = Query(default=None, description="Option strike, $/MWh."),
+    payout: Optional[float] = Query(default=None, description="Digital payout, $/month."),
+    heat_rate: Optional[float] = Query(default=None, description="HRCO heat rate, MMBtu/MWh."),
+    vom_adder: Optional[float] = Query(default=None, description="HRCO VOM adder, $/MWh."),
+    gas_index: Optional[str] = Query(default=None, description="HRCO gas index id from /catalog."),
+    window_months: Optional[int] = Query(
+        default=24,
+        description="Banked months to replay per leg. Omit or pass 0 for all banked months.",
+    ),
+    legs: Optional[str] = Query(
+        default=None,
+        description=(
+            "Comma-separated leg ids to sweep. Hub ids (SP15/NP15/ZP26) and "
+            "nodal ids may be mixed. Omitted sweeps the three hubs. Nodal legs "
+            f"are capped at {_STRUCT_SCREENER_MAX_NODE_LEGS}."
+        ),
+    ),
+    direction: str = Query(
+        default="desc",
+        description="Sort direction of the realized-payoff ranking: desc or asc.",
+    ),
+):
+    """
+    One structure definition swept across legs, ranked by realized payoff.
+
+    RAIL 3 IN THE PAYLOAD, NOT JUST THE DOCSTRING: this is a descriptive sort
+    of historical arithmetic. Legs that cannot be replayed are returned in
+    `unavailable` WITH their reason rather than dropped — a leg missing from a
+    ranking would itself read as a ranking. And because depth is NOT uniform
+    (hub strips run years, nodal legs run weeks), the payload states whether
+    the ranked legs share a window and refuses to imply they do when they
+    do not.
+
+    Bounds are explicit and stated in the payload: the three hubs by default,
+    nodal legs opt-in via `legs` and capped at 40 (the measured bound — see
+    _STRUCT_SCREENER_MAX_NODE_LEGS). An over-cap request is a 400 — never a
+    silent truncation.
+
+    Errors: unknown structure/block/leg/gas index or a bad number -> 400
+    naming the field; over-cap nodal request -> 400; DB unavailable -> 503.
+    """
+    # ── Resolve the leg list ─────────────────────────────────────────────────
+    if legs is None or not legs.strip():
+        leg_ids = list(_STRUCT_HUB_LEGS)
+    else:
+        leg_ids = [x.strip().upper() for x in legs.split(",") if x.strip()]
+        if not leg_ids:
+            raise HTTPException(status_code=400, detail="`legs` cannot be empty.")
+
+    hub_set = {h.upper() for h in _STRUCT_HUB_LEGS}
+    resolved: list[dict] = []
+    for lid in leg_ids:
+        kind = "hub" if lid in hub_set else "node"
+        resolved.append({"kind": kind, "id": lid})
+    n_nodes = sum(1 for l in resolved if l["kind"] == "node")
+    if n_nodes > _STRUCT_SCREENER_MAX_NODE_LEGS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"`legs` requests {n_nodes} nodal legs; the measured cap is "
+                f"{_STRUCT_SCREENER_MAX_NODE_LEGS} (~1.5 s cold for 40 legs at "
+                "full nodal depth). Narrow the list — the sweep will not "
+                "silently truncate it."
+            ),
+        )
+
+    known = None
+    if _st.STRUCTURES.get(structure, {}).get("needs_gas"):
+        known = await _struct_known_gas_ids()
+
+    # ── Build one definition per leg from the shared knobs ───────────────────
+    base = {
+        "structure": structure,
+        "block": block,
+        "size_mw": size_mw,
+        "window_months": None if not window_months else window_months,
+    }
+    for field, value in (("fixed_price", fixed_price), ("strike", strike),
+                         ("payout", payout), ("heat_rate", heat_rate),
+                         ("vom_adder", vom_adder), ("gas_index", gas_index)):
+        if value is not None:
+            base[field] = value
+
+    started = time.perf_counter()
+    results: list[dict] = []
+    definition_echo: dict | None = None
+    for leg in resolved:
+        try:
+            definition = _st.normalize_definition({**base, "leg": leg},
+                                                  known_gas_indices=known)
+        except _st.StructureError as e:
+            raise HTTPException(status_code=400, detail=f"{e.field}: {e.message}")
+        if definition_echo is None:
+            definition_echo = {k: v for k, v in definition.items() if k != "leg"}
+        out = await _struct_evaluate(definition)
+        rep = out["replay"]
+        results.append({
+            "leg": out["leg_resolved"],
+            "months": rep["months"],
+            "first_month": rep["window"]["first_month"],
+            "last_month": rep["window"]["last_month"],
+            "total": rep["total"],
+            "total_mwh": rep["total_mwh"],
+            "payoff_per_mwh": (round(rep["total"] / rep["total_mwh"], 6)
+                               if rep["total_mwh"] else None),
+            "months_paying": sum(1 for r in rep["rows"] if r["payoff"] > 0),
+            "best_month": (max(rep["rows"], key=lambda r: r["payoff"])["month"]
+                           if rep["rows"] else None),
+            "worst_month": (min(rep["rows"], key=lambda r: r["payoff"])["month"]
+                            if rep["rows"] else None),
+            "depth_statement": rep["depth_statement"],
+            "reason": rep["reason"],
+        })
+
+    try:
+        ranking = _st.rank_legs(results, direction=direction)
+    except _st.StructureError as e:
+        raise HTTPException(status_code=400, detail=f"{e.field}: {e.message}")
+
+    elapsed_ms = round((time.perf_counter() - started) * 1000.0, 1)
+    response.headers["X-Query-Ms"] = str(elapsed_ms)
+
+    return {
+        "as_of": _utcnow().isoformat(),
+        "posture": _STRUCT_POSTURE,
+        "definition": definition_echo,
+        "bound": {
+            "legs_requested": len(resolved),
+            "hub_legs": len(resolved) - n_nodes,
+            "node_legs": n_nodes,
+            "max_node_legs": _STRUCT_SCREENER_MAX_NODE_LEGS,
+            "truncated": False,
+            "statement": (
+                f"Swept {len(resolved)} leg(s) — every leg requested was swept; "
+                "nothing was truncated. Nodal legs are capped at "
+                f"{_STRUCT_SCREENER_MAX_NODE_LEGS} and an over-cap request is "
+                "rejected rather than trimmed."
+            ),
+        },
+        "runtime_ms": elapsed_ms,
+        **ranking,
+        "sources": {
+            "power": {"dataset": _STRUCT_POWER_DATASET, "market": "DA",
+                      "cadence": "hourly", "unit": "$/MWh", "tz": MARKET_TZ},
+        },
+    }
