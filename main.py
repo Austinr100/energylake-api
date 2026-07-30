@@ -8674,6 +8674,20 @@ _STRUCT_GAS_DATASETS: dict[str, dict] = {
 # and collision-free across the three lanes.
 _STRUCT_GAS_ID_SEP = "."
 
+# Lanes that stay VISIBLE in the catalog inventory as reference data but are NOT
+# selectable as an HRCO strike basis. Visibility and selectability are different
+# claims: the catalog reports what is banked, this set reports what a strike may
+# be struck off. Keyed by lane id -> the reason, verbatim, that the 400 states.
+_STRUCT_GAS_LANES_NOT_SELECTABLE: dict[str, str] = {
+    "caiso_fuel": (
+        "caiso_fuel_prices is lifecycle_status 'planned' (demoted by migration "
+        "117) and ~60 days stale, and its fuel-region prices do not behave like "
+        "a burner-tip index: frscec at ~$8/MMBtu against SP15 at ~$32/MWh is a "
+        "market heat rate of 3.9 MMBtu/MWh, which no gas unit runs. It remains "
+        "in the catalog inventory as reference data; it is not a strike basis."
+    ),
+}
+
 # How far back to reach for a gas carry-in print so the FIRST day of a replay
 # window can resolve under the gas-day convention. 10 days clears any holiday
 # weekend; the fill span itself is still gated at 4 days per month in
@@ -8904,6 +8918,8 @@ def _struct_gas_meta(dataset_key: str, series: str, inv: dict,
         "stale_days": stale_days,
         "basis_note": lane["basis_note"],
         "lifecycle": lane["lifecycle"],
+        "selectable": dataset_key not in _STRUCT_GAS_LANES_NOT_SELECTABLE,
+        "not_selectable_reason": _STRUCT_GAS_LANES_NOT_SELECTABLE.get(dataset_key),
     }
 
 
@@ -9342,19 +9358,40 @@ async def _struct_evaluate(definition: dict) -> dict:
 
 
 async def _struct_known_gas_ids() -> set[str]:
-    """Every banked gas index id, for definition validation.
+    """Every SELECTABLE banked gas index id, for definition validation.
 
     Reads the catalog's own inventory so /evaluate and /catalog can never
-    disagree about what is on the menu.
+    disagree about what is banked, then drops the lanes that are banked but not
+    a legitimate strike basis (_STRUCT_GAS_LANES_NOT_SELECTABLE). Being on the
+    catalog's inventory is not the same claim as being on the menu.
     """
     rows = await _struct_read(_STRUCT_GAS_INVENTORY_SQL, {
         "datasets": [lane["dataset"] for lane in _STRUCT_GAS_DATASETS.values()],
     })
-    by_dataset = {lane["dataset"]: key for key, lane in _STRUCT_GAS_DATASETS.items()}
+    by_dataset = {lane["dataset"]: key for key, lane in _STRUCT_GAS_DATASETS.items()
+                  if key not in _STRUCT_GAS_LANES_NOT_SELECTABLE}
     return {
         _struct_gas_id(by_dataset[r["dataset"]], r["series"])
         for r in rows if r["dataset"] in by_dataset
     }
+
+
+def _struct_guard_gas_lane(gas_index) -> None:
+    """400 with the REASON when a request strikes off a non-selectable lane.
+
+    Without this the caller only sees 'not a banked gas index', which is a lie
+    about caiso_fuel.* — it IS banked, it is just not a strike basis.
+    """
+    if not isinstance(gas_index, str):
+        return
+    lane_key = gas_index.strip().partition(_STRUCT_GAS_ID_SEP)[0]
+    reason = _STRUCT_GAS_LANES_NOT_SELECTABLE.get(lane_key)
+    if reason:
+        raise HTTPException(
+            status_code=400,
+            detail=f"gas_index: '{gas_index.strip()}' is not a selectable gas "
+                   f"index. {reason}",
+        )
 
 
 @app.post(f"{STRUCTURES_PREFIX}/evaluate")
@@ -9400,6 +9437,7 @@ async def structures_evaluate(request: Request):
     known = None
     kind = raw.get("structure")
     if isinstance(kind, str) and _st.STRUCTURES.get(kind, {}).get("needs_gas"):
+        _struct_guard_gas_lane(raw.get("gas_index"))
         known = await _struct_known_gas_ids()
 
     try:
