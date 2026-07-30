@@ -44,6 +44,9 @@ Endpoints:
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
     GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the R2 archive (D-07-22)
     GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame (PNG/JSON) from R2, d2/-allowlisted, long immutable cache (D-07-22)
+    GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
+    POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
+    GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
 """
 
 import json
