@@ -225,6 +225,71 @@ from a server component or route handler and render the first chart
   the archive bucket (see `R2_*` in `.env.example`). This service never writes
   to the bucket; `boto3` is imported lazily, only when a Model Room route is hit.
 
+### The Structures room (`/api/analytics/structures/*`)
+
+Room 2 of the Analytics Department: swaps, monthly-average (Asian) options and
+HRCOs. **A calculator and a replay engine — not a pricing desk and not advice.**
+There is no option premium, no volatility, no greeks and no forward curve
+anywhere in this lane; the payoff arithmetic lives in `structures.py` as a pure
+module. Three rails ride in every payload (`posture.rails`), because a consumer
+that can drop them will:
+
+1. **No forward pricing.** Payoff is computed *given* your inputs and *realized*
+   history. An HRCO's payoff diagram is struck off the most recent **banked**
+   gas print, labelled with its date, and withheld entirely when none is banked.
+2. **Depth-honest.** A month is banked **whole** or it is not replayed — no
+   interpolation, no partial-month averages — and every gated month comes back
+   with a receipt saying why. The expected block-hour count is derived per date
+   from the tz database (`7x24` is 23/24/25 across the DST switch, `7x8` is
+   7/8/9), never a hardcoded calendar.
+3. **Rankings are descriptive sorts** of historical arithmetic. Legs that cannot
+   be replayed are returned with their reason rather than dropped.
+
+- `GET /api/analytics/structures/catalog`
+  -> the banked-reality menu the builder panel reads, and the only menu it may
+  offer: structures, blocks, replay-capable legs with **measured** depth per
+  block, and every banked gas index by name with its cadence, depth and
+  staleness in days. Also carries the gas-leg STOP-gate verdict and the filed
+  data-roadmap gaps. Cached 15 min in-process (`X-Cache`). DB unavailable -> 503
+
+  Measured depth as shipped: hubs **SP15/NP15/ZP26 carry 118 banked complete
+  7x16 months** (2016-01..2026-06) — the completeness gate reproduces this
+  repo's documented coverage holes (2016-02, 2016-08, 2019-01) with no
+  special-casing. **Nodal legs carry zero**: 2,376 series begin 2026-06-07, so
+  June is short its first six days and July is mid-publication. Nodal replay is
+  honest absence, *computed* rather than hardcoded, so it lights up on its own.
+
+- `POST /api/analytics/structures/evaluate`
+  -> structure definition in; payoff diagram + month-by-month replay out.
+  Stateless (saved structures are Phase 2). Body: `structure`, `leg`, `block`,
+  `size_mw`, plus the structure's own fields (`fixed_price` / `strike` /
+  `payout` / `heat_rate` + `vom_adder` + `gas_index`) and `window_months`
+  (null = all banked months). The diagram is a pure function of the inputs, so
+  it renders even when the replay is empty. A bad field is a 400 that **names**
+  it; DB unavailable -> 503
+
+- `GET /api/analytics/structures/screener?structure=&strike=&window_months=&legs=`
+  -> one structure swept across legs, ranked by realized payoff both directions.
+  Bounds are explicit and stated in the payload: the three hubs by default,
+  nodal legs opt-in via `legs` and capped at 40. An over-cap request is a 400 —
+  never a silent truncation. Runtime is stamped on every response
+  (`runtime_ms`, `X-Query-Ms`).
+
+  Measured: **75 ms** for 3 hubs at 24 months (the default shape), 907 ms at
+  full 118-month depth, 1,470 ms for 40 nodal legs. Every read is index-served
+  by `idx_tsv_series_ts (dataset, series, ts DESC)`.
+
+  Two deviations from the room's spec, both stated in the payload rather than
+  papered over: the leg picker **cannot** be pointed at `/api/nodes/search`
+  (that lane browses an 8-day hot tier whose 14,827 `pnode_id`s do not
+  intersect the replay-capable series at all — the component is reused, its
+  universe comes from `/catalog`); and **`6x16` is absent** from the block menu,
+  because the NERC on-peak block needs a holiday calendar and this codebase
+  holds two that disagree (`main._NERC_HOLIDAYS` uses *observed* dates,
+  the pantry's `caiso_blocks_daily` 6x16 lane uses *actual* dates). The three
+  blocks shipped are holiday-independent and reconcile with that lane to the
+  last decimal.
+
 ---
 
 ## Tests
