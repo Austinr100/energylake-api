@@ -47,8 +47,12 @@ Endpoints:
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
     GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
+    GET /api/analytics/node-search         Analytics Department v0 (Nodes room): find a priced node by pnode_id or Atlas plant name (2026-07-30)
+    GET /api/analytics/node/{pnode_id}     Analytics Department v0 (Nodes room): the node package — identity/DART envelope/basis/components/monthly ledger, all over banked depth (2026-07-30)
+    GET /api/analytics/movers              Analytics Department v0 (Nodes room): top-50 both directions by DART or basis over 1d/7d, index-served chunked reads, cached (2026-07-30)
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -9585,3 +9589,1509 @@ async def structures_screener(
                       "cadence": "hourly", "unit": "$/MWh", "tz": MARKET_TZ},
         },
     }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE ANALYTICS DEPARTMENT, ROOM 1 — NODES  (the Node Analytics Package)
+# spec 2026-07-30. Sibling of ROOM 2 — STRUCTURES, directly above.
+#
+#   GET /api/analytics/node-search?q=        find a node
+#   GET /api/analytics/node/{pnode_id}       the package (identity/dart/basis/
+#                                            components/ledger)
+#   GET /api/analytics/movers?window=&metric=  top-50 both directions
+#
+# ── HOUSE AXIOMS (pinned by this lane's tests) ──────────────────────────────
+# FMM = RTPD. DART = FMM − DA, POSITIVE = RT ABOVE DA. RTD is display context
+# and is NEVER a settlement leg here — this lane reads DAM and RTPD only.
+#
+# NOTE ON SIGN, read this before "fixing" anything: the ratified nodal
+# convention (see /api/atlas/pnode-history, "DART = FMM − DAM, ratified
+# positive = RT over DA") is what this lane implements. The OLDER hub reader
+# (/api/timeseries/caiso-hub-lmp) and the Watchboard `dart` tile emit the
+# OPPOSITE sign under the field name `spread` (DA − RT, "positive = DA over
+# RT"). Both live in this file. They are different fields on different
+# endpoints and neither is wrong — but they are NOT interchangeable, and a
+# dashboard that mixes them draws an inverted chart. This lane's field is
+# named `dart`, never `spread`, precisely so the two never get confused.
+#
+# ── BANKED DEPTH IS THE HEADLINE, NOT A FOOTNOTE (STOP-gate 3, TRIPPED) ────
+# atlas_pnode_lmp_snapshot is a HOT TIER with ~7-day retention and a
+# dispatch-only writer that has NO standing schedule. Measured 2026-07-30:
+#
+#   market   min_date     max_date     calendar dates   COMPLETE days
+#   DAM      2026-07-22   2026-07-29   8                6  (07-23..07-28)
+#   RTPD     2026-07-22   2026-07-29   8                6  (07-23..07-28)
+#
+# 07-22 is partial (opens HE22) and 07-29 is partial (ends HE21). So a
+# "trailing window" is EIGHT DATES, not the ~21 the spec's example caption
+# assumed, and every per-HE distribution has N=6..8 — never more.
+#
+# CONSEQUENCES, stated rather than papered over:
+#   * The monthly ledger has exactly ONE row (2026-07), and that row is 8
+#     days of a 31-day month. There are NO prior full months in depth. The
+#     ledger code generalizes to many months; the DATA does not yet.
+#   * A p5/p95 band computed on N=7 is very nearly the min/max of seven
+#     numbers. The bands are real and honestly labelled, but they are NOT a
+#     climatology. Every band carries its own `n`.
+#   * `complete: false` on a month/block means the banked window does not
+#     cover it end-to-end. It is never silently dropped.
+# EVERY response carries `depth` + `as_of`. Nothing in this lane implies
+# history the pantry does not hold.
+#
+# ── HUB PAIRING RULE v0 (STOP-gate 1, RESOLVED — attribute found) ───────────
+# The spec guessed at "geographic zone membership via universe/gazetteer
+# attributes". There is no zone attribute: `area` is a BALANCING AUTHORITY
+# (CA, BPAT, APS, PACE...), not NP15/SP15/ZP26, and nothing carries a lat/lon
+# zone polygon. What DOES exist is `atlas_pnode_universe.th_hub` — CAISO's own
+# published node→trading-hub attribution. That is the pairing, used verbatim:
+#
+#   TH_NP15_GEN-APND -> NP15     TH_PACE_GEN-APND -> (no hub price series)
+#   TH_SP15_GEN-APND -> SP15     TH_PACW_GEN-APND -> (no hub price series)
+#   TH_ZP26_GEN-APND -> ZP26
+#
+# NO GEOGRAPHIC INFERENCE. A node is paired because CAISO says so, or it is
+# not paired and gets `hub: null` + an ABSENT basis panel. Measured coverage
+# against the 14,827-node priced universe (2026-07-30):
+#
+#   all priced nodes          1,579 / 14,827  = 10.7%
+#   CA-area nodes             1,579 /  4,252  = 37.1%
+#   CA-area GEN nodes         1,487 /  1,860  = 79.9%   <- the asset-manager wedge
+#   LOAD nodes                   92 / 10,943  =  0.8%
+#
+# Read that bottom row before wiring the dashboard: basis is a GENERATOR
+# story. Most LOAD nodes and essentially every non-CAISO WEIM node (BPAT,
+# APS, PACE...) have no CAISO trading hub, which is CORRECT — not a gap to
+# fill with a guess. TH_PACE/TH_PACW are paired by CAISO but have no banked
+# hub price series, so they are reported as paired-but-unpriceable
+# (`hub_priceable: false`) rather than silently treated as unpaired.
+#
+# TH hub nodes themselves are NOT in the snapshot table (verified: no
+# TH_*_GEN-APND rows in the priced universe) — the hub leg always comes from
+# timeseries_values. That standing schema fact holds.
+#
+# ── THE 42GB DISCIPLINE (115's lesson) — every shape stated ─────────────────
+# One correction to the spec's premise: the 42GB table is `timeseries_values`
+# (43 GB). `atlas_pnode_lmp_snapshot` is 6.8 GB / ~23M rows. Both are handled
+# under the same rule.
+#
+# The load-bearing fact, measured on this compute (Neon 0.25-2 CU, pg17):
+# the planner ABANDONS idx_lmp_snap_market_time for any predicate matching
+# more than roughly 5% of the snapshot table and parallel-seq-scans instead.
+# Observed, all EXPLAIN (ANALYZE) on real data:
+#
+#   shape                                        rows      plan            time
+#   market=DAM  + 1 date                          311k     bitmap index    156 ms
+#   market=DAM  + 7 dates                         2.2M     SEQ SCAN       2,231 ms
+#   market=RTPD + 1 date                          1.4M     SEQ SCAN       1,387 ms
+#   market=RTPD + 7 dates (GROUP BY node,d,he)    9.5M     SEQ SCAN + spill  38 s
+#   DISTINCT (d,he,iv) over RTPD 7 dates          9.5M     SEQ SCAN      18,071 ms
+#   market=RTPD + 1 date + 1 hour                  59k     bitmap index     62 ms
+#   market=RTPD + 1 date + 6 hours (VALUES join)  356k     bitmap index    226 ms
+#   market=RTPD + 1 date + 24 hours (VALUES join) 1.4M     SEQ SCAN       1,818 ms
+#   market=DAM  + 1 date + 6 hours (VALUES join)   89k     INDEX SCAN     2,430 ms
+#   market=DAM  + 1 date + ANY(24 hours)          356k     bitmap heap    1,254 ms
+#
+# So the movers lane chunks EVERY read, and the two markets get DIFFERENT
+# shapes — the last two rows are why. RTPD reads in six-hour chunks via an
+# inline VALUES grid of (hour, 1/k) PLUS a redundant `market_hour BETWEEN`
+# bound; both parts are load-bearing (the VALUES grid puts the tiny relation on
+# the outer side of a nested loop, giving one bitmap index scan per hour, and
+# the BETWEEN bound keeps the row estimate under the cliff). DAM reads a whole
+# date per chunk via `market_hour = ANY(hours)`: its rows are 4x sparser per
+# hour, and forcing the RTPD shape onto it collapses the nested loop into a
+# plain Index Scan that costs 2,430 ms for a QUARTER of the rows.
+# Grouping by (pnode_id, market_hour) instead of pnode_id alone adds an
+# external-merge sort; the 1/k weighting below is what avoids that.
+#
+# WEIGHTED SINGLE-PASS TRICK. The exact statistic is the mean over matched
+# hours of (hourly-mean RTPD − DA). Computing it the obvious way needs a
+# GROUP BY (pnode_id, market_date, market_hour) over 9.5M rows, which sorts
+# and spills 430 MB. It is avoidable because RTPD interval coverage is
+# NODE-INDEPENDENT — the writer pulls the whole universe per dispatch, so a
+# ragged hour is ragged for every node at once (verified: 2026-07-23 HE17
+# carries 3 intervals x 14,827 nodes = 44,481 rows exactly; HE24 carries
+# 2 x 14,827 = 29,654). Therefore the per-hour interval count k(d,he) is a
+# SCALAR GRID, readable from ONE reference node off the PK index in ~7 ms,
+# and
+#     mean_h RTavg(h)  =  sum_i  lmp_i / (H * k(d,he of i))
+# which is a single HashAggregate keyed on pnode_id — no sort, no spill.
+# `_an_movers_grid` reads that grid; `_AN_MOVERS_RT_CHUNK_SQL` applies it.
+#
+# Per-node reads (the package) need none of this: one pnode + one market off
+# the PK index is ~192 rows (DAM) / ~700 rows (RTPD) and is index-only.
+#
+# ── ERROR CONTRACT (conforms to the proven endpoints) ───────────────────────
+#   * blank / unknown pnode_id                 -> 400 (matches pnode-history)
+#   * bad window / metric / limit              -> 400 with allowed values
+#   * a known node with no rows in depth       -> 200, honest empty payload
+#   * a known node with no CAISO hub           -> 200, hub:null, basis absent
+#   * DB unavailable                           -> 503 (house standard)
+# A node that exists but has nothing to say is never a 404 and never a
+# fabricated flat line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+_analytics_log = logging.getLogger("energylake.analytics")
+
+# The two settlement legs. RTD is deliberately absent (house axiom).
+AN_DA_MARKET = "DAM"
+AN_RT_MARKET = "RTPD"
+
+# P2 sentinel floor — RTD/RTPD carry market_date = 0001-01-01 rows. Shared with
+# the Cockpit lane so there is ONE floor in this file.
+AN_SENTINEL_MIN_DATE = COCKPIT_SENTINEL_MIN_DATE
+
+# Pairing rule v0. CAISO's published th_hub -> the hub label used by
+# timeseries_values. A th_hub absent from this map is paired-but-unpriceable.
+AN_TH_HUB_TO_ZONE = {
+    "TH_NP15_GEN-APND": "NP15",
+    "TH_SP15_GEN-APND": "SP15",
+    "TH_ZP26_GEN-APND": "ZP26",
+}
+# Paired by CAISO, but no banked hub price series exists for these.
+AN_TH_HUB_UNPRICEABLE = ("TH_PACE_GEN-APND", "TH_PACW_GEN-APND")
+
+# The hub DA dataset the basis leg joins against (hourly, PT-aligned via ts).
+AN_HUB_DA_DATASET = "caiso_lmp_da_hourly"
+
+# Blocks. 7x16 is HE7..HE22 on ALL days (7 days a week x 16 hours) — this is
+# the spec's explicit definition and it is NOT the NERC on-peak block that
+# _lmp_is_onpeak() implements (Mon-Sat ex-holiday). Off-peak is the complement.
+AN_ONPEAK_HE_LO = 7
+AN_ONPEAK_HE_HI = 22
+AN_BLOCK_ONPEAK = "7x16"
+AN_BLOCK_OFFPEAK = "offpeak"
+
+# The envelope's quantiles, in monotone order. Pinned by test.
+AN_ENVELOPE_QUANTILES = (("p5", 0.05), ("p25", 0.25), ("p50", 0.50),
+                         ("p75", 0.75), ("p95", 0.95))
+
+# Movers.
+AN_MOVERS_WINDOWS = {"1d": 1, "7d": 7}
+AN_MOVERS_METRICS = ("dart", "basis")
+AN_MOVERS_TOP_N = 50
+# Six hours: the widest chunk that stays on idx_lmp_snap_market_time (see the
+# measured table above). Do not raise this without re-running the EXPLAINs.
+AN_MOVERS_CHUNK_HOURS = 6
+# How many chunk reads run concurrently. The pool is small and the compute is
+# 2 CU, so this is deliberately modest — it cuts wall-clock without stampeding.
+AN_MOVERS_CONCURRENCY = 4
+# Movers is a screen over a hot tier whose writer has no standing schedule, so
+# the answer changes only when a dispatch lands. Cache per (metric, window).
+AN_MOVERS_CACHE_TTL = 300.0
+
+# Node search.
+AN_SEARCH_MAX = 50
+
+_an_movers_cache: "dict[tuple, tuple[float, dict]]" = {}
+
+AN_PT = ZoneInfo("America/Los_Angeles")
+
+
+# ── Small numeric helpers ────────────────────────────────────────────────────
+
+def _an_f(x):
+    """Decimal/numeric -> float; None passes through (absence is not zero)."""
+    return float(x) if x is not None else None
+
+
+def _an_r(x, nd: int = 4):
+    """Round for the wire, preserving None. 4dp — prices are dollars/MWh and
+    the hand-verification in the handoff is done at this precision."""
+    return None if x is None else round(float(x), nd)
+
+
+def _an_mean(vals):
+    """Arithmetic mean of a list of floats, or None when empty."""
+    return (sum(vals) / len(vals)) if vals else None
+
+
+def _an_percentile_cont(sorted_vals, q: float):
+    """Postgres `percentile_cont(q)` — linear interpolation between the two
+    closest ranks. Implemented explicitly (not statistics.quantiles) so the
+    handoff's SQL cross-check and this code agree to the last decimal.
+
+    `sorted_vals` MUST already be sorted ascending and non-empty.
+    """
+    n = len(sorted_vals)
+    if n == 1:
+        return float(sorted_vals[0])
+    idx = q * (n - 1)
+    lo = int(idx)
+    hi = min(lo + 1, n - 1)
+    frac = idx - lo
+    return float(sorted_vals[lo]) + frac * (float(sorted_vals[hi]) - float(sorted_vals[lo]))
+
+
+def _an_envelope(vals):
+    """The p5/p25/p50/p75/p95 envelope + mean + n over one HE's samples.
+
+    Monotone BY CONSTRUCTION: every quantile reads the same ascending list, and
+    percentile_cont is non-decreasing in q. The suite pins that property anyway
+    (acceptance 3) because it is the one thing a chart cannot survive breaking.
+    Returns None when there is nothing to describe — never a zero-filled band.
+    """
+    if not vals:
+        return None
+    s = sorted(float(v) for v in vals)
+    out = {"n": len(s), "mean": _an_r(_an_mean(s))}
+    for name, q in AN_ENVELOPE_QUANTILES:
+        out[name] = _an_r(_an_percentile_cont(s, q))
+    return out
+
+
+def _an_band_of(value, env) -> "str | None":
+    """Which envelope band a realized value lands in — the chart's dot colour.
+    Absence in, absence out."""
+    if value is None or not env:
+        return None
+    if env["p5"] is None:
+        return None
+    if value < env["p5"]:
+        return "below_p5"
+    if value < env["p25"]:
+        return "p5_p25"
+    if value < env["p50"]:
+        return "p25_p50"
+    if value < env["p75"]:
+        return "p50_p75"
+    if value <= env["p95"]:
+        return "p75_p95"
+    return "above_p95"
+
+
+def _an_is_onpeak_he(he: int) -> bool:
+    """7x16 block test: HE7..HE22, EVERY day of the week. Not NERC on-peak."""
+    return AN_ONPEAK_HE_LO <= he <= AN_ONPEAK_HE_HI
+
+
+def _an_block_of(he: int) -> str:
+    return AN_BLOCK_ONPEAK if _an_is_onpeak_he(he) else AN_BLOCK_OFFPEAK
+
+
+def _an_iso_d(d) -> "str | None":
+    """A market_date -> ISO date string. psycopg may hand back date or datetime."""
+    if d is None:
+        return None
+    return (d.date() if isinstance(d, _datetime) else d).isoformat()
+
+
+def _an_as_date(d):
+    """Normalize a market_date to a plain `date` for arithmetic."""
+    if d is None:
+        return None
+    return d.date() if isinstance(d, _datetime) else d
+
+
+# ── Hub pairing (rule v0) ───────────────────────────────────────────────────
+
+def _an_pair_hub(th_hub) -> dict:
+    """CAISO's published th_hub -> this lane's pairing verdict.
+
+    Three honest outcomes, never a guess:
+      paired + priceable   -> a hub label with a banked price series
+      paired + unpriceable -> CAISO pairs it, the pantry has no series
+      unpaired             -> CAISO attributes no trading hub to this node
+    """
+    if not th_hub:
+        return {"th_hub": None, "hub": None, "hub_priceable": False,
+                "pairing": "unpaired", "pairing_rule": "caiso_th_hub_v0"}
+    zone = AN_TH_HUB_TO_ZONE.get(th_hub)
+    if zone:
+        return {"th_hub": th_hub, "hub": zone, "hub_priceable": True,
+                "pairing": "paired", "pairing_rule": "caiso_th_hub_v0"}
+    return {"th_hub": th_hub, "hub": None, "hub_priceable": False,
+            "pairing": "paired_unpriceable", "pairing_rule": "caiso_th_hub_v0"}
+
+
+# ── Depth (the honesty fields every response carries) ───────────────────────
+
+def _an_depth(rows) -> dict:
+    """Shape the per-market depth probe into the response's `depth` object.
+
+    `rows` are (market, min_date, max_date) — one per market probed. days is
+    inclusive of both ends (8 dates spanning 07-22..07-29 reports 8), and
+    `complete_days` is deliberately NOT guessed here: partial edge dates are
+    visible in the per-HE `n` counts, which is where they matter.
+    """
+    per_market = {}
+    spans = []
+    for r in rows:
+        mn, mx = _an_as_date(r["min_date"]), _an_as_date(r["max_date"])
+        days = ((mx - mn).days + 1) if (mn and mx) else 0
+        per_market[r["market"]] = {
+            "min_date": mn.isoformat() if mn else None,
+            "max_date": mx.isoformat() if mx else None,
+            "days": days,
+        }
+        if days:
+            spans.append(days)
+    return {
+        "source": "atlas_pnode_lmp_snapshot",
+        "retention": "hot tier, ~7-day rolling; dispatch-only writer, no standing schedule",
+        "markets": per_market,
+        # The window every windowed stat downstream actually rides: the
+        # narrower of the two settlement legs.
+        "depth_days": min(spans) if spans else 0,
+    }
+
+
+_AN_DEPTH_SQL = """
+    SELECT m.market,
+           (SELECT min(s.market_date) FROM atlas_pnode_lmp_snapshot s
+             WHERE s.market = m.market AND s.market_date >= %(sentinel)s) AS min_date,
+           (SELECT max(s.market_date) FROM atlas_pnode_lmp_snapshot s
+             WHERE s.market = m.market AND s.market_date >= %(sentinel)s) AS max_date
+    FROM (VALUES (%(da)s), (%(rt)s)) AS m(market)
+"""
+
+
+def _an_depth_params() -> dict:
+    return {"sentinel": AN_SENTINEL_MIN_DATE, "da": AN_DA_MARKET, "rt": AN_RT_MARKET}
+
+
+# ── The DART leg ────────────────────────────────────────────────────────────
+
+def _an_rt_hourly(rt_rows) -> dict:
+    """RTPD interval rows -> {(date, he): (mean_lmp, interval_count)}.
+
+    The hourly FMM price is the straight mean of the intervals PRESENT in that
+    hour. Ragged hours (a missed dispatch leaves 2 or 3 intervals instead of 4)
+    are averaged over what exists and the count travels with the value so the
+    thinness is visible rather than assumed away.
+    """
+    acc: dict = {}
+    for r in rt_rows:
+        v = _an_f(r["lmp"])
+        if v is None:
+            continue
+        key = (_an_as_date(r["market_date"]), int(r["market_hour"]))
+        bucket = acc.setdefault(key, [])
+        bucket.append(v)
+    return {k: (sum(v) / len(v), len(v)) for k, v in acc.items()}
+
+
+def _an_dart_series(da_rows, rt_rows) -> list:
+    """The node's DART series: one entry per (date, HE) carrying BOTH legs.
+
+    DART = FMM − DA (positive = RT above DA). An hour with only one leg is
+    SKIPPED, never half-computed. Ascending by (date, HE).
+    """
+    rt = _an_rt_hourly(rt_rows)
+    out = []
+    for r in da_rows:
+        da = _an_f(r["lmp"])
+        if da is None:
+            continue
+        key = (_an_as_date(r["market_date"]), int(r["market_hour"]))
+        hit = rt.get(key)
+        if hit is None:
+            continue
+        rt_mean, ivs = hit
+        out.append({
+            "date": key[0], "he": key[1],
+            "da": da, "rt": rt_mean, "dart": rt_mean - da,
+            "rt_intervals": ivs,
+        })
+    out.sort(key=lambda e: (e["date"], e["he"]))
+    return out
+
+
+def _an_build_dart(da_rows, rt_rows) -> dict:
+    """The `dart` stanza: per-HE mean + envelope over banked depth, plus the
+    latest banked day's realized DART per HE placed against those bands.
+
+    The envelope spans EVERY banked day including the latest — "over banked
+    depth" means exactly that. With 6-8 samples per HE the bands are a small-N
+    description, not a climatology; each band states its own n so the caption
+    can say so.
+    """
+    series = _an_dart_series(da_rows, rt_rows)
+    if not series:
+        return {
+            "convention": "dart = fmm(rtpd) - da; positive = rt above da",
+            "per_he": [], "latest_day": None, "n_days": 0, "n_hours": 0,
+            "window": None,
+        }
+
+    by_he: dict = defaultdict(list)
+    for e in series:
+        by_he[e["he"]].append(e["dart"])
+
+    per_he = []
+    for he in sorted(by_he):
+        env = _an_envelope(by_he[he])
+        per_he.append({"he": he, "mean": env["mean"], "n": env["n"],
+                       "envelope": {k: env[k] for k, _q in AN_ENVELOPE_QUANTILES}})
+
+    env_by_he = {row["he"]: row["envelope"] for row in per_he}
+    latest_date = max(e["date"] for e in series)
+    latest_hours = [e for e in series if e["date"] == latest_date]
+    latest_hours.sort(key=lambda e: e["he"])
+
+    dates = sorted({e["date"] for e in series})
+    return {
+        "convention": "dart = fmm(rtpd) - da; positive = rt above da",
+        "window": {"start": dates[0].isoformat(), "end": dates[-1].isoformat()},
+        "n_days": len(dates),
+        "n_hours": len(series),
+        "per_he": per_he,
+        "latest_day": {
+            "date": latest_date.isoformat(),
+            "hours": [
+                {
+                    "he": e["he"],
+                    "da": _an_r(e["da"]), "rt": _an_r(e["rt"]),
+                    "dart": _an_r(e["dart"]),
+                    "rt_intervals": e["rt_intervals"],
+                    "band": _an_band_of(e["dart"], env_by_he.get(e["he"])),
+                }
+                for e in latest_hours
+            ],
+        },
+    }
+
+
+# ── The basis leg (cross-store join, UTC<->PT handled explicitly) ────────────
+
+def _an_hub_map(hub_rows) -> dict:
+    """Hub DA rows -> {(pt_date, he): value}.
+
+    The SQL does the timezone work (`ts AT TIME ZONE 'America/Los_Angeles'`,
+    HE = local hour + 1) because ts is the interval START in UTC and the
+    snapshot's market_hour is PT hour-ENDING. Verified against real rows:
+    ts 2026-07-23T07:00Z -> PT 2026-07-23 00:00 -> HE1. This is the whole
+    UTC<->PT seam; it lives in one place on purpose.
+    """
+    out = {}
+    for r in hub_rows:
+        v = _an_f(r["value"])
+        if v is None:
+            continue
+        out[(_an_as_date(r["d"]), int(r["he"]))] = v
+    return out
+
+
+def _an_basis_series(da_rows, hub_rows) -> list:
+    """node DAM − hub DAM per (date, HE). An hour missing either leg is
+    skipped, never fabricated."""
+    hub = _an_hub_map(hub_rows)
+    out = []
+    for r in da_rows:
+        node = _an_f(r["lmp"])
+        if node is None:
+            continue
+        d, he = _an_as_date(r["market_date"]), int(r["market_hour"])
+        hv = hub.get((d, he))
+        if hv is None:
+            continue
+        out.append({"date": d, "he": he, "node": node, "hub": hv,
+                    "basis": node - hv})
+    out.sort(key=lambda e: (e["date"], e["he"]))
+    return out
+
+
+def _an_block_rollup(entries) -> dict:
+    """Roll a set of (node, hub) hours into a block average.
+
+    basis is reported as avg(node) − avg(hub) — the difference of block
+    averages, which is what a variable-margin update actually wants. Because
+    the join is balanced (every retained hour carries both legs) this equals
+    avg(node − hub); the suite pins that identity so the two can never drift.
+    """
+    if not entries:
+        return None
+    node = _an_mean([e["node"] for e in entries])
+    hub = _an_mean([e["hub"] for e in entries])
+    return {
+        "node": _an_r(node), "hub": _an_r(hub), "basis": _an_r(node - hub),
+        "n_hours": len(entries),
+        "n_days": len({e["date"] for e in entries}),
+    }
+
+
+def _an_month_key(d) -> str:
+    return f"{d.year:04d}-{d.month:02d}"
+
+
+def _an_month_complete(month: str, first_d, last_d) -> bool:
+    """True only when banked depth covers that calendar month end-to-end."""
+    y, m = (int(x) for x in month.split("-"))
+    start = _date(y, m, 1)
+    end = _date(y + (m == 12), (m % 12) + 1, 1) - _timedelta(days=1)
+    return first_d <= start and last_d >= end
+
+
+def _an_build_basis(da_rows, hub_rows, pairing) -> dict:
+    """The `basis` stanza: per-HE means, the 7x16 / off-peak block cuts, and
+    the calendar-month cuts (MTD + any prior full months within depth).
+
+    When the node has no priceable CAISO hub this is an ABSENCE — `available:
+    false` plus the reason — not an empty-but-present panel and never zeros.
+    """
+    if not pairing["hub_priceable"]:
+        return {
+            "available": False,
+            "reason": ("node has no CAISO trading hub in atlas_pnode_universe.th_hub"
+                       if pairing["pairing"] == "unpaired"
+                       else f"paired to {pairing['th_hub']}, which has no banked hub price series"),
+            "hub": None, "pairing": pairing["pairing"],
+            "per_he": [], "blocks": {}, "months": [],
+        }
+
+    series = _an_basis_series(da_rows, hub_rows)
+    if not series:
+        return {
+            "available": False,
+            "reason": "no banked hour carries both a node DAM price and a hub DAM price",
+            "hub": pairing["hub"], "pairing": pairing["pairing"],
+            "per_he": [], "blocks": {}, "months": [],
+        }
+
+    first_d = min(e["date"] for e in series)
+    last_d = max(e["date"] for e in series)
+
+    by_he: dict = defaultdict(list)
+    for e in series:
+        by_he[e["he"]].append(e)
+    per_he = []
+    for he in sorted(by_he):
+        roll = _an_block_rollup(by_he[he])
+        per_he.append({"he": he, "block": _an_block_of(he), **roll})
+
+    blocks = {}
+    for label in (AN_BLOCK_ONPEAK, AN_BLOCK_OFFPEAK):
+        roll = _an_block_rollup([e for e in series if _an_block_of(e["he"]) == label])
+        if roll:
+            blocks[label] = roll
+
+    by_month: dict = defaultdict(list)
+    for e in series:
+        by_month[_an_month_key(e["date"])].append(e)
+    months = []
+    for month in sorted(by_month):
+        entries = by_month[month]
+        row = {"month": month,
+               "complete": _an_month_complete(month, first_d, last_d),
+               "first_date": min(e["date"] for e in entries).isoformat(),
+               "last_date": max(e["date"] for e in entries).isoformat()}
+        for label in (AN_BLOCK_ONPEAK, AN_BLOCK_OFFPEAK):
+            row[label] = _an_block_rollup(
+                [e for e in entries if _an_block_of(e["he"]) == label])
+        months.append(row)
+
+    return {
+        "available": True,
+        "hub": pairing["hub"],
+        "pairing": pairing["pairing"],
+        "definition": {
+            "basis": "node DAM − hub DAM, per HE",
+            AN_BLOCK_ONPEAK: f"HE{AN_ONPEAK_HE_LO}-HE{AN_ONPEAK_HE_HI}, all days of the week",
+            AN_BLOCK_OFFPEAK: f"HE1-HE{AN_ONPEAK_HE_LO - 1} and HE{AN_ONPEAK_HE_HI + 1}-HE24, all days",
+        },
+        "window": {"start": first_d.isoformat(), "end": last_d.isoformat()},
+        "per_he": per_he,
+        "blocks": blocks,
+        "months": months,
+    }
+
+
+# ── Components ──────────────────────────────────────────────────────────────
+
+AN_COMPONENT_COLS = ("lmp", "energy", "congestion", "loss", "ghg")
+
+
+def _an_build_components(da_rows, rt_rows) -> dict:
+    """Window averages of the decomposition the atlas already banks, per
+    market. Each component averages over the rows where IT is non-null (a null
+    ghg must not shrink the congestion sample), so every figure carries its own
+    n."""
+    out = {}
+    for market, rows in ((AN_DA_MARKET, da_rows), (AN_RT_MARKET, rt_rows)):
+        stanza = {}
+        for col in AN_COMPONENT_COLS:
+            vals = [_an_f(r[col]) for r in rows]
+            vals = [v for v in vals if v is not None]
+            stanza[col] = {"mean": _an_r(_an_mean(vals)), "n": len(vals)}
+        stanza["rows"] = len(rows)
+        out[market] = stanza
+    return out
+
+
+# ── The ledger (the table an asset manager lifts) ───────────────────────────
+
+def _an_build_ledger(basis) -> dict:
+    """The monthly table: month, node 7x16 avg, hub 7x16 avg, basis, N per row.
+
+    Derived from the basis stanza so the ledger can NEVER disagree with the
+    panel above it. Absent when there is no priceable hub. With today's 8 days
+    of depth this is one row for 2026-07 with complete=false — the row states
+    its own N and completeness rather than reading like a settled month.
+    """
+    if not basis.get("available"):
+        return {"available": False, "reason": basis.get("reason"), "rows": []}
+    rows = []
+    for m in basis["months"]:
+        cut = m.get(AN_BLOCK_ONPEAK)
+        if not cut:
+            continue
+        rows.append({
+            "month": m["month"],
+            "complete": m["complete"],
+            "node_7x16": cut["node"],
+            "hub_7x16": cut["hub"],
+            "basis_7x16": cut["basis"],
+            "n_hours": cut["n_hours"],
+            "n_days": cut["n_days"],
+        })
+    return {
+        "available": True,
+        "hub": basis["hub"],
+        "block": f"{AN_BLOCK_ONPEAK} (HE{AN_ONPEAK_HE_LO}-HE{AN_ONPEAK_HE_HI}, all days)",
+        "rows": rows,
+    }
+
+
+# ── SQL: the node package's four reads (all index-served, shapes stated) ─────
+
+# 1. Existence + identity. The universe row carries th_hub (the pairing) and
+#    the geo table carries coordinates; node_type/area come from the PRICED
+#    universe so identity never describes a node this lane cannot price.
+#    One pnode off three PK/unique indexes — milliseconds.
+#    Exactly ONE row always comes back (the anchor VALUES row), so "unknown
+#    node" is a field on a present row rather than an empty result — the route
+#    can tell "no such id" from "DB gave me nothing". atlas_pnode_universe and
+#    atlas_pnode_geo_corrected are both unique on pnode_id (verified: 14,417
+#    rows / 14,417 distinct), so neither LEFT JOIN can fan the row out; the
+#    crosswalk CAN have several generators per node, so its name is collapsed
+#    inside a LATERAL aggregate rather than joined directly.
+_AN_IDENTITY_SQL = """
+    SELECT
+        t.pnode_id,
+        (u.pnode_id IS NOT NULL) AS in_universe,
+        (p.min_date IS NOT NULL) AS priced,
+        u.th_hub, u.apnode_type,
+        p.node_type, p.area, p.min_date, p.max_date,
+        COALESCE(g.corrected_lat, g.latitude) AS latitude,
+        COALESCE(g.corrected_lon, g.longitude) AS longitude,
+        g.geocode_status,
+        pl.plant_name
+    FROM (VALUES (%(pnode_id)s::text)) AS t(pnode_id)
+    LEFT JOIN atlas_pnode_universe u ON u.pnode_id = t.pnode_id
+    LEFT JOIN atlas_pnode_geo_corrected g ON g.pnode_id = t.pnode_id
+    LEFT JOIN LATERAL (
+        SELECT s.node_type, s.area,
+               min(s.market_date) AS min_date, max(s.market_date) AS max_date
+        FROM atlas_pnode_lmp_snapshot s
+        WHERE s.pnode_id = t.pnode_id
+          AND s.market = %(da)s
+          AND s.market_date >= %(sentinel)s
+        GROUP BY s.node_type, s.area
+        ORDER BY max(s.market_date) DESC
+        LIMIT 1
+    ) p ON true
+    LEFT JOIN LATERAL (
+        SELECT min(a.plant_name) AS plant_name
+        FROM atlas_pnode_crosswalk x
+        JOIN atlas_plants a ON a.plant_code = x.plant_code
+        WHERE x.pnode_id = t.pnode_id
+    ) pl ON true
+"""
+
+# 2/3. The two settlement legs for ONE node over full banked depth. Index Only
+#      Scan / Index Scan on atlas_pnode_lmp_snapshot_pkey (pnode_id leads the
+#      PK) — ~192 rows for DAM, ~700 for RTPD. Never a universe read.
+_AN_NODE_LEG_SQL = """
+    SELECT market_date, market_hour, market_interval,
+           lmp, energy, congestion, loss, ghg
+    FROM atlas_pnode_lmp_snapshot
+    WHERE pnode_id = %(pnode_id)s
+      AND market = %(market)s
+      AND market_date >= %(sentinel)s
+    ORDER BY market_date, market_hour, market_interval
+"""
+
+# 4. The hub leg — the cross-store half of basis. idx_tsv_series_ts covers
+#    (dataset, series, ts DESC) so this is an index range scan over ~200 rows
+#    despite living in the 43 GB table. The ts window is bounded HARD by the
+#    node's own banked span (no open-ended read, ever) and the UTC<->PT
+#    conversion happens right here, once.
+_AN_HUB_LEG_SQL = """
+    SELECT (ts AT TIME ZONE 'America/Los_Angeles')::date AS d,
+           extract(hour FROM (ts AT TIME ZONE 'America/Los_Angeles'))::int + 1 AS he,
+           value
+    FROM timeseries_values
+    WHERE dataset = %(dataset)s
+      AND series = %(series)s
+      AND ts >= %(ts_lo)s
+      AND ts < %(ts_hi)s
+    ORDER BY ts
+"""
+
+
+def _an_hub_ts_bounds(first_d, last_d) -> tuple:
+    """PT date span -> the half-open UTC instant window covering those PT days.
+
+    PT midnight of the first day through PT midnight after the last. Localized
+    via ZoneInfo so the offset is the one actually in force (no hardcoded -7/-8).
+    """
+    lo = _datetime.combine(first_d, _time(0, 0), tzinfo=AN_PT)
+    hi = _datetime.combine(last_d + _timedelta(days=1), _time(0, 0), tzinfo=AN_PT)
+    return lo.astimezone(_timezone.utc), hi.astimezone(_timezone.utc)
+
+
+# ── SQL: node search ────────────────────────────────────────────────────────
+# The searchable universe is the PRICED one (the latest DAM instant, selected
+# by the same index-driven LIMIT 1 the Cockpit lane uses) so a hit is always a
+# node this department can actually render a package for.
+#
+# NAMES, honestly: atlas_pnode_universe.description is NOT a human name — it
+# is the pnode_id (21,362 of 24,098 rows) or the id minus its -APND suffix. So
+# it is not searched and not returned. The only real gazetteer is
+# atlas_plants.plant_name via atlas_pnode_crosswalk, which covers 376 nodes.
+# `name` is therefore the plant name when one is known and NULL otherwise —
+# never the id dressed up as a name.
+_AN_SEARCH_SQL = """
+    WITH latest AS (
+        SELECT market_date, market_hour, market_interval
+        FROM atlas_pnode_lmp_snapshot
+        WHERE market = %(da)s
+          AND market_date >= %(sentinel)s
+        ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+        LIMIT 1
+    ),
+    universe AS (
+        SELECT s.pnode_id, s.node_type, s.area
+        FROM atlas_pnode_lmp_snapshot s, latest l
+        WHERE s.market = %(da)s
+          AND s.market_date = l.market_date
+          AND s.market_hour = l.market_hour
+          AND s.market_interval IS NOT DISTINCT FROM l.market_interval
+    ),
+    plant_match AS (
+        SELECT x.pnode_id,
+               min(a.plant_name) FILTER (
+                   WHERE a.plant_name ILIKE %(q)s ESCAPE '\\'
+               ) AS matched_plant,
+               min(a.plant_name) AS any_plant
+        FROM atlas_pnode_crosswalk x
+        JOIN atlas_plants a ON a.plant_code = x.plant_code
+        GROUP BY x.pnode_id
+    )
+    SELECT u.pnode_id, u.node_type, u.area,
+           COALESCE(pm.matched_plant, pm.any_plant) AS name,
+           (pm.matched_plant IS NOT NULL) AS matched_via_name,
+           un.th_hub,
+           COALESCE(g.corrected_lat, g.latitude) AS latitude,
+           COALESCE(g.corrected_lon, g.longitude) AS longitude
+    FROM universe u
+    LEFT JOIN plant_match pm ON pm.pnode_id = u.pnode_id
+    LEFT JOIN atlas_pnode_universe un ON un.pnode_id = u.pnode_id
+    LEFT JOIN atlas_pnode_geo_corrected g ON g.pnode_id = u.pnode_id
+    WHERE u.pnode_id ILIKE %(q)s ESCAPE '\\'
+       OR pm.matched_plant IS NOT NULL
+    ORDER BY (u.pnode_id ILIKE %(prefix)s ESCAPE '\\') DESC, u.pnode_id
+    LIMIT %(limit)s
+"""
+
+
+# ── SQL: movers ─────────────────────────────────────────────────────────────
+# The interval grid, read off ONE reference node's PK-index slice (~644 rows,
+# ~7 ms). Valid universe-wide because RTPD interval coverage is
+# node-independent (see the header note + its verification).
+_AN_GRID_SQL = """
+    SELECT market_date AS d, market_hour AS he, count(*)::float8 AS k
+    FROM atlas_pnode_lmp_snapshot
+    WHERE pnode_id = %(pnode_id)s
+      AND market = %(market)s
+      AND market_date >= %(lo)s
+      AND market_date <= %(hi)s
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+"""
+
+# A reference node: any priced node will do (all 14,827 are present at every
+# instant). Taken off the latest instant so it is guaranteed live.
+_AN_REF_NODE_SQL = """
+    WITH latest AS (
+        SELECT market_date, market_hour, market_interval
+        FROM atlas_pnode_lmp_snapshot
+        WHERE market = %(market)s
+          AND market_date >= %(sentinel)s
+        ORDER BY market_date DESC, market_hour DESC, market_interval DESC NULLS LAST
+        LIMIT 1
+    )
+    SELECT s.pnode_id
+    FROM atlas_pnode_lmp_snapshot s, latest l
+    WHERE s.market = %(market)s
+      AND s.market_date = l.market_date
+      AND s.market_hour = l.market_hour
+      AND s.market_interval IS NOT DISTINCT FROM l.market_interval
+    ORDER BY s.pnode_id
+    LIMIT 1
+"""
+
+# THE PINNED MOVERS CHUNKS. There are TWO shapes because the two markets have
+# different row densities per hour (RTPD ~59k, DAM ~15k) and the planner treats
+# them differently. Using one shape for both costs an order of magnitude —
+# measured, not guessed.
+#
+# RTPD — 6-hour chunks, inline VALUES (he, 1/k) grid. Both halves of the
+# predicate are load-bearing:
+#   * the VALUES grid on the outer side of the nested loop -> ONE bitmap index
+#     scan per hour (the plan we want),
+#   * `market_hour BETWEEN` -> keeps the row estimate under the ~5% cliff so
+#     the planner does not flip the whole thing to a parallel seq scan.
+# Measured: 356k rows, Bitmap Index Scan on idx_lmp_snap_market_time,
+# HashAggregate on pnode_id with NO sort and NO spill (the 1/k weight is
+# applied inline precisely to avoid grouping by hour). 226-416 ms warm,
+# ~1.6 s cold. Widening to a full day flips it to a seq scan (1.8 s+).
+_AN_MOVERS_RT_CHUNK_SQL = """
+    SELECT s.pnode_id,
+           sum(s.lmp::float8 / g.k) AS weighted_sum,
+           count(*) AS n_rows
+    FROM (VALUES {values}) AS g(he, k)
+    JOIN atlas_pnode_lmp_snapshot s
+      ON s.market_hour = g.he
+    WHERE s.market = %(market)s
+      AND s.market_date = %(d)s
+      AND s.market_hour BETWEEN %(he_lo)s AND %(he_hi)s
+      AND s.lmp IS NOT NULL
+    GROUP BY s.pnode_id
+"""
+
+# DAM — ONE chunk per date, hours as an ANY(array). DAM is hourly so every
+# weight is 1 and no grid is needed. Do NOT reuse the RTPD shape here: the
+# VALUES-grid nested loop degrades to a plain Index Scan on the sparser DAM
+# rows (measured 2,430 ms for 89k rows), whereas this shape plans as a Parallel
+# Bitmap Heap Scan and does a whole 24-hour day — 356k rows — in 1,254 ms cold.
+# That is ~4x cheaper per row for 4x the coverage.
+_AN_MOVERS_DA_CHUNK_SQL = """
+    SELECT pnode_id,
+           sum(lmp::float8) AS weighted_sum,
+           count(*) AS n_rows
+    FROM atlas_pnode_lmp_snapshot
+    WHERE market = %(market)s
+      AND market_date = %(d)s
+      AND market_hour = ANY(%(hours)s)
+      AND lmp IS NOT NULL
+    GROUP BY pnode_id
+"""
+
+# The node -> hub pairing map for the whole priced universe, for basis movers.
+# 24k-row table, PK-ordered read; the priced-universe intersection happens in
+# Python against the chunk results (a pnode_id IN (...) list of 1,579 ids would
+# wreck the chunk plan above).
+_AN_PAIRING_MAP_SQL = """
+    SELECT pnode_id, th_hub
+    FROM atlas_pnode_universe
+    WHERE th_hub = ANY(%(hubs)s)
+"""
+
+
+def _an_chunk_plan(dates, grid_by_date, chunk_hours) -> list:
+    """Split a window into index-servable (date, hours) chunks.
+
+    `chunk_hours=None` means one chunk per date (the DAM shape); an int caps a
+    chunk at that many hours (the RTPD shape). Each chunk carries the (he, k)
+    pairs it needs, so the SQL reads exactly the hours that are banked — never
+    an assumed 24-hour day. Hours absent from the grid are in no chunk at all.
+    """
+    chunks = []
+    for d in dates:
+        hours = sorted(grid_by_date.get(d, {}))
+        if not hours:
+            continue
+        step = chunk_hours or len(hours)
+        for i in range(0, len(hours), step):
+            slice_ = hours[i:i + step]
+            chunks.append({
+                "d": d,
+                "he_lo": slice_[0],
+                "he_hi": slice_[-1],
+                "hours": list(slice_),
+                "pairs": [(he, grid_by_date[d][he]) for he in slice_],
+            })
+    return chunks
+
+
+def _an_movers_rt_sql(pairs) -> str:
+    """Render the RTPD chunk SQL with its inline VALUES (he, 1/k) grid.
+
+    The literals are inlined rather than bound because the planner has to SEE
+    the tiny relation's size to choose the nested-loop bitmap plan; a bound
+    array would leave it guessing. They are ints and floats derived from DB
+    output, never from user input, and are coerced here so that stays true.
+    """
+    rows = [f"({int(he)}, {float(k)}::float8)" for he, k in pairs]
+    return _AN_MOVERS_RT_CHUNK_SQL.format(values=", ".join(rows))
+
+
+def _an_movers_rank(per_node: dict, top_n: int) -> dict:
+    """Rank a {pnode_id: value} map into top-N both directions.
+
+    `up` is most-positive-first, `down` is most-negative-first. Ties break on
+    pnode_id so the screen is deterministic between requests. Nodes whose value
+    could not be computed are absent, never zero-filled — a zero here would
+    read as "no spread" instead of "no data".
+    """
+    scored = sorted(
+        ((pid, v) for pid, v in per_node.items() if v is not None),
+        key=lambda kv: (-kv[1], kv[0]),
+    )
+    return {
+        "up": [{"pnode_id": p, "value": _an_r(v)} for p, v in scored[:top_n]],
+        "down": [{"pnode_id": p, "value": _an_r(v)}
+                 for p, v in sorted(scored, key=lambda kv: (kv[1], kv[0]))[:top_n]],
+        "ranked_nodes": len(scored),
+    }
+
+
+# ── Reads ───────────────────────────────────────────────────────────────────
+
+async def _an_read(sql: str, params: dict) -> list:
+    """One pooled read with the lane's retry-once-on-dead-connection behavior.
+    Delegates to the Cockpit reader so there is ONE such helper in this file."""
+    return await _cockpit_read(sql, params)
+
+
+async def _an_read_depth() -> dict:
+    return _an_depth(await _an_read(_AN_DEPTH_SQL, _an_depth_params()))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1. GET /api/analytics/node-search
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/analytics/node-search")
+async def analytics_node_search(
+    q: str = Query(
+        default="",
+        description=(
+            "Case-insensitive substring matched against pnode_id OR a plant "
+            "name from the Atlas crosswalk. Empty browses the universe by "
+            "pnode_id. LIKE metacharacters match literally. Prefix matches "
+            "sort first."
+        ),
+    ),
+    limit: int = Query(
+        default=AN_SEARCH_MAX,
+        description=f"Max matches, 1..{AN_SEARCH_MAX}. Results are always bounded.",
+    ),
+):
+    """
+    Find a node to open the package on — the search box the department leads with.
+
+    Searches the PRICED universe (the latest DAM instant), so every hit is a
+    node `/api/analytics/node/{pnode_id}` can actually render.
+
+    `name` is the Atlas plant name when one is known and NULL otherwise. It is
+    never the pnode_id restyled as a name: `atlas_pnode_universe.description`
+    holds the id itself for 21,362 of 24,098 rows, so it is not a gazetteer and
+    is not consulted. Only 376 priced nodes carry a plant name today — that is
+    the honest coverage, and the client should render the id as the primary
+    label with `name` as a subtitle when present.
+
+    `hub` is the paired CAISO trading hub under pairing rule v0
+    (atlas_pnode_universe.th_hub, verbatim — no geographic inference). It is
+    null for ~89% of the universe, which is correct: CAISO attributes no
+    trading hub to most load and non-CAISO WEIM nodes.
+
+    Response:
+        {
+          "query": "Alamitos", "count": 3, "limit": 50,
+          "as_of": "...", "depth": {...},
+          "matches": [{"pnode_id": "ALAMT3G_7_B1", "name": "AES Alamitos LLC",
+                       "matched_via_name": true, "node_type": "GEN",
+                       "area": "CA", "latitude": 33.76, "longitude": -118.1,
+                       "th_hub": "TH_SP15_GEN-APND", "hub": "SP15",
+                       "hub_priceable": true, "pairing": "paired"}, ...]
+        }
+
+    No matches -> 200 with an empty list. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    if not isinstance(limit, int) or limit < 1 or limit > AN_SEARCH_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"limit must be an integer in 1..{AN_SEARCH_MAX}",
+        )
+
+    q_clean = q.strip()
+    escaped = _cockpit_like_escape(q_clean)
+    params = {
+        "da": AN_DA_MARKET,
+        "sentinel": AN_SENTINEL_MIN_DATE,
+        "q": f"%{escaped}%",
+        "prefix": f"{escaped}%",
+        "limit": limit,
+    }
+
+    try:
+        depth = await _an_read_depth()
+        rows = await _an_read(_AN_SEARCH_SQL, params)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    matches = []
+    for r in rows:
+        pairing = _an_pair_hub(r["th_hub"])
+        matches.append({
+            "pnode_id": r["pnode_id"],
+            "name": r["name"],
+            "matched_via_name": bool(r["matched_via_name"]),
+            "node_type": r["node_type"],
+            "area": r["area"],
+            "latitude": _an_f(r["latitude"]),
+            "longitude": _an_f(r["longitude"]),
+            "th_hub": pairing["th_hub"],
+            "hub": pairing["hub"],
+            "hub_priceable": pairing["hub_priceable"],
+            "pairing": pairing["pairing"],
+        })
+
+    return {
+        "query": q_clean,
+        "limit": limit,
+        "count": len(matches),
+        "as_of": _utcnow().isoformat(),
+        "depth": depth,
+        "matches": matches,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2. GET /api/analytics/node/{pnode_id} — THE PACKAGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/analytics/node/{pnode_id}")
+async def analytics_node_package(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. ALAMT3G_7_B1. Unknown/unpriced -> 400.",
+    ),
+):
+    """
+    The node analytics package: identity · DART envelope · basis · components · ledger.
+
+    ALL arithmetic is over banked data — eight calendar dates as of 2026-07-30
+    (see `depth`), so every distribution here rests on 6-8 samples per HE and
+    says so in its own `n`. Nothing extrapolates.
+
+    Stanzas:
+      identity    name/type/coordinates + the paired TH hub under rule v0.
+      dart        per-HE mean and the p5/p25/p50/p75/p95 envelope over banked
+                  depth, plus the latest banked day's realized DART per HE with
+                  the band it landed in. DART = FMM(RTPD) − DA, POSITIVE = RT
+                  ABOVE DA. Note this is the opposite sign from the `spread`
+                  field on /api/timeseries/caiso-hub-lmp — do not mix them.
+      basis       node DAM − hub DAM per HE, with 7x16 (HE7-22, ALL days),
+                  off-peak, and calendar-month cuts. ABSENT (available:false +
+                  reason) when the node has no priceable CAISO hub — which is
+                  the common case for load and non-CAISO nodes.
+      components  energy/congestion/loss/ghg window means per market, each with
+                  its own n.
+      ledger      the monthly 7x16 table, N stated per row, derived from the
+                  basis stanza so the two can never disagree.
+
+    Errors: blank/unknown/unpriced pnode_id -> 400; DB unavailable -> 503. A
+    known node with no banked rows -> 200 with honest empty stanzas.
+    """
+    assert _pool is not None
+
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+
+    ident_params = {"pnode_id": node, "da": AN_DA_MARKET,
+                    "sentinel": AN_SENTINEL_MIN_DATE}
+    try:
+        depth = await _an_read_depth()
+        ident_rows = await _an_read(_AN_IDENTITY_SQL, ident_params)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    ident = ident_rows[0] if ident_rows else None
+    if not ident or not ident["priced"]:
+        # Conforms to /api/atlas/pnode-history: an id this lane cannot price is
+        # a client input error, not an empty 200 pretending the node exists.
+        raise HTTPException(
+            status_code=400,
+            detail=(f"unknown pnode_id '{node}': not present in the banked "
+                    f"{AN_DA_MARKET} universe"),
+        )
+
+    pairing = _an_pair_hub(ident["th_hub"])
+
+    try:
+        da_rows = await _an_read(_AN_NODE_LEG_SQL, {
+            "pnode_id": node, "market": AN_DA_MARKET,
+            "sentinel": AN_SENTINEL_MIN_DATE})
+        rt_rows = await _an_read(_AN_NODE_LEG_SQL, {
+            "pnode_id": node, "market": AN_RT_MARKET,
+            "sentinel": AN_SENTINEL_MIN_DATE})
+
+        hub_rows: list = []
+        if pairing["hub_priceable"] and da_rows:
+            first_d = _an_as_date(da_rows[0]["market_date"])
+            last_d = _an_as_date(da_rows[-1]["market_date"])
+            ts_lo, ts_hi = _an_hub_ts_bounds(first_d, last_d)
+            hub_rows = await _an_read(_AN_HUB_LEG_SQL, {
+                "dataset": AN_HUB_DA_DATASET, "series": pairing["hub"],
+                "ts_lo": ts_lo, "ts_hi": ts_hi})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    basis = _an_build_basis(da_rows, hub_rows, pairing)
+
+    return {
+        "pnode_id": node,
+        "as_of": _utcnow().isoformat(),
+        "depth": depth,
+        "identity": {
+            "pnode_id": node,
+            "name": ident["plant_name"],
+            "node_type": ident["node_type"],
+            "apnode_type": ident["apnode_type"],
+            "area": ident["area"],
+            "latitude": _an_f(ident["latitude"]),
+            "longitude": _an_f(ident["longitude"]),
+            "geocode_status": ident["geocode_status"],
+            "in_universe": bool(ident["in_universe"]),
+            "banked": {"min_date": _an_iso_d(ident["min_date"]),
+                       "max_date": _an_iso_d(ident["max_date"])},
+            **{k: pairing[k] for k in
+               ("th_hub", "hub", "hub_priceable", "pairing", "pairing_rule")},
+        },
+        "dart": _an_build_dart(da_rows, rt_rows),
+        "basis": basis,
+        "components": _an_build_components(da_rows, rt_rows),
+        "ledger": _an_build_ledger(basis),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3. GET /api/analytics/movers — the universe-wide screen
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def _an_movers_grid(market: str, lo, hi, ref_node: str) -> dict:
+    """{date: {he: k}} for one market over [lo, hi], from one reference node."""
+    rows = await _an_read(_AN_GRID_SQL, {
+        "pnode_id": ref_node, "market": market, "lo": lo, "hi": hi})
+    grid: dict = defaultdict(dict)
+    for r in rows:
+        grid[_an_as_date(r["d"])][int(r["he"])] = float(r["k"])
+    return grid
+
+
+async def _an_movers_sum(market: str, chunks: list, weighted: bool) -> tuple:
+    """Run the pinned chunk read over `chunks`, summing per node.
+
+    `weighted=True` uses the RTPD shape (inline VALUES 1/k grid); False uses the
+    DAM shape (per-date ANY(hours), unit weights). Both are index-served by
+    construction — see the two SQL constants. Chunks run at bounded concurrency:
+    enough to cut wall-clock, not enough to stampede a 5-connection pool on a
+    2 CU compute.
+
+    Returns (weighted_sum_by_node, row_count_by_node) so the caller can DROP
+    nodes with incomplete coverage rather than silently averaging one node over
+    a shorter window than its neighbours.
+    """
+    sums: dict = defaultdict(float)
+    counts: dict = defaultdict(int)
+    sem = asyncio.Semaphore(AN_MOVERS_CONCURRENCY)
+
+    async def _one(chunk):
+        if weighted:
+            sql = _an_movers_rt_sql(chunk["pairs"])
+            params = {"market": market, "d": chunk["d"],
+                      "he_lo": chunk["he_lo"], "he_hi": chunk["he_hi"]}
+        else:
+            sql = _AN_MOVERS_DA_CHUNK_SQL
+            params = {"market": market, "d": chunk["d"], "hours": chunk["hours"]}
+        async with sem:
+            return await _an_read(sql, params)
+
+    for batch_rows in await asyncio.gather(*(_one(c) for c in chunks)):
+        for r in batch_rows:
+            sums[r["pnode_id"]] += float(r["weighted_sum"])
+            counts[r["pnode_id"]] += int(r["n_rows"])
+    return sums, counts
+
+
+@app.get("/api/analytics/movers")
+async def analytics_movers(
+    response: Response,
+    window: str = Query(
+        default="1d",
+        description=f"Look-back window. One of {', '.join(AN_MOVERS_WINDOWS)}.",
+    ),
+    metric: str = Query(
+        default="dart",
+        description=f"Ranking metric. One of {', '.join(AN_MOVERS_METRICS)}.",
+    ),
+):
+    """
+    Top-50 movers in both directions, universe-wide, by DART or basis.
+
+    `metric=dart`  mean over the window of (hourly-mean FMM − DA) per node,
+                   positive = RT above DA. All 14,827 priced nodes rank.
+    `metric=basis` mean over the window of (node DAM − hub DAM) per node. Only
+                   the 1,579 nodes with a priceable CAISO hub can rank; the
+                   count of nodes dropped for want of a pairing is reported in
+                   `coverage`, never hidden.
+
+    QUERY PLAN (stated, per post-115 board discipline). Every read is chunked
+    so it stays on idx_lmp_snap_market_time; the two markets use DIFFERENT
+    shapes because they have different row densities per hour and the planner
+    treats them differently:
+
+      RTPD  6-hour chunks, inline VALUES (hour, 1/k) grid + a redundant
+            `market_hour BETWEEN` bound. Bitmap Index Scan, HashAggregate on
+            pnode_id, no sort, no spill. 356k rows in 226-416 ms warm.
+            4 chunks/day.
+      DAM   one chunk per date, hours as ANY(array). Parallel Bitmap Heap Scan,
+            356k rows in 1,254 ms cold. 1 chunk/day.
+
+    So `metric=basis` is 1 read/day (DAM only) and `metric=dart` is 5/day —
+    5 reads for 1d, 35 for 7d — run at concurrency AN_MOVERS_CONCURRENCY.
+
+    MEASURED BUDGET (acceptance 4). Per-chunk server-side EXPLAIN (ANALYZE)
+    execution times on the live compute, 2026-07-30. Cold means the chunk's heap
+    pages were not resident; warm means a repeat read. Both are reported because
+    a 0.25-2 CU autoscaling compute genuinely swings this much:
+
+      chunk                     cold      warm
+      RTPD 6h (356k rows)     ~1.3 s    0.23-0.42 s
+      DAM  1 date (356k rows) ~1.25 s   ~0.3 s
+
+      metric=dart  1d  (5 reads)   ~6.5 s cold / ~1.5 s warm sequential
+                                   ~2.0 s cold / ~0.5 s warm at concurrency 4
+      metric=dart  7d  (35 reads)  ~45 s  cold / ~11 s warm sequential
+                                   ~12 s  cold / ~3 s  warm at concurrency 4
+      metric=basis 7d  (7 reads)   ~9 s   cold / ~2 s  warm sequential
+                                   ~2.5 s cold / ~0.6 s warm at concurrency 4
+
+    These are summed server-side times, NOT an end-to-end wall clock: the lane
+    was built where direct Postgres egress is blocked, so the endpoint could not
+    be driven against the live pantry. `runtime_ms` in the payload is the real
+    measurement and should be read off the first deploy.
+
+    The honest read: 1d is interactive, and 7d dart is NOT on a cold cache. The
+    5-minute cache below carries the repeat cost, but the FIRST 7d dart request
+    after a dispatch will take double-digit seconds. The dashboard's window
+    toggle should default to 1d, and if a cold 7d proves to be a problem in
+    practice the fix is a warmed cache (a scheduled poke after each dispatch),
+    not a wider chunk — every wider shape measured here is worse.
+
+    What NOT to "simplify" it back to, all measured on this compute: widening
+    an RTPD chunk to a full day flips it to a parallel seq scan (1.8 s and
+    climbing); reusing the RTPD VALUES-grid shape for DAM degrades to a plain
+    Index Scan (2,430 ms for a QUARTER of the rows); and the naive
+    GROUP BY (pnode_id, date, hour) shape over a 7-day RTPD window seq-scans
+    and spills 430 MB for 38 s. `runtime_ms` reports the measured cost of the
+    request that actually computed the answer, so a regression is visible in
+    the payload rather than only in a log.
+
+    Cached for 5 minutes per (metric, window): the snapshot writer has no
+    standing schedule, so the answer only changes when a dispatch lands.
+
+    Errors: bad window/metric -> 400; DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    if window not in AN_MOVERS_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"window must be one of {', '.join(AN_MOVERS_WINDOWS)}")
+    if metric not in AN_MOVERS_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"metric must be one of {', '.join(AN_MOVERS_METRICS)}")
+
+    cache_key = (metric, window)
+    hit = _an_movers_cache.get(cache_key)
+    now_mono = time.monotonic()
+    if hit and (now_mono - hit[0]) < AN_MOVERS_CACHE_TTL:
+        response.headers["Cache-Control"] = f"public, max-age={int(AN_MOVERS_CACHE_TTL)}"
+        return {**hit[1], "cached": True}
+
+    started = time.monotonic()
+    try:
+        depth = await _an_read_depth()
+        markets = depth["markets"]
+        da_max = markets.get(AN_DA_MARKET, {}).get("max_date")
+        rt_max = markets.get(AN_RT_MARKET, {}).get("max_date")
+        if not da_max or not rt_max:
+            raise HTTPException(
+                status_code=503,
+                detail="no banked nodal data in the snapshot hot tier")
+
+        # Anchor on the newest date BOTH legs carry (staleness by design — never
+        # wall-clock now, which would blank a legitimately stale screen).
+        end_d = min(_date.fromisoformat(da_max), _date.fromisoformat(rt_max))
+        start_d = end_d - _timedelta(days=AN_MOVERS_WINDOWS[window] - 1)
+
+        ref_rows = await _an_read(_AN_REF_NODE_SQL, {
+            "market": AN_RT_MARKET, "sentinel": AN_SENTINEL_MIN_DATE})
+        if not ref_rows:
+            raise HTTPException(status_code=503,
+                                detail="no priced node universe to screen")
+        ref_node = ref_rows[0]["pnode_id"]
+
+        rt_grid = await _an_movers_grid(AN_RT_MARKET, start_d, end_d, ref_node)
+        da_grid = await _an_movers_grid(AN_DA_MARKET, start_d, end_d, ref_node)
+
+        # MATCHED HOURS. An hour is comparable only when every leg the METRIC
+        # needs published it. That set is metric-specific on purpose:
+        #   dart  needs DA + FMM        -> DAM hours ∩ RTPD hours
+        #   basis needs DA + hub DA     -> DAM hours ∩ hub hours (RTPD is
+        #                                  irrelevant and must NOT narrow it)
+        # Either way the set is node-independent (universe-wide dispatch), so it
+        # is one scalar set shared by every ranked node — which is what makes
+        # the weighted single-pass read valid.
+        hub_map: dict = {}
+        pair_rows: list = []
+        if metric == "basis":
+            ts_lo, ts_hi = _an_hub_ts_bounds(start_d, end_d)
+            # One read per zone: `series` is the second column of
+            # idx_tsv_series_ts, so a per-zone equality keeps the index in play
+            # (a three-zone IN-list would not).
+            for zone in sorted(set(AN_TH_HUB_TO_ZONE.values())):
+                rows = await _an_read(_AN_HUB_LEG_SQL, {
+                    "dataset": AN_HUB_DA_DATASET, "series": zone,
+                    "ts_lo": ts_lo, "ts_hi": ts_hi})
+                hub_map[zone] = _an_hub_map(rows)
+            pair_rows = await _an_read(_AN_PAIRING_MAP_SQL, {
+                "hubs": list(AN_TH_HUB_TO_ZONE)})
+            # An hour counts only if EVERY zone banked it, so all three zones'
+            # block averages span the identical hours and the screen ranks
+            # NP15/SP15/ZP26 nodes on the same footing.
+            other = set.intersection(*(set(m) for m in hub_map.values())) \
+                if hub_map else set()
+        else:
+            other = {(d, he) for d, hours in rt_grid.items() for he in hours}
+
+        matched: dict = {}
+        for d, hours in da_grid.items():
+            common = sorted(he for he in hours if (d, he) in other)
+            if common:
+                matched[d] = common
+        total_hours = sum(len(v) for v in matched.values())
+        if not total_hours:
+            raise HTTPException(
+                status_code=503,
+                detail=("no hour in the window carries both a DA and an FMM leg"
+                        if metric == "dart" else
+                        "no hour in the window carries both a node DA and a hub DA leg"))
+
+        # DA is hourly: one row per hour, so its weight is 1.
+        da_pairs = {d: {he: 1.0 for he in hes} for d, hes in matched.items()}
+
+        dates = sorted(matched)
+        # DAM: one chunk per date, unit weights. RTPD: 6-hour chunks, 1/k grid.
+        da_chunks = _an_chunk_plan(dates, da_pairs, None)
+        da_sums, da_counts = await _an_movers_sum(
+            AN_DA_MARKET, da_chunks, weighted=False)
+
+        rt_pairs: dict = {}
+        rt_sums, rt_counts = ({}, {})
+        rt_chunks: list = []
+        if metric == "dart":
+            rt_pairs = {d: {he: rt_grid[d][he] for he in hes}
+                        for d, hes in matched.items()}
+            rt_chunks = _an_chunk_plan(dates, rt_pairs, AN_MOVERS_CHUNK_HOURS)
+            rt_sums, rt_counts = await _an_movers_sum(
+                AN_RT_MARKET, rt_chunks, weighted=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # ── Per-node statistic. A node must carry the FULL matched hour set on
+    # every leg it needs; a short node is EXCLUDED and counted, not averaged
+    # over a different window than its neighbours.
+    expected_da = total_hours
+    # Sum of the per-hour interval counts: the RTPD row count a node must carry
+    # to have contributed to every matched hour. Zero when there is no RT leg.
+    expected_rt = int(round(sum(
+        rt_pairs[d][he] for d in rt_pairs for he in rt_pairs[d]))) if rt_pairs else 0
+    per_node: dict = {}
+    short = 0
+    unpaired = 0
+
+    if metric == "dart":
+        # Iterate the UNION of both legs so a node missing entirely from one of
+        # them is counted as excluded rather than vanishing from the tally.
+        for pid in set(da_sums) | set(rt_sums):
+            da_sum, rt_sum = da_sums.get(pid), rt_sums.get(pid)
+            if da_sum is None or rt_sum is None:
+                short += 1
+                continue
+            if da_counts.get(pid) != expected_da or rt_counts.get(pid) != expected_rt:
+                short += 1
+                continue
+            per_node[pid] = (rt_sum - da_sum) / total_hours
+    else:
+        zone_of = {r["pnode_id"]: AN_TH_HUB_TO_ZONE[r["th_hub"]] for r in pair_rows}
+        # The hub's own block average over the SAME matched hours.
+        hub_mean: dict = {}
+        for zone, m in hub_map.items():
+            vals = [m[(d, he)] for d in matched for he in matched[d] if (d, he) in m]
+            hub_mean[zone] = (sum(vals) / len(vals)) if len(vals) == total_hours else None
+        for pid, da_sum in da_sums.items():
+            zone = zone_of.get(pid)
+            if zone is None:
+                unpaired += 1
+                continue
+            if da_counts.get(pid) != expected_da:
+                short += 1
+                continue
+            hm = hub_mean.get(zone)
+            if hm is None:
+                short += 1
+                continue
+            per_node[pid] = (da_sum / total_hours) - hm
+
+    ranked = _an_movers_rank(per_node, AN_MOVERS_TOP_N)
+    runtime_ms = int((time.monotonic() - started) * 1000)
+
+    payload = {
+        "metric": metric,
+        "window": window,
+        "as_of": _utcnow().isoformat(),
+        "depth": depth,
+        "window_served": {"start": dates[0].isoformat(), "end": dates[-1].isoformat(),
+                          "matched_hours": total_hours,
+                          "matched_days": len(matched)},
+        "definition": (
+            "mean over matched hours of (hourly-mean FMM − DA); positive = RT above DA"
+            if metric == "dart" else
+            "mean over matched hours of (node DAM − hub DAM); positive = node above hub"
+        ),
+        "coverage": {
+            "ranked_nodes": ranked["ranked_nodes"],
+            "excluded_incomplete": short,
+            "excluded_unpaired": unpaired,
+            "pairing_rule": "caiso_th_hub_v0" if metric == "basis" else None,
+        },
+        "top_n": AN_MOVERS_TOP_N,
+        "up": ranked["up"],
+        "down": ranked["down"],
+        "runtime_ms": runtime_ms,
+        "query_plan": {
+            "index": "idx_lmp_snap_market_time",
+            "dam": "one chunk per date, market_hour = ANY(hours); parallel bitmap heap scan",
+            "rtpd": (f"{AN_MOVERS_CHUNK_HOURS}-hour chunks, inline VALUES(he,1/k) grid + "
+                     "redundant market_hour BETWEEN; bitmap index scan, "
+                     "HashAggregate on pnode_id (no sort, no spill)"),
+            "chunks": {"dam": len(da_chunks), "rtpd": len(rt_chunks)},
+            "concurrency": AN_MOVERS_CONCURRENCY,
+        },
+        "cached": False,
+    }
+    _an_movers_cache[cache_key] = (time.monotonic(), payload)
+    response.headers["Cache-Control"] = f"public, max-age={int(AN_MOVERS_CACHE_TTL)}"
+    _analytics_log.info(
+        "movers metric=%s window=%s hours=%d ranked=%d short=%d unpaired=%d runtime_ms=%d",
+        metric, window, total_hours, ranked["ranked_nodes"], short, unpaired, runtime_ms)
+    return payload

@@ -290,6 +290,56 @@ that can drop them will:
   blocks shipped are holiday-independent and reconcile with that lane to the
   last decimal.
 
+### The Nodes room (`/api/analytics/node*`, `/api/analytics/movers`)
+
+Room 1 of the Analytics Department: search a node, get its package. Three routes
+serving the Node Analytics Package. All arithmetic is over banked data; every
+response carries `depth` and `as_of`.
+
+- `GET /api/analytics/node-search?q=&limit=`
+  -> up to 50 nodes from the PRICED universe (the latest DAM instant) whose
+  `pnode_id` OR Atlas plant name contains `q`; prefix matches sort first. Each
+  match carries `node_type`, `area`, coordinates, and the paired hub. `name` is
+  the Atlas plant name or **null** — `atlas_pnode_universe.description` is the
+  pnode_id for 21,362 of 24,098 rows, so it is not a gazetteer and is not used;
+  only 376 priced nodes have a real name. Bad `limit` -> 400; no matches -> 200
+  with `[]`; DB unavailable -> 503
+
+- `GET /api/analytics/node/{pnode_id}`
+  -> the package, in five stanzas: `identity` (name/type/coordinates + paired
+  hub), `dart` (per-HE mean + the p5/p25/p50/p75/p95 envelope over banked depth,
+  plus the latest banked day's realized DART per HE and the band it fell in),
+  `basis` (node DAM − hub DAM per HE, with 7x16 / off-peak / calendar-month
+  cuts), `components` (energy/congestion/loss/ghg window means per market, each
+  with its own `n`), and `ledger` (the monthly 7x16 table, N per row, derived
+  from `basis` so the two cannot disagree).
+  Unknown/unpriced pnode_id -> 400; a known node with nothing banked -> 200 with
+  honest empty stanzas; DB unavailable -> 503
+
+- `GET /api/analytics/movers?window=1d|7d&metric=dart|basis`
+  -> top-50 both directions, universe-wide, with `coverage` (ranked / excluded
+  incomplete / excluded unpaired), the measured `runtime_ms`, and the
+  `query_plan` it actually rode. Cached 5 minutes per (metric, window). Bad
+  window/metric -> 400; DB unavailable -> 503
+
+Three facts worth knowing before you consume these:
+
+- **`DART = FMM − DA`, positive = RT above DA.** This is the ratified nodal
+  convention (same as `/api/atlas/pnode-history`). The OLDER `spread` field on
+  `/api/timeseries/caiso-hub-lmp` and the Watchboard `dart` tile use the
+  **opposite** sign (DA − RT). The field here is always named `dart`, never
+  `spread`, so the two never get mixed. Mixing them draws an inverted chart with
+  no error anywhere.
+- **Depth is eight calendar dates**, not weeks. `atlas_pnode_lmp_snapshot` is a
+  ~7-day hot tier: DAM and RTPD both span 2026-07-22..2026-07-29 with six
+  complete days. So every per-HE band rests on 6–8 samples (each states its own
+  `n`), and the monthly ledger is ONE row for 2026-07 with `complete: false`.
+- **Basis needs a CAISO trading hub, and most nodes do not have one.** Pairing
+  rule v0 reads `atlas_pnode_universe.th_hub` verbatim — no geographic
+  inference. Coverage of the 14,827-node priced universe: 1,579 overall (10.7%),
+  but 1,487 of 1,860 CA-area GEN nodes (79.9%). For an unpaired node the basis
+  and ledger stanzas are `available: false` plus a reason — never zeros.
+
 ---
 
 ## Tests
