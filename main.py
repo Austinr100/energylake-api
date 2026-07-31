@@ -54,6 +54,11 @@ Endpoints:
     GET /api/analytics/node/{pnode_id}/grid    Regime Package v0: HE1-24 x banked-dates heat grid with both margins, scale cap stated, dates never padded (2026-07-30)
     GET /api/analytics/tb4                 Regime Package v0: top-bottom-4 spread per day — hub scope full depth + monthly long view, node scope honest N, regime-shift flag with its arithmetic (2026-07-30)
     GET /api/analytics/movers-grid         Regime Package v0: top-25 both directions x HE1-24 window-mean cells; ranks via /movers in-process, fills 50 nodes off the PK, cached (2026-07-30)
+    GET /api/desk/blotter                  Paper Desk v0: every paper_journal kind='bid' row, newest first, status OPEN/PENDING/SETTLED derived server-side (notes are never bids) (2026-07-31)
+    GET /api/desk/book                     Paper Desk v0: desk totals — open count + gross MW, settled win/loss/flat, cumulative P&L, avg pnl/MWh; zero-fill is flat, no intraday mark (2026-07-31)
+    GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
+    GET /api/desk/by-node                  Paper Desk v0: per-pnode aggregates — n, win rate, total P&L, avg pnl/MWh; nothing-settled nodes sort last, never dropped (2026-07-31)
+    GET /api/desk/by-play                  Paper Desk v0: per-screen aggregates — writer carries no machine-readable play key, so play is null with the reason attached (2026-07-31)
 """
 
 import asyncio
@@ -12466,3 +12471,317 @@ async def analytics_movers_grid(
         "movers-grid metric=%s window=%s nodes=%d runtime_ms=%d ranking_cached=%s",
         metric, window, len(nodes), runtime_ms, payload["ranking_cached"])
     return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE PAPER DESK — BLOTTER / BOOK / EQUITY v0  (/api/desk/*)   2026-07-31
+#
+# Five read-only stanzas over ONE table, `paper_journal`, which the desk agent
+# writes and this service only ever reads:
+#
+#   GET /api/desk/blotter   every bid, newest first, with derived status
+#   GET /api/desk/book      desk totals: open exposure, settled record, P&L
+#   GET /api/desk/equity    cumulative settled P&L by trade_date
+#   GET /api/desk/by-node   per-pnode aggregates
+#   GET /api/desk/by-play   per-screen aggregates (v0 serves play: null — §PLAY)
+#
+# THE ARITHMETIC IS NOT HERE. Every derivation lives in paper_desk.py, which is
+# pure — no I/O, no clock, no database. This layer reads rows and hands them
+# over. That split is what makes tests/test_paper_desk.py a test of the ledger
+# rules rather than a test of a query. The five rails (notes are not bids;
+# status is derived from two columns; a position marks only at settlement; P&L
+# is read and never recomputed from prices; empty is [] and thin is null) are
+# stated once, in that module's docstring, and pinned there.
+#
+# ZERO LLM, MECHANICALLY. Nothing in this lane calls a language service. It is
+# arithmetic over 19 banked rows. tests/test_paper_desk.py greps the source of
+# paper_desk.py AND of all five route functions below for the vocabulary that
+# would betray one, in the house pattern
+# (test_structures.py::test_no_forward_pricing_vocabulary_anywhere_in_the_module).
+#
+# §PLAY — THE ONE FINDING, STATED UP FRONT. The by-play stanza wants the screen
+# that fired each bid. The writer does not carry one in a machine-readable slot:
+# `inputs_as_of` holds map.map_id (the agent program — identical on every row in
+# the table, notes included), bid.* position fields, and bid_screen.facts[]
+# (free prose). The screen name appears only in the `rationale` PROSE, under
+# "WHICH SCREEN FIRED". So v0 serves `play: null` with the reason attached, and
+# does not regex an English sentence to key an aggregate. The near miss and the
+# one-field writer fix are documented in paper_desk.py's PLAY_KEY_PATHS block.
+# The lookup is live: stamp inputs_as_of.bid.screen and this lights up with no
+# code change.
+#
+# DEPTH, MEASURED 2026-07-31. `paper_journal` holds 19 rows: 17 notes and 2
+# bids, both filed 2026-07-30, both unsettled with no reason stamped (so both
+# read OPEN), both frontier_ok = false. NOTHING HAS SETTLED YET. So today the
+# equity curve is honestly `points: []`, the book's settled block is all zeros
+# with `win_rate: null`, and by-node returns two nodes with open exposure and no
+# record. The settled branches are real, tested against hand-built rows, and
+# light themselves the day the settlement writer runs — no code change here.
+#
+# QUERY SHAPES: ONE, and it is the whole lane. See _PD_BIDS_SQL for the EXPLAIN
+# receipt. No migrations, no new indexes, no existing endpoint touched.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import paper_desk as _pd
+
+DESK_PREFIX = "/api/desk"
+
+# The lane's ONE query shape. Every stanza rides it; none of them adds a second.
+#
+# `inputs_as_of` is selected because the by-play key lookup needs it, and is
+# NEVER put on the wire — it is a heavy jsonb blob (the full bid screen with its
+# prose facts) and the blotter is a position list, not an audit log.
+#
+# EXPLAIN (ANALYZE, BUFFERS) receipt — Neon `Energylake`, 2026-07-31:
+#
+#   Sort  (cost=3.21..3.21 rows=1 width=418) (actual time=0.033..0.033 rows=2)
+#     Sort Key: trade_date, entry_id
+#     Sort Method: quicksort  Memory: 25kB
+#     Buffers: shared hit=6
+#     ->  Seq Scan on paper_journal
+#           (cost=0.00..3.20 rows=1 width=418) (actual time=0.016..0.016 rows=2)
+#           Filter: (kind = 'bid'::text)
+#           Rows Removed by Filter: 17
+#           Buffers: shared hit=3
+#   Planning Time: 2.367 ms
+#   Execution Time: 0.055 ms
+#
+# A Seq Scan is the RIGHT plan here and not a finding: the whole table is three
+# pages, so any index would cost a second read to save nothing. The table does
+# carry `uniq_paper_journal_bid_position` (trade_date, pnode_id, direction)
+# WHERE kind = 'bid' — a write-side uniqueness guard, not a read path, and this
+# lane neither needs nor uses it. The plan is worth revisiting when the journal
+# reaches the low thousands of rows; at 19 it is 0.055 ms and 3 buffers.
+_PD_BIDS_SQL = """
+    SELECT entry_id, entry_ts, kind, trade_date, pnode_id, constraint_id,
+           direction, size_mw, price_limit, hour_scope, conviction,
+           filled_hours, settled, settle_da, settle_fmm, pnl_per_mwh,
+           pnl_dollars, settled_at, unsettled_reason, frontier_ok,
+           inputs_as_of
+    FROM paper_journal
+    WHERE kind = %(kind)s
+    ORDER BY trade_date, entry_id
+"""
+
+
+async def _pd_read_bids() -> tuple:
+    """The lane's single read -> (normalized bids, per-bid play triples).
+
+    Returns them side by side and in the same order so the by-play stanza can
+    group without `inputs_as_of` ever reaching the wire.
+
+    Fail-loud: a DB failure is a 503 with a plain body, never a fabricated 200
+    with an empty blotter. A 200 from any stanza in this lane asserts the
+    journal was actually read — "no positions" and "could not look" are
+    different answers and must never render the same.
+    """
+    try:
+        rows = await _cockpit_read(_PD_BIDS_SQL, {"kind": _pd.BID_KIND})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+    bids = _pd.bid_rows(rows)
+    by_id = {r.get("entry_id"): r.get("inputs_as_of") for r in rows}
+    plays = [_pd.play_of(by_id.get(b["entry_id"])) for b in bids]
+    return bids, plays
+
+
+def _pd_base() -> dict:
+    """The stamp every stanza carries: when it was computed, and off what."""
+    return {
+        "as_of": _utcnow().isoformat(),
+        "source": "paper_journal (kind='bid')",
+        "paper_only": (
+            "these are paper positions. Nothing in this repository can submit "
+            "a bid to CAISO or any external market; no such code path exists"),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1. GET /api/desk/blotter — every bid, with its derived status
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get(f"{DESK_PREFIX}/blotter")
+async def desk_blotter():
+    """
+    The blotter — every `kind='bid'` row in `paper_journal`, newest first.
+
+    Per row: trade_date, pnode_id, direction, size_mw, price_limit, hour_scope,
+    conviction, settled, settle_da, settle_fmm, pnl_per_mwh, pnl_dollars,
+    filled_hours, settled_at, unsettled_reason — plus `entry_id` (a stable row
+    key), `constraint_id`, and `frontier_ok`.
+
+    `frontier_ok` is additive beyond the named list and is load-bearing: every
+    bid banked to date carries `false`, meaning the position was taken on
+    inputs the writer's own freshness check flagged. A blotter that hides that
+    lies by omission.
+
+    STATUS IS DERIVED SERVER-SIDE, never stored:
+        settled                       -> SETTLED
+        unsettled, no reason stamped  -> OPEN
+        unsettled, reason stamped     -> PENDING
+
+    A PENDING row's `unsettled_reason` is served VERBATIM — never mapped to a
+    code, never truncated. Render the string.
+
+    NOTES ARE NOT BIDS. `kind='note'` is the morning pre-bid read: prose, no
+    position. It is filtered in the SQL and again in `paper_desk.bid_rows`, and
+    can never appear here.
+
+    Empty journal -> `rows: []`, never null. DB down -> 503.
+    """
+    assert _pool is not None
+    bids, _plays = await _pd_read_bids()
+    return {**_pd_base(), **_pd.blotter(bids)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2. GET /api/desk/book — the totals
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get(f"{DESK_PREFIX}/book")
+async def desk_book():
+    """
+    The book — desk totals over the same bids the blotter serves.
+
+    Open exposure is a COUNT and a GROSS MW (sum of |size_mw|, direction
+    ignored) and NOTHING ELSE. There is no live intraday mark in v0: a position
+    marks only at settlement, so an open position contributes no dollars to
+    anything here. (A banked-hours running mark is filed as v1 debt in the
+    handoff, deliberately not built.)
+
+    Settled record: n, win / loss / flat, and `win_rate` over the classified
+    rows. `win = pnl_dollars > 0`. A ZERO-FILL SETTLEMENT — a bid that never
+    cleared, `filled_hours = 0` — transacts no MWh and so books no P&L: it
+    counts FLAT, never a loss.
+
+    `unclassified` counts settled rows carrying no P&L that are not zero-fills
+    — real holes in the ledger. win + loss + flat + unclassified == settled.n,
+    always; nothing is quietly dropped to make a rate look clean.
+
+    `pnl_dollars` is the cumulative settled total, summed from the same
+    cent-rounded figures the blotter displays, so the visible column adds up.
+    P&L arrives ALREADY SIGNED from the settlement writer and is read verbatim
+    — `settle_da` / `settle_fmm` are display columns and are never operands.
+
+    `avg_pnl_per_mwh` is the UNWEIGHTED mean over settled rows carrying one,
+    with `avg_pnl_per_mwh_n` beside it. Null, never 0.0, when nothing has
+    settled — 0.0 would read "everything lost".
+
+    DB down -> 503.
+    """
+    assert _pool is not None
+    bids, _plays = await _pd_read_bids()
+    return {**_pd_base(), **_pd.book(bids)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3. GET /api/desk/equity — the curve
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get(f"{DESK_PREFIX}/equity")
+async def desk_equity():
+    """
+    The equity curve — cumulative settled `pnl_dollars` by trade_date, ascending.
+
+    SETTLED ROWS ONLY, and GAPS ARE HONEST. One point per trade_date that
+    actually carries a settlement; a date with nothing settled produces NO
+    POINT. Consecutive points are therefore not necessarily adjacent dates.
+    There is no interpolation, no zero-fill of an empty date, and no
+    carry-forward of the last value — a flat segment drawn across a gap is a
+    claim that the desk was flat, which is not what a gap means.
+
+    Each point carries the day's `pnl_dollars`, the running
+    `cumulative_pnl_dollars`, and `settled_n` / `booked_n` so a client can see
+    when a day's total rests on fewer rows than settled that day.
+
+    The last point's cumulative figure is exactly the book's `pnl_dollars` —
+    both sum the same cent-rounded row values.
+
+    Nothing settled -> `points: []` and `span: null`, never a fabricated
+    zero line. DB down -> 503.
+    """
+    assert _pool is not None
+    bids, _plays = await _pd_read_bids()
+    return {**_pd_base(), **_pd.equity_curve(bids)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. GET /api/desk/by-node — per-pnode aggregates
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get(f"{DESK_PREFIX}/by-node")
+async def desk_by_node():
+    """
+    Per-pnode aggregates: n, settled n, win / loss / flat, win rate, total P&L,
+    and average pnl/MWh — plus open count and open gross MW, so a node with
+    live exposure and no record yet is still legible.
+
+    Ordered by total P&L descending. A node with NOTHING SETTLED sorts last but
+    STAYS VISIBLE: dropping it would make the list itself read as a ranking of
+    performance, when it is a ranking of a mixed set.
+
+    `win_rate` is null — never 0.0 — for a node with nothing classified.
+
+    Every rule the book applies applies here: settled-only P&L, zero-fill is
+    flat, P&L read never recomputed.
+
+    Empty journal -> `nodes: []`. DB down -> 503.
+    """
+    assert _pool is not None
+    bids, _plays = await _pd_read_bids()
+    return {**_pd_base(), **_pd.by_node(bids)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. GET /api/desk/by-play — per-screen aggregates (v0: play is null)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get(f"{DESK_PREFIX}/by-play")
+async def desk_by_play():
+    """
+    Per-play aggregates, keyed off the screen that fired each bid — the same
+    statistics `/api/desk/by-node` reports, grouped by play instead of node.
+
+    V0 SERVES `play: null`, AND THAT IS THE FINDING. The writer carries no
+    machine-readable play key. `inputs_as_of` on a bid row holds:
+
+      * `map.map_id` = "desk_reader_prebid" — identical on EVERY row in the
+        table, notes included. That is the agent program, not the screen; it
+        cannot discriminate one play from another.
+      * `bid.*` — the position's own fields (size, node, direction, conviction,
+        hour scope, price limit, constraint, rules, fingerprint, persistence
+        metrics, settle reference, conviction reasons).
+      * `bid_screen.{facts[], positions[], bids_filed}` — `facts` is free prose
+        ("GATE 1 OK ...", "CANDIDATE ...", "PRICED ...", "DROP ...").
+
+    The screen name appears in exactly one place: the `rationale` PROSE, under
+    the heading "WHICH SCREEN FIRED". Regexing an English sentence to key an
+    aggregate would make the aggregate a property of the writer's prose style,
+    so this endpoint does not do it.
+
+    THE NEAR MISS, so nobody re-discovers it: `bid.persistence` exists as a
+    metrics block, and both banked bids did fire off the persistence screen.
+    Inferring the play from the PRESENCE of that key is schema-shape
+    divination, not a contract — there is no phantom or surprise counterpart to
+    discriminate against, and both banked rows come from one run on one trade
+    date, so the guess cannot be checked against a counterexample.
+
+    So every bid falls into ONE group with `play: null` — the counts still tie
+    to the blotter — and `key` reports what was searched and why nothing was
+    found. Zero bids -> `plays: []`.
+
+    WRITER FIX, one field, no migration of existing rows: stamp
+    `inputs_as_of.bid.screen` ∈ {"persistence", "phantom", "surprise"}. The
+    lookup here is already live against `key.paths_searched`, so the stanza
+    groups on it the day it appears, with no change to this file. If a bid can
+    be corroborated by more than one screen — the rationale's "No
+    phantom/surprise corroboration this run" implies it can — then
+    `bid.screens: [...]` is the right shape, and v1 groups on the array; v0
+    reads scalars only and reports an array as present-but-not-groupable rather
+    than flattening it silently.
+
+    DB down -> 503.
+    """
+    assert _pool is not None
+    bids, plays = await _pd_read_bids()
+    return {**_pd_base(), **_pd.by_play(bids, plays)}

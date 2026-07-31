@@ -342,6 +342,82 @@ Three facts worth knowing before you consume these:
 
 ---
 
+### The Paper Desk (`/api/desk/*`)
+
+Five read-only stanzas over `paper_journal`, the table the desk agent writes
+and this service only ever reads. The arithmetic lives in `paper_desk.py`,
+which is pure — no I/O, no clock, no database; the routes read rows and hand
+them over. Zero LLM: this lane is arithmetic over 19 banked rows, and
+`tests/test_paper_desk.py` greps both the pure layer and every route function
+for language-service vocabulary.
+
+- `GET /api/desk/blotter`
+  -> every `kind='bid'` row, newest first, each carrying `trade_date`,
+  `pnode_id`, `direction`, `size_mw`, `price_limit`, `hour_scope`,
+  `conviction`, `settled`, `settle_da`, `settle_fmm`, `pnl_per_mwh`,
+  `pnl_dollars`, `filled_hours`, `settled_at`, `unsettled_reason` — plus
+  `entry_id`, `constraint_id` and `frontier_ok`. **Status is derived
+  server-side** and never stored: settled → `SETTLED`; unsettled with no reason
+  → `OPEN`; unsettled with a reason → `PENDING`, whose `unsettled_reason` is
+  served **verbatim** (render the string; it is never mapped to a code)
+
+- `GET /api/desk/book`
+  -> open count + gross MW (sum of `|size_mw|`), pending the same, the settled
+  record (`win`/`loss`/`flat`/`unclassified` + `win_rate`), cumulative
+  `pnl_dollars`, and the unweighted `avg_pnl_per_mwh` with its `n`
+
+- `GET /api/desk/equity`
+  -> cumulative settled `pnl_dollars` by `trade_date`, ascending, **settled rows
+  only**. One point per date that actually carries a settlement — no
+  interpolation, no zero-fill, no carry-forward
+
+- `GET /api/desk/by-node` / `GET /api/desk/by-play`
+  -> per-pnode and per-play aggregates: `n`, win rate, total P&L, avg
+  pnl/MWh, plus open count and open gross MW. Ordered by P&L descending; a
+  group with nothing settled sorts last but is **never dropped**
+
+Five things worth knowing before you consume these:
+
+- **Notes are not bids.** `paper_journal` holds two species keyed by `kind`:
+  `note` (the Morning Pre-Bid Read — prose, no position) and `bid`. The filter
+  is in the SQL *and* re-asserted in `paper_desk.bid_rows`, so prose can never
+  inflate a position count.
+- **A position marks only at settlement.** There is no live intraday mark in
+  v0. `settled` is the sole gate on every P&L figure: an OPEN or PENDING row
+  contributes nothing anywhere, even if a P&L column has been stamped on it. A
+  banked-hours running mark is filed as v1 debt, deliberately not built.
+- **P&L is read, never recomputed.** `pnl_dollars` / `pnl_per_mwh` arrive
+  already signed from the settlement writer, which owns the direction
+  convention. `settle_da` / `settle_fmm` are carried for display and are never
+  operands — re-deriving a sign here would put a second, competing settlement
+  convention in the building.
+- **A zero-fill is FLAT, never a loss.** A settled bid that never cleared
+  (`filled_hours = 0`) transacts no MWh, so it books no P&L. A settled row with
+  a real fill and no P&L is `unclassified` — a hole in the ledger, counted and
+  surfaced rather than laundered into flat. `win + loss + flat + unclassified
+  == settled.n`, always.
+- **`play` is `null`, and that is the finding.** The writer carries no
+  machine-readable play key: `inputs_as_of` holds `map.map_id` (the agent
+  program — identical on every row, so it cannot discriminate a screen),
+  `bid.*` position fields, and `bid_screen.facts[]` (free prose). The screen
+  name appears only in the `rationale` PROSE under "WHICH SCREEN FIRED", and
+  regexing an English sentence to key an aggregate would make the aggregate a
+  property of the writer's prose style. All bids fall into one `play: null`
+  group (so the counts still tie to the blotter) and `key` reports what was
+  searched. **Writer fix, one field:** stamp `inputs_as_of.bid.screen` ∈
+  `persistence | phantom | surprise` — the lookup is already live and the
+  stanza groups on it with no API change.
+
+Depth, measured 2026-07-31: 19 rows — 17 notes and 2 bids, both filed
+2026-07-30, both `OPEN`, both `frontier_ok = false`. **Nothing has settled
+yet**, so the equity curve is honestly `points: []` and the settled record is
+zeros with `win_rate: null`. The settled branches are tested against hand-built
+rows and light themselves when the settlement writer runs. Empty is `[]` and
+thin is `null`, never `0.0`. DB unavailable -> 503, never a fabricated empty
+desk.
+
+---
+
 ## Tests
 
 Test-only deps live in `requirements-dev.txt`; no live database is needed
