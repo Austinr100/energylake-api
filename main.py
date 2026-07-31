@@ -50,6 +50,10 @@ Endpoints:
     GET /api/analytics/node-search         Analytics Department v0 (Nodes room): find a priced node by pnode_id or Atlas plant name (2026-07-30)
     GET /api/analytics/node/{pnode_id}     Analytics Department v0 (Nodes room): the node package — identity/DART envelope/basis/components/monthly ledger, all over banked depth (2026-07-30)
     GET /api/analytics/movers              Analytics Department v0 (Nodes room): top-50 both directions by DART or basis over 1d/7d, index-served chunked reads, cached (2026-07-30)
+    GET /api/analytics/node/{pnode_id}/ladder  Regime Package v0: per-HE percentile ladder + regime chip over banked depth; server-side depth floor (min/mid/max below n=15) (2026-07-30)
+    GET /api/analytics/node/{pnode_id}/grid    Regime Package v0: HE1-24 x banked-dates heat grid with both margins, scale cap stated, dates never padded (2026-07-30)
+    GET /api/analytics/tb4                 Regime Package v0: top-bottom-4 spread per day — hub scope full depth + monthly long view, node scope honest N, regime-shift flag with its arithmetic (2026-07-30)
+    GET /api/analytics/movers-grid         Regime Package v0: top-25 both directions x HE1-24 window-mean cells; ranks via /movers in-process, fills 50 nodes off the PK, cached (2026-07-30)
 """
 
 import asyncio
@@ -9896,6 +9900,151 @@ def _an_band_of(value, env) -> "str | None":
     return "above_p95"
 
 
+# ── The class/context grammar (shared by the package and the Regime lane) ────
+#
+# `_an_band_of` above names SIX classes. They are the department's ONE class
+# vocabulary: the dart latest-day rows have always carried them under the field
+# name `band`, and from the Regime lane the basis per-HE rows carry the SAME
+# six names under `class`. Both are read by the dashboard's `classifyBand`
+# (which accepts `band ?? class`), so a consumer never has to learn two words
+# for one idea. `_an_context_label` renders the DISPLAY string, and it is the
+# one place the depth grammar bites: percentile words are earned at
+# AN_PERCENTILE_FLOOR complete samples and refused below it.
+#
+# This mirrors the dashboard's `bandLabel(band, n)` in
+# src/components/analytics/analytics.ts VERBATIM — same floor, same six
+# strings, same fallback — so the server and the client cannot drift into two
+# different readings of the same class.
+
+# Complete-day floor below which percentile VOCABULARY is a costume for
+# min/max. Mirrors the dashboard's PERCENTILE_FLOOR. Pinned by test.
+AN_PERCENTILE_FLOOR = 15
+
+
+def _an_context_label(band, n: int) -> "str | None":
+    """One class name -> the words a surface may print at depth `n`.
+
+    At or above the floor the percentile names are accurate and are used. Below
+    it the words describe where the value LANDED instead, because "above p95"
+    over seven samples means "the highest of seven" and should say so.
+    """
+    if not band:
+        return None
+    if n >= AN_PERCENTILE_FLOOR:
+        if band.startswith("above_"):
+            return f"above {band[6:]}"
+        if band.startswith("below_"):
+            return f"below {band[6:]}"
+        return band.replace("_", "–")
+    return {
+        "above_p95": "above the observed range",
+        "p75_p95": "upper range",
+        "p50_p75": "above median",
+        "p25_p50": "below median",
+        "p5_p25": "lower range",
+        "below_p5": "below the observed range",
+    }.get(band, "within range")
+
+
+# ── Stance verdicts (the counted one-liner over a panel) ────────────────────
+#
+# A stance is a TALLY OF CLASSES and nothing else — no model, no re-derivation
+# from levels, no adjective beyond the mapped verdict word. The rule is the
+# majority of quartile extremes: hours at/above the upper-range class against
+# hours at/below the lower-range class.
+#
+# THE COUNT IS PART OF THE VERDICT. `line` always carries the arithmetic and is
+# built in the same expression as `verdict`, so there is no code path that can
+# emit a bare BULLISH. When nothing is classed the object is an honest absence
+# with a reason and carries NO verdict key at all.
+#
+# The wording mirrors the dashboard's `stance.ts` BYTE FOR BYTE (same counts,
+# same arrow, same reads) so the two computations of one truth agree exactly.
+# Note the reads are DART-worded ("real time ran above...") and the dashboard
+# applies them to BOTH metrics; that oddity is reproduced rather than improved,
+# because a server line that read better but differently would be a second
+# truth. Rewording is a dashboard-lane change, and it belongs there.
+AN_STANCE_UPPER_CLASSES = ("above_p95", "p75_p95")
+AN_STANCE_MIDDLE_CLASSES = ("p50_p75", "p25_p50")
+AN_STANCE_LOWER_CLASSES = ("p5_p25", "below_p5")
+
+AN_STANCE_READS = {
+    "BULLISH": "real time ran above its banked shape in more hours than below",
+    "BEARISH": "real time ran below its banked shape in more hours than above",
+    "NEUTRAL": "real time split evenly against its banked shape",
+}
+
+AN_STANCE_RULE = ("majority of quartile extremes: hours at/above the upper-range "
+                  "class against hours at/below the lower-range class")
+
+
+def _an_stance_side(band) -> "str | None":
+    """Which side of the ladder a class sits on. Unknown/absent -> None, which
+    is counted NOWHERE — never guessed into a tail."""
+    if band in AN_STANCE_UPPER_CLASSES:
+        return "upper"
+    if band in AN_STANCE_MIDDLE_CLASSES:
+        return "middle"
+    if band in AN_STANCE_LOWER_CLASSES:
+        return "lower"
+    return None
+
+
+def _an_stance(bands, reason: str) -> dict:
+    """Tally classes into the panel's verdict. `reason` is used when nothing is
+    classed, which is an absence, not a NEUTRAL."""
+    upper = lower = middle = 0
+    for b in bands:
+        side = _an_stance_side(b)
+        if side == "upper":
+            upper += 1
+        elif side == "lower":
+            lower += 1
+        elif side == "middle":
+            middle += 1
+    n = upper + lower + middle
+    if n == 0:
+        return {"available": False, "reason": reason}
+    verdict = ("BULLISH" if upper > lower
+               else "BEARISH" if lower > upper else "NEUTRAL")
+    return {
+        "available": True,
+        "verdict": verdict,
+        "upper": upper, "lower": lower, "middle": middle, "n": n,
+        "line": f"{upper}h upper / {lower}h lower of {n} banked → {AN_STANCE_READS[verdict]}",
+        "rule": AN_STANCE_RULE,
+    }
+
+
+def _an_classing(entries, value_key: str) -> dict:
+    """Server-supplied class + context for ONE hour, against that hour's OWN
+    banked history (never cross-node, never cross-hour).
+
+    The classed value is the LATEST banked day's value at this hour — the same
+    reading the dart latest-day rows carry — and `current_date` travels with it
+    because the banked frontier is ragged (a mid-dispatch day holds HE1..HE16,
+    so HE20's latest day is yesterday while HE3's is today).
+
+    The history INCLUDES the classed value, exactly as the department's envelope
+    spans every banked day including the latest.
+    """
+    if not entries:
+        return {"current": None, "current_date": None, "class": None,
+                "context": None, "class_n": 0}
+    vals = [e[value_key] for e in entries]
+    env = _an_envelope(vals)
+    latest = max(entries, key=lambda e: e["date"])
+    band = _an_band_of(latest[value_key], env)
+    n = env["n"] if env else 0
+    return {
+        "current": _an_r(latest[value_key]),
+        "current_date": latest["date"].isoformat(),
+        "class": band,
+        "context": _an_context_label(band, n),
+        "class_n": n,
+    }
+
+
 def _an_is_onpeak_he(he: int) -> bool:
     """7x16 block test: HE7..HE22, EVERY day of the week. Not NERC on-peak."""
     return AN_ONPEAK_HE_LO <= he <= AN_ONPEAK_HE_HI
@@ -10048,6 +10197,8 @@ def _an_build_dart(da_rows, rt_rows) -> dict:
             "convention": "dart = fmm(rtpd) - da; positive = rt above da",
             "per_he": [], "latest_day": None, "n_days": 0, "n_hours": 0,
             "window": None,
+            "stance": {"available": False,
+                       "reason": "no banked hour carries both a DA and an FMM leg"},
         }
 
     by_he: dict = defaultdict(list)
@@ -10066,6 +10217,16 @@ def _an_build_dart(da_rows, rt_rows) -> dict:
     latest_hours.sort(key=lambda e: e["he"])
 
     dates = sorted({e["date"] for e in series})
+    latest_rows = [
+        {
+            "he": e["he"],
+            "da": _an_r(e["da"]), "rt": _an_r(e["rt"]),
+            "dart": _an_r(e["dart"]),
+            "rt_intervals": e["rt_intervals"],
+            "band": _an_band_of(e["dart"], env_by_he.get(e["he"])),
+        }
+        for e in latest_hours
+    ]
     return {
         "convention": "dart = fmm(rtpd) - da; positive = rt above da",
         "window": {"start": dates[0].isoformat(), "end": dates[-1].isoformat()},
@@ -10074,17 +10235,14 @@ def _an_build_dart(da_rows, rt_rows) -> dict:
         "per_he": per_he,
         "latest_day": {
             "date": latest_date.isoformat(),
-            "hours": [
-                {
-                    "he": e["he"],
-                    "da": _an_r(e["da"]), "rt": _an_r(e["rt"]),
-                    "dart": _an_r(e["dart"]),
-                    "rt_intervals": e["rt_intervals"],
-                    "band": _an_band_of(e["dart"], env_by_he.get(e["he"])),
-                }
-                for e in latest_hours
-            ],
+            "hours": latest_rows,
         },
+        # The counted verdict over the latest day's classes — the same tally the
+        # dashboard's computeDartStance performs, served so every consumer reads
+        # one truth instead of each deriving its own.
+        "stance": _an_stance(
+            [r["band"] for r in latest_rows],
+            "no hour on the latest banked day carries a class"),
     }
 
 
@@ -10166,22 +10324,26 @@ def _an_build_basis(da_rows, hub_rows, pairing) -> dict:
     false` plus the reason — not an empty-but-present panel and never zeros.
     """
     if not pairing["hub_priceable"]:
+        reason = ("node has no CAISO trading hub in atlas_pnode_universe.th_hub"
+                  if pairing["pairing"] == "unpaired"
+                  else f"paired to {pairing['th_hub']}, which has no banked hub price series")
         return {
             "available": False,
-            "reason": ("node has no CAISO trading hub in atlas_pnode_universe.th_hub"
-                       if pairing["pairing"] == "unpaired"
-                       else f"paired to {pairing['th_hub']}, which has no banked hub price series"),
+            "reason": reason,
             "hub": None, "pairing": pairing["pairing"],
             "per_he": [], "blocks": {}, "months": [],
+            "stance": {"available": False, "reason": reason},
         }
 
     series = _an_basis_series(da_rows, hub_rows)
     if not series:
+        reason = "no banked hour carries both a node DAM price and a hub DAM price"
         return {
             "available": False,
-            "reason": "no banked hour carries both a node DAM price and a hub DAM price",
+            "reason": reason,
             "hub": pairing["hub"], "pairing": pairing["pairing"],
             "per_he": [], "blocks": {}, "months": [],
+            "stance": {"available": False, "reason": reason},
         }
 
     first_d = min(e["date"] for e in series)
@@ -10192,8 +10354,15 @@ def _an_build_basis(da_rows, hub_rows, pairing) -> dict:
         by_he[e["he"]].append(e)
     per_he = []
     for he in sorted(by_he):
-        roll = _an_block_rollup(by_he[he])
-        per_he.append({"he": he, "block": _an_block_of(he), **roll})
+        entries = by_he[he]
+        roll = _an_block_rollup(entries)
+        # SERVER-SIDE BASIS CLASSING. Each hour's latest banked basis, classed
+        # against THAT HOUR'S OWN banked basis history, in the department's one
+        # class vocabulary. This is what lights the dashboard's basis stance —
+        # it has shipped as a gated null-returning detector precisely because
+        # these two fields did not exist.
+        per_he.append({"he": he, "block": _an_block_of(he), **roll,
+                       **_an_classing(entries, "basis")})
 
     blocks = {}
     for label in (AN_BLOCK_ONPEAK, AN_BLOCK_OFFPEAK):
@@ -10224,11 +10393,19 @@ def _an_build_basis(da_rows, hub_rows, pairing) -> dict:
             "basis": "node DAM − hub DAM, per HE",
             AN_BLOCK_ONPEAK: f"HE{AN_ONPEAK_HE_LO}-HE{AN_ONPEAK_HE_HI}, all days of the week",
             AN_BLOCK_OFFPEAK: f"HE1-HE{AN_ONPEAK_HE_LO - 1} and HE{AN_ONPEAK_HE_HI + 1}-HE24, all days",
+            "class": ("each hour's latest banked basis, classed against that hour's "
+                      "own banked basis history; same six class names the dart rows "
+                      "carry as `band`"),
+            "context": (f"the words a surface may print for that class at this depth; "
+                        f"percentile vocabulary is earned at n>={AN_PERCENTILE_FLOOR}"),
         },
         "window": {"start": first_d.isoformat(), "end": last_d.isoformat()},
         "per_he": per_he,
         "blocks": blocks,
         "months": months,
+        "stance": _an_stance(
+            [r["class"] for r in per_he],
+            "no hour carries a basis class"),
     }
 
 
@@ -11132,4 +11309,1160 @@ async def analytics_movers(
     _analytics_log.info(
         "movers metric=%s window=%s hours=%d ranked=%d short=%d unpaired=%d runtime_ms=%d",
         metric, window, total_hours, ranked["ranked_nodes"], short, unpaired, runtime_ms)
+    return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE REGIME PACKAGE v0 — ANALYTICS ROOM 1, SECOND COURSE
+# concept capture 2026-07-30 (energylake-dashboard/docs/
+# concept_capture_2026_07_30_regime_package.md). Sibling of the Node Analytics
+# Package directly above, and it reads the SAME stores under the SAME axioms.
+#
+#   GET /api/analytics/node/{pnode_id}/ladder?metric=  the percentile ladder
+#   GET /api/analytics/node/{pnode_id}/grid?metric=    the HE x date heat grid
+#   GET /api/analytics/tb4?scope=&id=&window=          top-bottom-4 spread
+#   GET /api/analytics/movers-grid?window=&metric=      top-N nodes x HE1-24
+#
+# plus, ABOVE, the server-side basis classing + stance verdicts folded into the
+# existing package payload (`basis.per_he[].class/.context`, `dart.stance`,
+# `basis.stance`) — see `_an_classing` / `_an_stance`.
+#
+# ── DEPTH GRAMMAR IS SERVER-SIDE LAW HERE, NOT A CLIENT COURTESY ────────────
+# The ladder is the form that can lie loudest: nine percentile columns over
+# seven samples is min/max wearing a costume, and a chart cannot tell. So the
+# floor is enforced in the PAYLOAD, not in the caption:
+#
+#   n <  AN_PERCENTILE_FLOOR (15)  ->  the row serves min/mid/max and carries
+#                                      NO p-keys AT ALL (absent, not nulled)
+#                                      and NO chip key. vocabulary: "range".
+#   n >= AN_PERCENTILE_FLOOR       ->  the full P01..P99 ladder + the regime
+#                                      chip appear. vocabulary: "percentile".
+#
+# A nulled p95 is worse than an absent one: `payload.p95 ?? fallback` renders
+# the fallback, but `"p95" in row` is a fact the client cannot misread. The
+# floor is 15 because that is the dashboard's own PERCENTILE_FLOOR; the two
+# constants are pinned equal by test so the room cannot end up refusing
+# percentile words while the server prints them.
+#
+# AT TODAY'S DEPTH EVERY LADDER ROW IS A RANGE ROW. The hot tier holds eight
+# dates (six complete), so n = 6..8 per hour and the full ladder is code that
+# has not yet had data. That is the designed behaviour, not an unfinished
+# branch — the ladder widens on its own as the pantry banks depth.
+#
+# ── PERCENTILE METHOD: ONE DEFINITION ACROSS ANALYTICS ──────────────────────
+# Every quantile in this lane goes through `_an_percentile_cont` — the same
+# function the envelope uses, which is Postgres' `percentile_cont` linear
+# interpolation implemented explicitly. `_an_percentile_rank` (the regime
+# chip's rank) is its exact INVERSE, and the suite pins the round trip
+# `percentile_cont(rank(v)) == v` plus a column-by-column cross-check of the
+# ladder against `_an_envelope` on identical rows. There is no second
+# percentile definition in this department and there must never be one.
+#
+# ── THE REGIME CHIP ─────────────────────────────────────────────────────────
+# The current value's rank within THAT HOUR'S OWN history — never cross-node,
+# never cross-hour. Binned on the rank rounded to whole percent so the bin and
+# the printed number can never contradict each other (a raw 0.748 would print
+# "MID (P75)"): P>=75 HIGH, P<=25 LOW, else MID. Below the depth floor the chip
+# is ABSENT — a rank against six samples is not a rank.
+#
+# ── QUERY SHAPES: TWO NEW ONES, BOTH MEASURED ───────────────────────────────
+# The ladder, the heat grid and node-scope TB4 introduce NO new query shape.
+# They ride `_AN_NODE_LEG_SQL` / `_AN_HUB_LEG_SQL` / `_AN_DEPTH_SQL` — the
+# per-node index-only reads the Nodes lane already pinned — and do all their
+# work in Python over ~192 DAM / ~700 RTPD rows. Only two shapes are new, both
+# EXPLAIN (ANALYZE)'d against the live pantry on 2026-07-30:
+#
+#   _AN_TB4_HUB_SQL       hub TB4 over FULL depth (88,344 hourly rows, 2016-01
+#                         -> 2026-07). Index Scan on idx_tsv_series_ts, ONE
+#                         sort, sorted Aggregate -> 3,681 daily rows.
+#                         148 ms warm / 189 ms part-cold.
+#                         REJECTED ALTERNATIVE, measured: the obvious
+#                         row_number() OVER (PARTITION BY day ORDER BY value)
+#                         shape plans FOUR sorts (one per window frame) and
+#                         costs 1,868 ms — 12.6x worse for the same answer, and
+#                         it spills 2,944 kB to disk instead of 1,968 kB. The
+#                         array_agg + slice shape is pinned for that reason.
+#   _AN_NODE_HE_SQL       the movers-grid's per-node per-HE read, 50 pnodes.
+#                         pnode_id leads the PK, so ANY(array) is a Bitmap
+#                         Index Scan on atlas_pnode_lmp_snapshot_pkey feeding a
+#                         single-batch HashAggregate — no sort, no spill.
+#                         RTPD 7d: 31,350 rows in -> 8,000 out, 236 ms cold.
+#                         DAM  7d:  8,000 rows in -> 8,000 out,  57 ms.
+#
+# THE MOVERS GRID DOES NOT RE-RANK. It calls `analytics_movers` in-process, so
+# it shares that endpoint's pinned chunk plan AND its 5-minute cache, then
+# reads per-HE cells for the 50 ranked nodes only. Ranking the universe per HE
+# would be the 430 MB spill the Nodes lane measured and refused.
+#
+# THE 20-SECOND COLD PATH IS NOT FIXED HERE. A cold `movers-grid?window=7d&
+# metric=dart` pays the movers 7d cold cost (~12 s at concurrency 4) before it
+# reads a single cell. The durable answer is a PRECOMPUTED movers artifact
+# written pantry-side (cron + catalog entry at birth); that is a named FOLLOW-
+# ON lane and is deliberately NOT built here. This endpoint computes live and
+# leans on the cache, and says so in `runtime_ms` / `cached`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# The ladder's columns, in monotone order. P05/P25/P50/P75/P95 are the same
+# numbers the envelope serves under p5/p25/p50/p75/p95 (pinned by test); the
+# ladder adds the tails the table form has room for.
+AN_LADDER_QUANTILES = (("p01", 0.01), ("p05", 0.05), ("p10", 0.10),
+                       ("p25", 0.25), ("p50", 0.50), ("p75", 0.75),
+                       ("p90", 0.90), ("p95", 0.95), ("p99", 0.99))
+
+AN_REGIME_METRICS = ("dart", "basis")
+
+# Chip bins, on the rank ROUNDED to whole percent. See the header note.
+AN_REGIME_HIGH_PCT = 75
+AN_REGIME_LOW_PCT = 25
+AN_REGIME_RULE = (f"current value's percentile rank within that hour's own banked "
+                  f"history (percentile_cont inverse, rounded to whole percent): "
+                  f"P>={AN_REGIME_HIGH_PCT} HIGH, P<={AN_REGIME_LOW_PCT} LOW, else MID")
+
+AN_PERCENTILE_METHOD = ("percentile_cont linear interpolation between the two "
+                        "closest ranks — the department's one percentile "
+                        "definition, shared with the envelope")
+
+AN_RANGE_DEFINITION = ("min/mid/max are the lowest, median and highest banked "
+                       "daily value at this hour; percentile columns are "
+                       "withheld below the depth floor, not nulled")
+
+# Heat-grid colour caps. Stated in the payload; values are NEVER clipped.
+AN_GRID_SCALE_CAP = {"dart": 15.0, "basis": 10.0}
+AN_GRID_HOURS = tuple(range(1, 25))
+
+# TB4.
+AN_TB4_SCOPES = ("hub", "node")
+AN_TB4_TOP_N = 4
+# A day needs at least 2 x TOP_N priced hours or the top-4 and bottom-4 sets
+# overlap and TB4 stops meaning anything.
+AN_TB4_MIN_HOURS = 2 * AN_TB4_TOP_N
+AN_TB4_WINDOWS = {"7d": 7, "30d": 30, "90d": 90, "180d": 180, "365d": 365,
+                  "full": None}
+AN_TB4_SHIFT_FRACTION = 0.25
+AN_TB4_SHORT_AVG_DAYS = 7
+AN_TB4_LONG_AVG_DAYS = 30
+AN_TB4_CACHE_TTL = 300.0
+
+# The movers grid: 25 each way (50 nodes read per request).
+AN_MOVERS_GRID_TOP_N = 25
+AN_MOVERS_GRID_CACHE_TTL = AN_MOVERS_CACHE_TTL
+
+_an_tb4_cache: "dict[tuple, tuple[float, dict]]" = {}
+_an_movers_grid_cache: "dict[tuple, tuple[float, dict]]" = {}
+
+
+# ── The percentile rank (the exact inverse of _an_percentile_cont) ──────────
+
+def _an_percentile_rank(sorted_vals, value) -> "float | None":
+    """The q in [0,1] whose `_an_percentile_cont(sorted_vals, q)` IS `value`.
+
+    Written as the literal inverse of the department's percentile function so
+    the chip's rank and the ladder's columns cannot describe two different
+    distributions. The suite pins the round trip on real and constructed rows.
+
+    Three cases, and the tie case is the only one with a judgement call in it:
+      * value strictly inside a gap -> invert the linear interpolation exactly.
+      * value present               -> its own index / (n-1).
+      * value present SEVERAL times -> the MIDPOINT of the tie run, so a value
+        tied across k samples ranks in the middle of them rather than at the
+        bottom (which is what taking the first index would do, and would report
+        the maximum of an all-equal sample as P0).
+    Clamped only STRICTLY outside the sample: a value below the minimum is P0
+    and above the maximum is P100. A value EQUAL to an extreme falls through to
+    the tie rule on purpose — clamping it first would report the maximum of an
+    all-equal sample as P0, which is the one wrong answer this function must
+    never give. `sorted_vals` MUST already be sorted ascending.
+    """
+    n = len(sorted_vals)
+    if n == 0 or value is None:
+        return None
+    if n == 1:
+        # One sample IS the distribution; it has no interior to rank against.
+        return 0.5
+    s = sorted_vals
+    v = float(value)
+    if v < s[0]:
+        return 0.0
+    if v > s[-1]:
+        return 1.0
+    lo = next(i for i in range(n) if s[i] >= v)      # first index at/above v
+    hi = max(i for i in range(n) if s[i] <= v)       # last index at/below v
+    if hi >= lo:                                     # v is present: lo..hi ties
+        return ((lo + hi) / 2.0) / (n - 1)
+    frac = (v - s[hi]) / (s[lo] - s[hi])             # lo == hi + 1
+    return (hi + frac) / (n - 1)
+
+
+def _an_regime_chip(sorted_vals, current) -> "dict | None":
+    """The chip: where `current` sits in this hour's OWN history, as a number.
+
+    None when there is nothing to rank against. The label carries the rank for
+    every bin including MID — the rank IS the product ("where does today sit,
+    stated as a number"), and a bare MID would throw away the one figure the
+    reader came for.
+    """
+    rank = _an_percentile_rank(sorted_vals, current)
+    if rank is None:
+        return None
+    pct = int(round(rank * 100))
+    regime = ("HIGH" if pct >= AN_REGIME_HIGH_PCT
+              else "LOW" if pct <= AN_REGIME_LOW_PCT else "MID")
+    return {"regime": regime, "rank": pct, "label": f"{regime} (P{pct})",
+            "rule": AN_REGIME_RULE}
+
+
+# ── The ladder row ──────────────────────────────────────────────────────────
+
+def _an_ladder_row(he: int, entries, value_key: str) -> dict:
+    """One HE's ladder row. THE DEPTH FLOOR IS ENFORCED HERE, once.
+
+    Below the floor the row carries min/mid/max and neither a p-key nor a chip
+    key EXISTS on it. Above the floor the nine percentile columns and the chip
+    appear. Both shapes always state `n`, `current` and `current_date`.
+
+    `current` is the latest banked day THAT HOUR has — not the node's latest
+    date. The banked frontier is ragged (a mid-dispatch day holds HE1..HE16),
+    and pinning every hour to the global latest date would blank the evening
+    ladder for most of every afternoon.
+    """
+    vals = sorted(float(e[value_key]) for e in entries)
+    n = len(vals)
+    latest = max(entries, key=lambda e: e["date"])
+    current = float(latest[value_key])
+    row = {
+        "he": he,
+        "n": n,
+        "current": _an_r(current),
+        "current_date": latest["date"].isoformat(),
+    }
+    if n < AN_PERCENTILE_FLOOR:
+        row["vocabulary"] = "range"
+        row["min"] = _an_r(vals[0])
+        row["mid"] = _an_r(_an_percentile_cont(vals, 0.50))
+        row["max"] = _an_r(vals[-1])
+        return row
+    row["vocabulary"] = "percentile"
+    for name, q in AN_LADDER_QUANTILES:
+        row[name] = _an_r(_an_percentile_cont(vals, q))
+    row["chip"] = _an_regime_chip(vals, current)
+    return row
+
+
+def _an_by_he(series) -> dict:
+    """A (date, he, value) series -> {he: [entries]}, hours ascending."""
+    out: dict = defaultdict(list)
+    for e in series:
+        out[e["he"]].append(e)
+    return out
+
+
+def _an_metric_series(metric: str, da_rows, rt_rows, hub_rows) -> list:
+    """The per-(date, HE) daily series the Regime forms all read."""
+    if metric == "dart":
+        return _an_dart_series(da_rows, rt_rows)
+    return _an_basis_series(da_rows, hub_rows)
+
+
+AN_METRIC_CONVENTION = {
+    "dart": "dart = fmm(rtpd) - da; positive = rt above da",
+    "basis": "basis = node DAM − hub DAM, per HE; positive = node above hub",
+}
+
+
+def _an_build_ladder(metric: str, series) -> dict:
+    """The ladder stanza over an already-built daily series."""
+    if not series:
+        return {
+            "available": False,
+            "reason": ("no banked hour carries both a DA and an FMM leg"
+                       if metric == "dart" else
+                       "no banked hour carries both a node DAM price and a hub DAM price"),
+            "per_he": [], "window": None, "n_days": 0,
+        }
+    key = "dart" if metric == "dart" else "basis"
+    by_he = _an_by_he(series)
+    per_he = [_an_ladder_row(he, by_he[he], key) for he in sorted(by_he)]
+    dates = sorted({e["date"] for e in series})
+    return {
+        "available": True,
+        "window": {"start": dates[0].isoformat(), "end": dates[-1].isoformat()},
+        "n_days": len(dates),
+        "n_hours": len(series),
+        "per_he": per_he,
+    }
+
+
+# ── The heat grid ───────────────────────────────────────────────────────────
+
+def _an_build_heat_grid(metric: str, series) -> dict:
+    """HE1-24 rows x banked-date columns, with both margins.
+
+    DATES ARE NEVER PADDED: `dates` lists exactly the days the pantry holds, so
+    the grid widens on its own as depth banks and never invents a column. A
+    cell with no banked hour is null — that is a hole in a real column, not an
+    invented one — and every margin states the count it averaged.
+
+    Rows are the full HE1-24 axis so the grid keeps its shape while the newest
+    day fills in hour by hour; an hour with nothing banked is an all-null row
+    with a null average and n=0, which reads as "not yet", not as zero.
+    """
+    key = "dart" if metric == "dart" else "basis"
+    dates = sorted({e["date"] for e in series})
+    cell: dict = {(e["date"], e["he"]): float(e[key]) for e in series}
+
+    rows = []
+    for he in AN_GRID_HOURS:
+        vals = [cell.get((d, he)) for d in dates]
+        present = [v for v in vals if v is not None]
+        rows.append({
+            "he": he,
+            "cells": [_an_r(v) for v in vals],
+            "row_avg": _an_r(_an_mean(present)),
+            "n": len(present),
+        })
+
+    day_avg = []
+    for d in dates:
+        vals = [cell[(d, he)] for he in AN_GRID_HOURS if (d, he) in cell]
+        day_avg.append({"date": d.isoformat(), "avg": _an_r(_an_mean(vals)),
+                        "n": len(vals)})
+
+    return {
+        "available": bool(series),
+        "dates": [d.isoformat() for d in dates],
+        "hours": list(AN_GRID_HOURS),
+        "rows": rows,
+        "day_avg": day_avg,
+        "n_dates": len(dates),
+        "n_cells": len(cell),
+        "window": ({"start": dates[0].isoformat(), "end": dates[-1].isoformat()}
+                   if dates else None),
+    }
+
+
+# ── Shared per-node read (no new query shape — all four are the Nodes lane's) ─
+
+async def _an_regime_reads(node: str, metric: str) -> tuple:
+    """depth + identity + the legs one Regime form needs, for one node.
+
+    Raises the lane's HTTPExceptions: 400 for an id this department cannot
+    price (conforming to the package route), 503 for a DB that is not there.
+    Returns (depth, ident, pairing, da_rows, rt_rows, hub_rows).
+    """
+    ident_params = {"pnode_id": node, "da": AN_DA_MARKET,
+                    "sentinel": AN_SENTINEL_MIN_DATE}
+    try:
+        depth = await _an_read_depth()
+        ident_rows = await _an_read(_AN_IDENTITY_SQL, ident_params)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    ident = ident_rows[0] if ident_rows else None
+    if not ident or not ident["priced"]:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"unknown pnode_id '{node}': not present in the banked "
+                    f"{AN_DA_MARKET} universe"))
+
+    pairing = _an_pair_hub(ident["th_hub"])
+    try:
+        da_rows = await _an_read(_AN_NODE_LEG_SQL, {
+            "pnode_id": node, "market": AN_DA_MARKET,
+            "sentinel": AN_SENTINEL_MIN_DATE})
+        rt_rows: list = []
+        hub_rows: list = []
+        if metric == "dart":
+            rt_rows = await _an_read(_AN_NODE_LEG_SQL, {
+                "pnode_id": node, "market": AN_RT_MARKET,
+                "sentinel": AN_SENTINEL_MIN_DATE})
+        elif pairing["hub_priceable"] and da_rows:
+            first_d = _an_as_date(da_rows[0]["market_date"])
+            last_d = _an_as_date(da_rows[-1]["market_date"])
+            ts_lo, ts_hi = _an_hub_ts_bounds(first_d, last_d)
+            hub_rows = await _an_read(_AN_HUB_LEG_SQL, {
+                "dataset": AN_HUB_DA_DATASET, "series": pairing["hub"],
+                "ts_lo": ts_lo, "ts_hi": ts_hi})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    return depth, ident, pairing, da_rows, rt_rows, hub_rows
+
+
+def _an_regime_metric_guard(metric: str) -> None:
+    if metric not in AN_REGIME_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"metric must be one of {', '.join(AN_REGIME_METRICS)}")
+
+
+def _an_unpaired_absence(pairing: dict) -> "dict | None":
+    """The basis absence stanza, or None when the node IS priceable. ~89% of
+    the universe takes this path — it is the common case, not an error."""
+    if pairing["hub_priceable"]:
+        return None
+    return {
+        "available": False,
+        "reason": ("node has no CAISO trading hub in atlas_pnode_universe.th_hub"
+                   if pairing["pairing"] == "unpaired"
+                   else f"paired to {pairing['th_hub']}, which has no banked hub price series"),
+        "hub": None,
+        "pairing": pairing["pairing"],
+        "pairing_rule": pairing["pairing_rule"],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. GET /api/analytics/node/{pnode_id}/ladder — THE PERCENTILE LADDER
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/analytics/node/{pnode_id}/ladder")
+async def analytics_node_ladder(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. ALAMT3G_7_B1. Unknown/unpriced -> 400.",
+    ),
+    metric: str = Query(
+        default="dart",
+        description=f"One of {', '.join(AN_REGIME_METRICS)}.",
+    ),
+):
+    """
+    The percentile ladder — the envelope as a table, one row per hour-ending.
+
+    Per HE, over the node's whole banked window: the P01..P99 columns, the
+    CURRENT value (that hour's latest banked day), and the REGIME CHIP — where
+    current sits inside that hour's OWN history, stated as a number.
+
+    THE DEPTH FLOOR IS SERVED, NOT CAPTIONED. Below `depth_floor` complete
+    samples a row carries `min`/`mid`/`max` and `vocabulary: "range"`, and the
+    percentile keys and the chip DO NOT EXIST on that row — absent, never
+    nulled, because a client can misread a null and cannot misread an absent
+    key. At or above the floor the full ladder and the chip appear and
+    `vocabulary` reads `"percentile"`.
+
+    AT TODAY'S DEPTH EVERY ROW IS A RANGE ROW (the hot tier holds eight dates,
+    so n = 6..8 per hour). The percentile branch is real, tested and waiting on
+    the pantry — the ladder lights itself as depth banks, with no code change.
+
+    Percentiles are `percentile_cont` linear interpolation — the department's
+    ONE definition, shared with the envelope on
+    `/api/analytics/node/{pnode_id}`. The chip's rank is that function's exact
+    inverse. Both are pinned against the envelope's own math on identical rows.
+
+    `metric=dart`  daily DART at each hour. DART = FMM(RTPD) − DA, POSITIVE =
+                   RT ABOVE DA — the opposite sign from `spread` on
+                   /api/timeseries/caiso-hub-lmp. Never mix them.
+    `metric=basis` daily (node DAM − hub DAM) at each hour. Returns
+                   `available: false` + a reason for the ~89% of nodes CAISO
+                   attributes no trading hub to.
+
+    Errors: unknown/unpriced pnode_id -> 400; bad metric -> 400; DB down -> 503.
+    """
+    assert _pool is not None
+
+    _an_regime_metric_guard(metric)
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+
+    depth, ident, pairing, da_rows, rt_rows, hub_rows = \
+        await _an_regime_reads(node, metric)
+
+    base = {
+        "pnode_id": node,
+        "metric": metric,
+        "as_of": _utcnow().isoformat(),
+        "depth": depth,
+        "convention": AN_METRIC_CONVENTION[metric],
+        "percentile_method": AN_PERCENTILE_METHOD,
+        "depth_floor": AN_PERCENTILE_FLOOR,
+        "depth_floor_rule": (
+            f"a row with fewer than {AN_PERCENTILE_FLOOR} banked samples serves "
+            f"min/mid/max and carries no percentile columns and no regime chip"),
+        "range_definition": AN_RANGE_DEFINITION,
+        "chip_rule": AN_REGIME_RULE,
+        "hub": pairing["hub"] if metric == "basis" else None,
+    }
+
+    absence = _an_unpaired_absence(pairing) if metric == "basis" else None
+    if absence:
+        return {**base, **absence, "per_he": [], "window": None, "n_days": 0}
+
+    series = _an_metric_series(metric, da_rows, rt_rows, hub_rows)
+    return {**base, **_an_build_ladder(metric, series)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. GET /api/analytics/node/{pnode_id}/grid — THE HE x DATE HEAT GRID
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/analytics/node/{pnode_id}/grid")
+async def analytics_node_grid(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. ALAMT3G_7_B1. Unknown/unpriced -> 400.",
+    ),
+    metric: str = Query(
+        default="dart",
+        description=f"One of {', '.join(AN_REGIME_METRICS)}.",
+    ),
+):
+    """
+    The heat grid — HE1-24 down, banked dates across, one day's value per cell.
+
+    One glance at the node's lived regime. Row averages (per hour, across the
+    window) and day averages (per date, across the hours) sit in the margins,
+    each stating the count it averaged.
+
+    NEVER PADDED. `dates` is exactly what the pantry holds — every banked date
+    in the hot tier, no more — so the grid widens on its own as depth banks and
+    never invents a column to square the matrix. A cell the pantry has no hour
+    for is `null`: a hole in a real column, not an invented one. Rows are the
+    full HE1-24 axis so the grid keeps its shape while today fills in hour by
+    hour; an hour with nothing banked is an all-null row with n=0.
+
+    `scale_cap` states the colour cap the room should render at (±$15 DART /
+    ±$10 basis). VALUES ARE NEVER CLIPPED — the cap is a palette instruction,
+    and a $1,019 scarcity hour arrives in the payload at $1,019.
+
+    Errors: unknown/unpriced pnode_id -> 400; bad metric -> 400; DB down -> 503.
+    """
+    assert _pool is not None
+
+    _an_regime_metric_guard(metric)
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+
+    depth, ident, pairing, da_rows, rt_rows, hub_rows = \
+        await _an_regime_reads(node, metric)
+
+    base = {
+        "pnode_id": node,
+        "metric": metric,
+        "as_of": _utcnow().isoformat(),
+        "depth": depth,
+        "convention": AN_METRIC_CONVENTION[metric],
+        "scale_cap": {
+            "value": AN_GRID_SCALE_CAP[metric],
+            "unit": "$/MWh",
+            "applies_to": "cell colour only",
+            "note": "values are never clipped; the cap saturates the palette",
+        },
+        "hub": pairing["hub"] if metric == "basis" else None,
+    }
+
+    absence = _an_unpaired_absence(pairing) if metric == "basis" else None
+    if absence:
+        return {**base, **absence, "dates": [], "hours": list(AN_GRID_HOURS),
+                "rows": [], "day_avg": [], "n_dates": 0, "n_cells": 0,
+                "window": None}
+
+    series = _an_metric_series(metric, da_rows, rt_rows, hub_rows)
+    return {**base, **_an_build_heat_grid(metric, series)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. GET /api/analytics/tb4 — THE TOP-BOTTOM-4 SPREAD
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# TB4 = mean(top-4 HE LMPs) − mean(bottom-4 HE LMPs), per day, DAM. The
+# battery-revenue environment in one number.
+#
+# A day needs at least AN_TB4_MIN_HOURS (8) priced hours or the two sets
+# OVERLAP and the number stops meaning anything. Short days are DROPPED and
+# COUNTED (`excluded_short_days`), never averaged over a smaller basket.
+
+# THE PINNED HUB SHAPE. Measured 2026-07-30 on the live pantry (Neon 0.25-2 CU,
+# pg17), full depth = 88,344 hourly rows per series, 2016-01 -> 2026-07:
+#
+#   Index Scan idx_tsv_series_ts -> ONE Sort (external merge, 1,968 kB)
+#   -> sorted Aggregate (array_agg ORDER BY) -> 3,681 daily rows.
+#   148 ms warm (all buffers hit) / 189 ms with 1,780 blocks read cold.
+#
+# WHAT NOT TO "SIMPLIFY" IT BACK TO, measured on the same rows: the obvious
+# row_number() OVER (PARTITION BY day ORDER BY value DESC/ASC) + count(*) OVER
+# shape needs FOUR sorts (one per window frame), spills 2,944 kB, materialises
+# all 88,344 rows through three WindowAgg nodes and costs 1,868 ms — 12.6x the
+# array_agg shape for an identical answer. The per-group sort inside array_agg
+# is 24 elements wide and effectively free; the window frames' sorts are not.
+_AN_TB4_HUB_SQL = """
+    WITH day AS (
+        SELECT (ts AT TIME ZONE 'America/Los_Angeles')::date AS d,
+               array_agg(value::float8 ORDER BY value) AS vals
+        FROM timeseries_values
+        WHERE dataset = %(dataset)s
+          AND series = %(series)s
+          AND value IS NOT NULL
+        GROUP BY 1
+    )
+    SELECT d.d,
+           array_length(d.vals, 1) AS n_hours,
+           (SELECT avg(x) FROM unnest(
+                d.vals[array_length(d.vals, 1) - {top_n_1}
+                       : array_length(d.vals, 1)]) AS x) AS top_mean,
+           (SELECT avg(x) FROM unnest(d.vals[1:{top_n}]) AS x) AS bottom_mean
+    FROM day AS d
+    WHERE array_length(d.vals, 1) >= %(min_hours)s
+    ORDER BY d.d
+""".format(top_n=AN_TB4_TOP_N, top_n_1=AN_TB4_TOP_N - 1)
+
+
+def _an_days_in_month(month: str) -> int:
+    y, m = (int(x) for x in month.split("-"))
+    return (_date(y + (m == 12), (m % 12) + 1, 1) - _date(y, m, 1)).days
+
+
+def _an_tb4_day(vals) -> "dict | None":
+    """One day's TB4 from that day's hourly prices, or None when the day is too
+    short for the top-4 and bottom-4 baskets to be disjoint."""
+    s = sorted(float(v) for v in vals if v is not None)
+    if len(s) < AN_TB4_MIN_HOURS:
+        return None
+    top_mean = _an_mean(s[-AN_TB4_TOP_N:])
+    bottom_mean = _an_mean(s[:AN_TB4_TOP_N])
+    return {"top_mean": top_mean, "bottom_mean": bottom_mean,
+            "tb4": top_mean - bottom_mean, "hours": len(s)}
+
+
+def _an_tb4_daily_from_hours(hours_by_date) -> tuple:
+    """{date: [hourly lmp]} -> (daily TB4 rows ascending, short days dropped)."""
+    daily, short = [], 0
+    for d in sorted(hours_by_date):
+        row = _an_tb4_day(hours_by_date[d])
+        if row is None:
+            short += 1
+            continue
+        daily.append({"date": d.isoformat(),
+                      "tb4": _an_r(row["tb4"]),
+                      "top4_mean": _an_r(row["top_mean"]),
+                      "bottom4_mean": _an_r(row["bottom_mean"]),
+                      "hours": row["hours"]})
+    return daily, short
+
+
+def _an_tb4_monthly(daily) -> list:
+    """The long view: mean TB4 per calendar month. `complete` is true only when
+    every day of that month produced a TB4 row — a month inside the span with a
+    missing day is honestly incomplete."""
+    by_month: dict = defaultdict(list)
+    for r in daily:
+        by_month[r["date"][:7]].append(r["tb4"])
+    out = []
+    for month in sorted(by_month):
+        vals = by_month[month]
+        out.append({"month": month, "tb4_mean": _an_r(_an_mean(vals)),
+                    "n_days": len(vals),
+                    "complete": len(vals) == _an_days_in_month(month)})
+    return out
+
+
+def _an_tb4_trailing(daily, k: int) -> dict:
+    """Mean TB4 over the last k BANKED days. Honest N: when the pantry holds
+    fewer than k days the average is over what exists and says so — it is never
+    padded, and never refused for being thin."""
+    tail = daily[-k:]
+    vals = [r["tb4"] for r in tail]
+    return {
+        "value": _an_r(_an_mean(vals)),
+        "n_days": len(vals),
+        "requested_days": k,
+        "complete": len(vals) == k,
+        "start": tail[0]["date"] if tail else None,
+        "end": tail[-1]["date"] if tail else None,
+    }
+
+
+def _an_tb4_shift(short_avg: dict, long_avg: dict) -> dict:
+    """The regime-shift flag, with its threshold and its arithmetic ON the flag.
+
+    Proposed threshold: |delta| > 25% of the 30d mean. It is a PROPOSAL, stated
+    in the payload as a tunable number rather than buried in code, because the
+    right fraction is a captain's call and the flag must be auditable without
+    reading this file.
+
+    A 30d mean of exactly zero makes any non-zero delta a shift (the threshold
+    is 0). That is arithmetically correct and practically vanishing for a TB4,
+    which is a spread between the day's top and bottom hours; it is called out
+    here rather than special-cased into a lie.
+
+    THE THIN-DEPTH TRAP, and why this returns an absence rather than a flag.
+    When the pantry holds fewer than 30 days BOTH trailing windows resolve to
+    the same days, the delta is necessarily 0.0000 and the flag is necessarily
+    false. That is not "no regime shift" — it is "no comparison" — and it is
+    exactly what the nodal hot tier produces today (seven banked days, both
+    windows identical). Serving `flag: false` there would read as a finding, so
+    the verdict is withheld with its reason instead.
+    """
+    sv, lv = short_avg["value"], long_avg["value"]
+    definition = (f"|avg_{AN_TB4_SHORT_AVG_DAYS}d − avg_{AN_TB4_LONG_AVG_DAYS}d| "
+                  f"> {AN_TB4_SHIFT_FRACTION} × |avg_{AN_TB4_LONG_AVG_DAYS}d|")
+    if sv is None or lv is None:
+        return {"available": False,
+                "reason": "not enough banked TB4 days to average both windows",
+                "threshold_definition": definition,
+                "threshold_fraction": AN_TB4_SHIFT_FRACTION}
+    if (short_avg["start"], short_avg["end"]) == (long_avg["start"], long_avg["end"]):
+        return {
+            "available": False,
+            "reason": (f"both windows resolve to the same {short_avg['n_days']} "
+                       f"banked days, so the comparison is not informative at "
+                       f"this depth"),
+            "threshold_definition": definition,
+            "threshold_fraction": AN_TB4_SHIFT_FRACTION,
+        }
+    delta = sv - lv
+    threshold = AN_TB4_SHIFT_FRACTION * abs(lv)
+    flag = abs(delta) > threshold
+    return {
+        "available": True,
+        "flag": flag,
+        "delta": _an_r(delta),
+        "threshold": _an_r(threshold),
+        "threshold_fraction": AN_TB4_SHIFT_FRACTION,
+        "threshold_definition": definition,
+        "arithmetic": (f"|{sv:.4f} − {lv:.4f}| = {abs(delta):.4f} vs "
+                       f"{AN_TB4_SHIFT_FRACTION} × |{lv:.4f}| = {threshold:.4f} "
+                       f"→ {'regime shift' if flag else 'no regime shift'}"),
+    }
+
+
+def _an_tb4_payload(daily, short_days: int, window: str) -> dict:
+    """Everything downstream of the daily series — identical for both scopes,
+    which is what makes `scope=node` genuinely the same shape as `scope=hub`
+    rather than a lookalike."""
+    days = AN_TB4_WINDOWS[window]
+    served = daily if days is None else daily[-days:]
+    short_avg = _an_tb4_trailing(daily, AN_TB4_SHORT_AVG_DAYS)
+    long_avg = _an_tb4_trailing(daily, AN_TB4_LONG_AVG_DAYS)
+    return {
+        "available": bool(daily),
+        "window": window,
+        "window_definition": ("the last N BANKED TB4 days, not N calendar days; "
+                              "'full' serves every banked day"),
+        "window_served": ({"start": served[0]["date"], "end": served[-1]["date"],
+                           "days": len(served)} if served else None),
+        "n_days_banked": len(daily),
+        "excluded_short_days": short_days,
+        "daily": served,
+        # The long view is over FULL banked depth regardless of `window` — that
+        # is the point of it.
+        "monthly": _an_tb4_monthly(daily),
+        f"avg_{AN_TB4_SHORT_AVG_DAYS}d": short_avg,
+        f"avg_{AN_TB4_LONG_AVG_DAYS}d": long_avg,
+        "regime_shift": _an_tb4_shift(short_avg, long_avg),
+    }
+
+
+def _an_tsv_depth(series: str, daily, short_days: int) -> dict:
+    """The hub leg's depth object, in the department's ONE depth grammar
+    (source / retention / markets / depth_days) so a client renders the same
+    caption over the hub store as over the snapshot hot tier."""
+    first = daily[0]["date"] if daily else None
+    last = daily[-1]["date"] if daily else None
+    days = ((_date.fromisoformat(last) - _date.fromisoformat(first)).days + 1
+            if first and last else 0)
+    return {
+        "source": "timeseries_values",
+        "retention": "full banked history; no retention window",
+        "markets": {AN_DA_MARKET: {"min_date": first, "max_date": last,
+                                   "days": days}},
+        "depth_days": days,
+        "dataset": AN_HUB_DA_DATASET,
+        "series": series,
+        "tb4_days": len(daily),
+        "excluded_short_days": short_days,
+    }
+
+
+@app.get("/api/analytics/tb4")
+async def analytics_tb4(
+    response: Response,
+    scope: str = Query(
+        default="hub",
+        description=f"One of {', '.join(AN_TB4_SCOPES)}.",
+    ),
+    id: str = Query(
+        default="SP15",
+        description=("hub scope: a CAISO trading hub "
+                     f"({', '.join(sorted(set(AN_TH_HUB_TO_ZONE.values())))}). "
+                     "node scope: a priced pnode_id."),
+    ),
+    window: str = Query(
+        default="30d",
+        description=f"One of {', '.join(AN_TB4_WINDOWS)}.",
+    ),
+):
+    """
+    TB4 — the top-bottom-4 spread, the battery-revenue environment in one number.
+
+        TB4(day) = mean(top-4 HE LMPs) − mean(bottom-4 HE LMPs), DAM
+
+    `scope=hub` rides the FULL banked archive: 88,344 hourly rows per zone,
+    2016-01 → today, ~3,681 TB4 days. It serves the requested window's daily
+    series PLUS a monthly-mean series over that whole depth — the long view a
+    daily line cannot show. One index-served read, ~150-190 ms measured.
+
+    `scope=node` rides the snapshot hot tier with honest N, in the IDENTICAL
+    payload shape. Today that is eight banked dates, so the node's `monthly`
+    series is one incomplete month and `avg_30d` is an average of ~7 days that
+    states `n_days: 7, complete: false`. Nothing is padded to look longer.
+
+    A day needs at least 8 priced hours or the top-4 and bottom-4 baskets
+    overlap; short days are dropped and counted in `excluded_short_days`.
+
+    `avg_7d` / `avg_30d` are over the last 7 / 30 BANKED TB4 days of full depth
+    — the standing statistic, not a slice of `window`. `regime_shift` carries
+    its flag, its threshold, the tunable fraction behind it, and the arithmetic
+    that produced it, so the verdict can be audited off the payload alone.
+
+    Errors: bad scope/window -> 400; unknown hub or unpriced pnode_id -> 400;
+    DB unavailable -> 503. Cached 5 minutes per (scope, id, window).
+    """
+    assert _pool is not None
+
+    if scope not in AN_TB4_SCOPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"scope must be one of {', '.join(AN_TB4_SCOPES)}")
+    if window not in AN_TB4_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"window must be one of {', '.join(AN_TB4_WINDOWS)}")
+    ident = (id or "").strip()
+    if not ident:
+        raise HTTPException(status_code=400, detail="id is required")
+
+    cache_key = (scope, ident, window)
+    hit = _an_tb4_cache.get(cache_key)
+    if hit and (time.monotonic() - hit[0]) < AN_TB4_CACHE_TTL:
+        response.headers["Cache-Control"] = f"public, max-age={int(AN_TB4_CACHE_TTL)}"
+        return {**hit[1], "cached": True}
+
+    started = time.monotonic()
+    common = {
+        "scope": scope,
+        "id": ident,
+        "market": AN_DA_MARKET,
+        "as_of": _utcnow().isoformat(),
+        "definition": (f"tb4 = mean(top-{AN_TB4_TOP_N} HE LMPs) − "
+                       f"mean(bottom-{AN_TB4_TOP_N} HE LMPs), per day, "
+                       f"{AN_DA_MARKET}"),
+        "requirements": (f"a day needs at least {AN_TB4_MIN_HOURS} priced hours "
+                         f"so the two baskets are disjoint; shorter days are "
+                         f"dropped and counted"),
+    }
+
+    if scope == "hub":
+        zones = sorted(set(AN_TH_HUB_TO_ZONE.values()))
+        if ident not in zones:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unknown hub '{ident}': must be one of {', '.join(zones)}")
+        try:
+            rows = await _an_read(_AN_TB4_HUB_SQL, {
+                "dataset": AN_HUB_DA_DATASET, "series": ident,
+                "min_hours": AN_TB4_MIN_HOURS})
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        daily = [{"date": _an_iso_d(r["d"]),
+                  "tb4": _an_r(_an_f(r["top_mean"]) - _an_f(r["bottom_mean"])),
+                  "top4_mean": _an_r(_an_f(r["top_mean"])),
+                  "bottom4_mean": _an_r(_an_f(r["bottom_mean"])),
+                  "hours": int(r["n_hours"])}
+                 for r in rows]
+        # Short days never come back from the SQL (they are filtered server
+        # side), so the count is honest only as "excluded by the read".
+        depth = _an_tsv_depth(ident, daily, 0)
+        body = {**common, "hub": ident, "depth": depth,
+                **_an_tb4_payload(daily, 0, window),
+                "query_plan": {
+                    "index": "idx_tsv_series_ts",
+                    "shape": ("array_agg(value ORDER BY value) per PT day, then "
+                              "slice the 4 ends; ONE sort, sorted Aggregate"),
+                    "measured": "88,344 rows -> 3,681 days in 148 ms warm / 189 ms part-cold",
+                    "rejected": ("row_number() window frames: 4 sorts, 2,944 kB "
+                                 "spill, 1,868 ms for the same answer"),
+                }}
+    else:
+        _depth, _ident_row, _pairing, da_rows, _rt, _hub = \
+            await _an_regime_reads(ident, "basis")
+        hours_by_date: dict = defaultdict(list)
+        for r in da_rows:
+            v = _an_f(r["lmp"])
+            if v is not None:
+                hours_by_date[_an_as_date(r["market_date"])].append(v)
+        daily, short_days = _an_tb4_daily_from_hours(hours_by_date)
+        body = {**common, "hub": None, "depth": _depth,
+                **_an_tb4_payload(daily, short_days, window),
+                "query_plan": {
+                    "index": "atlas_pnode_lmp_snapshot_pkey",
+                    "shape": ("the Nodes lane's per-node DAM leg read (~192 rows, "
+                              "index-only); TB4 is computed in-process"),
+                    "measured": "no new query shape — reuses _AN_NODE_LEG_SQL",
+                    "rejected": None,
+                }}
+
+    body["runtime_ms"] = int((time.monotonic() - started) * 1000)
+    body["cached"] = False
+    _an_tb4_cache[cache_key] = (time.monotonic(), body)
+    response.headers["Cache-Control"] = f"public, max-age={int(AN_TB4_CACHE_TTL)}"
+    _analytics_log.info("tb4 scope=%s id=%s window=%s days=%d runtime_ms=%d",
+                        scope, ident, window, body["n_days_banked"],
+                        body["runtime_ms"])
+    return body
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. GET /api/analytics/movers-grid — TOP-N NODES x HE1-24
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The portfolio layout: rows are the top-N ranked nodes in BOTH directions,
+# columns are HE1-24, cells are the window-mean of the metric at that hour.
+#
+# TWO PHASES, and the split is the whole performance story.
+#   1. RANK. Delegated to `analytics_movers` IN-PROCESS, so this endpoint
+#      inherits that route's pinned chunk plan (RTPD 6-hour VALUES grid / DAM
+#      ANY(hours)) AND its 5-minute cache for free, and cannot drift from the
+#      numbers /api/analytics/movers reports for the same request.
+#   2. FILL. Per-HE cells for the 50 ranked nodes ONLY. pnode_id leads the
+#      snapshot PK, so a 50-element ANY(array) is a bitmap index scan feeding a
+#      single-batch HashAggregate. Measured 2026-07-30, 7-day window, 50 nodes:
+#         RTPD  31,350 rows in -> 8,000 out   236 ms cold
+#         DAM    8,000 rows in -> 8,000 out    57 ms
+#
+# WHY NOT GROUP THE UNIVERSE BY HOUR: because the Nodes lane measured it.
+# GROUP BY (pnode_id, market_date, market_hour) over a 7-day RTPD window
+# seq-scans 9.5M rows and spills 430 MB for 38 seconds. Ranking first and
+# reading 50 nodes second is three orders of magnitude cheaper.
+#
+# THE COLD PATH IS STILL THE MOVERS COLD PATH. A cold 7d dart request pays
+# phase 1's ~12 s before phase 2 reads a cell. The durable fix is a PRECOMPUTED
+# movers artifact written pantry-side (cron + catalog entry at birth) — a named
+# FOLLOW-ON lane, explicitly NOT built here. `precompute` in the payload says
+# so out loud rather than leaving the next reader to rediscover it.
+
+# The per-node per-HE read. ONE new shape, both markets, both measured above.
+_AN_NODE_HE_SQL = """
+    SELECT pnode_id, market_date AS d, market_hour AS he,
+           avg(lmp::float8) AS v, count(*) AS k
+    FROM atlas_pnode_lmp_snapshot
+    WHERE pnode_id = ANY(%(nodes)s)
+      AND market = %(market)s
+      AND market_date >= %(lo)s
+      AND market_date <= %(hi)s
+      AND lmp IS NOT NULL
+    GROUP BY 1, 2, 3
+"""
+
+
+def _an_he_map(rows) -> dict:
+    """Per-node per-hour rows -> {(pnode_id, date, he): value}."""
+    out = {}
+    for r in rows:
+        v = _an_f(r["v"])
+        if v is None:
+            continue
+        out[(r["pnode_id"], _an_as_date(r["d"]), int(r["he"]))] = v
+    return out
+
+
+def _an_grid_cells(nodes, dates, per_hour) -> dict:
+    """{pnode_id: (cells, cell_n)} over HE1-24 from a per-(node, date, hour)
+    value function. Absent hours are null cells with n=0 — never zeros, which
+    would read as "no spread" instead of "no data"."""
+    out = {}
+    for pid in nodes:
+        cells, counts = [], []
+        for he in AN_GRID_HOURS:
+            vals = [v for v in (per_hour(pid, d, he) for d in dates)
+                    if v is not None]
+            cells.append(_an_r(_an_mean(vals)))
+            counts.append(len(vals))
+        out[pid] = (cells, counts)
+    return out
+
+
+@app.get("/api/analytics/movers-grid")
+async def analytics_movers_grid(
+    response: Response,
+    window: str = Query(
+        default="1d",
+        description=f"Look-back window. One of {', '.join(AN_MOVERS_WINDOWS)}.",
+    ),
+    metric: str = Query(
+        default="dart",
+        description=f"Ranking metric. One of {', '.join(AN_MOVERS_METRICS)}.",
+    ),
+):
+    """
+    The movers grid — top-25 nodes each way as rows, HE1-24 as columns.
+
+    Rows come from `/api/analytics/movers` (this endpoint calls it in-process,
+    so the ranking, the coverage counts and the 5-minute cache are that
+    endpoint's, not a second opinion). Cells are the window-mean of the metric
+    at that hour for that node.
+
+    READ `value` AND `cells` AS TWO DIFFERENT STATEMENTS. `value` is the movers
+    ranking statistic, computed over the STRICT matched-hour set every ranked
+    node carries in full. A cell is that hour's mean over the dates the pantry
+    banked it, with its own `cell_n`. When coverage is ragged the mean of a
+    row's cells need not equal its `value`, and neither figure is wrong — they
+    answer different questions. `cell_n` is served so the difference is
+    inspectable rather than surprising.
+
+    `scale_cap` states the colour cap (±$15 DART / ±$10 basis). Values are
+    never clipped.
+
+    PERFORMANCE, honestly. Phase 1 is the movers read and carries its cost:
+    ~2 s cold / ~0.5 s warm for 1d, and ~12 s cold at concurrency 4 for 7d
+    dart. Phase 2 adds ~0.3 s. `runtime_ms` reports what this request actually
+    cost and `cached` says whether it paid it. The durable answer to the cold
+    7d path is a precomputed movers artifact written pantry-side — a named
+    follow-on lane, not this endpoint; see `precompute` in the payload.
+
+    Errors: bad window/metric -> 400; DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    if window not in AN_MOVERS_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"window must be one of {', '.join(AN_MOVERS_WINDOWS)}")
+    if metric not in AN_MOVERS_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"metric must be one of {', '.join(AN_MOVERS_METRICS)}")
+
+    cache_key = (metric, window)
+    hit = _an_movers_grid_cache.get(cache_key)
+    if hit and (time.monotonic() - hit[0]) < AN_MOVERS_GRID_CACHE_TTL:
+        response.headers["Cache-Control"] = \
+            f"public, max-age={int(AN_MOVERS_GRID_CACHE_TTL)}"
+        return {**hit[1], "cached": True}
+
+    started = time.monotonic()
+
+    # ── Phase 1: rank, via the movers endpoint itself. ──────────────────────
+    ranking = await analytics_movers(Response(), window=window, metric=metric)
+    up = ranking["up"][:AN_MOVERS_GRID_TOP_N]
+    down = ranking["down"][:AN_MOVERS_GRID_TOP_N]
+    served = ranking["window_served"]
+    nodes = list(dict.fromkeys([e["pnode_id"] for e in up + down]))
+
+    # ── Phase 2: per-HE cells for those nodes only. ─────────────────────────
+    lo = _date.fromisoformat(served["start"])
+    hi = _date.fromisoformat(served["end"])
+    dates = [lo + _timedelta(days=i) for i in range((hi - lo).days + 1)]
+
+    da_map: dict = {}
+    rt_map: dict = {}
+    hub_map: dict = {}
+    zone_of: dict = {}
+    if nodes:
+        try:
+            da_map = _an_he_map(await _an_read(_AN_NODE_HE_SQL, {
+                "nodes": nodes, "market": AN_DA_MARKET, "lo": lo, "hi": hi}))
+            if metric == "dart":
+                rt_map = _an_he_map(await _an_read(_AN_NODE_HE_SQL, {
+                    "nodes": nodes, "market": AN_RT_MARKET, "lo": lo, "hi": hi}))
+            else:
+                ts_lo, ts_hi = _an_hub_ts_bounds(lo, hi)
+                for zone in sorted(set(AN_TH_HUB_TO_ZONE.values())):
+                    hub_map[zone] = _an_hub_map(await _an_read(_AN_HUB_LEG_SQL, {
+                        "dataset": AN_HUB_DA_DATASET, "series": zone,
+                        "ts_lo": ts_lo, "ts_hi": ts_hi}))
+                pair_rows = await _an_read(_AN_PAIRING_MAP_SQL,
+                                           {"hubs": list(AN_TH_HUB_TO_ZONE)})
+                zone_of = {r["pnode_id"]: AN_TH_HUB_TO_ZONE[r["th_hub"]]
+                           for r in pair_rows if r["pnode_id"] in set(nodes)}
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    if metric == "dart":
+        def _cell(pid, d, he):
+            da = da_map.get((pid, d, he))
+            rt = rt_map.get((pid, d, he))
+            return None if (da is None or rt is None) else rt - da
+    else:
+        def _cell(pid, d, he):
+            da = da_map.get((pid, d, he))
+            zone = zone_of.get(pid)
+            hub = hub_map.get(zone, {}).get((d, he)) if zone else None
+            return None if (da is None or hub is None) else da - hub
+
+    filled = _an_grid_cells(nodes, dates, _cell)
+
+    def _rows(entries, direction):
+        out = []
+        for i, e in enumerate(entries, start=1):
+            cells, counts = filled.get(e["pnode_id"], ([None] * 24, [0] * 24))
+            out.append({
+                "pnode_id": e["pnode_id"],
+                "direction": direction,
+                "rank": i,
+                "value": e["value"],
+                "cells": cells,
+                "cell_n": counts,
+                "n_cells": sum(1 for c in cells if c is not None),
+            })
+        return out
+
+    runtime_ms = int((time.monotonic() - started) * 1000)
+    payload = {
+        "metric": metric,
+        "window": window,
+        "as_of": _utcnow().isoformat(),
+        "depth": ranking["depth"],
+        "window_served": served,
+        "definition": ranking["definition"],
+        "cell_definition": (
+            "mean over the banked dates in the window of "
+            + ("(hourly-mean FMM − DA)" if metric == "dart"
+               else "(node DAM − hub DAM)")
+            + " at that hour-ending; null where the pantry banked no such hour"),
+        "value_definition": (
+            "the movers ranking statistic over the strict matched-hour set — "
+            "NOT the mean of this row's cells, which ride per-hour coverage"),
+        "scale_cap": {
+            "value": AN_GRID_SCALE_CAP[metric],
+            "unit": "$/MWh",
+            "applies_to": "cell colour only",
+            "note": "values are never clipped; the cap saturates the palette",
+        },
+        "hours": list(AN_GRID_HOURS),
+        "top_n": AN_MOVERS_GRID_TOP_N,
+        "up": _rows(up, "up"),
+        "down": _rows(down, "down"),
+        "coverage": {**ranking["coverage"], "nodes_read": len(nodes)},
+        "runtime_ms": runtime_ms,
+        "ranking_cached": bool(ranking.get("cached")),
+        "query_plan": {
+            "phase_1": {**ranking["query_plan"],
+                        "note": "delegated to /api/analytics/movers in-process"},
+            "phase_2": {
+                "index": "atlas_pnode_lmp_snapshot_pkey",
+                "shape": ("pnode_id = ANY(top-N ids) + market + date range, "
+                          "GROUP BY (pnode_id, date, hour); bitmap index scan "
+                          "-> single-batch HashAggregate, no sort, no spill"),
+                "measured": ("50 nodes x 7 days: RTPD 31,350 rows -> 8,000 in "
+                             "236 ms cold; DAM 8,000 rows in 57 ms"),
+                "reads": 1 if metric == "dart" else 0,
+            },
+        },
+        "precompute": {
+            "built": False,
+            "note": ("this endpoint computes live behind a 5-minute cache. The "
+                     "durable answer to the cold 7d path is a precomputed movers "
+                     "artifact written pantry-side (cron + catalog entry at "
+                     "birth) — a named follow-on lane, not this endpoint"),
+        },
+        "cached": False,
+    }
+    _an_movers_grid_cache[cache_key] = (time.monotonic(), payload)
+    response.headers["Cache-Control"] = \
+        f"public, max-age={int(AN_MOVERS_GRID_CACHE_TTL)}"
+    _analytics_log.info(
+        "movers-grid metric=%s window=%s nodes=%d runtime_ms=%d ranking_cached=%s",
+        metric, window, len(nodes), runtime_ms, payload["ranking_cached"])
     return payload
