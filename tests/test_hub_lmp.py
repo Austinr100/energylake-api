@@ -424,9 +424,26 @@ def test_onpeak_helper_matches_nerc_block():
     assert main._lmp_is_onpeak(pt(2026, 7, 6, 21)) is True    # Mon HE22 edge
     assert main._lmp_is_onpeak(pt(2026, 7, 6, 5)) is False    # Mon HE6 (pre-peak)
     assert main._lmp_is_onpeak(pt(2026, 7, 6, 22)) is False   # Mon HE23 (post-peak)
-    # 2026-07-04 is a Saturday -> on-peak under Mon-Sat block.
-    assert main._lmp_is_onpeak(pt(2026, 7, 4, 14)) is True
     # 2026-07-05 is a Sunday -> all off-peak.
     assert main._lmp_is_onpeak(pt(2026, 7, 5, 14)) is False
-    # 2026-07-03 is the locked NERC holiday -> off-peak even midday Friday.
-    assert main._lmp_is_onpeak(pt(2026, 7, 3, 14)) is False
+
+    # ── The Saturday-holiday case, CORRECTED 2026-07-31 ────────────────────
+    # These two assertions were the exact inverse of this until the NERC rule
+    # replaced the hardcoded list, and they are why the correction was ruled.
+    #
+    # July 4 2026 falls on a SATURDAY. Under the TRUE NERC rule a fixed-date
+    # holiday on a Saturday is NOT moved, so 2026-07-04 IS the observed
+    # Independence Day and has no on-peak block — even though Saturday is
+    # otherwise an on-peak day under Mon-Sat. The old hardcoded list applied
+    # FEDERAL observance and rolled it back to Friday 2026-07-03, which
+    # wrongly blanked a Friday's on-peak block and wrongly lit up a
+    # Saturday's. `market_calendar` (66 rows, live, checked 2026-07-31)
+    # carries 2026-07-04, and so does the pantry's nerc_calendar.py.
+    assert main._lmp_is_onpeak(pt(2026, 7, 4, 14)) is False   # Sat = the holiday
+    assert main._lmp_is_onpeak(pt(2026, 7, 3, 14)) is True    # Fri = an ordinary
+    #                                                          on-peak day again
+
+    # A Saturday that is NOT a holiday is still on-peak — the Mon-Sat half of
+    # the block is unchanged, and this is the assertion that proves the fix
+    # narrowed the calendar rather than dropping Saturdays.
+    assert main._lmp_is_onpeak(pt(2026, 7, 11, 14)) is True   # plain Saturday

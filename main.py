@@ -54,6 +54,7 @@ Endpoints:
     GET /api/analytics/node/{pnode_id}/grid    Regime Package v0: HE1-24 x banked-dates heat grid with both margins, scale cap stated, dates never padded (2026-07-30)
     GET /api/analytics/tb4                 Regime Package v0: top-bottom-4 spread per day — hub scope full depth + monthly long view, node scope honest N, regime-shift flag with its arithmetic (2026-07-30)
     GET /api/analytics/movers-grid         Regime Package v0: top-25 both directions x HE1-24 window-mean cells; ranks via /movers in-process, fills 50 nodes off the PK, cached (2026-07-30)
+    GET /api/analytics/node/{pnode_id}/daily   Nodal Daily Serving v0: the DURABLE atlas_node_daily_stats record newest-first (cap 90) — DART day/on/off-peak, both tb4 legs, basis, matched-hour counts, calendar flags, CB stamp; NERC 6x16 on-peak (NOT 7x16), Sunday/holiday NULL is calendar not absence, gaps never filled (2026-07-31)
     GET /api/desk/blotter                  Paper Desk v0: every paper_journal kind='bid' row, newest first, status OPEN/PENDING/SETTLED derived server-side (notes are never bids) (2026-07-31)
     GET /api/desk/book                     Paper Desk v0: desk totals — open count + gross MW, settled win/loss/flat, cumulative P&L, avg pnl/MWh; zero-fill is flat, no intraday mark (2026-07-31)
     GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
@@ -125,6 +126,61 @@ ALLOWED_ORIGINS = [
 # Railway hobby + Neon both have modest connection caps, so keep it small.
 _pool: AsyncConnectionPool | None = None
 
+_pool_log = logging.getLogger("energylake.pool")
+
+
+# ── STALE CONNECTION ON WAKE — validate-on-checkout ─────────────────────────
+# THE FINDING (ruled 2026-07-31). Neon idle-closes server-side sockets, and a
+# Railway service that has been quiet overnight wakes up holding a pool full of
+# connections whose TCP/SSL layer is already dead. Nothing tells the pool: the
+# first statement a route runs is what discovers it, raising
+# "SSL connection has been closed unexpectedly" (psycopg.OperationalError) or an
+# InterfaceError. The user sees a 503 on the FIRST request after a quiet period
+# and a clean 200 on the retry — the classic stale-connection-on-wake shape.
+#
+# THE FIX, and where it lives. `check` is psycopg_pool's validate-on-checkout
+# hook: it runs on EVERY `_pool.connection()` acquisition, before the caller
+# gets the connection. If it raises, the pool discards that connection and hands
+# over the next one instead (`_getconn_with_check_loop`), so a dead connection
+# is never handed to a route at all. That is the ONE genuinely shared
+# acquisition path in this file — every route, without exception, acquires via
+# `_pool.connection()` — which is why the fix goes here and NOT into any route.
+# No route, no lane helper, and no SQL changed for this.
+#
+# THE COST, stated. One extra round-trip per request (~1-3 ms to Neon us-east-2
+# from Railway). That is the price of never serving a wake-up 503, and it is
+# paid on the acquisition, not per query — a route that makes five reads inside
+# one acquisition pays it once.
+#
+# WHAT THIS DOES NOT COVER. A pre-ping proves the connection was alive a
+# millisecond ago, not that it survives the query. A connection that dies
+# MID-statement still raises, and the retry-once wrapper in `_cockpit_read`
+# (used by the Cockpit + Analytics lanes) remains the belt to that suspenders.
+# The two are complementary and neither replaces the other.
+_POOL_DEAD_CONN_ERRORS = (psycopg.OperationalError, psycopg.InterfaceError)
+
+
+async def _pool_pre_ping(conn) -> None:
+    """Validate-on-checkout: the cheap `SELECT 1` pre-ping.
+
+    Installed as the shared pool's `check` callback, so it runs on every
+    acquisition and every route inherits it. Returns quietly when the
+    connection is live; raises when it is not, which is the signal
+    psycopg_pool needs to discard it and hand the caller a fresh one.
+
+    Deliberately a bare `SELECT 1` rather than psycopg_pool's own
+    `AsyncConnectionPool.check_connection`, which toggles autocommit on and
+    off around an empty statement — three round-trips where one will do, on a
+    path that runs before every single request.
+    """
+    try:
+        await conn.execute("SELECT 1")
+    except _POOL_DEAD_CONN_ERRORS as e:
+        # Expected on wake: log at INFO, not WARNING. The pool's discard-and-
+        # re-acquire is the recovery, and it is working when this line appears.
+        _pool_log.info("pre-ping failed, discarding stale connection: %s", e)
+        raise
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -139,6 +195,7 @@ async def lifespan(app: FastAPI):
         max_size=5,
         open=False,  # open explicitly below (avoids deprecation warning)
         kwargs={"row_factory": dict_row},
+        check=_pool_pre_ping,  # validate-on-checkout; see the note above
     )
     await _pool.open()
     yield
@@ -856,23 +913,130 @@ LMP_DATASET = "caiso_lmp_da_hourly"
 # (the ingester does this rename on the way in).
 _VALID_HUBS = {"SP15", "NP15", "ZP26"}
 
-# NERC holidays for 2016-2026. These match shape_blocks_v1_sp15.sql's locked
-# list. Hardcoded rather than computed because observance conventions vary;
-# the locked list is the source of truth. When extending past 2026, add the
-# year's six holidays here.
-_NERC_HOLIDAYS = [
-    "2016-01-01", "2016-05-30", "2016-07-04", "2016-09-05", "2016-11-24", "2016-12-26",
-    "2017-01-02", "2017-05-29", "2017-07-04", "2017-09-04", "2017-11-23", "2017-12-25",
-    "2018-01-01", "2018-05-28", "2018-07-04", "2018-09-03", "2018-11-22", "2018-12-25",
-    "2019-01-01", "2019-05-27", "2019-07-04", "2019-09-02", "2019-11-28", "2019-12-25",
-    "2020-01-01", "2020-05-25", "2020-07-03", "2020-09-07", "2020-11-26", "2020-12-25",
-    "2021-01-01", "2021-05-31", "2021-07-05", "2021-09-06", "2021-11-25", "2021-12-24",
-    "2022-12-26", "2022-05-30", "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-26",
-    "2023-01-02", "2023-05-29", "2023-07-04", "2023-09-04", "2023-11-23", "2023-12-25",
-    "2024-01-01", "2024-05-27", "2024-07-04", "2024-09-02", "2024-11-28", "2024-12-25",
-    "2025-01-01", "2025-05-26", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
-    "2026-01-01", "2026-05-25", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
-]
+# ═══════════════════════════════════════════════════════════════════════════
+# THE NERC HOLIDAY CALENDAR — rule-based, corrected 2026-07-31.
+#
+# WHAT THIS REPLACED, AND WHY. This was a hardcoded 2016-2026 list described as
+# "the locked list is the source of truth". It was not: it applied FEDERAL
+# observance, which rolls a Saturday holiday BACK to the preceding Friday. NERC
+# does not do that. Under the NERC/WECC block definition Saturday is ALREADY an
+# on-peak day (6x16 is Mon-Sat), so a Saturday July 4th genuinely stays an
+# on-peak day and genuinely is not a holiday — rolling it to Friday wrongly
+# blanks a Friday's on-peak block and wrongly lights up a Saturday's.
+#
+# THE RULE, which is now computed rather than transcribed:
+#
+#     New Year's Day      January 1           (fixed)
+#     Memorial Day        last Monday in May  (floating)
+#     Independence Day    July 4              (fixed)
+#     Labor Day           1st Monday in Sep   (floating)
+#     Thanksgiving        4th Thursday in Nov (floating)
+#     Christmas Day       December 25         (fixed)
+#
+#     A fixed-date holiday falling on a SUNDAY is observed the following MONDAY.
+#     A fixed-date holiday falling on a SATURDAY is NOT moved.
+#
+# The three floating holidays are pinned to a weekday by construction and can
+# never need an observance shift; the shift only ever runs on the three fixed
+# ones.
+#
+# THE FOUR DATES THIS CHANGED, all Saturday-holiday cases, verified against the
+# live `market_calendar` table (66 rows, region='CAISO', 2020-2030) on
+# 2026-07-31:
+#
+#     was 2020-07-03  ->  2020-07-04   (Jul 4 2020 was a Saturday)
+#     was 2021-12-24  ->  2021-12-25   (Dec 25 2021 was a Saturday)
+#     was 2026-07-03  ->  2026-07-04   (Jul 4 2026 is a Saturday)
+#     2022-01-01 was MISSING ENTIRELY — the old list carried "2022-12-26" twice
+#                 and lost New Year's 2022 to the typo. Jan 1 2022 was a
+#                 Saturday, so under the true rule it is observed on the day.
+#
+# Everything else the old list held was already right, including every
+# Sunday->Monday shift it did carry (2017-01-02, 2021-07-05, 2022-12-26,
+# 2023-01-02, 2016-12-26). Consumers therefore see IDENTICAL output except on
+# the four dates above, where the old output was simply wrong.
+#
+# THE REFERENCE IMPLEMENTATION is energylake-pantry `nerc_calendar.py`, which
+# reproduces all 66 rows of `market_calendar` exactly and whose module docstring
+# names this file as the outlier needing exactly this correction. The two now
+# agree by construction; `tests/test_nerc_calendar.py` pins that agreement
+# against dates cut from the live table.
+#
+# NOT the 7x16 block. The Analytics room's `7x16` is HE7-22 on all seven days,
+# holiday-blind, and that room calls it on-peak in its own vocabulary. This is
+# the NERC 6x16 calendar and the two must never be conflated.
+_NERC_HOLIDAY_NAMES = (
+    "new_years", "memorial", "independence", "labor", "thanksgiving", "christmas",
+)
+
+# The span the materialized list below covers. Wider than the old list's
+# 2016-2026 because a rule does not expire and the list is only a cache of it;
+# 2016 is the floor of caiso_lmp_da_hourly, and the ceiling is far enough out
+# that nothing re-litigates this before the decade turns.
+_NERC_CALENDAR_MIN_YEAR = 2016
+_NERC_CALENDAR_MAX_YEAR = 2035
+
+
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> _date:
+    """The n-th `weekday` of (year, month). `weekday` is Mon=0..Sun=6."""
+    first = _date(year, month, 1)
+    offset = (weekday - first.weekday()) % 7
+    return first + _timedelta(days=offset + 7 * (n - 1))
+
+
+def _last_weekday(year: int, month: int, weekday: int) -> _date:
+    """The LAST `weekday` of (year, month). `weekday` is Mon=0..Sun=6."""
+    last = (_date(year, 12, 31) if month == 12
+            else _date(year, month + 1, 1) - _timedelta(days=1))
+    return last - _timedelta(days=(last.weekday() - weekday) % 7)
+
+
+def _nerc_observed(d: _date) -> _date:
+    """Apply NERC observance to a FIXED-date holiday.
+
+    Sunday -> the following Monday. Saturday is NOT moved — that is the federal
+    rule, not this one. Every other weekday is already its own observed date.
+    """
+    return d + _timedelta(days=1) if d.weekday() == 6 else d
+
+
+def nerc_holidays(year: int) -> dict:
+    """The six OBSERVED NERC holidays for `year`, as {date: name}.
+
+    Names are stable identifiers, not display strings — they are what the
+    receipts print and what the tests pin.
+    """
+    return {
+        _nerc_observed(_date(year, 1, 1)):   "new_years",
+        _last_weekday(year, 5, 0):           "memorial",      # last Mon in May
+        _nerc_observed(_date(year, 7, 4)):   "independence",
+        _nth_weekday(year, 9, 0, 1):         "labor",         # 1st Mon in Sep
+        _nth_weekday(year, 11, 3, 4):        "thanksgiving",  # 4th Thu in Nov
+        _nerc_observed(_date(year, 12, 25)): "christmas",
+    }
+
+
+def is_nerc_holiday(d: _date) -> bool:
+    """True if `d` is an OBSERVED NERC holiday.
+
+    Checks the PRIOR year too: New Year's observed can land on January 2nd, so
+    2023-01-02 belongs to nerc_holidays(2023) — but a shifted Christmas from the
+    preceding year must not be missed either. Both neighbouring years are cheap
+    to build and their union is unambiguous.
+    """
+    return d in nerc_holidays(d.year) or d in nerc_holidays(d.year - 1)
+
+
+# The rule, materialized once as ISO strings. `_NERC_HOLIDAYS` keeps its old
+# name, type (list[str]) and sort order, because it is passed straight into SQL
+# as `%(holidays)s::date[]` by /api/almanac/lmp-shape and read as a set by the
+# hub-LMP and market-clock lanes. Only the CONTENTS changed, and only on the
+# four dates named above.
+_NERC_HOLIDAYS = sorted(
+    d.isoformat()
+    for y in range(_NERC_CALENDAR_MIN_YEAR, _NERC_CALENDAR_MAX_YEAR + 1)
+    for d in nerc_holidays(y)
+)
 
 
 @app.get("/api/almanac/lmp-shape")
@@ -4826,8 +4990,9 @@ _HUB_LMP_DATASET_TO_MARKET = {m["dataset"]: k for k, m in HUB_LMP_MARKETS.items(
 # endpoint validates against.
 HUB_LMP_HUBS = ["NP15", "SP15", "ZP26"]
 
-# The locked NERC-holiday list reused as a set for O(1) membership in the
-# on/off-peak split (source of truth is _NERC_HOLIDAYS above).
+# The rule-derived NERC-holiday calendar reused as a set of ISO strings for O(1)
+# membership in the on/off-peak split (source of truth is the `nerc_holidays`
+# rule above, materialized into _NERC_HOLIDAYS).
 _NERC_HOLIDAY_SET = frozenset(_NERC_HOLIDAYS)
 
 
@@ -8593,10 +8758,17 @@ async def model_room_frame(
 #       physical indices cannot yet replay one. Henry Hub can — and Henry Hub
 #       is NOT the right basis for a California HRCO. The calculator says so
 #       in the catalog rather than quietly defaulting a user into it.
-#   (d) NERC-holiday calendar divergence: main._NERC_HOLIDAYS uses OBSERVED
-#       dates (2026-07-03) while the pantry's caiso_blocks_daily 6x16 lane uses
-#       ACTUAL dates. 6x16 is therefore ABSENT from this room's block menu —
-#       see structures.py. The three blocks shipped are holiday-independent.
+#   (d) NERC-holiday calendar divergence — RESOLVED IN THIS FILE 2026-07-31,
+#       still open in the block menu. The old note here claimed main.py used
+#       "OBSERVED dates (2026-07-03)" against a pantry lane using "ACTUAL
+#       dates". Both halves were wrong: main.py was applying FEDERAL observance
+#       (Saturday rolled back to Friday), and the pantry's calendar does shift
+#       Sunday to Monday, so it was never "actual dates" either. main.py now
+#       computes the true NERC rule and agrees with `market_calendar` on all 66
+#       rows. 6x16 stays ABSENT from this room's block menu — not for want of a
+#       calendar any more, but because nothing has yet reconciled the block
+#       ARITHMETIC against the pantry's caiso_blocks_daily column. See
+#       structures.py. The three blocks shipped are holiday-independent.
 #
 # MEASURED RUNTIMES (EXPLAIN ANALYZE, cold buffers, live pantry):
 #   * one hub leg, full 118-month depth  ->  472 ms (58,896 hrs -> 3,681 days)
@@ -9158,12 +9330,17 @@ async def structures_catalog(response: Response):
             {
                 "id": "6x16",
                 "reason": (
-                    "The NERC on-peak block needs a holiday calendar, and this "
-                    "codebase holds two that disagree: main._NERC_HOLIDAYS uses "
-                    "OBSERVED dates (2026-07-03) while the pantry's "
-                    "caiso_blocks_daily 6x16 lane uses ACTUAL dates. Shipping "
-                    "6x16 would ship a block that silently disagrees with the "
-                    "pantry's own column. Filed, not papered over."
+                    "The NERC on-peak block needs a holiday calendar. This API "
+                    "now computes the true NERC rule (fixed-date holiday on a "
+                    "Sunday is observed the following Monday; on a Saturday it "
+                    "is NOT moved) and agrees with the pantry's market_calendar "
+                    "on all 66 rows — the calendar divergence that previously "
+                    "blocked this block is fixed as of 2026-07-31. 6x16 is "
+                    "still withheld because no lane has yet reconciled the "
+                    "block ARITHMETIC against the pantry's own "
+                    "caiso_blocks_daily column, and shipping an unreconciled "
+                    "block is how two numbers that should match quietly stop "
+                    "matching. Filed, not papered over."
                 ),
             }
         ],
@@ -9815,6 +9992,100 @@ AN_ENVELOPE_QUANTILES = (("p5", 0.05), ("p25", 0.25), ("p50", 0.50),
 AN_MOVERS_WINDOWS = {"1d": 1, "7d": 7}
 AN_MOVERS_METRICS = ("dart", "basis")
 AN_MOVERS_TOP_N = 50
+
+# ── CONVERGENCE-BIDDING ELIGIBILITY FILTER (cb_only) ────────────────────────
+# lane ruled 2026-07-31.
+#
+# THE CONTRACT IS THE TABLE'S, NOT THIS LANE'S. `caiso_cb_eligible_nodes` is
+# VINTAGED: every OASIS ATL_PNODE pull lands as a new vintage_date and nothing
+# is ever deleted or overwritten. Its COMMENT states the consumer contract in
+# one line, and this is that line implemented:
+#
+#     WHERE cb_eligible AND vintage_date = (SELECT max(vintage_date)
+#                                             FROM caiso_cb_eligible_nodes)
+#
+# NEVER READ IT UNSCOPED. An unscoped read unions every vintage ever pulled and
+# silently answers with a node that WAS eligible at some point in history. The
+# scoping subquery below is not defensive style — it is the contract.
+#
+# ABSENT != INELIGIBLE. The export carries the FULL pnode universe per vintage
+# with an explicit Y/N flag, so a node missing from the vintage is a node the
+# export did not mention, not a node that was refused. `cb_only=true` filters to
+# the explicit YES set and reports its size; it does not attempt to speak for
+# the nodes the vintage is silent about.
+#
+# WHERE THE FILTER IS APPLIED, and why it is not in the SQL. The movers read is
+# a chunked universe-wide sweep whose shape is measured and pinned (see the
+# query-plan note on the endpoint); threading an id list into those chunks would
+# change the plan the measurements were taken against. The eligible set is one
+# small keyed read (3,082 ids at the 2026-07-16 vintage), so the filter is
+# applied to the per-node statistic AFTER the sweep and BEFORE the ranking. The
+# sweep's cost is identical either way; only the ranking universe narrows.
+#
+# DEFAULT false. The public boards rank the whole priced universe exactly as
+# they did before this parameter existed — same reads, same ranking, same
+# numbers. Off, the filter costs ZERO extra reads: the eligible set is not
+# fetched at all, and the echoed block says so with nulls rather than a stale
+# count.
+AN_CB_ELIGIBLE_TABLE = "caiso_cb_eligible_nodes"
+
+# The contract, verbatim on the wire so a consumer can check the server did it.
+AN_CB_VINTAGE_RULE = (
+    "current vintage only: WHERE cb_eligible AND vintage_date = "
+    "(SELECT max(vintage_date) FROM caiso_cb_eligible_nodes). The table is "
+    "vintaged and append-only - every OASIS ATL_PNODE pull is a new "
+    "vintage_date and none is ever deleted, so an UNSCOPED read would union "
+    "every vintage ever pulled and answer with nodes that were eligible at "
+    "some point in history. Absent from the vintage != ineligible: the export "
+    "carries the full pnode universe with an explicit Y/N flag, so this filters "
+    "to the explicit YES set only."
+)
+
+# One read, the contract exactly. Index-served by idx_ccen_vintage_eligible
+# (vintage_date) WHERE cb_eligible.
+_AN_CB_ELIGIBLE_SQL = """
+    SELECT node_id,
+           (SELECT max(vintage_date) FROM caiso_cb_eligible_nodes) AS vintage_date
+    FROM caiso_cb_eligible_nodes
+    WHERE cb_eligible
+      AND vintage_date = (SELECT max(vintage_date) FROM caiso_cb_eligible_nodes)
+"""
+
+
+async def _an_cb_eligible() -> tuple:
+    """The current-vintage CB-eligible node set, as (ids, vintage_date).
+
+    `vintage_date` is None only when the table is empty, in which case the id
+    set is empty too and the caller reports an eligible universe of 0 rather
+    than silently ranking everything.
+    """
+    rows = await _an_read(_AN_CB_ELIGIBLE_SQL, {})
+    ids = {r["node_id"] for r in rows}
+    vintage = _an_as_date(rows[0]["vintage_date"]) if rows else None
+    return ids, vintage
+
+
+def _an_cb_block(cb_only: bool, vintage, universe, excluded) -> dict:
+    """The echoed filter block, present on every movers response.
+
+    Additive and always present, so a consumer never has to guess whether the
+    board it is reading was filtered. With the filter OFF the counts are null,
+    not zero — nothing was read, so there is no number to report and a 0 would
+    read as "no eligible nodes exist".
+    """
+    return {
+        "cb_only": cb_only,
+        "applied": cb_only,
+        "source": AN_CB_ELIGIBLE_TABLE,
+        "vintage_rule": AN_CB_VINTAGE_RULE,
+        "vintage_date": vintage.isoformat() if vintage else None,
+        "eligible_universe": universe,
+        "excluded_not_cb_eligible": excluded,
+        "note": (None if cb_only else
+                 "filter off (default): the whole priced universe ranks, and "
+                 "the eligible set was not read - the null counts mean not "
+                 "measured, not zero"),
+    }
 # Six hours: the widest chunk that stays on idx_lmp_snap_market_time (see the
 # measured table above). Do not raise this without re-running the EXPLAINs.
 AN_MOVERS_CHUNK_HOURS = 6
@@ -11049,6 +11320,14 @@ async def analytics_movers(
         default="dart",
         description=f"Ranking metric. One of {', '.join(AN_MOVERS_METRICS)}.",
     ),
+    cb_only: bool = Query(
+        default=False,
+        description=(
+            "Rank only convergence-bidding-eligible nodes, at the CURRENT "
+            "vintage of caiso_cb_eligible_nodes. Default false — the public "
+            "boards rank the whole priced universe, unchanged."
+        ),
+    ),
 ):
     """
     Top-50 movers in both directions, universe-wide, by DART or basis.
@@ -11112,8 +11391,16 @@ async def analytics_movers(
     request that actually computed the answer, so a regression is visible in
     the payload rather than only in a log.
 
-    Cached for 5 minutes per (metric, window): the snapshot writer has no
-    standing schedule, so the answer only changes when a dispatch lands.
+    CB-ONLY (`cb_only=true`) narrows the RANKING UNIVERSE, not the reads. The
+    sweep above is unchanged — same chunks, same plan, same cost — and the
+    current-vintage eligible set (one small keyed read) is applied to the
+    per-node statistic before the ranking. `cb_filter` echoes the parameter, the
+    vintage date, the eligible-universe size and how many ranked nodes it
+    dropped, so the board can state what it is showing. Default false leaves the
+    public boards byte-for-byte as they were, and costs zero extra reads.
+
+    Cached for 5 minutes per (metric, window, cb_only): the snapshot writer has
+    no standing schedule, so the answer only changes when a dispatch lands.
 
     Errors: bad window/metric -> 400; DB unavailable -> 503.
     """
@@ -11128,7 +11415,7 @@ async def analytics_movers(
             status_code=400,
             detail=f"metric must be one of {', '.join(AN_MOVERS_METRICS)}")
 
-    cache_key = (metric, window)
+    cache_key = (metric, window, cb_only)
     hit = _an_movers_cache.get(cache_key)
     now_mono = time.monotonic()
     if hit and (now_mono - hit[0]) < AN_MOVERS_CACHE_TTL:
@@ -11272,12 +11559,29 @@ async def analytics_movers(
                 continue
             per_node[pid] = (da_sum / total_hours) - hm
 
+    # ── CB-eligibility filter. Applied to the per-node statistic, AFTER the
+    # sweep and BEFORE the ranking: the reads above are untouched, only the
+    # ranking universe narrows. Off by default and then not even read.
+    cb_vintage = None
+    cb_universe = None
+    cb_excluded = None
+    if cb_only:
+        try:
+            cb_ids, cb_vintage = await _an_cb_eligible()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        cb_universe = len(cb_ids)
+        before = len(per_node)
+        per_node = {p: v for p, v in per_node.items() if p in cb_ids}
+        cb_excluded = before - len(per_node)
+
     ranked = _an_movers_rank(per_node, AN_MOVERS_TOP_N)
     runtime_ms = int((time.monotonic() - started) * 1000)
 
     payload = {
         "metric": metric,
         "window": window,
+        "cb_filter": _an_cb_block(cb_only, cb_vintage, cb_universe, cb_excluded),
         "as_of": _utcnow().isoformat(),
         "depth": depth,
         "window_served": {"start": dates[0].isoformat(), "end": dates[-1].isoformat(),
@@ -11312,8 +11616,10 @@ async def analytics_movers(
     _an_movers_cache[cache_key] = (time.monotonic(), payload)
     response.headers["Cache-Control"] = f"public, max-age={int(AN_MOVERS_CACHE_TTL)}"
     _analytics_log.info(
-        "movers metric=%s window=%s hours=%d ranked=%d short=%d unpaired=%d runtime_ms=%d",
-        metric, window, total_hours, ranked["ranked_nodes"], short, unpaired, runtime_ms)
+        "movers metric=%s window=%s cb_only=%s hours=%d ranked=%d short=%d "
+        "unpaired=%d cb_excluded=%s runtime_ms=%d",
+        metric, window, cb_only, total_hours, ranked["ranked_nodes"], short,
+        unpaired, cb_excluded, runtime_ms)
     return payload
 
 
@@ -12299,6 +12605,14 @@ async def analytics_movers_grid(
         default="dart",
         description=f"Ranking metric. One of {', '.join(AN_MOVERS_METRICS)}.",
     ),
+    cb_only: bool = Query(
+        default=False,
+        description=(
+            "Rank only convergence-bidding-eligible nodes, at the CURRENT "
+            "vintage of caiso_cb_eligible_nodes. Passed straight through to "
+            "the phase-1 ranking. Default false — the public grid is unchanged."
+        ),
+    ),
 ):
     """
     The movers grid — top-25 nodes each way as rows, HE1-24 as columns.
@@ -12318,6 +12632,12 @@ async def analytics_movers_grid(
 
     `scale_cap` states the colour cap (±$15 DART / ±$10 basis). Values are
     never clipped.
+
+    CB-ONLY (`cb_only=true`) is passed through to phase 1 and nowhere else: the
+    ranking narrows to current-vintage convergence-bidding-eligible nodes, and
+    phase 2 then fills cells for whichever nodes ranked. `cb_filter` is the same
+    block /api/analytics/movers echoes, forwarded verbatim so the two endpoints
+    cannot disagree about what was filtered. Default false.
 
     PERFORMANCE, honestly. Phase 1 is the movers read and carries its cost:
     ~2 s cold / ~0.5 s warm for 1d, and ~12 s cold at concurrency 4 for 7d
@@ -12339,7 +12659,7 @@ async def analytics_movers_grid(
             status_code=400,
             detail=f"metric must be one of {', '.join(AN_MOVERS_METRICS)}")
 
-    cache_key = (metric, window)
+    cache_key = (metric, window, cb_only)
     hit = _an_movers_grid_cache.get(cache_key)
     if hit and (time.monotonic() - hit[0]) < AN_MOVERS_GRID_CACHE_TTL:
         response.headers["Cache-Control"] = \
@@ -12349,7 +12669,8 @@ async def analytics_movers_grid(
     started = time.monotonic()
 
     # ── Phase 1: rank, via the movers endpoint itself. ──────────────────────
-    ranking = await analytics_movers(Response(), window=window, metric=metric)
+    ranking = await analytics_movers(
+        Response(), window=window, metric=metric, cb_only=cb_only)
     up = ranking["up"][:AN_MOVERS_GRID_TOP_N]
     down = ranking["down"][:AN_MOVERS_GRID_TOP_N]
     served = ranking["window_served"]
@@ -12417,6 +12738,9 @@ async def analytics_movers_grid(
     payload = {
         "metric": metric,
         "window": window,
+        # Forwarded verbatim from phase 1 so the grid and the movers board can
+        # never disagree about what was filtered.
+        "cb_filter": ranking["cb_filter"],
         "as_of": _utcnow().isoformat(),
         "depth": ranking["depth"],
         "window_served": served,
@@ -12468,8 +12792,10 @@ async def analytics_movers_grid(
     response.headers["Cache-Control"] = \
         f"public, max-age={int(AN_MOVERS_GRID_CACHE_TTL)}"
     _analytics_log.info(
-        "movers-grid metric=%s window=%s nodes=%d runtime_ms=%d ranking_cached=%s",
-        metric, window, len(nodes), runtime_ms, payload["ranking_cached"])
+        "movers-grid metric=%s window=%s cb_only=%s nodes=%d runtime_ms=%d "
+        "ranking_cached=%s",
+        metric, window, cb_only, len(nodes), runtime_ms,
+        payload["ranking_cached"])
     return payload
 
 
@@ -12785,3 +13111,357 @@ async def desk_by_play():
     assert _pool is not None
     bids, plays = await _pd_read_bids()
     return {**_pd_base(), **_pd.by_play(bids, plays)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NODAL DAILY SERVING v0 — atlas_node_daily_stats on the wire
+# lane ruled 2026-07-31.
+#
+#   GET /api/analytics/node/{pnode_id}/daily?days=30      (cap 90)
+#
+# WHAT THIS SERVES, AND WHY IT IS DIFFERENT FROM EVERYTHING ABOVE IT. Every
+# other endpoint in the Analytics + Regime rooms reads
+# `atlas_pnode_lmp_snapshot` — a ~7-day rolling HOT TIER with no standing
+# writer. This one reads `atlas_node_daily_stats`, the DURABLE per-node daily
+# record derived FROM that snapshot nightly and written to outlive it. The
+# snapshot is where the hours live; this table is where the days accumulate.
+#
+# THE LAWS BELOW ARE NOT THIS LANE'S OPINIONS. They are lifted from the COMMENTs
+# on `atlas_node_daily_stats` itself (migration 125) and re-stated in every
+# response's `rules` block, because each is a thing a client can get silently,
+# catastrophically wrong:
+#
+#   1. THE DART SIGN IS PINNED: positive = RT above DA. This repo carries BOTH
+#      conventions — fingerprints/build.py computes (dam.da - fmm.fmm), the
+#      exact NEGATION — and /api/timeseries/caiso-hub-lmp ships the opposite
+#      sign under the field name `spread`. Flip it and every chart inverts with
+#      no error anywhere.
+#
+#   2. A NULL dart_onpk ON A SUNDAY OR A NERC HOLIDAY IS THE CALENDAR, NOT AN
+#      ABSENCE. Those days have no on-peak block at all, so hours_onpk_matched
+#      is 0 and the mean does not exist. `null_semantics` on every row says
+#      which of the two a null is, so the client never has to infer it.
+#
+#   3. ON-PEAK HERE IS THE NERC/WECC 6x16 BLOCK: HE7-22 inclusive, Monday
+#      through SATURDAY, EXCLUDING NERC holidays. This is NOT the `7x16` block
+#      the Analytics room calls on-peak elsewhere in this same API (HE7-22, all
+#      seven days, holiday-blind). Different blocks; the response says so.
+#
+#   4. tb4 IS A MEAN-OF-4 SPREAD IN $/MWh. `caiso_blocks_daily.tb4` is a SUM of
+#      the extremes in $/MW-day and is therefore ~4x this number. The two are
+#      not comparable without dividing.
+#
+#   5. is_weekend IS NOT "no on-peak block". Saturday is a weekend day AND an
+#      on-peak day. A consumer that conflates them is wrong 52 days a year.
+#
+# GAPS ARE REAL. `days` bounds ROWS, not a calendar span: the read takes the
+# newest `days` rows this node actually has. A date the nightly producer never
+# banked is simply not in the list — never zero-filled, never interpolated —
+# and `days_returned` beside `days_requested` is how the thinness stays
+# visible. `window_served` reports the first and last market_date actually
+# returned, so a client can compare the span against the count and see a hole.
+#
+# QUERY PLAN. One index-served read on `idx_node_daily_node_date
+# (pnode_id, market_date DESC)` — equality on the leading column plus a
+# backwards range scan, LIMIT-bounded at 90, so the cost is the LIMIT and not
+# the table. A second tiny read reports the table's banked depth (min/max
+# market_date), served by `idx_node_daily_date_dart`, so a zero-row answer is
+# interpretable rather than mysterious.
+#
+# ERRORS. Blank pnode_id -> 400. Out-of-range `days` -> 400 naming the bound. A
+# node with no banked rows -> 200 with days_returned: 0 and the depth attached,
+# never a 404 and never a fabricated flat line (house standard).
+# ═══════════════════════════════════════════════════════════════════════════
+
+AN_DAILY_TABLE = "atlas_node_daily_stats"
+AN_DAILY_DAYS_DEFAULT = 30
+AN_DAILY_DAYS_MIN = 1
+AN_DAILY_DAYS_MAX = 90
+
+# The rules block, carried from the COMMENTs on atlas_node_daily_stats. These
+# strings are PINNED BY TEST (tests/test_nodal_daily.py) — a client that keys a
+# caption or a tooltip off one of them must not have it silently reworded.
+AN_DAILY_RULES = {
+    "dart_sign": (
+        "DART = hourly-mean FMM minus DA, taken over MATCHED hours only. SIGN "
+        "IS PINNED: positive = RT above DA. Do not \"fix\" it to DA - FMM; this "
+        "repo carries both conventions and fingerprints/build.py's "
+        "(dam.da - fmm.fmm) is the NEGATION of this column."
+    ),
+    "onpeak_block": (
+        "On-peak is the NERC/WECC block: HE7-HE22 inclusive, Monday-Saturday, "
+        "EXCLUDING NERC holidays. Off-peak is the exact complement. This is NOT "
+        "the 7x16 block (HE7-22 all seven days, holiday-blind) that this API's "
+        "Analytics room calls on-peak; the two must never be conflated."
+    ),
+    "onpeak_null_is_calendar": (
+        "dart_onpk is NULL when hours_onpk_matched = 0, which is the correct "
+        "and expected value on every Sunday and every NERC holiday - those days "
+        "have no on-peak block at all. Never read a NULL there as a missing "
+        "measurement without checking dow and is_nerc_holiday first."
+    ),
+    "is_weekend": (
+        "is_weekend is Saturday or Sunday. It is NOT the inverse of \"has an "
+        "on-peak block\": Saturday is a weekend day AND an on-peak day under "
+        "the NERC 6x16 convention. A consumer that treats is_weekend as \"no "
+        "on-peak block\" is wrong 52 days a year."
+    ),
+    "tb4_unit": (
+        "tb4_da/tb4_rt are the MEAN of the 4 highest hourly prices minus the "
+        "MEAN of the 4 lowest, in $/MWh. NOTE the unit difference from "
+        "caiso_blocks_daily.tb4, which is a SUM of the extremes in $/MW-day and "
+        "is therefore ~4x this number. The two are not comparable without "
+        "dividing."
+    ),
+    "tb4_full_day_gate": (
+        "tb4_da is NULL unless the DA leg banked a FULL Pacific civil day "
+        "(23/24/25 hours depending on DST - not a literal 24). tb4_rt is gated "
+        "on the FMM leg's OWN full-day coverage, independently of tb4_da."
+    ),
+    "basis": (
+        "basis_da/basis_fmm are node mean minus the node's th_hub mean. NULL "
+        "when the node has no th_hub in atlas_pnode_universe (21,821 of 24,098 "
+        "nodes - honest absence and the common path) AND ALSO when the hub "
+        "itself is not priced in the snapshot for that date. As of 2026-07-31 "
+        "the latter makes this column NULL FOR EVERY ROW: the five th_hub nodes "
+        "have zero DAM rows anywhere in the snapshot. That is an upstream "
+        "ingester gap, deliberately not worked around."
+    ),
+    "hours_matched": (
+        "hours_matched is how many hours on this date had BOTH a DAM print and "
+        "at least one FMM interval for this node - the honest N behind "
+        "dam_mean, fmm_mean and dart_mean. A 9 here means dart_mean is a 9-hour "
+        "mean, and no consumer should present it as a day."
+    ),
+    "dow": (
+        "dow is 0=Monday .. 6=Sunday - Python's date.weekday() convention. "
+        "Deliberately NOT isoweekday (1-7) and NOT Postgres EXTRACT(DOW) "
+        "(0=Sunday). Three conventions exist in this codebase; this column pins "
+        "this one."
+    ),
+    "cb_eligible": (
+        "cb_eligible is convergence-bidding eligibility joined from "
+        "caiso_cb_eligible_nodes at its CURRENT max(vintage_date) as of "
+        "derivation time - a point-in-time stamp, not a foreign key. It answers "
+        "\"was this node CB-eligible when we last computed the row\", NOT \"was "
+        "it eligible on market_date\". NULL when the node is absent from the "
+        "vintage entirely."
+    ),
+    "gaps": (
+        "`days` bounds ROWS, not a calendar span: this returns the newest "
+        "`days` rows the node actually has. Dates the nightly producer never "
+        "banked are absent - never zero-filled, never interpolated. Compare "
+        "days_returned against days_requested, and window_served against the "
+        "count, to see the thinness."
+    ),
+}
+
+# Per-row null semantics. The point of this block is that a client never has to
+# re-derive law #2 from dow/is_nerc_holiday itself — the server already did.
+AN_DAILY_NULL_CALENDAR = "calendar: no on-peak block exists on this date"
+AN_DAILY_NULL_ABSENT = "absent: no matched hours in this block on this date"
+
+_AN_DAILY_SQL = """
+    SELECT market_date, dow, is_weekend, is_nerc_holiday,
+           dart_mean, dart_onpk, dart_offpk,
+           tb4_da, tb4_rt,
+           basis_da, basis_fmm,
+           hours_matched, hours_onpk_matched, hours_offpk_matched,
+           cb_eligible, computed_at
+    FROM atlas_node_daily_stats
+    WHERE pnode_id = %(pnode_id)s
+    ORDER BY market_date DESC
+    LIMIT %(days)s
+"""
+
+# Table-wide banked depth, so a zero-row node is interpretable. Index-served by
+# idx_node_daily_date_dart (market_date leading).
+_AN_DAILY_DEPTH_SQL = """
+    SELECT min(market_date) AS min_date,
+           max(market_date) AS max_date,
+           count(DISTINCT market_date) AS dates
+    FROM atlas_node_daily_stats
+"""
+
+
+def _an_daily_null_reason(value, hours: int, dow: int, holiday: bool):
+    """Why a block mean is null — the calendar, or a genuine absence.
+
+    Returns None when the value is PRESENT: there is nothing to explain about a
+    number that exists. A Sunday (dow 6) or a NERC holiday has NO on-peak block,
+    so a null there is the calendar answering correctly; anything else is hours
+    that did not match.
+    """
+    if value is not None:
+        return None
+    if hours == 0 and (dow == 6 or holiday):
+        return AN_DAILY_NULL_CALENDAR
+    return AN_DAILY_NULL_ABSENT
+
+
+def _an_daily_row(r: dict) -> dict:
+    """One atlas_node_daily_stats row, shaped for the wire.
+
+    Every numeric is rounded to the department's 4dp. `null_semantics` carries
+    the per-row verdict for BOTH block means, and `has_onpeak_block` states the
+    calendar fact directly, so the client never re-derives either.
+    """
+    d = _an_as_date(r["market_date"])
+    dow = int(r["dow"])
+    holiday = bool(r["is_nerc_holiday"])
+    onpk_hours = int(r["hours_onpk_matched"])
+    offpk_hours = int(r["hours_offpk_matched"])
+    computed = r.get("computed_at")
+    return {
+        "market_date": d.isoformat() if d else None,
+        "dow": dow,
+        "is_weekend": bool(r["is_weekend"]),
+        "is_nerc_holiday": holiday,
+        "has_onpeak_block": not (dow == 6 or holiday),
+        "dart_mean": _an_r(r["dart_mean"]),
+        "dart_onpk": _an_r(r["dart_onpk"]),
+        "dart_offpk": _an_r(r["dart_offpk"]),
+        "tb4_da": _an_r(r["tb4_da"]),
+        "tb4_rt": _an_r(r["tb4_rt"]),
+        "basis_da": _an_r(r["basis_da"]),
+        "basis_fmm": _an_r(r["basis_fmm"]),
+        "hours_matched": int(r["hours_matched"]),
+        "hours_onpk_matched": onpk_hours,
+        "hours_offpk_matched": offpk_hours,
+        "cb_eligible": (None if r["cb_eligible"] is None
+                        else bool(r["cb_eligible"])),
+        "computed_at": computed.isoformat() if computed else None,
+        "null_semantics": {
+            "dart_onpk": _an_daily_null_reason(
+                r["dart_onpk"], onpk_hours, dow, holiday),
+            "dart_offpk": _an_daily_null_reason(
+                r["dart_offpk"], offpk_hours, dow, holiday),
+        },
+    }
+
+
+def _an_daily_depth(rows) -> dict:
+    """The table's banked depth — what exists at all, node-independent."""
+    r = rows[0] if rows else {}
+    mn, mx = _an_as_date(r.get("min_date")), _an_as_date(r.get("max_date"))
+    return {
+        "source": AN_DAILY_TABLE,
+        "retention": (
+            "durable; derived nightly by nodal_daily_stats.py from "
+            "atlas_pnode_lmp_snapshot ONLY (never from timeseries_values), and "
+            "written to outlive that ~7-day rolling hot tier"),
+        "min_date": mn.isoformat() if mn else None,
+        "max_date": mx.isoformat() if mx else None,
+        "dates": int(r.get("dates") or 0),
+    }
+
+
+@app.get("/api/analytics/node/{pnode_id}/daily")
+async def analytics_node_daily(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. LUNDY_7_N003. Blank -> 400.",
+    ),
+    days: int = Query(
+        default=AN_DAILY_DAYS_DEFAULT,
+        description=(
+            f"How many of the node's newest daily rows to return, "
+            f"{AN_DAILY_DAYS_MIN}..{AN_DAILY_DAYS_MAX}. Bounds ROWS, not a "
+            f"calendar span — gaps are never filled."
+        ),
+    ),
+):
+    """
+    The node's daily record — one row per banked market_date, newest first.
+
+    Reads `atlas_node_daily_stats`, the DURABLE nightly derivation, not the
+    ~7-day snapshot hot tier every other endpoint in this room reads. Per date:
+    the DART means (day, on-peak, off-peak), both tb4 battery-arbitrage spreads,
+    both basis legs, the matched-hour counts behind all of it, the calendar
+    flags, and the node's convergence-bidding eligibility stamp.
+
+    THE FIVE LAWS, all carried in `rules` on every response because each is
+    silent on the server and catastrophic on the client:
+
+      * DART SIGN. Positive = RT above DA. The OPPOSITE sign ships from
+        /api/timeseries/caiso-hub-lmp under the field name `spread`, and
+        fingerprints/build.py computes the exact negation. Never mix them.
+
+      * A NULL dart_onpk ON A SUNDAY OR A NERC HOLIDAY IS THE CALENDAR. Those
+        days have no on-peak block at all, so the mean does not exist. Every row
+        carries `null_semantics` saying which of the two a null is, and
+        `has_onpeak_block` saying whether the block existed — so the client
+        never re-derives it from dow and is_nerc_holiday.
+
+      * ON-PEAK IS THE NERC 6x16 BLOCK — HE7-22, Mon-SATURDAY, ex-NERC-holiday.
+        Explicitly NOT the 7x16 block (HE7-22, all seven days, holiday-blind)
+        that this same API's Analytics room calls on-peak. Different blocks.
+
+      * tb4 IS $/MWh, a MEAN-of-4 spread. `caiso_blocks_daily.tb4` is a SUM in
+        $/MW-day, ~4x this number. Not comparable without dividing.
+
+      * is_weekend IS NOT "no on-peak block". Saturday is both.
+
+    GAPS ARE REAL. `days` bounds rows, not calendar days: you get the newest
+    `days` rows the node HAS. `days_returned` sits beside `days_requested` and
+    `window_served` reports the actual first/last date, so a node with six
+    banked days answers with six rows and says so — no zero-fill, no
+    interpolation, no padded date axis.
+
+    BASIS IS NULL ON EVERY ROW TODAY, and that is upstream, not a bug here: the
+    five th_hub nodes have zero DAM rows anywhere in the snapshot the producer
+    is pinned to. `rules.basis` states it rather than hiding it.
+
+    Errors: blank pnode_id -> 400; out-of-range days -> 400 naming the bound;
+    DB down -> 503. A node with no banked rows is a 200 with days_returned: 0
+    and the table's depth attached — never a 404.
+    """
+    assert _pool is not None
+
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+    if days < AN_DAILY_DAYS_MIN or days > AN_DAILY_DAYS_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"days must be between {AN_DAILY_DAYS_MIN} and "
+                    f"{AN_DAILY_DAYS_MAX}; got {days}"))
+
+    try:
+        rows = await _an_read(_AN_DAILY_SQL, {"pnode_id": node, "days": days})
+        depth_rows = await _an_read(_AN_DAILY_DEPTH_SQL, {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    served = [_an_daily_row(r) for r in rows]
+    window = (
+        {"start": served[-1]["market_date"], "end": served[0]["market_date"]}
+        if served else None
+    )
+
+    return {
+        "pnode_id": node,
+        "as_of": _utcnow().isoformat(),
+        "depth": _an_daily_depth(depth_rows),
+        "days_requested": days,
+        "days_returned": len(served),
+        "window_served": window,
+        "order": "market_date DESC (newest first)",
+        "unit": "$/MWh",
+        "rules": AN_DAILY_RULES,
+        "null_semantics_vocabulary": {
+            "calendar": AN_DAILY_NULL_CALENDAR,
+            "absent": AN_DAILY_NULL_ABSENT,
+            "note": ("null_semantics is null for a value that is PRESENT — "
+                     "there is nothing to explain about a number that exists"),
+        },
+        "days": served,
+        "query_plan": {
+            "index": "idx_node_daily_node_date (pnode_id, market_date DESC)",
+            "shape": ("equality on the leading column + backwards range scan, "
+                      f"LIMIT-bounded at {AN_DAILY_DAYS_MAX}"),
+            "reads": 2,
+        },
+    }
