@@ -55,7 +55,7 @@ Endpoints:
     GET /api/analytics/tb4                 Regime Package v0: top-bottom-4 spread per day — hub scope full depth + monthly long view, node scope honest N, regime-shift flag with its arithmetic (2026-07-30)
     GET /api/analytics/movers-grid         Regime Package v0: top-25 both directions x HE1-24 window-mean cells; ranks via /movers in-process, fills 50 nodes off the PK, cached (2026-07-30)
     GET /api/analytics/node/{pnode_id}/daily   Nodal Daily Serving v0: the DURABLE atlas_node_daily_stats record newest-first (cap 90) — DART day/on/off-peak, both tb4 legs, basis, matched-hour counts, calendar flags, CB stamp; NERC 6x16 on-peak (NOT 7x16), Sunday/holiday NULL is calendar not absence, gaps never filled (2026-07-31)
-    GET /api/analytics/nodes/{pnode_id}/hourly Node Hourly Regime v0: per-HE envelope/ladder/regime chip/stance/outliers over the last `days` days ENDING YESTERDAY from atlas_node_hourly_stats, plus today's partial read live from the snapshot (DAM+RTPD); today is never in the distribution it is placed against; per-HE coverage on every row, no depth-floor suppression, basis born complete but dark (2026-08-01)
+    GET /api/analytics/nodes/{pnode_id}/hourly Node Hourly Regime v0: per-HE envelope/ladder/regime chip/stance/outliers over the last `days` days ENDING YESTERDAY from atlas_node_hourly_stats, plus today's partial read live from the snapshot (DAM+RTPD); today is never in the distribution it is placed against; per-HE coverage on every row, no depth-floor suppression, basis born complete but dark; `<metric>.history` carries the raw banked {trade_date, he, value} cells for the heat grid, present cells only, n_cells == n_banked_cells (2026-08-01)
     GET /api/desk/blotter                  Paper Desk v0: every paper_journal kind='bid' row, newest first, status OPEN/PENDING/SETTLED derived server-side (notes are never bids) (2026-07-31)
     GET /api/desk/book                     Paper Desk v0: desk totals — open count + gross MW, settled win/loss/flat, cumulative P&L, avg pnl/MWh; zero-fill is flat, no intraday mark (2026-07-31)
     GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
@@ -13537,6 +13537,35 @@ async def analytics_node_daily(
 # so a client holding both cannot mistake one for the other. Do not "fix" this
 # by importing the floor; it was ruled out by name.
 #
+# ── THE RAW CELLS RIDE ALONG: `<metric>.history` ────────────────────────────
+# Every other block on this payload is a derivation. `history` is not: it is
+# the banked {trade_date, he, value} cells THEMSELVES, over the same window the
+# envelope, ladder, regime rails and outlier rails were computed from.
+#
+# It exists because the dashboard draws a 30-day HE x date heat grid, and a
+# grid cannot be reconstructed from percentiles. Without it the surface has to
+# make a second query against a table THIS REQUEST ALREADY READ — so the cells
+# are emitted from the rows already in hand. Zero new queries, zero new pool
+# pressure, no change to `query_plan.reads`.
+#
+# ONLY PRESENT CELLS ARE LISTED. A row whose metric is NULL is simply absent
+# from the list, which is the same filter the distributions are built through —
+# so `history.n_cells` EQUALS `n_banked_cells` by construction, and the grid
+# renders honest holes rather than fabricated zeros. Nothing is padded to a
+# full 24 x days rectangle; the absences are the point.
+#
+# TODAY IS NOT IN IT. `history` is the banked window and stops at yesterday.
+# Today's live partial line stays under `today`, where it cannot leak into a
+# distribution or into a grid cell that claims to be settled.
+#
+# NO CAP AND NO PAGINATION. ~158 cells at the warehouse's current depth, ~720
+# at a full 30-day node, 2,160 at the 90-day ceiling. Small enough to ship
+# whole, and a truncated grid would be a lie about the warehouse.
+#
+# `basis.history` is the SAME call against the dark column: an empty list and
+# n_cells 0 under the existing reason, lighting itself on hub arrival with no
+# shape change and no version bump.
+#
 # ── BASIS IS BORN COMPLETE AND SERVED DARK ──────────────────────────────────
 # `basis` carries the FULL shape — envelope, ladder, regime, stance, outliers,
 # averages — computed by the SAME code path as dart, off
@@ -13653,6 +13682,16 @@ ANH_PARTIAL_RULE = (
     "rows under `today` are live reads of the dispatch snapshot and carry "
     "partial: true. The list ENDS at the last hour either leg has banked - there "
     "is no projection, no padding to HE24, and no carry-forward"
+)
+
+# The raw cell set. One line on the wire, because the block it labels is the
+# only non-derivation on the payload and a reader needs to know why it is there
+# and what its absences mean. `{metric}` is filled per block.
+ANH_HISTORY_RULE = (
+    "banked (trade_date, HE) {metric} cells over the SAME window every "
+    "derivation on this block used - a cell absent here is a cell absent in the "
+    "warehouse, never interpolated and never padded to a full grid. Today is "
+    "never in this list; it lives under `today`"
 )
 
 ANH_BASIS_DARK_REASON = "TH-hub DAM ingest pending (D-07-31-01)"
@@ -14030,6 +14069,42 @@ def _anh_averages(by_he, today_rows, key: str) -> dict:
     }
 
 
+def _anh_history(banked, key: str, metric: str) -> dict:
+    """The raw banked cells every derivation on this block was computed from.
+
+    THE ONE NON-DERIVATION ON THE PAYLOAD, and it is here for exactly one
+    reason: the dashboard's HE x date heat grid needs the cells themselves, and
+    the alternative is a second query against a table this request has already
+    read. So it is emitted from `banked` — the rows already in hand for the
+    envelope, the ladder and the outliers — at ZERO additional reads and zero
+    additional pool pressure.
+
+    ONLY PRESENT CELLS ARE LISTED. A null-metric row is simply absent, so the
+    grid renders an honest hole instead of a fabricated zero. That is the same
+    filter `_anh_by_he` applies to build the distributions, which is why
+    `n_cells` equals this block's `n_banked_cells` BY CONSTRUCTION and not by
+    coincidence — the two count the same cells through the same test.
+
+    There is no cap and no pagination. A 30-day node is ~720 cells at full
+    depth and the 90-day ceiling is 2,160; the list is small enough to ship
+    whole, and a truncated grid would be a lie about the warehouse.
+
+    `banked` stops at yesterday by construction of the window read, so today
+    can never appear here — it is served under `today`, live and partial.
+
+    Ordering is the window read's own ORDER BY trade_date, he.
+    """
+    cells = [{"trade_date": r["date"].isoformat(),
+              "he": r["he"],
+              "value": _an_r(r[key])}
+             for r in banked if r[key] is not None]
+    return {
+        "cells": cells,
+        "n_cells": len(cells),
+        "rule": ANH_HISTORY_RULE.format(metric=metric),
+    }
+
+
 def _anh_metric_block(metric: str, key: str, banked, today_rows,
                       hours, requested: int) -> dict:
     """One metric's whole shelf: envelope, ladder, regime, stance, outliers,
@@ -14069,6 +14144,11 @@ def _anh_metric_block(metric: str, key: str, banked, today_rows,
         "stance": _anh_stance(regime),
         "outliers": _anh_outliers(by_he, requested),
         "averages": _anh_averages(by_he, today_rows, key),
+        # The raw cells the six blocks above were derived from. Data-driven
+        # like the rest of this function: for `basis` the same call returns an
+        # empty list and n_cells 0 under the existing `reason`, and lights
+        # itself when the column banks.
+        "history": _anh_history(banked, key, metric),
     }
     if metric == "basis":
         block["source_note"] = ANH_BASIS_SOURCE_NOTE
@@ -14250,6 +14330,13 @@ async def analytics_nodes_hourly(
     /api/analytics/node/{pnode_id}/ladder, which withholds percentile columns
     below 15 samples. `ladder_depth_policy` on every response says which rule
     this payload followed.
+
+    THE RAW CELLS RIDE ALONG. `dart.history.cells` is the banked
+    {trade_date, he, value} set the derivations were computed from — the same
+    window, emitted from rows already read, so the HE x date heat grid can be
+    drawn from this payload without a second query. Only present cells are
+    listed: `n_cells` equals `n_banked_cells`, nothing is padded to a full
+    grid, and today is never in it.
 
     BASIS IS BORN COMPLETE AND SERVED DARK. It carries the full shape through
     the SAME code path as dart, off `basis_sp15` — a column that is NULL on
