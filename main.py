@@ -10347,14 +10347,28 @@ def _an_as_date(d):
 
 # ── Hub pairing (rule v0) ───────────────────────────────────────────────────
 
-def _an_pair_hub(th_hub) -> dict:
+def _an_pair_hub(th_hub, in_universe: bool = True) -> dict:
     """CAISO's published th_hub -> this lane's pairing verdict.
 
-    Three honest outcomes, never a guess:
+    Four honest outcomes, never a guess:
       paired + priceable   -> a hub label with a banked price series
       paired + unpriceable -> CAISO pairs it, the pantry has no series
       unpaired             -> CAISO attributes no trading hub to this node
+      not_in_universe      -> the node has no row in atlas_pnode_universe at
+                              all, so CAISO has said NOTHING about its hub
+
+    The fourth is why `in_universe` exists. A NULL th_hub and an absent row
+    both arrive here as a falsy th_hub, and they are different facts: the
+    first is CAISO's answer (the common one - 21,821 of 24,098 nodes measured
+    2026-08-01), the second is the absence of an answer. Collapsing them would
+    put words in CAISO's mouth about a node it has never listed. Callers that
+    have already proven the row exists (the node package and the daily lane
+    both 400 on an unpriced id) leave the default in place and get the
+    three-verdict behaviour they have always had.
     """
+    if not in_universe:
+        return {"th_hub": None, "hub": None, "hub_priceable": False,
+                "pairing": "not_in_universe", "pairing_rule": "caiso_th_hub_v0"}
     if not th_hub:
         return {"th_hub": None, "hub": None, "hub_priceable": False,
                 "pairing": "unpaired", "pairing_rule": "caiso_th_hub_v0"}
@@ -13723,6 +13737,20 @@ ANH_DART_SIGN_RULE = (
     "sign ships from /api/timeseries/caiso-hub-lmp under the field name `spread`"
 )
 
+ANH_HUB_PAIRING_RULE = (
+    "identity.pairing is CAISO's own node->trading-hub attribution, read "
+    "verbatim from atlas_pnode_universe.th_hub - never inferred from "
+    "geography, area, or node name. Four verdicts, and they are NOT "
+    "interchangeable: paired (a hub with a banked price series), "
+    "paired_unpriceable (CAISO pairs it, the pantry has no series), unpaired "
+    "(no trading hub attributed in the universe table - the common case), and "
+    "not_in_universe (no universe row at all, so nothing is claimed either "
+    "way). identity.fleet carries the counts behind 'common case', measured "
+    "off the same table on the same request. A payload with NO identity block "
+    "is an older build of this endpoint: that is a fact about the feed, not "
+    "about the node, and a client must not render it as an unpaired node"
+)
+
 ANH_HE_RULE = (
     "he is the stored hour-ending, verbatim from atlas_node_hourly_stats.he and "
     "atlas_pnode_lmp_snapshot.market_hour - never renumbered here. The per-HE "
@@ -13734,6 +13762,14 @@ ANH_HE_RULE = (
 # scan, so it is cached. Only the zero-row path ever asks for it.
 ANH_FRONTIER_CACHE_TTL = 300.0
 _anh_frontier_cache: "dict[str, tuple[float, dict]]" = {}
+
+# The pairing census is an aggregate over the 24,098-row universe (3.8 ms
+# measured). It rides on every request rather than only the empty ones, so it
+# is cached for longer than the frontier — the universe table is a nightly
+# artifact, not a live one, and a stale-by-a-minute fleet count would be worse
+# than useless: it is the sentence a hub-less node's page is built on.
+ANH_CENSUS_CACHE_TTL = 900.0
+_anh_census_cache: "dict[str, tuple[float, dict]]" = {}
 
 
 # ── SQL: four shapes, three of them index-prefix reads on a PK ──────────────
@@ -13779,6 +13815,38 @@ _ANH_FRONTIER_SQL = """
     SELECT min(trade_date) AS min_date,
            max(trade_date) AS max_date
     FROM atlas_node_hourly_stats
+"""
+
+# 5. The node's HUB PAIRING. `atlas_node_hourly_stats` carries no hub column,
+#    so this lane must read the attribution where it lives —
+#    atlas_pnode_universe.th_hub, the same column and the same rule the node
+#    package uses. Unique on pnode_id (24,098 rows / 24,098 distinct, verified
+#    2026-08-01), so no fan-out is possible.
+#
+#    The VALUES anchor is load-bearing, exactly as in _AN_IDENTITY_SQL: exactly
+#    one row always comes back, so "no row in the universe" arrives as
+#    in_universe=false on a present row rather than as an empty result that
+#    could equally mean the DB gave us nothing. This endpoint serves an unknown
+#    pnode_id as a 200, so that distinction has nowhere else to be made.
+_ANH_IDENT_SQL = """
+    SELECT
+        t.pnode_id,
+        (u.pnode_id IS NOT NULL) AS in_universe,
+        u.th_hub
+    FROM (VALUES (%(pnode_id)s::text)) AS t(pnode_id)
+    LEFT JOIN atlas_pnode_universe u ON u.pnode_id = t.pnode_id
+"""
+
+# 6. The fleet census behind the pairing sentence. Aggregate over a Seq Scan of
+#    24,098 rows — 3.8 ms measured, and cached, so the common request pays
+#    nothing. Grouped by th_hub rather than counted with a hardcoded hub list:
+#    the priceable/unpriceable split is folded in Python against
+#    AN_TH_HUB_TO_ZONE, so the numbers follow the universe table and the
+#    pairing map instead of being restated in SQL.
+_ANH_CENSUS_SQL = """
+    SELECT th_hub, count(*) AS n
+    FROM atlas_pnode_universe
+    GROUP BY th_hub
 """
 
 
@@ -14230,6 +14298,99 @@ async def _anh_frontier() -> dict:
     return {**out, "cached": False}
 
 
+async def _anh_census() -> dict:
+    """The universe-wide pairing census, TTL-cached.
+
+    THE FLEET TRUTH, COUNTED RATHER THAN ASSERTED. A node page that says "no
+    trading hub attributed" is stating the common case, and the page can only
+    say so honestly if it knows how common. These are the counts, read from the
+    table on the same request that reads the node's own row:
+
+        24,098 nodes in atlas_pnode_universe
+         2,277 carry a th_hub      (1,984 of them priceable: NP15/SP15/ZP26)
+        21,821 carry none          (the answer for ~91% of the universe)
+
+    Those figures are the measurement on 2026-08-01, written here for the
+    reader only — NOTHING in this function or on the payload is hardcoded to
+    them. The counts are grouped in SQL and split against AN_TH_HUB_TO_ZONE, so
+    the day CAISO attributes another node or the pantry banks another hub
+    series, the sentence on the page moves with it.
+    """
+    hit = _anh_census_cache.get("all")
+    now = time.monotonic()
+    if hit and (now - hit[0]) < ANH_CENSUS_CACHE_TTL:
+        return {**hit[1], "cached": True}
+
+    rows = await _an_read(_ANH_CENSUS_SQL, {})
+    by_hub = {r["th_hub"]: int(r["n"] or 0) for r in rows}
+    total = sum(by_hub.values())
+    without = by_hub.get(None, 0)
+    with_hub = total - without
+    priceable = sum(n for h, n in by_hub.items()
+                    if h and h in AN_TH_HUB_TO_ZONE)
+
+    out = {
+        "universe_nodes": total,
+        "with_hub": with_hub,
+        "without_hub": without,
+        "with_hub_priceable": priceable,
+        "with_hub_unpriceable": with_hub - priceable,
+        "by_th_hub": {h: n for h, n in sorted(
+            ((h, n) for h, n in by_hub.items() if h), key=lambda kv: -kv[1])},
+        "source": "atlas_pnode_universe.th_hub",
+        "cache_ttl_seconds": ANH_CENSUS_CACHE_TTL,
+    }
+    _anh_census_cache["all"] = (now, out)
+    return {**out, "cached": False}
+
+
+def _anh_identity_block(ident_rows, census) -> dict:
+    """The node's hub attribution — the block this endpoint used to omit.
+
+    Four verdicts, and the difference between them is the whole point. Read
+    `pairing` and nothing else to decide what to render:
+
+      paired              -> `th_hub` is CAISO's label, `hub` its priced zone
+      paired_unpriceable  -> CAISO pairs it; the pantry banks no series
+      unpaired            -> no trading hub attributed in the universe table
+      not_in_universe     -> the node has no universe row; nothing is claimed
+
+    `reason` is this lane's sentence for each, served rather than composed by
+    the client, so the page never has to invent words for an absence. A client
+    that finds NO identity block at all is talking to an older build and should
+    say so — "this payload carries no hub" is a fact about the feed, and it is
+    a different sentence from "this node has no hub", which is a fact about the
+    node. Only one of them is true per node, and the block is what tells them
+    apart.
+    """
+    r = ident_rows[0] if ident_rows else {}
+    in_universe = bool(r.get("in_universe"))
+    pairing = _an_pair_hub(r.get("th_hub"), in_universe=in_universe)
+
+    if pairing["pairing"] == "paired":
+        reason = (f"CAISO attributes this node to {pairing['th_hub']}, and the "
+                  f"pantry banks that hub's price series")
+    elif pairing["pairing"] == "paired_unpriceable":
+        reason = (f"CAISO attributes this node to {pairing['th_hub']}, which "
+                  f"has no banked hub price series")
+    elif pairing["pairing"] == "unpaired":
+        reason = ("no trading hub attributed in the universe table - "
+                  f"{census['without_hub']:,} of {census['universe_nodes']:,} "
+                  f"nodes are in the same position, and it is CAISO's answer "
+                  f"rather than a gap")
+    else:
+        reason = ("this node has no row in atlas_pnode_universe, so CAISO "
+                  "states no trading hub attribution for it either way")
+
+    return {
+        "in_universe": in_universe,
+        **pairing,
+        "reason": reason,
+        "source": "atlas_pnode_universe.th_hub",
+        "fleet": census,
+    }
+
+
 def _anh_depth_block(node_depth, requested: int, frontier) -> dict:
     """What this node holds, what the window needs, and when it will be full.
 
@@ -14331,6 +14492,17 @@ async def analytics_nodes_hourly(
     below 15 samples. `ladder_depth_policy` on every response says which rule
     this payload followed.
 
+    THE HUB IS ON THE PAYLOAD, which it was not before 2026-08-01.
+    `atlas_node_hourly_stats` has no hub column, so this endpoint read four
+    tables that all lack the attribution and served a package with no hub in
+    it at all — and a node page reading only this endpoint had nothing to
+    print. `identity` now carries CAISO's own verdict from
+    `atlas_pnode_universe.th_hub`, under the SAME rule v0 the node package
+    uses, plus `identity.fleet` — the counted truth that 2,277 of 24,098 nodes
+    carry a hub and 21,821 do not. See `rules.hub_pairing`: "no hub attributed
+    to this node" and "no hub on this payload" are different claims, and only
+    one of them can be true per node.
+
     THE RAW CELLS RIDE ALONG. `dart.history.cells` is the banked
     {trade_date, he, value} set the derivations were computed from — the same
     window, emitted from rows already read, so the HE x date heat grid can be
@@ -14366,20 +14538,30 @@ async def analytics_nodes_hourly(
     hi = today - _timedelta(days=1)
     lo = today - _timedelta(days=days)
 
-    # The three hot reads have NO dependency on each other, so they are one
-    # round trip and not three. Against a remote pantry the wall clock here is
+    # The four hot reads have NO dependency on each other, so they are one
+    # round trip and not four. Against a remote pantry the wall clock here is
     # RTT-dominated (each read is single-digit ms of server time), and
-    # serializing them would triple the latency for nothing. Concurrency 3 sits
-    # inside the pool's max_size of 5 — the same modest fan-out the movers lane
-    # already runs at. The frontier is the one dependent read: it is asked for
-    # only after the depth read comes back empty.
+    # serializing them would quadruple the latency for nothing. Concurrency 4
+    # sits inside the pool's max_size of 5 — which is why the pairing read
+    # joined this gather and the census did NOT: five concurrent reads would
+    # let ONE request hold every connection in the pool.
+    #
+    # The census is the cheap one to leave out. It is TTL-cached for 15 minutes
+    # and identical for every node, so on all but one request in nine hundred
+    # seconds it costs no round trip at all — and when it does, it pays for
+    # itself alone rather than crowding the node's own reads.
+    #
+    # The frontier is the one dependent read: it is asked for only after the
+    # depth read comes back empty.
     try:
-        win_rows, today_raw, node_depth = await asyncio.gather(
+        win_rows, today_raw, node_depth, ident_rows = await asyncio.gather(
             _an_read(_ANH_WINDOW_SQL, {"pnode_id": node, "lo": lo, "hi": hi}),
             _an_read(_ANH_TODAY_SQL, {"pnode_id": node, "today": today,
                                       "da": AN_DA_MARKET, "rt": AN_RT_MARKET}),
             _an_read(_ANH_NODE_DEPTH_SQL, {"pnode_id": node}),
+            _an_read(_ANH_IDENT_SQL, {"pnode_id": node}),
         )
+        census = await _anh_census()
         # Only a node with nothing banked pays for the table-wide frontier.
         frontier = None
         if not (node_depth and int(node_depth[0].get("rows") or 0)):
@@ -14405,6 +14587,7 @@ async def analytics_nodes_hourly(
         "unit": "$/MWh",
         "requested_days": days,
         "hours": hours,
+        "identity": _anh_identity_block(ident_rows, census),
         "window": _anh_window_block(banked, lo, hi, days),
         "depth": _anh_depth_block(node_depth, days, frontier),
         "today": {
@@ -14439,11 +14622,13 @@ async def analytics_nodes_hourly(
                 f"the RT leg is {AN_RT_MARKET} (ruled 2026-08-01), never RTD and "
                 f"never timeseries_values. rt_n is the interval count behind "
                 f"rt_avg: 4 is a full hour, 3 happens and is served as-is"),
+            "hub_pairing": ANH_HUB_PAIRING_RULE,
         },
         "ladder_depth_policy": ANH_LADDER_DEPTH_POLICY,
         "percentile_method": AN_PERCENTILE_METHOD,
         "query_plan": {
-            "reads": 4 if frontier else 3,
+            "reads": ((4 if not frontier else 5)
+                      + (0 if census.get("cached") else 1)),
             "window": (f"{ANH_TABLE} PK prefix (pnode_id) + trade_date range - "
                        f"index-prefix scan by construction; "
                        f"{24 * days} rows at days={days}, "
@@ -14453,6 +14638,12 @@ async def analytics_nodes_hourly(
                       f"~120 rows"),
             "node_depth": (f"{ANH_TABLE} PK prefix, Index Only Scan, "
                            f"Heap Fetches: 0"),
+            "pairing": ("atlas_pnode_universe unique-index lookup on pnode_id "
+                        "behind a one-row VALUES anchor; exactly 1 row"),
+            "pairing_census": (
+                "atlas_pnode_universe grouped by th_hub - aggregate over a seq "
+                f"scan of ~24k rows, 3.8 ms measured, cached "
+                f"{ANH_CENSUS_CACHE_TTL:.0f}s and shared by every node"),
             "warehouse_frontier": (
                 "read ONLY when the node has no rows at all; parallel seq scan "
                 f"(~219 ms), cached {ANH_FRONTIER_CACHE_TTL:.0f}s"),
