@@ -139,8 +139,10 @@ def _freeze_and_clear(monkeypatch):
     """
     monkeypatch.setattr(main, "_utcnow", lambda: NOW)
     main._anh_frontier_cache.clear()
+    main._anh_census_cache.clear()
     yield
     main._anh_frontier_cache.clear()
+    main._anh_census_cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -291,13 +293,39 @@ EMPTY_DEPTH_ROW = {"min_date": None, "max_date": None, "rows": 0}
 FRONTIER_ROW = {"min_date": D(2026, 7, 25), "max_date": D(2026, 7, 31)}
 
 
-def hourly_router(present=True, today=True):
-    """Dispatch the endpoint's four reads by SQL text.
+# The pairing reads. CENSUS_ROWS is the real 2026-08-01 universe census, so
+# the fleet sentence the page prints is asserted against the counts the pantry
+# actually holds rather than against round numbers.
+CENSUS_ROWS = [
+    {"th_hub": None, "n": 21821},
+    {"th_hub": "TH_SP15_GEN-APND", "n": 1095},
+    {"th_hub": "TH_NP15_GEN-APND", "n": 710},
+    {"th_hub": "TH_PACE_GEN-APND", "n": 200},
+    {"th_hub": "TH_ZP26_GEN-APND", "n": 179},
+    {"th_hub": "TH_PACW_GEN-APND", "n": 93},
+]
+
+
+def hourly_router(present=True, today=True,
+                  th_hub="TH_SP15_GEN-APND", in_universe=True):
+    """Dispatch the endpoint's six reads by SQL text.
 
     `present=False` drives the unknown-node path: empty window, zero-row depth,
     and the table-wide frontier the endpoint only asks for in that case.
+
+    `th_hub` / `in_universe` drive the pairing read. Both knobs exist because
+    the three states they produce — a hub, a NULL hub, and no universe row —
+    must stay separable at the client, and two of them arrive here as the same
+    falsy value.
     """
     def router(query, params):
+        if "atlas_pnode_universe" in query:
+            if "GROUP BY th_hub" in query:
+                return [dict(r) for r in CENSUS_ROWS]
+            # The VALUES anchor means exactly one row, hub or no hub.
+            return [{"pnode_id": params["pnode_id"],
+                     "in_universe": in_universe,
+                     "th_hub": th_hub if in_universe else None}]
         if "atlas_pnode_lmp_snapshot" in query:
             return today_rows() if (present and today) else []
         if "atlas_node_hourly_stats" not in query:
@@ -318,8 +346,10 @@ def use_router(router):
     return pool
 
 
-def get(client, node=NODE, present=True, today=True, **params):
-    use_router(hourly_router(present=present, today=today))
+def get(client, node=NODE, present=True, today=True,
+        th_hub="TH_SP15_GEN-APND", in_universe=True, **params):
+    use_router(hourly_router(present=present, today=today,
+                             th_hub=th_hub, in_universe=in_universe))
     return client.get(f"/api/analytics/nodes/{node}/hourly", params=params)
 
 
@@ -476,7 +506,9 @@ def test_unknown_node_is_a_200_with_the_absent_depth_shape(client):
     assert body["window"]["days_banked"] == 0
     assert body["window"]["first_trade_date"] is None
     assert body["window"]["gap_days_interior"] == []
-    assert body["query_plan"]["reads"] == 4
+    # window + today + node_depth + pairing + census + the frontier this path
+    # is the only one to pay for.
+    assert body["query_plan"]["reads"] == 6
 
     for metric in ("dart", "basis"):
         block = body[metric]
@@ -494,10 +526,14 @@ def test_unknown_node_is_a_200_with_the_absent_depth_shape(client):
 
 
 def test_a_present_node_never_pays_for_the_frontier(client):
-    """The frontier is a 219 ms parallel seq scan. Three reads, not four."""
+    """The frontier is a 219 ms parallel seq scan, and a node with rows must
+    never pay for it. The read COUNT moved when the pairing joined this lane,
+    so the frontier's absence is asserted by name rather than by arithmetic —
+    the count is a proxy that a later read would break again."""
     body = get(client).json()
-    assert body["query_plan"]["reads"] == 3
     assert "warehouse_frontier" not in body["depth"]
+    # Cold cache, so: window + today + node_depth + pairing + census.
+    assert body["query_plan"]["reads"] == 5
 
 
 # ---------------------------------------------------------------------------
@@ -628,13 +664,19 @@ def test_history_holds_even_when_todays_hours_overlap_banked_hours(client):
 
 def test_history_costs_no_extra_read(client):
     """The block is emitted from rows already in hand. If it ever grows its own
-    query this fails, which is the point - a heat grid is not worth a fifth
-    round trip against a table this request already read."""
+    query this fails, which is the point - a heat grid is not worth another
+    round trip against a table this request already read.
+
+    Counted against atlas_node_hourly_stats specifically. A bare total would
+    have caught the pairing read too, and that one is a different table
+    answering a different question."""
     pool = use_router(hourly_router())
     r = client.get(f"/api/analytics/nodes/{NODE}/hourly", params={"days": 30})
     assert r.status_code == 200
-    assert len(pool.sink["queries"]) == 3
-    assert r.json()["query_plan"]["reads"] == 3
+    stats_reads = [q for q in pool.sink["queries"]
+                   if "atlas_node_hourly_stats" in q]
+    assert len(stats_reads) == 2, "the window and the node's depth, and no more"
+    assert r.json()["query_plan"]["reads"] == 5
 
 
 # ---------------------------------------------------------------------------
@@ -683,3 +725,154 @@ def test_db_down_is_a_503(client):
     r = client.get(f"/api/analytics/nodes/{NODE}/hourly")
     assert r.status_code == 503
     assert "db unavailable" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# 7. The hub attribution.
+#
+# THE DEFECT THIS SECTION EXISTS TO PREVENT. Until 2026-08-01 this payload
+# carried no hub at ANY key. The node page reads this endpoint and nothing
+# else, so HAMLIN_1_N007 — which carries th_hub = 'TH_SP15_GEN-APND' in
+# atlas_pnode_universe — rendered as a node with no hub. The failure was not a
+# wrong join key; there was no join. Nothing about it was visible from the
+# payload, because a payload that omits a field and a node that has no value
+# for it look identical to a client.
+#
+# So the block is asserted on all four verdicts, and the two that matter most
+# are the two that were indistinguishable before: a node whose hub was DROPPED
+# and a node that HAS none.
+# ---------------------------------------------------------------------------
+
+def test_hub_rides_on_the_payload(client):
+    """The regression proper: a paired node's th_hub is ON the payload.
+
+    Asserted at `identity.th_hub` because that is where the client reads it,
+    and asserted as the verbatim CAISO label rather than the zone — the page
+    prints TH_SP15_GEN-APND, and a test that accepted "SP15" would pass while
+    the string the reader looks for went missing.
+    """
+    ident = get(client, th_hub="TH_SP15_GEN-APND").json()["identity"]
+    assert ident["th_hub"] == "TH_SP15_GEN-APND"
+    assert ident["hub"] == "SP15"
+    assert ident["hub_priceable"] is True
+    assert ident["pairing"] == "paired"
+    assert ident["pairing_rule"] == "caiso_th_hub_v0"
+    assert ident["in_universe"] is True
+
+
+def test_pairing_reads_the_universe_by_pnode_id(client):
+    """The join predicate, asserted rather than assumed.
+
+    The pairing read must ask atlas_pnode_universe for THIS pnode_id — the
+    endpoint's other four reads are all against other tables, and a pairing
+    read bound to the wrong parameter would return a plausible hub belonging
+    to a different node.
+    """
+    pool = use_router(hourly_router())
+    client.get(f"/api/analytics/nodes/{NODE}/hourly")
+    reads = [(q, p) for q, p in zip(pool.sink["queries"], pool.sink["params"])
+             if "atlas_pnode_universe" in q and "GROUP BY" not in q]
+    assert len(reads) == 1, "exactly one per-node pairing read"
+    q, p = reads[0]
+    assert "u.pnode_id = t.pnode_id" in q
+    assert p["pnode_id"] == NODE
+
+
+def test_unpaired_node_says_so_about_the_NODE(client):
+    """A node with a NULL th_hub states the fact about ITSELF.
+
+    The reason names the universe table, so the sentence cannot be read as
+    "the feed did not carry one" — which is what the page said before this
+    lane joined the universe at all, and which is now false for every node.
+    """
+    ident = get(client, th_hub=None).json()["identity"]
+    assert ident["pairing"] == "unpaired"
+    assert ident["th_hub"] is None
+    assert ident["hub"] is None
+    assert ident["in_universe"] is True
+    assert "no trading hub attributed in the universe table" in ident["reason"]
+
+
+def test_unpriceable_pairing_is_not_collapsed_into_unpaired(client):
+    """CAISO pairs it, the pantry has no series. A third state, and losing it
+    would turn a pantry gap into a claim about CAISO's attribution."""
+    ident = get(client, th_hub="TH_PACE_GEN-APND").json()["identity"]
+    assert ident["pairing"] == "paired_unpriceable"
+    assert ident["th_hub"] == "TH_PACE_GEN-APND"
+    assert ident["hub"] is None
+    assert ident["hub_priceable"] is False
+    assert "no banked hub price series" in ident["reason"]
+
+
+def test_node_absent_from_the_universe_claims_nothing(client):
+    """An unknown id and an unpaired node are NOT the same answer.
+
+    This endpoint serves an unknown pnode_id as a 200, so a missing universe
+    row arrives at _an_pair_hub as the same falsy th_hub an unpaired node
+    does. Reporting "CAISO attributes no trading hub" for a node CAISO has
+    never listed would be inventing an answer, so the fourth verdict exists.
+    """
+    ident = get(client, present=False, in_universe=False,
+                node=UNKNOWN).json()["identity"]
+    assert ident["pairing"] == "not_in_universe"
+    assert ident["in_universe"] is False
+    assert ident["th_hub"] is None
+    assert "no row in atlas_pnode_universe" in ident["reason"]
+    # And it must not borrow the unpaired node's sentence.
+    assert "no trading hub attributed in the universe table" not in ident["reason"]
+
+
+def test_fleet_census_is_counted_not_asserted(client):
+    """The fleet truth the page prints, and its arithmetic.
+
+    2,277 carry a hub and 21,821 do not, out of 24,098. The totals must be
+    derived from the grouped counts — a payload that restated them from a
+    constant would keep printing 2,277 the day the universe table moves.
+    """
+    fleet = get(client).json()["identity"]["fleet"]
+    assert fleet["universe_nodes"] == 24098
+    assert fleet["with_hub"] == 2277
+    assert fleet["without_hub"] == 21821
+    assert fleet["with_hub"] + fleet["without_hub"] == fleet["universe_nodes"]
+    # NP15 + SP15 + ZP26 are priced; PACE and PACW are paired-but-unpriceable.
+    assert fleet["with_hub_priceable"] == 1984
+    assert fleet["with_hub_unpriceable"] == 293
+    assert (fleet["with_hub_priceable"] + fleet["with_hub_unpriceable"]
+            == fleet["with_hub"])
+    assert fleet["source"] == "atlas_pnode_universe.th_hub"
+
+
+def test_the_unpaired_sentence_carries_the_fleet_count(client):
+    """"Common case" is a claim, so the sentence states how common."""
+    reason = get(client, th_hub=None).json()["identity"]["reason"]
+    assert "21,821 of 24,098" in reason
+
+
+def test_census_is_cached_across_requests(client):
+    """The census is identical for every node, so it is read once and shared.
+
+    Without the cache every node page would pay for a seq scan of the universe
+    table to print a sentence that never changes between them.
+    """
+    pool = use_router(hourly_router())
+    for _ in range(3):
+        client.get(f"/api/analytics/nodes/{NODE}/hourly")
+    census_reads = [q for q in pool.sink["queries"]
+                    if "atlas_pnode_universe" in q and "GROUP BY th_hub" in q]
+    assert len(census_reads) == 1, "the census is read once, then cached"
+    # The per-node pairing read is NOT cached — it is a different node's answer
+    # every time.
+    ident_reads = [q for q in pool.sink["queries"]
+                   if "atlas_pnode_universe" in q and "GROUP BY" not in q]
+    assert len(ident_reads) == 3
+
+
+def test_pairing_rule_is_stated_on_the_payload(client):
+    """The client renders four verdicts, so the payload says what they mean —
+    including that an ABSENT identity block is a fact about the feed."""
+    rule = get(client).json()["rules"]["hub_pairing"]
+    for verdict in ("paired", "paired_unpriceable", "unpaired",
+                    "not_in_universe"):
+        assert verdict in rule
+    assert "atlas_pnode_universe.th_hub" in rule
+    assert "older build" in rule
