@@ -55,6 +55,7 @@ Endpoints:
     GET /api/analytics/tb4                 Regime Package v0: top-bottom-4 spread per day — hub scope full depth + monthly long view, node scope honest N, regime-shift flag with its arithmetic (2026-07-30)
     GET /api/analytics/movers-grid         Regime Package v0: top-25 both directions x HE1-24 window-mean cells; ranks via /movers in-process, fills 50 nodes off the PK, cached (2026-07-30)
     GET /api/analytics/node/{pnode_id}/daily   Nodal Daily Serving v0: the DURABLE atlas_node_daily_stats record newest-first (cap 90) — DART day/on/off-peak, both tb4 legs, basis, matched-hour counts, calendar flags, CB stamp; NERC 6x16 on-peak (NOT 7x16), Sunday/holiday NULL is calendar not absence, gaps never filled (2026-07-31)
+    GET /api/analytics/nodes/{pnode_id}/hourly Node Hourly Regime v0: per-HE envelope/ladder/regime chip/stance/outliers over the last `days` days ENDING YESTERDAY from atlas_node_hourly_stats, plus today's partial read live from the snapshot (DAM+RTPD); today is never in the distribution it is placed against; per-HE coverage on every row, no depth-floor suppression, basis born complete but dark (2026-08-01)
     GET /api/desk/blotter                  Paper Desk v0: every paper_journal kind='bid' row, newest first, status OPEN/PENDING/SETTLED derived server-side (notes are never bids) (2026-07-31)
     GET /api/desk/book                     Paper Desk v0: desk totals — open count + gross MW, settled win/loss/flat, cumulative P&L, avg pnl/MWh; zero-fill is flat, no intraday mark (2026-07-31)
     GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
@@ -13465,3 +13466,911 @@ async def analytics_node_daily(
             "reads": 2,
         },
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NODE HOURLY REGIME v0 — atlas_node_hourly_stats on the wire
+# Node Analytics Package v2, lane ruled 2026-08-01.
+#
+#   GET /api/analytics/nodes/{pnode_id}/hourly?days=30      (days 7..90)
+#
+# ONE NODE, ONE WINDOW, EVERY DERIVATION DONE HERE. The dashboard computes
+# nothing off this payload: the envelope, the ladder, the regime chips, the
+# stance verdict, the outlier tally and the averages all arrive finished. A
+# surface that re-derives any of them is a second truth, and this room has
+# spent two lanes making sure there is only one.
+#
+# ── TWO STORES, AND THE SEAM BETWEEN THEM IS TODAY ──────────────────────────
+# HISTORY comes from `atlas_node_hourly_stats` — the DURABLE per-(node, date,
+# HE) record, PK (pnode_id, trade_date, he), so the window read is an
+# index-prefix range scan BY CONSTRUCTION and not by anyone's good intentions.
+#
+# TODAY comes from `atlas_pnode_lmp_snapshot`, this node only, today's PT date
+# only, markets DAM + RTPD only — bounded at ~120 rows. NEVER timeseries_values.
+# The RT leg is RTPD by the captain's ruling of 2026-08-01; rt_n = 4 is a full
+# hour, rt_n = 3 happens and is served AS-IS rather than dropped or scaled.
+#
+# WHY TWO STORES AND NOT ONE. The durable table DOES carry today's early hours —
+# the nightly producer runs ahead of the day — but it carries them as of ITS
+# last run, and it is stale within the hour. Measured on 2026-08-01 at 16:46Z:
+# atlas_node_hourly_stats held today HE10 at rt_n = 2, while the snapshot held
+# the same hour at rt_n = 3. Reading today from the bank would serve a number
+# that is quietly one dispatch behind the one the desk is looking at. So the
+# window read STOPS AT YESTERDAY and today is read live.
+#
+# THE CONSEQUENCE, STATED BECAUSE IT IS THE WHOLE POINT: today is NOT in the
+# distribution it is being placed against. The regime chip ranks today's HE7
+# against the banked HE7s of the previous `days` days and against nothing else.
+# A value cannot be an outlier against a sample that contains it.
+#
+# ── THE WINDOW IS `days` CALENDAR DAYS ENDING YESTERDAY ─────────────────────
+# lo = today_PT - days, hi = today_PT - 1. days=30 on 2026-08-01 asks for
+# 2026-07-02..2026-07-31. The warehouse was seeded 2026-07-25, so seven of those
+# thirty days exist and TWENTY-THREE DO NOT. That is not a failure and it is not
+# hidden: `window.gap_days` names every absent date and `window.coverage` puts
+# the fraction on the wire. The window fills by nightly cron and is complete on
+# the node's first banked date + `days` — 2026-08-24 for a 30-day ask against a
+# 2026-07-25 seed. `depth.accretion` says so in the payload.
+#
+# ── HONESTY MACHINERY IS LOAD-BEARING AT BIRTH ──────────────────────────────
+# The warehouse holds eight dates against a thirty-day ask, so every honesty
+# field on this endpoint is doing real work on day one rather than waiting to:
+#
+#   * PER-HE `days_present` + `coverage` ("7/30") ride on EVERY envelope row and
+#     EVERY ladder row. Neither form can be read without its own depth.
+#   * PERCENTILES COMPUTE OVER PRESENT DAYS ONLY. A missing day is never
+#     interpolated, never zero-filled, never carried forward. n IS the n.
+#   * PER-HE COVERAGE IS NOT UNIFORM and the payload proves it. The 2026-07-25
+#     seed day banked DAM from HE11 and RTPD from HE10, so on that date HE1-9
+#     have no row at all, HE10 has an RT-only row (dart NULL, rt_n honest), and
+#     HE11-24 are whole. One node, three different per-HE depths, all stated.
+#
+# ── THE DEPTH FLOOR IS DELIBERATELY NOT APPLIED HERE ────────────────────────
+# /api/analytics/node/{pnode_id}/ladder WITHHOLDS its percentile columns below
+# AN_PERCENTILE_FLOOR (15) samples and serves min/mid/max instead. THIS ENDPOINT
+# DOES NOT. The captain's ruling for v2 is that a ladder over fewer than ten
+# days is served WITH its coverage and never suppressed: the number is real, and
+# what is owed to the reader is its depth, not its absence.
+#
+# The two endpoints therefore answer differently at the same depth, ON PURPOSE.
+# `ladder_depth_policy` on every response says which rule this payload followed,
+# so a client holding both cannot mistake one for the other. Do not "fix" this
+# by importing the floor; it was ruled out by name.
+#
+# ── BASIS IS BORN COMPLETE AND SERVED DARK ──────────────────────────────────
+# `basis` carries the FULL shape — envelope, ladder, regime, stance, outliers,
+# averages — computed by the SAME code path as dart, off
+# `atlas_node_hourly_stats.basis_sp15`. That column is NULL on all 2,510,268
+# rows today (the five th_hub nodes have no DAM anywhere in the snapshot the
+# producer is pinned to), so every value comes out null and `basis.reason`
+# states D-07-31-01.
+#
+# NOTHING ABOUT THAT IS HARDCODED. There is no `if metric == "basis": return
+# nulls` branch — the block is data-driven, so the day the hub lands the shelf
+# LIGHTS ITSELF with no code change and NO PAYLOAD VERSION BUMP. The one part
+# that will not light on its own is `basis.averages.current_day`: today is read
+# from a NODE-SCOPED snapshot query that carries no hub leg, so a same-day basis
+# cannot be derived here at any depth. That is stated in the block rather than
+# implied away.
+#
+# ── THE FOUR READS ──────────────────────────────────────────────────────────
+# All EXPLAIN (ANALYZE)'d against the live pantry on 2026-08-01:
+#
+#   1. window   atlas_node_hourly_stats, PK prefix + date range. days=30 ->
+#               Bitmap Index Scan on atlas_node_hourly_stats_pkey, 159 rows,
+#               2.6 ms. A full 30-day node is 720 rows; the 90-day cap is 2,160.
+#   2. today    atlas_pnode_lmp_snapshot, PK prefix. market IN (DAM, RTPD)
+#               folds into the index cond as market = ANY(...) -> Index Scan on
+#               atlas_pnode_lmp_snapshot_pkey, 50 rows, 21 ms cold.
+#   3. depth    the node's OWN banked min/max/rows over all dates -> Index Only
+#               Scan, Heap Fetches: 0, 6 ms cold. Node-scoped on purpose: see
+#               below.
+#   4. frontier the table-wide min/max — ONLY on the zero-row path, TTL-cached.
+#
+# READ 4 IS NOT ON THE HOT PATH AND THAT IS A MEASUREMENT, NOT A PREFERENCE.
+# atlas_node_hourly_stats has exactly one index, the PK, which leads with
+# pnode_id. A table-wide `min(trade_date), max(trade_date)` therefore plans a
+# Parallel Seq Scan: 30,236 buffers, 219 ms. Adding `count(DISTINCT trade_date)`
+# makes it a sort-and-aggregate over all 2.5 M rows — 5,329 ms and a 29 MB
+# external merge to disk. Neither belongs on a request that is otherwise 30 ms.
+# So the hot path reports the NODE's depth (read 3, index-only, exact), and the
+# warehouse frontier is fetched ONLY when the node returned nothing at all —
+# the one case where a client cannot otherwise tell "bad id" from "empty table"
+# — and is cached for ANH_FRONTIER_CACHE_TTL seconds because it changes once a
+# night. A node that IS present never pays for it.
+#
+# ── ERRORS ──────────────────────────────────────────────────────────────────
+# days outside 7..90 -> 400 naming the bound and the value. Blank pnode_id ->
+# 400. An UNKNOWN pnode_id is a 200 with an empty window and a depth block that
+# says the node has no rows at any date — the /daily convention, never a 404 and
+# never a fabricated flat line.
+# ═══════════════════════════════════════════════════════════════════════════
+
+ANH_TABLE = "atlas_node_hourly_stats"
+ANH_TODAY_TABLE = "atlas_pnode_lmp_snapshot"
+
+ANH_DAYS_DEFAULT = 30
+ANH_DAYS_MIN = 7
+ANH_DAYS_MAX = 90
+
+# The two metrics, and the column each reads. `basis` is the dark shelf: the
+# column exists, is NULL everywhere today, and lights on its own.
+ANH_METRIC_COLUMN = {"dart": "dart", "basis": "basis"}
+
+# The envelope's five bands. NOTE these are p10/p25/p50/p75/p90 — deliberately
+# NOT the Nodes room's AN_ENVELOPE_QUANTILES (p5/p25/p50/p75/p95). Different
+# form, different tails; the payload names its own.
+ANH_ENVELOPE_QUANTILES = (("p10", 0.10), ("p25", 0.25), ("p50", 0.50),
+                          ("p75", 0.75), ("p90", 0.90))
+
+# The ladder's nine columns ARE the Regime room's — same constant, so the two
+# ladders in this API cannot drift into different columns.
+ANH_LADDER_QUANTILES = AN_LADDER_QUANTILES
+
+# The outlier rails.
+ANH_OUTLIER_LO_Q = 0.05
+ANH_OUTLIER_HI_Q = 0.95
+# The cell list is capped so a 90-day window cannot ship 2,160 objects. The cap
+# is STATED and the count is never truncated with it (see `_anh_outliers`).
+ANH_OUTLIER_CELL_CAP = 100
+
+# The regime chip's bins, on the rank rounded to whole percent — the same bins
+# and the same rounding as the Regime room's chip, reusing its constants so the
+# two chips cannot disagree about what HIGH means.
+ANH_REGIME_HIGH_PCT = AN_REGIME_HIGH_PCT
+ANH_REGIME_LOW_PCT = AN_REGIME_LOW_PCT
+ANH_REGIME_RULE = (
+    f"today's value at this HE ranked against the SAME HE's banked window "
+    f"(percentile_cont inverse, rounded to whole percent); today is not in that "
+    f"sample. pct >= {ANH_REGIME_HIGH_PCT} HIGH, pct <= {ANH_REGIME_LOW_PCT} "
+    f"LOW, else MID"
+)
+
+# The stance thresholds. This is v2's own counted rule and it is NOT the Nodes
+# room's `_an_stance` majority-of-extremes tally — different arithmetic, stated
+# on the wire so the two verdicts are never read as one.
+ANH_STANCE_BULL_TOP = 6
+ANH_STANCE_BEAR_TOP = 2
+ANH_STANCE_BEAR_BOTTOM = 6
+ANH_STANCE_RULE = (
+    f"BULLISH when >= {ANH_STANCE_BULL_TOP} of the day's hours place in the top "
+    f"quartile (chip HIGH); BEARISH when <= {ANH_STANCE_BEAR_TOP} place top AND "
+    f">= {ANH_STANCE_BEAR_BOTTOM} place bottom (chip LOW); otherwise NEUTRAL. "
+    f"Counted over the hours today has actually banked, never over an assumed 24"
+)
+
+# The ladder policy divergence, on every response. See the header.
+ANH_LADDER_DEPTH_POLICY = (
+    "served at every depth WITH its per-row coverage; percentile columns are "
+    "never withheld. This deliberately DIFFERS from "
+    "/api/analytics/node/{pnode_id}/ladder, which withholds percentile columns "
+    f"below {AN_PERCENTILE_FLOOR} samples and serves min/mid/max instead. Ruled "
+    "for v2 on 2026-08-01: the number is real and what is owed is its depth, "
+    "not its absence"
+)
+
+ANH_PARTIAL_RULE = (
+    "rows under `today` are live reads of the dispatch snapshot and carry "
+    "partial: true. The list ENDS at the last hour either leg has banked - there "
+    "is no projection, no padding to HE24, and no carry-forward"
+)
+
+ANH_BASIS_DARK_REASON = "TH-hub DAM ingest pending (D-07-31-01)"
+ANH_BASIS_SOURCE_NOTE = (
+    "basis reads atlas_node_hourly_stats.basis_sp15 through the SAME code path "
+    "as dart - there is no null-returning branch. The block lights itself when "
+    "the column banks, with no payload version bump"
+)
+ANH_BASIS_TODAY_NOTE = (
+    "basis.averages.current_day and basis.regime cannot light from this "
+    "endpoint at any depth: today is read from a node-scoped snapshot query "
+    "that carries no hub leg. A same-day basis needs a hub read this route does "
+    "not make. This is the one part of the dark shelf that hub arrival will NOT "
+    "switch on by itself"
+)
+# The per-row version of the note above. Short enough to sit on 24 rows.
+ANH_BASIS_NO_CURRENT = (
+    "no same-day basis: today's read is node-scoped and carries no hub leg"
+)
+
+# dow convention, pinned here because three of them exist in this codebase.
+ANH_DOW_RULE = ("dow is 0=Monday .. 6=Sunday - Python's date.weekday(). NOT "
+                "isoweekday (1-7) and NOT Postgres EXTRACT(DOW) (0=Sunday)")
+
+ANH_DART_SIGN_RULE = (
+    "dart = rt_avg - dam_lmp. SIGN IS PINNED: positive = RT above DA. Banked "
+    "rows carry the producer's own `dart` column verbatim; today's rows recompute "
+    "it from the snapshot's two legs by the identical expression. The OPPOSITE "
+    "sign ships from /api/timeseries/caiso-hub-lmp under the field name `spread`"
+)
+
+ANH_HE_RULE = (
+    "he is the stored hour-ending, verbatim from atlas_node_hourly_stats.he and "
+    "atlas_pnode_lmp_snapshot.market_hour - never renumbered here. The per-HE "
+    "axis is HE1-24 UNION every hour either store actually carries, so a "
+    "DST fall-back HE25 appears instead of being dropped"
+)
+
+# The warehouse frontier changes once a night and costs a 219 ms parallel seq
+# scan, so it is cached. Only the zero-row path ever asks for it.
+ANH_FRONTIER_CACHE_TTL = 300.0
+_anh_frontier_cache: "dict[str, tuple[float, dict]]" = {}
+
+
+# ── SQL: four shapes, three of them index-prefix reads on a PK ──────────────
+
+# 1. The window. pnode_id equality + a trade_date range against PK
+#    (pnode_id, trade_date, he) — an index-prefix scan by construction. 720 rows
+#    at days=30, 2,160 at the cap.
+_ANH_WINDOW_SQL = """
+    SELECT trade_date, he, dam_lmp, rt_avg, rt_n, dart, basis_sp15
+    FROM atlas_node_hourly_stats
+    WHERE pnode_id = %(pnode_id)s
+      AND trade_date >= %(lo)s
+      AND trade_date <= %(hi)s
+    ORDER BY trade_date, he
+"""
+
+# 2. Today's partial. THIS node, TODAY's PT date, DAM + RTPD only. RTD is
+#    excluded by the house axiom and timeseries_values is never touched here.
+#    market IN (...) folds into the PK index cond as market = ANY(...).
+_ANH_TODAY_SQL = """
+    SELECT market, market_hour, market_interval, lmp
+    FROM atlas_pnode_lmp_snapshot
+    WHERE pnode_id = %(pnode_id)s
+      AND market_date = %(today)s
+      AND market IN (%(da)s, %(rt)s)
+    ORDER BY market, market_hour, market_interval
+"""
+
+# 3. The node's own banked depth over ALL dates, not just the window — so a
+#    30-day ask can report that the node holds eight days total. Index Only
+#    Scan on the PK prefix, Heap Fetches: 0.
+_ANH_NODE_DEPTH_SQL = """
+    SELECT min(trade_date) AS min_date,
+           max(trade_date) AS max_date,
+           count(*)        AS rows
+    FROM atlas_node_hourly_stats
+    WHERE pnode_id = %(pnode_id)s
+"""
+
+# 4. The table-wide frontier. Parallel Seq Scan, 219 ms — read ONLY when the
+#    node returned nothing at all, and cached. See the header.
+_ANH_FRONTIER_SQL = """
+    SELECT min(trade_date) AS min_date,
+           max(trade_date) AS max_date
+    FROM atlas_node_hourly_stats
+"""
+
+
+def _anh_coverage(days_present: int, requested: int) -> str:
+    """The per-HE depth string, e.g. "7/30". Present days over days ASKED FOR —
+    never over days available, which would always read 100%."""
+    return f"{days_present}/{requested}"
+
+
+def _anh_norm_window(rows) -> list:
+    """Banked rows -> plain dicts with `he` and `rt_n` as real ints.
+
+    The int() casts are the contract rule "dow/HE integers never cross a
+    language boundary" being enforced at the seam rather than trusted: psycopg
+    hands back smallint as int today, and this keeps that true if it ever
+    doesn't. NULL propagates through _an_f — nothing is coalesced to 0.
+    """
+    out = []
+    for r in rows:
+        out.append({
+            "date": _an_as_date(r["trade_date"]),
+            "he": int(r["he"]),
+            "dam_lmp": _an_f(r["dam_lmp"]),
+            "rt_avg": _an_f(r["rt_avg"]),
+            "rt_n": int(r["rt_n"]),
+            "dart": _an_f(r["dart"]),
+            "basis": _an_f(r["basis_sp15"]),
+        })
+    return out
+
+
+def _anh_by_he(banked, key: str) -> dict:
+    """{he: [(date, value)]} over rows where `key` is PRESENT, dates ascending.
+
+    Absent values are DROPPED, not zeroed and not interpolated — so the list
+    length IS days_present for that HE, and every percentile downstream is
+    computed over exactly the days that exist.
+    """
+    out: dict = defaultdict(list)
+    for r in banked:
+        v = r[key]
+        if v is None:
+            continue
+        out[r["he"]].append((r["date"], v))
+    return out
+
+
+def _anh_today_rows(rows) -> list:
+    """Snapshot rows -> today's per-HE line, ending at the last banked hour.
+
+    The RTPD hourly price is the straight mean of the intervals PRESENT in that
+    hour and `rt_n` is how many there were — 4 is a full hour, 3 happens and is
+    served as-is rather than scaled or dropped. DAM is one print per hour;
+    `dam_n` rides along so a surprise would be visible rather than silent.
+
+    dart is computed ONLY when both legs exist. An RT-only hour is an honest
+    null with its rt_n attached, never a half-computed number.
+    """
+    dam: dict = {}
+    dam_n: dict = defaultdict(int)
+    rt: dict = defaultdict(list)
+    for r in rows:
+        v = _an_f(r["lmp"])
+        if v is None:
+            continue
+        he = int(r["market_hour"])
+        if r["market"] == AN_DA_MARKET:
+            dam[he] = v
+            dam_n[he] += 1
+        else:
+            rt[he].append(v)
+
+    out = []
+    for he in sorted(set(dam) | set(rt)):
+        iv = rt.get(he, [])
+        rt_avg = (sum(iv) / len(iv)) if iv else None
+        da = dam.get(he)
+        dart = (rt_avg - da) if (rt_avg is not None and da is not None) else None
+        out.append({
+            "he": he,
+            "dam_lmp": _an_r(da),
+            "dam_n": int(dam_n.get(he, 0)),
+            "rt_avg": _an_r(rt_avg),
+            "rt_n": len(iv),
+            "dart": _an_r(dart),
+            "basis": None,
+            "partial": True,
+        })
+    return out
+
+
+def _anh_envelope_row(he: int, vals, requested: int) -> dict:
+    """One HE's envelope band. Coverage rides ON the row, never beside it."""
+    row = {
+        "he": he,
+        "days_present": len(vals),
+        "coverage": _anh_coverage(len(vals), requested),
+    }
+    s = sorted(vals)
+    for name, q in ANH_ENVELOPE_QUANTILES:
+        row[name] = _an_r(_an_percentile_cont(s, q)) if s else None
+    row["mean"] = _an_r(_an_mean(s)) if s else None
+    return row
+
+
+def _anh_ladder_row(he: int, vals, requested: int) -> dict:
+    """One HE's nine-column ladder.
+
+    NO DEPTH FLOOR. The columns are present at every n >= 1 and absent only when
+    the HE has nothing banked. `days_present` and `coverage` are on the row so a
+    P99 over four days is readable AS a P99 over four days. See the header for
+    why this diverges from the Regime room's ladder on purpose.
+    """
+    row = {
+        "he": he,
+        "days_present": len(vals),
+        "coverage": _anh_coverage(len(vals), requested),
+    }
+    s = sorted(vals)
+    for name, q in ANH_LADDER_QUANTILES:
+        row[name] = _an_r(_an_percentile_cont(s, q)) if s else None
+    return row
+
+
+def _anh_regime_row(he: int, vals, current, requested: int,
+                    no_current_reason: str) -> dict:
+    """Where today's value at this HE sits inside that HE's OWN banked window.
+
+    The chip is the brief's {chip, pct}; `days_present`/`coverage` ride with it
+    because a P83 against six days is a different claim from a P83 against
+    ninety, and the chip alone cannot say which it is.
+
+    Two honest absences, distinguished rather than merged: today has no value at
+    this hour, or the window has nothing to rank it against. `no_current_reason`
+    is the caller's word for the first one, because "not yet" is true for dart
+    and a FALSE PROMISE for basis — today's read is node-scoped and carries no
+    hub leg, so a same-day basis is not late, it is not coming.
+    """
+    row = {
+        "he": he,
+        "current": _an_r(current),
+        "days_present": len(vals),
+        "coverage": _anh_coverage(len(vals), requested),
+        "chip": None,
+        "pct": None,
+        "reason": None,
+    }
+    if current is None:
+        row["reason"] = no_current_reason
+        return row
+    if not vals:
+        row["reason"] = "no banked day at this hour in the window to rank against"
+        return row
+    rank = _an_percentile_rank(sorted(vals), current)
+    pct = int(round(rank * 100))
+    row["pct"] = pct
+    row["chip"] = ("HIGH" if pct >= ANH_REGIME_HIGH_PCT
+                   else "LOW" if pct <= ANH_REGIME_LOW_PCT else "MID")
+    return row
+
+
+def _anh_stance(regime_rows) -> dict:
+    """v2's counted verdict. The arithmetic ships WITH the word, always.
+
+    NOTHING PLACED IS NOT NEUTRAL. With no chips the bare rule would return
+    NEUTRAL (0 top, 0 bottom), which would assert a reading nobody took — so
+    that path returns verdict null with a reason instead.
+    """
+    top = sum(1 for r in regime_rows if r["chip"] == "HIGH")
+    bottom = sum(1 for r in regime_rows if r["chip"] == "LOW")
+    placed = sum(1 for r in regime_rows if r["chip"] is not None)
+    if placed == 0:
+        return {
+            "verdict": None,
+            "n_top_quartile": 0,
+            "n_bottom_quartile": 0,
+            "n_placed": 0,
+            "available": False,
+            "reason": ("no hour could be placed: today has no value, or the "
+                       "window has nothing to rank it against"),
+            "rule": ANH_STANCE_RULE,
+            "line": None,
+        }
+    verdict = ("BULLISH" if top >= ANH_STANCE_BULL_TOP
+               else "BEARISH" if (top <= ANH_STANCE_BEAR_TOP
+                                  and bottom >= ANH_STANCE_BEAR_BOTTOM)
+               else "NEUTRAL")
+    return {
+        "verdict": verdict,
+        "n_top_quartile": top,
+        "n_bottom_quartile": bottom,
+        "n_placed": placed,
+        "available": True,
+        "reason": None,
+        "rule": ANH_STANCE_RULE,
+        "line": f"{top}h top quartile / {bottom}h bottom of {placed}h placed -> {verdict}",
+    }
+
+
+def _anh_outliers(by_he, requested: int) -> dict:
+    """(day, HE) cells beyond that HE's OWN p05/p95 rails, over the window.
+
+    THE RAW COUNT IS AN ARTIFACT AT THIN DEPTH AND THE PAYLOAD SAYS SO.
+    percentile_cont interpolates, so for any HE with n >= 2 distinct values p05
+    sits STRICTLY ABOVE the sample minimum and p95 strictly below the maximum —
+    which makes that HE's min and max outliers BY CONSTRUCTION, not by market
+    behaviour. Over 24 hours of a thin window that is ~48 cells of pure
+    arithmetic.
+
+    So two numbers ship. `n_outliers` is the count the brief asked for, computed
+    exactly as specified. `n_outliers_interior` excludes cells that are their own
+    HE's minimum or maximum — at thin depth it is 0, which is the honest reading,
+    and it becomes the real signal as the window deepens.
+
+    The cell list is capped at ANH_OUTLIER_CELL_CAP; the COUNTS are never capped
+    and `cells_truncated` states when the list is short of them.
+    """
+    cells = []
+    scanned = below = above = interior = 0
+    for he in sorted(by_he):
+        vals = [v for _d, v in by_he[he]]
+        if not vals:
+            continue
+        s = sorted(vals)
+        scanned += len(s)
+        if len(s) < 2:
+            continue                      # one sample has no interior to exceed
+        lo = _an_percentile_cont(s, ANH_OUTLIER_LO_Q)
+        hi = _an_percentile_cont(s, ANH_OUTLIER_HI_Q)
+        vmin, vmax = s[0], s[-1]
+        for d, v in by_he[he]:
+            side = "below_p05" if v < lo else "above_p95" if v > hi else None
+            if side is None:
+                continue
+            if side == "below_p05":
+                below += 1
+            else:
+                above += 1
+            is_extreme = (v == vmin or v == vmax)
+            if not is_extreme:
+                interior += 1
+            if len(cells) < ANH_OUTLIER_CELL_CAP:
+                cells.append({
+                    "trade_date": d.isoformat(),
+                    "he": he,
+                    "value": _an_r(v),
+                    "side": side,
+                    "is_he_extreme": is_extreme,
+                })
+    total = below + above
+    return {
+        "n_outliers": total,
+        "n_outliers_interior": interior,
+        "below_p05": below,
+        "above_p95": above,
+        "cells_scanned": scanned,
+        "cells": cells,
+        "cells_truncated": total > len(cells),
+        "cell_cap": ANH_OUTLIER_CELL_CAP,
+        "requested_days": requested,
+        "rule": ("a banked (day, HE) cell strictly beyond that HE's own p05 or "
+                 "p95 over this window; rails are computed per HE over present "
+                 "days only"),
+        "interpretation": (
+            "n_outliers is the literal count and at thin depth it is mostly "
+            "arithmetic: percentile_cont puts p05 strictly above the sample "
+            "minimum for any HE with 2+ distinct values, so that HE's min and "
+            "max are beyond their own rails by construction. Read "
+            "n_outliers_interior - which excludes each HE's own extremes - as "
+            "the behavioural signal, and read both against days_present"),
+    }
+
+
+def _anh_averages(by_he, today_rows, key: str) -> dict:
+    """Current-day and window means for one metric.
+
+    The window mean is over BANKED cells only and does not include today — the
+    same exclusion the regime chip rides on, so the two numbers describe the
+    same two populations. Empty in, null out; never 0.
+    """
+    win = [v for he in by_he for _d, v in by_he[he]]
+    cur = [r[key] for r in today_rows if r.get(key) is not None]
+    return {
+        "current_day": _an_r(_an_mean(cur)) if cur else None,
+        "current_day_n": len(cur),
+        "window": _an_r(_an_mean(win)) if win else None,
+        "window_n": len(win),
+    }
+
+
+def _anh_metric_block(metric: str, key: str, banked, today_rows,
+                      hours, requested: int) -> dict:
+    """One metric's whole shelf: envelope, ladder, regime, stance, outliers,
+    averages — every one of them over the SAME per-HE window.
+
+    THE SHAPE IS IDENTICAL FOR BOTH METRICS AND IS BUILT BY THIS FUNCTION ONLY.
+    `basis` is not a special case with hardcoded nulls; it is this function
+    called against a column that is currently NULL everywhere, which produces
+    the complete shape with null values and `available: false`. When the column
+    banks, the same call produces numbers. No branch, no version bump.
+    """
+    by_he = _anh_by_he(banked, key)
+    today_by_he = {r["he"]: r.get(key) for r in today_rows}
+    # "not yet" for dart is a wait; for basis it would be a promise this route
+    # cannot keep. See ANH_BASIS_TODAY_NOTE.
+    no_current = (ANH_BASIS_NO_CURRENT if metric == "basis"
+                  else "today has no value at this hour yet")
+
+    envelope, ladder, regime = [], [], []
+    for he in hours:
+        vals = [v for _d, v in by_he.get(he, [])]
+        envelope.append(_anh_envelope_row(he, vals, requested))
+        ladder.append(_anh_ladder_row(he, vals, requested))
+        regime.append(_anh_regime_row(he, vals, today_by_he.get(he), requested,
+                                      no_current))
+
+    n_present = sum(len(v) for v in by_he.values())
+    block = {
+        "metric": metric,
+        "source_column": f"{ANH_TABLE}.{'basis_sp15' if metric == 'basis' else 'dart'}",
+        "available": n_present > 0,
+        "reason": None,
+        "n_banked_cells": n_present,
+        "envelope": envelope,
+        "ladder": ladder,
+        "regime": regime,
+        "stance": _anh_stance(regime),
+        "outliers": _anh_outliers(by_he, requested),
+        "averages": _anh_averages(by_he, today_rows, key),
+    }
+    if metric == "basis":
+        block["source_note"] = ANH_BASIS_SOURCE_NOTE
+        block["current_day_note"] = ANH_BASIS_TODAY_NOTE
+        if n_present == 0:
+            block["reason"] = ANH_BASIS_DARK_REASON
+    elif n_present == 0:
+        block["reason"] = ("no banked day in this window carries both a DAM "
+                           "print and an RTPD mean for this node")
+    return block
+
+
+def _anh_window_block(banked, lo, hi, requested: int) -> dict:
+    """The honesty block: what was asked for, what exists, and what is missing.
+
+    `gap_days` names EVERY requested date this node has no row for — including
+    the ones that predate the warehouse, because a client asking for 30 days is
+    owed the whole answer, not the flattering part of it.
+
+    `gap_days_interior` is the subset falling BETWEEN the first and last banked
+    date. Those are the ones that mean something went wrong: a leading run of
+    absent dates is the warehouse still accreting, an interior hole is a night
+    the producer missed. Two different facts, two different lists.
+    """
+    dates = sorted({r["date"] for r in banked})
+    present = set(dates)
+    expected = [lo + _timedelta(days=i) for i in range((hi - lo).days + 1)]
+    gaps = [d for d in expected if d not in present]
+    interior = ([d for d in gaps if dates[0] < d < dates[-1]] if dates else [])
+    return {
+        "requested_days": requested,
+        "days_banked": len(dates),
+        "coverage": _anh_coverage(len(dates), requested),
+        "requested_start": lo.isoformat(),
+        "requested_end": hi.isoformat(),
+        "first_trade_date": dates[0].isoformat() if dates else None,
+        "last_trade_date": dates[-1].isoformat() if dates else None,
+        "gap_days": [d.isoformat() for d in gaps],
+        "gap_days_interior": [d.isoformat() for d in interior],
+        "banked_dates": [{"trade_date": d.isoformat(), "dow": d.weekday()}
+                         for d in dates],
+        "dow_rule": ANH_DOW_RULE,
+        "gap_rule": (
+            "gap_days is every requested date with no banked row for this node. "
+            "gap_days_interior is the subset between the first and last banked "
+            "date - a leading run is the warehouse still accreting, an interior "
+            "hole is a night the producer missed. Neither is ever filled"),
+        "window_rule": (
+            "the window is `days` calendar days ENDING YESTERDAY (PT). Today is "
+            "served separately and live, and is deliberately not in the "
+            "distribution it is placed against"),
+    }
+
+
+async def _anh_frontier() -> dict:
+    """The table-wide banked frontier, TTL-cached.
+
+    Called ONLY when a node returned no rows at all — the one case where a
+    client cannot tell an unknown id from an empty warehouse. It is a 219 ms
+    parallel seq scan (the table's only index leads with pnode_id), so it is
+    cached for ANH_FRONTIER_CACHE_TTL and never touches the hot path.
+    """
+    hit = _anh_frontier_cache.get("all")
+    now = time.monotonic()
+    if hit and (now - hit[0]) < ANH_FRONTIER_CACHE_TTL:
+        return {**hit[1], "cached": True}
+    rows = await _an_read(_ANH_FRONTIER_SQL, {})
+    r = rows[0] if rows else {}
+    mn, mx = _an_as_date(r.get("min_date")), _an_as_date(r.get("max_date"))
+    out = {
+        "min_trade_date": mn.isoformat() if mn else None,
+        "max_trade_date": mx.isoformat() if mx else None,
+        "measured_cost": ("parallel seq scan, ~219 ms - the table's only index "
+                          "is the PK and it leads with pnode_id, so there is no "
+                          "index path to a table-wide date range"),
+        "cache_ttl_seconds": ANH_FRONTIER_CACHE_TTL,
+    }
+    _anh_frontier_cache["all"] = (now, out)
+    return {**out, "cached": False}
+
+
+def _anh_depth_block(node_depth, requested: int, frontier) -> dict:
+    """What this node holds, what the window needs, and when it will be full.
+
+    The accretion date is the node's OWN first banked date + `days`: at that
+    point the window [today-days, today-1] sits entirely inside banked territory.
+    A 30-day ask against a 2026-07-25 seed completes on 2026-08-24.
+    """
+    r = node_depth[0] if node_depth else {}
+    mn, mx = _an_as_date(r.get("min_date")), _an_as_date(r.get("max_date"))
+    rows = int(r.get("rows") or 0)
+    complete_on = (mn + _timedelta(days=requested)) if mn else None
+    today = _utcnow().astimezone(AN_PT).date()
+    block = {
+        "source": ANH_TABLE,
+        "today_source": ANH_TODAY_TABLE,
+        "retention": (
+            "durable; derived nightly from atlas_pnode_lmp_snapshot. Today's "
+            "partial is read live from that ~7-day dispatch-only hot tier "
+            "instead, because the nightly bank is stale within the hour"),
+        "node_present": rows > 0,
+        "node_rows": rows,
+        "node_min_trade_date": mn.isoformat() if mn else None,
+        "node_max_trade_date": mx.isoformat() if mx else None,
+        "scope_note": ("min/max/rows are THIS NODE's, over all dates - an "
+                       "index-only read on the PK prefix. A table-wide date "
+                       "range has no index path and is fetched only when a node "
+                       "returns nothing"),
+        "accretion": {
+            "requested_days": requested,
+            "window_complete": bool(complete_on and complete_on <= today),
+            "window_complete_on": complete_on.isoformat() if complete_on else None,
+            "note": (
+                f"the {requested}-day window fills by nightly cron. It is "
+                f"complete once this node's earliest banked date is {requested} "
+                f"days behind today"
+                + (f" - {complete_on.isoformat()} for a first banked date of "
+                   f"{mn.isoformat()}" if complete_on else
+                   "; this node has banked nothing, so there is no date to give")),
+        },
+    }
+    if rows == 0:
+        block["node_absent_note"] = (
+            f"pnode_id has no row in {ANH_TABLE} at ANY date. This is a 200 with "
+            f"an empty window, not a 404 - the house convention. The warehouse "
+            f"frontier below distinguishes an unknown id from an empty table")
+        block["warehouse_frontier"] = frontier
+    return block
+
+
+@app.get("/api/analytics/nodes/{pnode_id}/hourly")
+async def analytics_nodes_hourly(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. HPLNDJT_6_N001. Unknown -> 200 with an empty window.",
+    ),
+    days: int = Query(
+        default=ANH_DAYS_DEFAULT,
+        description=(
+            f"Length of the banked window in calendar days, "
+            f"{ANH_DAYS_MIN}..{ANH_DAYS_MAX}. The window ENDS YESTERDAY (PT); "
+            f"today is served separately and live."
+        ),
+    ),
+):
+    """
+    The node's hourly regime — today's shape placed against its own banked window.
+
+    Per hour-ending, over the last `days` calendar days ending YESTERDAY:
+    the p10-p90 envelope, the nine-column p01-p99 ladder, and the REGIME CHIP
+    placing today's value at that hour inside that hour's own history. Plus the
+    counted stance verdict, the outlier tally against per-HE p05/p95 rails, and
+    the current-day and window averages. Nothing is left for the client to
+    compute.
+
+    TWO STORES, SEAMED AT TODAY. History is `atlas_node_hourly_stats`, the
+    durable per-(node, date, HE) record. Today is read LIVE from
+    `atlas_pnode_lmp_snapshot` — this node, today's PT date, DAM + RTPD only,
+    ~120 rows. The durable table does carry today's early hours, but as of its
+    last nightly run: on 2026-08-01 it held HE10 at rt_n=2 while the snapshot
+    held rt_n=3. So the window stops at yesterday and today is read fresh.
+
+    TODAY IS NOT IN THE DISTRIBUTION IT IS PLACED AGAINST. The chip on HE7 ranks
+    today's HE7 against the banked HE7s and against nothing else. Today's rows
+    carry `partial: true` and their `rt_n` (4 is a full hour; 3 happens and is
+    served as-is), and the line ENDS at the last banked hour — no projection.
+
+    HONESTY IS ON EVERY ROW, and at today's depth it is all load-bearing: the
+    warehouse holds eight dates against a thirty-day ask. Every envelope and
+    ladder row carries `days_present` and `coverage` ("7/30"). Percentiles
+    compute over present days ONLY — never interpolated, never zero-filled.
+    `window` names every absent date, separating the leading run (the warehouse
+    still accreting) from interior holes (a night the producer missed), and
+    `depth.accretion` says when the window fills.
+
+    THE DEPTH FLOOR IS NOT APPLIED HERE, ON PURPOSE. A ladder over fewer than
+    ten days is served WITH its coverage and never suppressed — the number is
+    real and what is owed is its depth. This DIFFERS from
+    /api/analytics/node/{pnode_id}/ladder, which withholds percentile columns
+    below 15 samples. `ladder_depth_policy` on every response says which rule
+    this payload followed.
+
+    BASIS IS BORN COMPLETE AND SERVED DARK. It carries the full shape through
+    the SAME code path as dart, off `basis_sp15` — a column that is NULL on
+    every row today, so every value is null and `basis.reason` states
+    D-07-31-01. There is no null-returning branch: the shelf lights itself when
+    the hub lands, with no payload version bump.
+
+    Errors: days outside 7..90 -> 400 naming the bound and the value; blank
+    pnode_id -> 400; DB down -> 503. An unknown pnode_id is a 200 with an empty
+    window and a depth block saying the node has no rows at any date.
+    """
+    assert _pool is not None
+    started = time.monotonic()
+
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+    if days < ANH_DAYS_MIN or days > ANH_DAYS_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"days must be between {ANH_DAYS_MIN} and {ANH_DAYS_MAX}; "
+                    f"got {days}"))
+
+    # The window is `days` calendar days ending YESTERDAY, in Pacific time —
+    # the market's own day boundary, and the one both stores are keyed on.
+    today = _utcnow().astimezone(AN_PT).date()
+    hi = today - _timedelta(days=1)
+    lo = today - _timedelta(days=days)
+
+    # The three hot reads have NO dependency on each other, so they are one
+    # round trip and not three. Against a remote pantry the wall clock here is
+    # RTT-dominated (each read is single-digit ms of server time), and
+    # serializing them would triple the latency for nothing. Concurrency 3 sits
+    # inside the pool's max_size of 5 — the same modest fan-out the movers lane
+    # already runs at. The frontier is the one dependent read: it is asked for
+    # only after the depth read comes back empty.
+    try:
+        win_rows, today_raw, node_depth = await asyncio.gather(
+            _an_read(_ANH_WINDOW_SQL, {"pnode_id": node, "lo": lo, "hi": hi}),
+            _an_read(_ANH_TODAY_SQL, {"pnode_id": node, "today": today,
+                                      "da": AN_DA_MARKET, "rt": AN_RT_MARKET}),
+            _an_read(_ANH_NODE_DEPTH_SQL, {"pnode_id": node}),
+        )
+        # Only a node with nothing banked pays for the table-wide frontier.
+        frontier = None
+        if not (node_depth and int(node_depth[0].get("rows") or 0)):
+            frontier = await _anh_frontier()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    banked = _anh_norm_window(win_rows)
+    today_rows = _anh_today_rows(today_raw)
+
+    # HE1-24 UNION every hour either store actually carries, so the axis keeps
+    # its shape while today fills in AND a DST fall-back HE25 is not dropped.
+    hours = sorted(set(AN_GRID_HOURS)
+                   | {r["he"] for r in banked}
+                   | {r["he"] for r in today_rows})
+
+    payload = {
+        "pnode_id": node,
+        "as_of": _utcnow().isoformat(),
+        "as_of_pt_date": today.isoformat(),
+        "unit": "$/MWh",
+        "requested_days": days,
+        "hours": hours,
+        "window": _anh_window_block(banked, lo, hi, days),
+        "depth": _anh_depth_block(node_depth, days, frontier),
+        "today": {
+            "trade_date": today.isoformat(),
+            "dow": today.weekday(),
+            "partial": True,
+            "hours_banked": len(today_rows),
+            "last_he": today_rows[-1]["he"] if today_rows else None,
+            "rows": today_rows,
+            "source": ANH_TODAY_TABLE,
+            "markets": [AN_DA_MARKET, AN_RT_MARKET],
+            "rule": ANH_PARTIAL_RULE,
+        },
+        "dart": _anh_metric_block("dart", "dart", banked, today_rows, hours, days),
+        "basis": _anh_metric_block("basis", "basis", banked, today_rows, hours, days),
+        "rules": {
+            "dart_sign": ANH_DART_SIGN_RULE,
+            "he": ANH_HE_RULE,
+            "dow": ANH_DOW_RULE,
+            "regime": ANH_REGIME_RULE,
+            "stance": ANH_STANCE_RULE,
+            "today_excluded": (
+                "every distribution on this payload - envelope, ladder, regime "
+                "rails, outlier rails, window average - is computed over the "
+                "banked window ONLY. Today is never in the sample it is placed "
+                "against"),
+            "no_interpolation": (
+                "percentiles compute over present days only. A missing day is "
+                "dropped, never interpolated, never zero-filled, never carried "
+                "forward. days_present IS the n behind every column on its row"),
+            "rt_leg": (
+                f"the RT leg is {AN_RT_MARKET} (ruled 2026-08-01), never RTD and "
+                f"never timeseries_values. rt_n is the interval count behind "
+                f"rt_avg: 4 is a full hour, 3 happens and is served as-is"),
+        },
+        "ladder_depth_policy": ANH_LADDER_DEPTH_POLICY,
+        "percentile_method": AN_PERCENTILE_METHOD,
+        "query_plan": {
+            "reads": 4 if frontier else 3,
+            "window": (f"{ANH_TABLE} PK prefix (pnode_id) + trade_date range - "
+                       f"index-prefix scan by construction; "
+                       f"{24 * days} rows at days={days}, "
+                       f"{24 * ANH_DAYS_MAX} at the cap"),
+            "today": (f"{ANH_TODAY_TABLE} PK prefix (pnode_id, market, "
+                      f"market_date); market IN (...) folds into the index cond; "
+                      f"~120 rows"),
+            "node_depth": (f"{ANH_TABLE} PK prefix, Index Only Scan, "
+                           f"Heap Fetches: 0"),
+            "warehouse_frontier": (
+                "read ONLY when the node has no rows at all; parallel seq scan "
+                f"(~219 ms), cached {ANH_FRONTIER_CACHE_TTL:.0f}s"),
+        },
+        "runtime_ms": None,
+    }
+    payload["runtime_ms"] = round((time.monotonic() - started) * 1000, 1)
+    return payload
