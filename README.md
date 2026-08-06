@@ -416,6 +416,87 @@ rows and light themselves when the settlement writer runs. Empty is `[]` and
 thin is `null`, never `0.0`. DB unavailable -> 503, never a fabricated empty
 desk.
 
+> Two of the notes above have since been overtaken by the table itself, and the
+> Lab Paper Desk below is where that is reflected. **Voids now exist** (8 of 14
+> bids), and `/api/desk/*` reads every one of them as `PENDING` — correct for
+> its own vocabulary, wrong for a page. And **`play` is no longer `null`**: the
+> writer took the one-field fix. `/api/desk/by-play` still serves `null`
+> because its `key.available` contract distinguishes full coverage from
+> partial, and 12 of 14 is partial; the Lab lane groups on the real key.
+
+---
+
+### The Lab Paper Desk (`GET /api/lab/paper-desk`)
+
+**The whole desk in one payload, off one read** — `blotter` + `equity` +
+`by_node` + `by_play` + `book` under a single `as_of`. Same table as
+`/api/desk/*`, deliberately **not** the same contract; the arithmetic is in
+`paper_lab.py`, pure, which reuses `paper_desk.py`'s coercions and its
+`play_of` lookup so there is one implementation of the play key in the
+building. No new tables, no writes, no migrations, one query shape.
+
+It exists alongside `/api/desk/*` for two contract-level reasons:
+
+- **Voids are the product, not noise.** `/api/desk/*` has no void concept — a
+  voided position *is* an unsettled row carrying a reason, so it reads
+  `PENDING` there. That was invisible on 2026-07-31 (nothing had been voided)
+  and is not invisible now: **8 of the 14 banked bids are voided double-books**,
+  and a page that files them under "pending" tells the desk it is waiting on
+  settlements that are never coming. Here `status` is three-valued —
+  `settled` / `pending` / `void` — **voids ride the blotter**, every aggregate
+  excludes them, and `book.n_void` counts them.
+- **One instant.** The `/api/desk` handoff filed it as debt: five stanzas, five
+  reads, so a client rendering all five could mix two instants. This is that
+  debt paid.
+
+```
+status:   settled = true               -> "settled"   (terminal, checked first)
+          reason starts "voided"       -> "void"
+          anything else                -> "pending"   (there is no "open" here)
+```
+
+Per blotter row: `entry_id`, `trade_date`, `pnode_id`, `author`, `direction`,
+`size_mw`, `price_limit`, `hour_scope`, `status`, `unsettled_reason`,
+`settle_da`, `settle_fmm`, `pnl_per_mwh`, `pnl_dollars`, `settled_at`,
+`settled_by_version`, `rationale`, `inputs_as_of`, `curve_points` — plus
+additive `play`. `curve_points` is a **count** of the bid's rows in
+`paper_bid_curves` (every banked bid carries 16: HE7-22, one segment per hour),
+not the curve itself. `rationale` and `inputs_as_of` **are** on the wire here,
+unlike `/api/desk/blotter` — this page is an audit surface, and the point is
+that a reader can see what a position was taken on.
+
+Four things worth knowing before you consume it:
+
+- **The equity curve is drawn by `settled_at`, not `trade_date`** — when the
+  money was booked, not when the position was taken. It will **not** agree with
+  `/api/desk/equity` and is not meant to: the one settled bid was taken
+  2026-07-31 and settled 2026-08-06. `settled_at` is normalized to **UTC** on
+  the wire, because the curve buckets on that string's calendar date. Dates
+  with nothing settled produce no point — draw the gap.
+- **A void-only group still appears**, with zeroes and its `n_void`. Today
+  that is `LUNDY_7_N003`: 7 bids, **every one of them voided**. Dropping it
+  would take the desk's whole void history off the page, which is the failure
+  this endpoint exists to prevent. `n_void` is additive on `by_node` and
+  `by_play` for exactly this reason — without it a void-only row is
+  indistinguishable from a node that never traded.
+- **The play key is LIVE.** The `/api/desk/by-play` handoff filed a one-field
+  writer fix — stamp `inputs_as_of.bid.screen` — and **the writer took it**.
+  Measured 2026-08-06 it is stamped on 12 of 14 bids (`surprise` ×6,
+  `persistence` ×6) and this lane groups on it for real. The 2 rows without it
+  predate the fix, are both voided, and honestly read `"unclassified"` — they
+  are not backfilled and no play is guessed for them. The rationale prose is
+  still never parsed. `derivation.play` ships the measurement.
+- **P&L is read, never recomputed.** `settle_da` / `settle_fmm` sit on the wire
+  right beside `pnl_dollars`; they are display columns and never operands.
+  `book.settled_pnl` is exactly the sum of the blotter's visible `pnl_dollars`
+  column and exactly the curve's last `cumulative_pnl`.
+
+Depth, measured 2026-08-06: 38 rows — 24 notes and 14 bids spanning
+2026-07-30..2026-08-05. **1 settled** (−$918.93), **5 pending**, **8 void**;
+`n_settled + n_pending + n_void == len(blotter)`, always. Empty journal ->
+every list `[]` and a zeroed book. DB unavailable -> 503, never a fabricated
+empty desk.
+
 ---
 
 ## Tests
