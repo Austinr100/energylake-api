@@ -61,6 +61,7 @@ Endpoints:
     GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
     GET /api/desk/by-node                  Paper Desk v0: per-pnode aggregates — n, win rate, total P&L, avg pnl/MWh; nothing-settled nodes sort last, never dropped (2026-07-31)
     GET /api/desk/by-play                  Paper Desk v0: per-screen aggregates — writer carries no machine-readable play key, so play is null with the reason attached (2026-07-31)
+    GET /api/lab/paper-desk                Lab Paper Desk v0: the whole desk in ONE payload off ONE read — blotter (+ rationale, inputs_as_of, paper_bid_curves count) / equity by settled_at / by_node / by_play / book; status is settled|pending|VOID and voids ride the blotter, excluded from every aggregate and counted in book (2026-08-06)
 """
 
 import asyncio
@@ -13126,6 +13127,212 @@ async def desk_by_play():
     assert _pool is not None
     bids, plays = await _pd_read_bids()
     return {**_pd_base(), **_pd.by_play(bids, plays)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE LAB PAPER DESK v0  (/api/lab/paper-desk)                     2026-08-06
+#
+# ONE endpoint, ONE read, the whole desk in one payload:
+#
+#   GET /api/lab/paper-desk   blotter + equity + by_node + by_play + book
+#
+# WHY THIS EXISTS ALONGSIDE /api/desk/*, RATHER THAN REPLACING IT. Two reasons,
+# and both are contract-level, not cosmetic:
+#
+#   1. VOIDS. `/api/desk/*` has no void concept — a voided position reads
+#      PENDING there, because a voided row IS an unsettled row carrying a
+#      reason. On 2026-07-31 that was invisible: nothing had been voided. It is
+#      not invisible now. 8 of the 14 banked bids are voided double-books, and
+#      a page that files them under "pending" tells the desk it is waiting on
+#      settlements that are never coming. This lane derives a third status,
+#      PUTS THE VOIDS ON THE BLOTTER, excludes them from every aggregate, and
+#      counts them in `book.n_void`. Voids are the product here, not noise.
+#
+#   2. ONE INSTANT. The /api/desk handoff filed it as debt in its own §7: the
+#      five stanzas each issue their own read, so a client rendering all five
+#      can mix two instants. This lane is that debt paid — one read, one
+#      `as_of`, five stanzas that cannot disagree with each other.
+#
+# The two lanes are therefore NOT merged and neither is deprecated. `/api/desk`
+# is OPEN/PENDING/SETTLED with a trade_date curve; this is settled/pending/void
+# with a settled_at curve. Both have consumers, and collapsing them would force
+# one of the two to change under a client.
+#
+# THE ARITHMETIC IS NOT HERE. Every derivation lives in paper_lab.py, which is
+# pure — no I/O, no clock, no database. This layer reads rows and hands them
+# over. paper_lab.py reuses paper_desk.py's coercions and, critically, its
+# `play_of` lookup: there is ONE implementation of the play key in the
+# building, not two.
+#
+# §PLAY — THE FINDING, AND IT IS GOOD NEWS. The brief anticipated serving
+# `play: "unclassified"` because on 2026-07-31 the screen that fired a bid
+# lived only in the `rationale` PROSE, and `/api/desk/by-play` refused to regex
+# an English sentence to key an aggregate — filing instead a one-field writer
+# fix: stamp `inputs_as_of.bid.screen`. THE WRITER TOOK THE FIX. Re-measured
+# 2026-08-06: the key is stamped on 12 of 14 bids ("surprise" x6,
+# "persistence" x6) and this lane groups on it for real. The 2 rows without it
+# (entries 18 and 19) predate the fix, are both voided, and honestly read
+# "unclassified" — they are not backfilled and no play is guessed for them. The
+# rationale prose is still never parsed. `derivation.play` ships the
+# measurement with the payload. See paper_lab.py's PLAY block for the receipt,
+# including that the prose and the key agree 12 for 12.
+#
+# ZERO LLM, MECHANICALLY GREPPED — the house pattern, applied to paper_lab.py
+# and to the route function and reader below.
+#
+# QUERY SHAPES: ONE, and it carries the curve count with it. See
+# _LAB_PAPER_DESK_SQL for the EXPLAIN receipt. No migrations, no new indexes,
+# no writes, no existing endpoint touched.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import paper_lab as _pl
+
+LAB_PREFIX = "/api/lab"
+
+# The lane's ONE query shape. `paper_bid_curves` is joined as a CORRELATED
+# COUNT rather than a second round trip, so the endpoint keeps its one-read
+# promise: a client cannot see a blotter row whose curve count came from a
+# different instant than the row itself.
+#
+# `rationale` and `inputs_as_of` ARE on the wire in this lane — a deliberate
+# difference from /api/desk/blotter, which withholds them. This page is an
+# audit surface: the whole point is that a reader can see what a position was
+# taken on and why. Measured 2026-08-06 that is 36 kB of jsonb and ~33 kB of
+# prose across all 14 bids. Worth re-measuring, and probably worth paginating,
+# if the journal reaches the low thousands of rows.
+#
+# EXPLAIN (ANALYZE, BUFFERS) receipt — Neon `Energylake`, 2026-08-06:
+#
+#   Sort  (cost=74.63..74.66 rows=14 width=1088) (actual time=0.222..0.223 rows=14)
+#     Sort Key: j.trade_date DESC, j.entry_id DESC
+#     Sort Method: quicksort  Memory: 27kB
+#     Buffers: shared hit=34
+#     ->  Seq Scan on paper_journal j
+#           (cost=0.00..74.36 rows=14 width=1088) (actual time=0.035..0.208 rows=14)
+#           Filter: (kind = 'bid'::text)
+#           Rows Removed by Filter: 24
+#           SubPlan 1
+#             ->  Aggregate  (cost=4.84..4.85 rows=1) (actual time=0.013..0.013 loops=14)
+#                   ->  Seq Scan on paper_bid_curves c
+#                         (cost=0.00..4.80 rows=16) (actual rows=16 loops=14)
+#                         Filter: (entry_id = j.entry_id)
+#                         Rows Removed by Filter: 208
+#   Planning Time: 0.190 ms
+#   Execution Time: 0.256 ms
+#
+# TWO Seq Scans, AND BOTH ARE THE RIGHT PLAN — this is not a finding. Both
+# tables are a handful of pages (38 journal rows, 224 curve rows), so an index
+# would cost a second read to save nothing; the planner is choosing correctly.
+# `paper_bid_curves` DOES carry a usable index for the day it matters —
+# `paper_bid_curves_pkey (entry_id, he, segment)`, leading on entry_id — so the
+# correlated subplan flips to an index scan on its own when the table grows,
+# with no change here. The subplan's 14 loops are the thing to watch: it is
+# O(bids) and today that is 0.256 ms total.
+_LAB_PAPER_DESK_SQL = """
+    SELECT j.entry_id, j.kind, j.author, j.trade_date, j.pnode_id,
+           j.direction, j.size_mw, j.price_limit, j.hour_scope,
+           j.settled, j.unsettled_reason,
+           j.settle_da, j.settle_fmm, j.pnl_per_mwh, j.pnl_dollars,
+           j.settled_at, j.settled_by_version,
+           j.rationale, j.inputs_as_of,
+           (SELECT count(*) FROM paper_bid_curves c
+             WHERE c.entry_id = j.entry_id) AS curve_points
+    FROM paper_journal j
+    WHERE j.kind = %(kind)s
+    ORDER BY j.trade_date DESC, j.entry_id DESC
+"""
+
+
+async def _lab_read_desk() -> list:
+    """The lane's single read.
+
+    Fail-loud: a DB failure is a 503 with a plain body, never a fabricated 200
+    with an empty desk. A 200 from this endpoint asserts the journal was
+    actually read — "no positions" and "could not look" are different answers
+    and must never render the same.
+    """
+    try:
+        return await _cockpit_read(_LAB_PAPER_DESK_SQL, {"kind": _pl.BID_KIND})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+
+@app.get(f"{LAB_PREFIX}/paper-desk")
+async def lab_paper_desk():
+    """
+    The whole paper desk in one payload, off one read of `paper_journal`.
+
+    `blotter[]` — every `kind='bid'` row, newest first. Per row: entry_id,
+    trade_date, pnode_id, author, direction, size_mw, price_limit, hour_scope,
+    status, unsettled_reason, settle_da, settle_fmm, pnl_per_mwh, pnl_dollars,
+    settled_at, settled_by_version, rationale, inputs_as_of, curve_points —
+    plus `play`, which is additive and load-bearing (the by_play stanza groups
+    on it, and a client re-deriving it from `inputs_as_of` would be a second
+    implementation of the same rule, waiting to drift).
+
+    `curve_points` is a COUNT of this bid's rows in `paper_bid_curves` — the
+    shape of the bid that was filed, as a number, not the curve itself. Every
+    banked bid carries 16 (HE7-22, one segment per hour). No banked curve is 0,
+    not null: zero curve points is a fact, not an unknown.
+
+    STATUS IS DERIVED SERVER-SIDE, THREE-VALUED, and lowercase:
+        settled = true                     -> "settled"   (terminal, first)
+        unsettled, reason starts "voided"  -> "void"
+        anything else                      -> "pending"
+
+    There is no "open" here. `/api/desk/*` splits unsettled-with-no-reason from
+    unsettled-with-a-reason; this contract does not, and both read "pending".
+
+    VOIDS RIDE THE BLOTTER. That is the point of this endpoint. A voided
+    position is a thing the desk did and then withdrew, and 8 of the 14 banked
+    bids are voided double-books — 7 of them every bid ever filed at
+    LUNDY_7_N003. They appear in `blotter[]` with their reason verbatim, they
+    are EXCLUDED from every figure in `equity`, `by_node` and `by_play`, and
+    they are COUNTED in `book.n_void`. A void is never folded into pending, and
+    `n_settled + n_pending + n_void == len(blotter)` always.
+
+    A node or play whose every bid was voided STILL APPEARS in the aggregates,
+    with zeroes and an `n_void` — dropping it would take its voids off the page,
+    which is the failure this endpoint exists to prevent.
+
+    `equity[]` — `{date, cumulative_pnl}` by the UTC calendar date of
+    `settled_at`, i.e. WHEN THE MONEY WAS BOOKED, not when the position was
+    taken. This will NOT agree with `/api/desk/equity`, which draws by
+    trade_date, and is not meant to: the one settled bid was taken 2026-07-31
+    and settled 2026-08-06. Dates with nothing settled produce no point — gaps
+    are real and are left as gaps. A settled row with no `settled_at` is
+    excluded and counted in `derivation.equity`, never parked on a made-up date.
+
+    `by_node[]` / `by_play[]` — `n_settled`, `n_pending` (by_node; additive on
+    by_play), `wins`, `total_pnl`, `avg_pnl_per_mwh` (by_node), plus additive
+    `n_void`. Ranked by total_pnl, nothing-settled groups last, never dropped.
+
+    `book` — `settled_pnl`, `n_settled`, `n_pending`, `n_void`. `settled_pnl`
+    is exactly the sum of the blotter's displayed `pnl_dollars` column and
+    exactly the curve's last `cumulative_pnl`; all three sum the same
+    cent-rounded row values, so a desk that adds up the visible column gets the
+    same answer.
+
+    P&L IS READ, NEVER RECOMPUTED. `settle_da` and `settle_fmm` sit on the wire
+    beside `pnl_dollars` for display and are never operands. The settlement
+    writer owns the direction convention; do not re-derive a sign from them.
+
+    `derivation` is additive and carries every rule this endpoint applied,
+    including `derivation.play` — the measured coverage of the writer's play
+    key, which is now LIVE on 12 of 14 rows (see §PLAY above).
+
+    Empty journal -> every list `[]`, book all zeros. DB down -> 503.
+    """
+    assert _pool is not None
+    rows = await _lab_read_desk()
+    return {
+        "as_of": _utcnow().isoformat(),
+        **_pl.payload(rows),
+        "source": "paper_journal (kind='bid') + paper_bid_curves (count)",
+        "paper_only": (
+            "these are paper positions. Nothing in this repository can submit "
+            "a bid to CAISO or any external market; no such code path exists"),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
