@@ -25,7 +25,10 @@ Endpoints:
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
     GET /api/timeseries/caiso-peak-demand         derived daily peak MW + peak HE per TAC area (from caiso_load_fcst_7day)
     GET /api/timeseries/caiso-hub-lmp      CAISO trading-hub LMP (DA/RTPD/RTD + DART), prev+current PT day
-    GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29)
+    GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29). NOTE: a literal path inside the Almanac prefix; it wins over /api/almanac/{series} only because it is registered first
+    GET /api/almanac                       The Almanac v0: the shelf — every published issue as a card, newest first, ?series= filter; bare array, read_minutes derived (2026-08-07)
+    GET /api/almanac/{series}              The Almanac v0: one series page — latest issue in full + archive stubs behind it (latest never repeated in archive); intro from a code-side registry, null at v0 (2026-08-07)
+    GET /api/almanac/{series}/{issue}      The Almanac v0: one issue in full, body blocks served exactly as stored; a draft is a 404, identical to an absence (2026-08-07)
     GET /api/newswire/recent               Joule Newswire items
     GET /api/tape/recent                   Joule Tape items (DEPRECATED — see /api/wire/recent)
     GET /api/briefs/daily/latest           most recent daily Joule brief (Tape 3a)
@@ -14859,3 +14862,261 @@ async def analytics_nodes_hourly(
     }
     payload["runtime_ms"] = round((time.monotonic() - started) * 1000, 1)
     return payload
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE ALMANAC — the publication surface (spec 2026-08-06, lane A, 2026-08-07)
+#
+#   GET /api/almanac                     the shelf: newest-first cards, ?series=
+#   GET /api/almanac/{series}            the series page: latest full + archive
+#   GET /api/almanac/{series}/{issue}    one issue, in full
+#
+# Three read-only routes over `publications` (migration 154, DECLARED IN
+# migrations/154_publications.sql AND NOT YET APPLIED — the architect applies
+# it). No writes; the daily-brief backfill ships as a separate script.
+#
+# THE CONTRACT IS PINNED VERBATIM and carries NO additive fields — see the
+# almanac.py docstring, which transcribes the spec and states every judgement
+# call. Lane B builds against these three shapes.
+#
+# PUBLISHED-ONLY, AND THE FILTER IS IN SQL. `status = 'published'` is a
+# predicate on every one of the three queries, not a post-filter in Python.
+# A draft can therefore never reach a serializer at all, and a request for a
+# draft by its exact key gets the same 404 as a request for nothing — never a
+# 403, which would confirm the draft exists.
+#
+# BEFORE THE MIGRATION IS APPLIED. `publications` does not exist yet, so every
+# read below raises psycopg's UndefinedTable. That ONE error class is caught
+# and served as the honest empty state (empty shelf, a series page with
+# latest=null, a 404 on an issue) so Lane B can build against live URLs today.
+# It is logged at WARNING every time, because "the table isn't there" is a real
+# operational fact, not a normal empty page. EVERY OTHER database error is a
+# 503 — "no issues" and "could not look" must never render the same.
+#
+# THE READS, AND WHY `body` RIDES THE SHELF. `read_minutes` is derived from the
+# prose in `body` (see almanac.read_minutes), so the shelf query selects bodies
+# it does not otherwise serve. Measured 2026-08-07 on a Neon branch carrying the
+# full backfill, that is 14 rows totalling 28,770 bytes of jsonb, read in 3
+# buffer hits at 0.060 ms — cheaper than a second round trip, and the whole
+# table is three pages. Worth revisiting when `publications` reaches the low
+# thousands:
+# the fix then is a stored `read_minutes` (or a generated column), NOT a second
+# read, because a card whose word count came from a different instant than its
+# headline is a card that can contradict itself.
+#
+# ── A NAMESPACE COLLISION THAT IS ALREADY LIVE, AND HOW IT STAYS SAFE ────────
+# `/api/almanac/lmp-shape` (M2, added 2026-05-29, registered near the TOP of
+# this file) sits inside the prefix this lane just claimed, and `lmp-shape` is
+# not a series. It keeps working ONLY because Starlette matches routes in
+# REGISTRATION ORDER and the literal path is registered ~13,900 lines earlier
+# than `/api/almanac/{series}`. Move these routes above it — or move it below
+# them — and it starts serving `404 no such series: 'lmp-shape'`.
+#
+# The ordering is pinned by `test_the_legacy_lmp_shape_route_still_wins`, so
+# the break shows up in the suite rather than in someone's chart. It is NOT
+# special-cased in `_almanac_series_or_404`: adding `lmp-shape` to the series
+# vocabulary to "protect" it would put a chart endpoint in the Almanac's
+# cadence list, which is worse than the collision.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import almanac as _alm
+
+ALMANAC_PREFIX = "/api/almanac"
+
+# One shared column list for the shelf and the series page. Both need the full
+# body: the shelf to derive read_minutes, the series page to serve `latest` in
+# full. The archive stubs are cut from the same rows in the pure layer rather
+# than fetched separately, which is what keeps the series page to one read.
+_ALMANAC_COLUMNS = """
+        series, issue_key, headline, dek, author, issued_ts,
+        verified, verifier_version, data_cutoff_ts, body, status
+"""
+
+# NEWEST-FIRST, PINNED: issued_ts DESC with NULLs LAST, tie-broken on issue_key
+# DESC. The tie-break is load-bearing — a backfill writes a whole series inside
+# one transaction, and `now()` is constant across it, so without it the order of
+# a backfilled shelf is whatever the heap happens to hand back.
+_ALMANAC_NEWEST_FIRST = """
+    ORDER BY issued_ts DESC NULLS LAST, issue_key DESC
+"""
+
+# The shelf. `%(series)s::text IS NULL OR ...` is the house's optional-filter
+# idiom (same shape as /api/nodes/search): one query plan, one statement, the
+# filter folded in or out by a parameter rather than by string concatenation.
+_ALMANAC_SHELF_SQL = f"""
+    SELECT {_ALMANAC_COLUMNS}
+    FROM publications
+    WHERE status = 'published'
+      AND (%(series)s::text IS NULL OR series = %(series)s)
+    {_ALMANAC_NEWEST_FIRST}
+"""
+
+# One series' whole published run, newest first. The head is `latest`; the tail
+# is the archive.
+_ALMANAC_SERIES_SQL = f"""
+    SELECT {_ALMANAC_COLUMNS}
+    FROM publications
+    WHERE status = 'published'
+      AND series = %(series)s
+    {_ALMANAC_NEWEST_FIRST}
+"""
+
+# One issue. Rides UNIQUE(series, issue_key) — an index lookup, at most one row.
+_ALMANAC_ISSUE_SQL = f"""
+    SELECT {_ALMANAC_COLUMNS}
+    FROM publications
+    WHERE status = 'published'
+      AND series = %(series)s
+      AND issue_key = %(issue_key)s
+    LIMIT 1
+"""
+
+_almanac_log = logging.getLogger("almanac")
+
+
+def _almanac_series_or_404(series: str) -> str:
+    """Validate a path series against the migration's CHECK vocabulary.
+
+    404, not 422: `/api/almanac/quarterly` is a page that does not exist, and
+    that is what a 404 says. The detail names the whole vocabulary so a caller
+    fixes it on the first try.
+    """
+    if series not in _alm.SERIES_VOCABULARY:
+        raise HTTPException(
+            status_code=404,
+            detail=(f"no such series: {series!r}. "
+                    f"one of {list(_alm.SERIES_VOCABULARY)}"),
+        )
+    return series
+
+
+async def _almanac_read(sql: str, params: dict, what: str) -> list:
+    """One read, with the pre-migration state handled and nothing else swallowed.
+
+    UndefinedTable -> [] and a WARNING: migration 154 has not been applied yet,
+    so the shelf is honestly empty rather than a 500. Anything else -> 503.
+    """
+    try:
+        return await _cockpit_read(sql, params)
+    except psycopg.errors.UndefinedTable:
+        _almanac_log.warning(
+            "publications table does not exist (migration 154 not applied) — "
+            "serving %s as empty", what)
+        return []
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+
+@app.get(f"{ALMANAC_PREFIX}")
+async def almanac_shelf(
+    series: Optional[str] = Query(
+        None,
+        description=("Filter the shelf to one series. One of "
+                     f"{list(_alm.SERIES_VOCABULARY)}. Omit for every series."),
+    ),
+):
+    """
+    The shelf — every published issue as a card, newest first, across all series.
+
+    Serves a BARE JSON ARRAY of shelf items. Nothing wraps it: the spec pinned
+    the shelf ITEM, and a `count` or an `as_of` would be an unannounced key on
+    a contract another lane is building against.
+
+        [ { series, issue_key, headline, dek, issued_ts, verified,
+            read_minutes }, ... ]
+
+    `?series=` narrows to one cadence lane; an unknown value is a 400 naming
+    the vocabulary, never a silently empty shelf.
+
+    `read_minutes` is DERIVED, the only field here with no column behind it:
+    prose words / 200, rounded up, floored at 1 — and 0 for a body with no
+    prose at all. Figure blocks count zero; a figure is looked at, not read.
+
+    Newest-first is `issued_ts DESC NULLS LAST`, tie-broken on `issue_key DESC`.
+
+    PUBLISHED ONLY. Drafts are filtered in SQL and can never reach this list.
+
+    Nothing published -> `[]`. DB down -> 503.
+    """
+    assert _pool is not None
+    if series is not None and series not in _alm.SERIES_VOCABULARY:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"unknown series: {series!r}. "
+                    f"one of {list(_alm.SERIES_VOCABULARY)}"),
+        )
+    rows = await _almanac_read(
+        _ALMANAC_SHELF_SQL, {"series": series}, "the shelf")
+    return [_alm.shelf_item(r) for r in rows]
+
+
+@app.get(f"{ALMANAC_PREFIX}/{{series}}")
+async def almanac_series(series: str):
+    """
+    One series' page — the latest issue in full, plus the archive behind it.
+
+        { series, intro, latest: <issue>, archive: [{issue_key, headline,
+          issued_ts}] }
+
+    `latest` is the newest published issue, in the same full shape
+    `/api/almanac/{series}/{issue}` serves. `archive` is every OLDER published
+    issue as a stub, newest first — THE LATEST IS NOT REPEATED THERE. A series
+    with exactly one published issue serves `archive: []`, which is the spec's
+    "Empty archive = []" clause doing real work.
+
+    `intro` is the series' standing introduction. It comes from a code-side
+    registry (`almanac.SERIES_INTRO`), not a column — a standing intro is not
+    an issue and has no row to live on. That registry is EMPTY at v0, so every
+    series serves `intro: null` today.
+
+    A series in the vocabulary with nothing published serves
+    `latest: null, archive: []` — a 200, not a 404. The page exists; it is
+    empty. A series OUTSIDE the vocabulary (`/api/almanac/quarterly`) is a 404.
+
+    PUBLISHED ONLY, filtered in SQL. DB down -> 503.
+    """
+    assert _pool is not None
+    series = _almanac_series_or_404(series)
+    rows = await _almanac_read(
+        _ALMANAC_SERIES_SQL, {"series": series}, f"the {series} series page")
+    return _alm.series_page(series, rows)
+
+
+@app.get(f"{ALMANAC_PREFIX}/{{series}}/{{issue}}")
+async def almanac_issue(series: str, issue: str):
+    """
+    One issue, in full.
+
+        { series, issue_key, headline, dek, author, issued_ts, verified,
+          verifier_version, data_cutoff_ts, body: [blocks as stored] }
+
+    `body` is served EXACTLY as `publications.body` holds it — ordered blocks,
+    never reshaped, never reordered, never block-validated on the way out. The
+    writer owns what a block says; a serving layer that "fixes" one is a
+    serving layer that can change what was published.
+
+        {"type": "prose",  "md": "..."}
+        {"type": "figure", "component": "...", "params": {...}, "as_of": "..."}
+
+    `verified` is always a real boolean. `verifier_version` and
+    `data_cutoff_ts` are null when the writer banked no such stamp — a null
+    `verifier_version` does NOT mean unverified; `verified` is the field that
+    answers that.
+
+    A DRAFT IS A 404, identical to an issue that was never written. Not a 403:
+    a 403 would confirm the draft exists, which is exactly what "drafts never
+    serve" is there to prevent. An unknown series is a 404 too.
+
+    DB down -> 503.
+    """
+    assert _pool is not None
+    series = _almanac_series_or_404(series)
+    rows = await _almanac_read(
+        _ALMANAC_ISSUE_SQL,
+        {"series": series, "issue_key": issue},
+        f"issue {series}/{issue}",
+    )
+    if not rows:
+        raise HTTPException(
+            status_code=404, detail=f"no published issue {series}/{issue}")
+    return _alm.issue(rows[0])
