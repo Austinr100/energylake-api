@@ -3732,6 +3732,61 @@ _OUTLOOK_STATE_SQL = """
 """
 
 
+# Kelvin's per-horizon read — the kelvin_by_horizon slot the dashboard's
+# OutlooksShelves opened and the feed has been shipping dark.
+#
+# ONE ROW PER HORIZON, NEWEST FIRST. `DISTINCT ON (horizon)` with the matching
+# ORDER BY is the index-aligned form (idx_kelvin_outlook_reads_serving is
+# (horizon, read_date DESC)), so this is an index scan per horizon rather than a
+# sort over the table.
+#
+# THE STALENESS BOUND IS DELIBERATE AND IT IS THE WHOLE SAFETY PROPERTY HERE.
+# A caption is written about ONE issuance of a daily product. If the caption lane
+# stops running, an unbounded query keeps serving last week's sentence under
+# today's map — the reader sees a live-looking read of an outlook it no longer
+# describes, and nothing anywhere goes red, because the row is present and
+# well-formed. So a caption older than the bound is simply not served: the
+# section renders its honest dark slot, which is the same thing it renders today
+# and is a state the page already handles. Better a dark slot than a confident
+# wrong one.
+#
+# 2 days, not 1: CPC issues daily and the desk writes daily, but a single skipped
+# Actions run (cron is best-effort) must not blank the section — that would make
+# a routine platform hiccup indistinguishable from a broken lane. Two days
+# tolerates one miss and refuses two.
+_outlooks_log = logging.getLogger("energylake.outlooks")
+
+_OUTLOOK_KELVIN_STALE_DAYS = 2
+
+_OUTLOOK_KELVIN_SQL = """
+    SELECT DISTINCT ON (horizon)
+           horizon, caption, read_date, issued_date
+    FROM kelvin_outlook_reads
+    WHERE read_date >= CURRENT_DATE - %s::int
+    ORDER BY horizon, read_date DESC
+"""
+
+
+def _kelvin_by_horizon(kelvin_rows: list[dict]) -> dict[str, str] | None:
+    """{HorizonId: caption} for the CPC shelf, or None when nothing is served.
+
+    None — not {} — when there is no caption at all. The dashboard reads
+    `cpc?.kelvin_by_horizon?.[horizon.id] ?? null` and treats both identically,
+    but the field is documented OPTIONAL and the feed shipping today omits it, so
+    omitting it when empty keeps this endpoint byte-identical to its current
+    output until the caption lane actually writes. A behaviour change should
+    arrive with content, not before it.
+
+    NO KEY IS INVENTED. Only horizons with a served caption appear; every other
+    section takes its `?? null` and renders the honest dark slot it already
+    renders today. Writing a placeholder string for a dark horizon would put
+    words under a section heading describing a product the desk does not have.
+    """
+    out = {r["horizon"]: r["caption"] for r in kelvin_rows
+           if (r.get("caption") or "").strip()}
+    return out or None
+
+
 def _outlook_valid_windows(state_rows: list[dict]) -> dict[str, tuple]:
     """{outlook_period: (valid_start, valid_end)} off the latest state batch.
     The state lane is the only place the warehouse states a family's validity
@@ -3827,13 +3882,25 @@ def _shelf_graphic_products(registry: dict[str, list[dict]], shelf_id: str) -> l
 
 
 def _assemble_outlooks(
-    as_of: _datetime, climate_rows: list[dict], state_rows: list[dict]
+    as_of: _datetime, climate_rows: list[dict], state_rows: list[dict],
+    kelvin_rows: list[dict] | None = None,
 ) -> dict:
     """Pure assembly of the outlooks payload (no DB, no clock — `as_of`
     injected). All three shelves are ALWAYS emitted, in reading order, each with
     a `products` LIST (never null — the consumer's shape guard requires an array
-    on every shelf). `depth` and `kelvin` ship null: there is no archive lane to
-    state an envelope depth from, and Kelvin's per-shelf read arms at v5."""
+    on every shelf).
+
+    `depth` ships null: there is no archive lane to state an envelope depth from.
+
+    `kelvin` (the SHELF-level read) also stays null, and that is not an
+    oversight. The CPC shelf renders as five HORIZON sections, and one shelf
+    sentence cannot narrate five leads — printing it under 6-10 DAY and under
+    SEASONAL alike would attribute a read to a horizon it was never written
+    about. The per-horizon reads go in `kelvin_by_horizon`; `kelvin` remains the
+    read for a shelf rendered WHOLE (hazards, drought), which have no read lane
+    yet either.
+    """
+    kelvin_rows = kelvin_rows or []
     shelves = []
     for shelf_id in _OUTLOOK_SHELF_IDS:
         products = (
@@ -3847,6 +3914,10 @@ def _assemble_outlooks(
             "kelvin": None,
             "products": products,
         }
+        if shelf_id == "cpc":
+            by_horizon = _kelvin_by_horizon(kelvin_rows)
+            if by_horizon:
+                shelf["kelvin_by_horizon"] = by_horizon
         # A reason is an assertion that NOTHING feeds this shelf — it cannot
         # stand next to products. Whichever way the registry moves, the two stay
         # mutually exclusive without anyone having to remember to unset it.
@@ -3875,10 +3946,39 @@ async def weather_outlooks(response: Response):
                 climate_rows = await cur.fetchall()
                 await cur.execute(_OUTLOOK_STATE_SQL)
                 state_rows = await cur.fetchall()
+                # Kelvin's per-horizon reads. TOLERATES AN ABSENT TABLE, and
+                # only that: `kelvin_outlook_reads` is created by pantry
+                # migration 151, which the captain applies independently of this
+                # deploy, so the two can legitimately be out of step for a
+                # window. A hard failure here would 503 the WHOLE outlooks tab —
+                # three shelves of graphics that have nothing to do with
+                # captions — over a table that is simply not created yet. The
+                # savepoint is required because a failed statement poisons the
+                # surrounding transaction on PostgreSQL.
+                #
+                # Scoped deliberately to UndefinedTable. Any OTHER database
+                # error still propagates to the 503 below: a 200 must keep
+                # asserting the warehouse was actually read, and swallowing
+                # everything here would turn a broken query into a silently
+                # captionless page.
+                kelvin_rows = []
+                try:
+                    await cur.execute("SAVEPOINT kelvin_reads")
+                    await cur.execute(_OUTLOOK_KELVIN_SQL,
+                                      (_OUTLOOK_KELVIN_STALE_DAYS,))
+                    kelvin_rows = await cur.fetchall()
+                    await cur.execute("RELEASE SAVEPOINT kelvin_reads")
+                except psycopg.errors.UndefinedTable:
+                    await cur.execute("ROLLBACK TO SAVEPOINT kelvin_reads")
+                    _outlooks_log.info(
+                        "outlooks: kelvin_outlook_reads does not exist yet "
+                        "(pantry migration 151 not applied) — serving the "
+                        "shelf without kelvin_by_horizon, exactly as before.")
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
-    payload = _assemble_outlooks(as_of, climate_rows or [], state_rows or [])
+    payload = _assemble_outlooks(as_of, climate_rows or [], state_rows or [],
+                                 kelvin_rows or [])
     response.headers["Cache-Control"] = "public, max-age=300"
     return payload
 
