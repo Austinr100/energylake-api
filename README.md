@@ -499,6 +499,66 @@ empty desk.
 
 ---
 
+## The Almanac (2026-08-07)
+
+The publication surface. Three read-only endpoints over `publications`
+(migration 154), published-only — **drafts never serve**.
+
+- `GET /api/almanac?series=daily`
+  -> the shelf: **a bare JSON array** of newest-first cards across every series
+  (or one, with `?series=`). Per card:
+  `{series, issue_key, headline, dek, issued_ts, verified, read_minutes}`
+- `GET /api/almanac/{series}`
+  -> `{series, intro, latest: <issue>, archive: [{issue_key, headline,
+  issued_ts}]}` — the newest issue in full, plus every **older** issue as a
+  stub. The latest is never repeated in the archive, so a one-issue series
+  serves `archive: []`.
+- `GET /api/almanac/{series}/{issue}`
+  -> one issue: `{series, issue_key, headline, dek, author, issued_ts,
+  verified, verifier_version, data_cutoff_ts, body}`
+
+`series` is one of `daily | weekly | monthly | article`. An unknown series is a
+`404` on a path and a `400` on `?series=` — never a silently empty shelf.
+
+**The contract is pinned verbatim and carries no additive fields.** Lane B
+builds against these three shapes; every one is asserted as an exact key set,
+in order. All dates and timestamps are ISO strings.
+
+- **`body` is served exactly as stored** — an ordered list of render blocks,
+  `{"type":"prose","md":…}` or
+  `{"type":"figure","component":…,"params":{…},"as_of":…}`. Never reshaped,
+  never reordered, never block-validated on the way out; a block type the API
+  has never heard of still serves. The writer owns what a block says.
+- **`read_minutes` is the one derived field**: prose words / 200, rounded up,
+  floored at 1 — and **0** for a body with no prose. Figure blocks count zero;
+  a figure is looked at, not read.
+- **A draft is a 404, byte-identical to an issue that was never written.** Not
+  a 403 — a 403 would confirm the draft exists.
+- **A `verifier_version` of `null` does not mean unverified.** `verified` is
+  the field that answers that, and it is never null on the wire.
+- A series in the vocabulary with nothing published is a **200** with
+  `latest: null, archive: []` — the page exists, it is empty. DB unavailable
+  -> 503, never a fabricated empty shelf.
+
+`intro` comes from a code-side registry (`almanac.SERIES_INTRO`), not a column
+— a standing series introduction is not an issue. That registry is empty at
+v0, so every series serves `intro: null`.
+
+**Status: migration 154 is DECLARED, NOT APPLIED.**
+`migrations/154_publications.sql` is reviewed and applied by the architect; the
+ledger row is still `reserved`. Until then the three endpoints serve their
+honest empty states and log a warning naming the migration. The daily backfill
+(`scripts/backfill_almanac_daily.py` — Kelvin's 14 banked Weather Desk dailies,
+2026-07-20..2026-08-06) is dry-run by default and has not been run. Full
+findings, EXPLAIN receipts and the apply order are in
+`docs/handoff_2026_08_07_almanac_data_layer.md`.
+
+Note: `GET /api/almanac/lmp-shape` (M2) is a literal path inside this prefix
+and is **not** a series. It keeps working only because it is registered before
+`/api/almanac/{series}`; a test pins that ordering.
+
+---
+
 ## Tests
 
 Test-only deps live in `requirements-dev.txt`; no live database is needed
