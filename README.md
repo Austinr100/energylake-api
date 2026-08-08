@@ -515,14 +515,17 @@ The publication surface. Three read-only endpoints over `publications`
   serves `archive: []`.
 - `GET /api/almanac/{series}/{issue}`
   -> one issue: `{series, issue_key, headline, dek, author, issued_ts,
-  verified, verifier_version, data_cutoff_ts, body}`
+  verified, verifier_version, data_cutoff_ts, read_minutes, body}`
 
 `series` is one of `daily | weekly | monthly | article`. An unknown series is a
 `404` on a path and a `400` on `?series=` — never a silently empty shelf.
 
-**The contract is pinned verbatim and carries no additive fields.** Lane B
+**The contract is pinned verbatim and carries no unannounced fields.** Lane B
 builds against these three shapes; every one is asserted as an exact key set,
-in order. All dates and timestamps are ISO strings.
+in order. All dates and timestamps are ISO strings. One announced amendment
+(2026-08-07): the **issue** shape carries `read_minutes` — same derivation as
+the shelf card, placed before `body` — so THE DESK'S READ can render the
+affordance off `latest` without inventing it.
 
 - **`body` is served exactly as stored** — an ordered list of render blocks,
   `{"type":"prose","md":…}` or
