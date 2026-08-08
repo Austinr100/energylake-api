@@ -13,11 +13,12 @@ pinned directly with hand-built rows.
 WHAT THESE TESTS EXIST TO PROTECT. Each is silent on the server and either
 wrong or dishonest on the client, so each gets its own test:
 
-  * THE RESPONSE CONTRACT IS PINNED, KEY FOR KEY, AND CARRIES NO ADDITIVE
+  * THE RESPONSE CONTRACT IS PINNED, KEY FOR KEY, AND CARRIES NO UNANNOUNCED
     FIELDS. Lane B builds against the three shapes verbatim. Every one is
     asserted as an EXACT key set — this lane is the one place in the repo where
-    an additive key is a contract break rather than a courtesy, because the
-    spec pinned the shapes and named the consumer.
+    an unannounced key is a contract break rather than a courtesy, because the
+    spec pinned the shapes and named the consumer. `read_minutes` on the issue
+    is the one ANNOUNCED amendment (2026-08-07) and lives inside ISSUE_KEYS.
 
   * DRAFTS NEVER SERVE, AND NEVER LEAK. `status='published'` is asserted to be
     a predicate in all three SQL statements, and a draft requested by its exact
@@ -225,7 +226,7 @@ def pub_row(issue_key="2026-08-06", series=alm.SERIES_DAILY, headline="A headlin
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# THE CONTRACT — pinned key for key, no additive fields anywhere
+# THE CONTRACT — pinned key for key, no unannounced fields anywhere
 # ═══════════════════════════════════════════════════════════════════════════
 
 SHELF_ITEM_KEYS = {
@@ -234,7 +235,7 @@ SHELF_ITEM_KEYS = {
 }
 ISSUE_KEYS = {
     "series", "issue_key", "headline", "dek", "author", "issued_ts",
-    "verified", "verifier_version", "data_cutoff_ts", "body",
+    "verified", "verifier_version", "data_cutoff_ts", "read_minutes", "body",
 }
 SERIES_PAGE_KEYS = {"series", "intro", "latest", "archive"}
 ARCHIVE_ROW_KEYS = {"issue_key", "headline", "issued_ts"}
@@ -264,19 +265,24 @@ def test_the_series_page_contract_is_exactly_what_was_pinned(client):
 
 def test_the_key_order_matches_the_spec_so_a_diff_reads_cleanly(client):
     """The spec listed the fields in an order. Serving them in that order means
-    a reviewer can diff the response against the brief line by line."""
+    a reviewer can diff the response against the brief line by line.
+    `read_minutes` sits before `body` (the 2026-08-07 amendment) so the payload
+    stays the terminal key."""
     use_rows([pub_row()])
     assert list(client.get(SHELF).json()[0]) == [
         "series", "issue_key", "headline", "dek", "issued_ts", "verified",
         "read_minutes"]
     assert list(client.get(f"{SHELF}/daily/2026-08-06").json()) == [
         "series", "issue_key", "headline", "dek", "author", "issued_ts",
-        "verified", "verifier_version", "data_cutoff_ts", "body"]
+        "verified", "verifier_version", "data_cutoff_ts", "read_minutes",
+        "body"]
 
 
 def test_no_additive_keys_reach_the_wire_anywhere(client):
-    """This lane ships NONE. The spec pinned the shapes and named the consumer,
-    so an unannounced key is a contract break, not a courtesy."""
+    """This lane ships no UNANNOUNCED keys. The spec pinned the shapes and
+    named the consumer, so an unannounced key is a contract break, not a
+    courtesy. `read_minutes` on the issue is the one announced amendment
+    (2026-08-07) and is INSIDE the pinned key set, not additional to it."""
     use_rows([pub_row("2026-08-06"), pub_row("2026-08-05")])
     assert set(client.get(SHELF).json()[0]) == SHELF_ITEM_KEYS
     page = client.get(f"{SHELF}/daily").json()
@@ -284,6 +290,19 @@ def test_no_additive_keys_reach_the_wire_anywhere(client):
     assert set(page["latest"]) == ISSUE_KEYS
     for stub in page["archive"]:
         assert set(stub) == ARCHIVE_ROW_KEYS
+
+
+def test_read_minutes_agrees_between_the_shelf_and_the_issue(client):
+    """One derivation, every envelope. The 2026-08-07 amendment put
+    `read_minutes` on the issue shape for THE DESK'S READ card, which renders
+    `latest` off the series page; a second definition would let the card and
+    the shelf disagree about the same body."""
+    use_rows([pub_row(body=[prose("w " * 250)])])
+    card = client.get(SHELF).json()[0]
+    served = client.get(f"{SHELF}/daily/2026-08-06").json()
+    page = client.get(f"{SHELF}/daily").json()
+    assert card["read_minutes"] == served["read_minutes"] == 2
+    assert page["latest"]["read_minutes"] == 2
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -544,6 +563,7 @@ def test_a_null_body_serves_an_empty_list_so_a_client_can_always_iterate(client)
     depend on that — the API tolerates the spec's literal nullability."""
     use_rows([pub_row(body=None)])
     assert client.get(f"{SHELF}/daily/2026-08-06").json()["body"] == []
+    assert client.get(f"{SHELF}/daily/2026-08-06").json()["read_minutes"] == 0
     assert client.get(SHELF).json()[0]["read_minutes"] == 0
 
 
@@ -828,6 +848,7 @@ def test_a_backfilled_row_serves_as_the_pinned_issue_contract(client):
     assert served["dek"] is None
     assert served["body"] == row["body"]
     assert served["issued_ts"] == "2026-08-06T13:55:06.526603+00:00"
+    assert served["read_minutes"] == 2, "364 post-strip words reads in 2 minutes"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
