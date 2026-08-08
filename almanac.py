@@ -26,19 +26,31 @@ tests/test_almanac.py:
                   verified, read_minutes }
     issue:      { series, issue_key, headline, dek, author,
                   issued_ts, verified, verifier_version,
-                  data_cutoff_ts, body: [blocks as stored] }
+                  data_cutoff_ts, read_minutes,
+                  body: [blocks as stored] }
     series pg:  { series, intro, latest: <issue>, archive:
                   [{issue_key, headline, issued_ts}] }
 
     Empty archive = [], absent series intro = null. Numerics/dates ISO strings.
 
-NOTHING IS ADDITIVE. Every other lane in this repo ships additive fields
-(`derivation`, `source`, `paper_only`) and documents them. This one ships NONE:
-the spec pinned three shapes verbatim and named a second lane building against
-them, so an unannounced key here is a contract break, not a courtesy. The
-things those additive blocks would have carried — the rules applied, the
-measured backfill state — are in `docs/handoff_2026_08_07_almanac_data_layer.md`
-and in the module docstrings, where they cost a reader nothing on the wire.
+NOTHING IS UNANNOUNCED. Every other lane in this repo ships additive fields
+(`derivation`, `source`, `paper_only`) and documents them. This one ships no
+unannounced keys: the spec pinned three shapes verbatim and named a second lane
+building against them, so a key the contract does not carry is a contract
+break, not a courtesy. The things those additive blocks would have carried —
+the rules applied, the measured backfill state — are in
+`docs/handoff_2026_08_07_almanac_data_layer.md` and in the module docstrings,
+where they cost a reader nothing on the wire.
+
+ONE ANNOUNCED AMENDMENT (2026-08-07): the ISSUE shape carries `read_minutes`.
+The consumer that asked is THE DESK'S READ (dashboard
+`src/components/weather/deskRead.ts`), which renders `latest` off the daily
+series page — an issue, not a shelf item — found the field lived only on the
+shelf item, and REFUSED both plausible fallbacks rather than invent a number
+(its finding-test names the wire as the fix). Same derivation, same single
+definition (`read_minutes()` below); the amendment is pinned key-for-key and
+in order in tests/test_almanac.py, and the dashboard retires its fallback the
+day this reaches the deployed wire.
 
 ═══════════════════════════════════════════════════════════════════════════
 THE JUDGEMENT CALLS, AND WHY EACH WENT THE WAY IT DID
@@ -252,7 +264,13 @@ def issue(row: dict) -> dict:
     """One published piece, in full.
 
     { series, issue_key, headline, dek, author, issued_ts, verified,
-      verifier_version, data_cutoff_ts, body: [blocks as stored] }
+      verifier_version, data_cutoff_ts, read_minutes,
+      body: [blocks as stored] }
+
+    `read_minutes` is the contract's one announced amendment (2026-08-07 — see
+    the module docstring): the same derivation the shelf card carries, off the
+    same single definition, placed before `body` so the payload stays the
+    terminal key.
 
     `body` is passed through EXACTLY as the table holds it — never reshaped,
     never reordered, never block-validated. A null/non-list body serves `[]`
@@ -269,6 +287,7 @@ def issue(row: dict) -> dict:
         "verified": bool(row.get("verified")),
         "verifier_version": row.get("verifier_version"),
         "data_cutoff_ts": iso(row.get("data_cutoff_ts")),
+        "read_minutes": read_minutes(body),
         "body": body if isinstance(body, list) else [],
     }
 
