@@ -35,6 +35,11 @@ Endpoints:
     GET /api/briefs/daily/{date}           daily Joule brief by date (Tape 3a)
     GET /api/wire/recent                   power-signal filings, successor to /api/tape/recent (Tape 3a)
     GET /api/weather/outlooks              CPC climate-outlook tab: shelves of outlook products (freshness + published graphic registry + discussion) + state outlooks, honest-absence + fail-loud (2026-07-29)
+    GET /api/weather/dd/regions            Degree Day Ledger: the five ratified composite vectors — members, weights, vector version (v1), vintage; weight_sum reported not asserted (2026-08-10)
+    GET /api/weather/dd/daily              Degree Day Ledger: daily composite HDD/CDD vs normals per (region, date), every completeness field the view publishes riding on every row; 3 ms underneath (2026-08-10)
+    GET /api/weather/dd/cumulative         Degree Day Ledger: MTD + STD for every region on one date, off migration 164's views. THE SLOW ONE — ~52 s board-wide, measured — so it is built once for all five regions and cached 30 min with stale-while-revalidate; a NULL total stays null and carries its own day counts in `absence` (2026-08-10)
+    GET /api/weather/dd/socalgas-grade     Degree Day Ledger: our composite vs SoCalGas's published composite + the delta, with window and all-time summaries over arbiter_present days only (2026-08-10)
+    GET /api/weather/dd/forecast           Degree Day Ledger: newest forecast issuance per target date PLUS the run-over-run delta against the prior issuance; board is honestly empty until the builder's maiden run (2026-08-10)
     GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
@@ -82,7 +87,7 @@ from datetime import time as _time
 from datetime import timedelta as _timedelta
 from datetime import timezone as _timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
@@ -126,6 +131,13 @@ ALLOWED_ORIGINS = [
     ).split(",")
     if o.strip()
 ]
+
+# DD_WARM_ON_STARTUP : "0"/"false" opts a container out of pre-building the
+#   Degree Day Ledger's cumulative board at boot (default on). The build is
+#   detached and fail-soft either way; this only exists so a container that must
+#   come up without touching the slow 164 views can say so.
+DD_WARM_ON_STARTUP = os.environ.get(
+    "DD_WARM_ON_STARTUP", "1").strip().lower() not in ("0", "false", "no", "off")
 
 # A single shared async connection pool, opened on startup, closed on shutdown.
 # Railway hobby + Neon both have modest connection caps, so keep it small.
@@ -203,7 +215,17 @@ async def lifespan(app: FastAPI):
         check=_pool_pre_ping,  # validate-on-checkout; see the note above
     )
     await _pool.open()
+    # Degree Day Ledger: warm the cumulative board off the request path. The 164
+    # views cost ~52 s board-wide (measured; see the /api/weather/dd/* note), so
+    # boot pays it instead of the first browser. Detached and fail-soft — startup
+    # never waits on it and never fails because of it. Env-gated so a container
+    # that must come up instantly can opt out.
+    _warm_task = None
+    if DD_WARM_ON_STARTUP:
+        _warm_task = asyncio.create_task(_dd_warm_cumulative())
     yield
+    if _warm_task is not None and not _warm_task.done():
+        _warm_task.cancel()
     await _pool.close()
 
 
@@ -15257,3 +15279,760 @@ async def almanac_issue(series: str, issue: str):
         raise HTTPException(
             status_code=404, detail=f"no published issue {series}/{issue}")
     return _alm.issue(rows[0])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/dd/* — the Degree Day Ledger, Phase B (2026-08-10)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Phase A shipped the composite to production and nothing rendered it. This lane
+# is the pipe: five ratified regions, their daily departures, their month- and
+# season-to-date totals on the captain's ruled anchors, the SoCalGas arbiter
+# grade, and the forecast board's run-over-run delta.
+#
+# Read-only. No migration is needed or declared: every object below already
+# exists on production. Ledger read at build time — migrations 159/160/161/164
+# are referenced by this lane, and `SELECT max(version) FROM schema_migrations`
+# on production returns **164** (152 rows banked), which matches the spec's
+# reading. Nothing here materialises a view, adds an index, or writes.
+#
+# ── THE COST, RE-MEASURED, AND WHY THE SPEC'S NUMBER IS WRONG ───────────────
+#
+# The lane spec states dd_region_mtd/dd_region_std cost "~1.4 s per
+# region-scoped query (2,021,249 buffers)". That is not what production does
+# today. Measured against production 2026-08-10 (EXPLAIN ANALYZE, and
+# clock_timestamp() deltas for the wall-clock figures):
+#
+#   dd_region_mtd  WHERE region=... AND obs_date=...  ->  29,325 ms, 9,071,557 buffers
+#   dd_region_std  WHERE obs_date=...  (all 5 regions) ->  22,418 ms
+#   dd_region_daily_vs_normal  WHERE region+obs_date range (92 rows) ->      3 ms
+#   dd_region_daily_vs_normal  5 regions x 102 days (490 rows)       ->      3 ms
+#   dd_socalgas_grade  full table (29,956 rows)                      ->    294 ms
+#   dd_region_daily  max(obs_date) WHERE obs_date >= CURRENT_DATE-60 ->      2 ms
+#
+# So the slow pair is ~16-21x the spec's figure, and the spec's second claim —
+# that dd_region_daily "re-derives ~30,000 days on every call" — is true only
+# for the views that ADD the window function. dd_region_daily and
+# dd_region_daily_vs_normal keep date pushdown and answer in single-digit
+# milliseconds; /daily therefore needs no cache to be fast, and gets a short one
+# only for the house's own reasons.
+#
+# ── THE LEVER: THE REGION PREDICATE BUYS NOTHING ────────────────────────────
+#
+# The 164 plan shows why, and it changes the whole design. `CTE base` materialises
+# ALL 172,656 composite rows before either predicate is applied; `region` and
+# `obs_date` are then filtered on the CTE Scan sitting on top ("Rows Removed by
+# Filter: 172,655"). One cell costs exactly what five regions cost.
+#
+# Therefore: **the board is built once for all five regions and the cache is
+# filtered, never the query.** The spec's uncached page render — "five regions x
+# two views" — would be 5 x (29 + 22) = ~260 s done naively per region. Built
+# board-wide it is ONE MTD read plus ONE STD read: ~52 s, measured, cold, once.
+#
+# The captain's ruling stands: nothing here materialises anything. The answer to
+# a 52-second view is a cached endpoint that states its own age, and that is what
+# this is.
+#
+# ── THE CACHE, AND THE THING IT REFUSES TO DO ───────────────────────────────
+#
+# In-process, per resolved `as_of`, stale-while-revalidate:
+#
+#   fresh (age < TTL)   -> served, `cache.state = "fresh"`
+#   stale (age >= TTL)  -> served IMMEDIATELY with `cache.state = "stale"` and a
+#                          background refresh kicked off. A stale number wearing
+#                          its age is honest; a fresh-looking stale number is the
+#                          failure this desk exists to refuse.
+#   miss                -> built inline, single-flight (one build at a time, so
+#                          five concurrent first-hits collapse into one 52 s read
+#                          rather than five, and the max_size=5 pool keeps four
+#                          free connections throughout).
+#
+# The miss path is the expensive one, so startup warms the default as_of in the
+# background: by the time a browser asks, the board is usually already fresh.
+# Warming is fail-soft — it can never take the service down with it.
+#
+# EVERY response carries `cache: {state, built_at, age_seconds, ttl_seconds,
+# build_seconds, refreshing}` plus `X-Cache` and `Age` headers. There is no path
+# through this code that returns a number without saying how old it is.
+#
+# ── WHAT THIS LANE WILL NOT DO ──────────────────────────────────────────────
+#
+# It will not sum daily rows into a cumulative. dd_region_daily_vs_normal is
+# right here, it is 3 ms, and adding up 31 of its rows would produce an MTD total
+# in a fraction of the time the 164 view takes. It would also reproduce the
+# 402.75 defect one layer deeper than any post-check can reach, and it would
+# silently invent a completeness rule the views already publish. The slow view is
+# the arbiter. We wait for it, once, and cache it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import degree_days as _dd
+
+DD_PREFIX = "/api/weather/dd"
+
+_dd_log = logging.getLogger("energylake.dd")
+
+# Fresh windows. The composite only moves when GHCND publishes (daily, with a
+# 2-4 day lag), so these are about bounding staleness, not chasing a feed.
+_DD_REGIONS_TTL = 900.0        # 22 rows; ratified vectors change ~never
+_DD_DAILY_TTL = 300.0          # 3 ms underneath; the TTL is for burst scans
+_DD_GRADE_TTL = 300.0          # ~294 ms full-table underneath
+_DD_CUMULATIVE_TTL = 1800.0    # ~52 s underneath — see the cost note above
+_DD_FORECAST_TTL = 300.0
+
+# A cold cumulative build is two slow reads back to back. The ceiling is a
+# backstop against a runaway plan, not a target: 504 beats hanging forever.
+_DD_CUMULATIVE_BUILD_TIMEOUT = 240.0
+
+# Request caps. Both windows are bounded so a caller cannot ask for a payload
+# nobody meant to serve; both are 400s naming the cap, never a silent truncation.
+_DD_DAILY_DEFAULT_DAYS = 45
+_DD_DAILY_MAX_DAYS = 1100
+_DD_GRADE_DEFAULT_DAYS = 365
+_DD_GRADE_MAX_DAYS = 1100
+_DD_FORECAST_DEFAULT_DAYS = 15
+_DD_FORECAST_MAX_DAYS = 30
+
+# How far back to look for the composite's right edge. A bounded predicate keeps
+# date pushdown alive (2 ms); the unbounded max() costs 1.6 s and is only used as
+# a fallback if the composite is ever more than this stale.
+_DD_OBS_THROUGH_LOOKBACK_DAYS = 60
+
+
+# ── The cache ───────────────────────────────────────────────────────────────
+
+class _DDCacheEntry:
+    """One cached payload and everything needed to state its age."""
+
+    __slots__ = ("payload", "built_at", "built_mono", "build_seconds", "refreshing")
+
+    def __init__(self, payload, built_at, built_mono, build_seconds):
+        self.payload = payload
+        self.built_at = built_at            # wall clock, for the response
+        self.built_mono = built_mono        # monotonic, for the age arithmetic
+        self.build_seconds = build_seconds
+        self.refreshing = False
+
+
+class _DDCache:
+    """In-process cache with single-flight builds and optional stale-serving.
+
+    ONE lock per cache, not per key. For the cumulative board that is deliberate:
+    the underlying read is a ~52 s full-view derivation, and letting two of them
+    run concurrently would tie up two of the pool's five connections for a minute
+    to answer questions that arrive together anyway. Serialising them costs a
+    second caller some wall clock; it never costs the service its pool.
+    """
+
+    def __init__(self, name: str, ttl: float, *, max_entries: int = 16,
+                 allow_stale: bool = False, build_timeout: float | None = None):
+        self.name = name
+        self.ttl = ttl
+        self.max_entries = max_entries
+        self.allow_stale = allow_stale
+        self.build_timeout = build_timeout
+        self._entries: dict = {}
+        self._lock = asyncio.Lock()
+        self._tasks: set = set()            # strong refs; asyncio only holds weak ones
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+    def _evict(self) -> None:
+        while len(self._entries) > self.max_entries:
+            oldest = min(self._entries, key=lambda k: self._entries[k].built_mono)
+            del self._entries[oldest]
+
+    async def _build(self, key, builder) -> _DDCacheEntry:
+        """Run `builder`, stamp the result. Caller holds the lock."""
+        t0 = time.monotonic()
+        payload = builder()
+        payload = await payload if asyncio.iscoroutine(payload) else payload
+        elapsed = time.monotonic() - t0
+        entry = _DDCacheEntry(payload, _utcnow(), time.monotonic(), round(elapsed, 3))
+        self._entries[key] = entry
+        self._evict()
+        _dd_log.info("%s: built %r in %.1fs", self.name, key, elapsed)
+        return entry
+
+    async def _locked_build(self, key, builder) -> _DDCacheEntry:
+        async def _run():
+            async with self._lock:
+                # Double-checked: a build that finished while we queued for the
+                # lock is a build we do not repeat.
+                entry = self._entries.get(key)
+                if entry is not None and (time.monotonic() - entry.built_mono) < self.ttl:
+                    return entry
+                return await self._build(key, builder)
+
+        if self.build_timeout is None:
+            return await _run()
+        return await asyncio.wait_for(_run(), timeout=self.build_timeout)
+
+    async def _refresh_in_background(self, key, builder) -> None:
+        entry = self._entries.get(key)
+        if entry is not None:
+            entry.refreshing = True
+        try:
+            await self._locked_build(key, builder)
+        except Exception as e:                       # never let a refresh escape
+            _dd_log.warning("%s: background refresh of %r failed: %s",
+                            self.name, key, e)
+        finally:
+            stale = self._entries.get(key)
+            if stale is not None:
+                stale.refreshing = False
+
+    def _spawn_refresh(self, key, builder) -> None:
+        entry = self._entries.get(key)
+        if entry is not None and entry.refreshing:
+            return                                   # one refresh per key is enough
+        task = asyncio.create_task(self._refresh_in_background(key, builder))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def serve(self, key, builder) -> tuple[Any, str, _DDCacheEntry]:
+        """(payload, state, entry) — the whole policy in one place.
+
+        state is "fresh" | "stale" | "miss". A stale entry is returned as-is and
+        a refresh is started behind it; a miss blocks on the build.
+        """
+        entry = self._entries.get(key)
+        if entry is not None:
+            age = time.monotonic() - entry.built_mono
+            if age < self.ttl:
+                return entry.payload, "fresh", entry
+            if self.allow_stale:
+                self._spawn_refresh(key, builder)
+                return entry.payload, "stale", entry
+        entry = await self._locked_build(key, builder)
+        return entry.payload, "miss", entry
+
+
+def _dd_envelope(payload: dict, state: str, entry: _DDCacheEntry, cache: _DDCache,
+                 response: Response) -> dict:
+    """Attach the age to the body AND the headers. Nothing serves without it."""
+    age = max(0.0, time.monotonic() - entry.built_mono)
+    out = dict(payload)
+    out["cache"] = {
+        "state": state,
+        "built_at": entry.built_at.isoformat(),
+        "age_seconds": round(age, 1),
+        "ttl_seconds": cache.ttl,
+        "build_seconds": entry.build_seconds,
+        "refreshing": entry.refreshing,
+    }
+    response.headers["Cache-Control"] = f"max-age={int(cache.ttl)}"
+    response.headers["X-Cache"] = {"fresh": "hit", "stale": "stale", "miss": "miss"}[state]
+    response.headers["Age"] = str(int(age))
+    return out
+
+
+_dd_regions_cache = _DDCache("dd/regions", _DD_REGIONS_TTL, max_entries=1)
+_dd_daily_cache = _DDCache("dd/daily", _DD_DAILY_TTL, max_entries=32)
+_dd_grade_cache = _DDCache("dd/socalgas-grade", _DD_GRADE_TTL, max_entries=16)
+_dd_forecast_cache = _DDCache("dd/forecast", _DD_FORECAST_TTL, max_entries=32)
+_dd_cumulative_cache = _DDCache(
+    "dd/cumulative", _DD_CUMULATIVE_TTL, max_entries=8,
+    allow_stale=True, build_timeout=_DD_CUMULATIVE_BUILD_TIMEOUT,
+)
+
+_DD_CACHES = (_dd_regions_cache, _dd_daily_cache, _dd_grade_cache,
+              _dd_forecast_cache, _dd_cumulative_cache)
+
+
+# ── SQL ─────────────────────────────────────────────────────────────────────
+
+_DD_REGIONS_SQL = """
+    SELECT region, station_id, weight::float8 AS weight, version, vintage, note
+    FROM dd_region_weights_active
+    ORDER BY region, station_id
+"""
+
+# Bounded predicate on purpose: dd_region_daily keeps date pushdown, so this is
+# 2 ms. The unbounded max() over the same view is 1.6 s (measured) and is only
+# reached when the composite has gone more than the lookback stale.
+_DD_OBS_THROUGH_SQL = """
+    SELECT max(obs_date) AS obs_through
+    FROM dd_region_daily
+    WHERE obs_date >= CURRENT_DATE - %(lookback)s::int
+"""
+
+_DD_OBS_THROUGH_FALLBACK_SQL = """
+    SELECT max(obs_date) AS obs_through FROM dd_region_daily
+"""
+
+# `%(region)s::text IS NULL OR ...` is the house optional-filter idiom (see
+# /api/nodes/search, /api/almanac): one plan, one statement, no concatenation.
+_DD_DAILY_SQL = """
+    SELECT region, version, obs_date, basis_complete, normals_complete,
+           tavg_f::float8            AS tavg_f,
+           hdd::float8               AS hdd,
+           cdd::float8               AS cdd,
+           tavg_norm_f::float8       AS tavg_norm_f,
+           hdd_norm::float8          AS hdd_norm,
+           cdd_norm::float8          AS cdd_norm,
+           window_label,
+           tavg_departure_f::float8  AS tavg_departure_f,
+           hdd_departure::float8     AS hdd_departure,
+           cdd_departure::float8     AS cdd_departure,
+           member_stations, members_present, missing_stations,
+           normals_missing_stations, min_sample_count
+    FROM dd_region_daily_vs_normal
+    WHERE obs_date BETWEEN %(start)s AND %(end)s
+      AND (%(region)s::text IS NULL OR region = %(region)s)
+    ORDER BY region, obs_date
+"""
+
+# NO region predicate, deliberately. See the cost note: the 164 views build all
+# 172,656 composite rows before any filter is applied, so five regions cost what
+# one costs. Narrowing here would buy nothing and would turn one 29 s build into
+# five of them.
+_DD_MTD_SQL = """
+    SELECT region, version, obs_date, window_start, window_label,
+           days_in_window, days_complete, normals_days_complete,
+           complete, normals_complete,
+           hdd::float8            AS hdd,
+           cdd::float8            AS cdd,
+           hdd_norm::float8       AS hdd_norm,
+           cdd_norm::float8       AS cdd_norm,
+           hdd_departure::float8  AS hdd_departure,
+           cdd_departure::float8  AS cdd_departure,
+           ly_obs_date, ly_days_in_window, ly_days_complete, ly_complete,
+           ly_hdd::float8         AS ly_hdd,
+           ly_cdd::float8         AS ly_cdd,
+           hdd_vs_ly::float8      AS hdd_vs_ly,
+           cdd_vs_ly::float8      AS cdd_vs_ly
+    FROM dd_region_mtd
+    WHERE obs_date = %(as_of)s
+    ORDER BY region
+"""
+
+_DD_STD_SQL = """
+    SELECT region, version, obs_date, season, season_start, window_label,
+           days_in_window, days_complete, normals_days_complete,
+           complete, normals_complete,
+           hdd::float8            AS hdd,
+           cdd::float8            AS cdd,
+           hdd_norm::float8       AS hdd_norm,
+           cdd_norm::float8       AS cdd_norm,
+           hdd_departure::float8  AS hdd_departure,
+           cdd_departure::float8  AS cdd_departure,
+           ly_obs_date, ly_season_start, ly_days_in_window, ly_days_complete,
+           ly_complete,
+           ly_hdd::float8         AS ly_hdd,
+           ly_cdd::float8         AS ly_cdd,
+           hdd_vs_ly::float8      AS hdd_vs_ly,
+           cdd_vs_ly::float8      AS cdd_vs_ly
+    FROM dd_region_std
+    WHERE obs_date = %(as_of)s
+    ORDER BY region
+"""
+
+_DD_GRADE_ROWS_SQL = """
+    SELECT obs_date, version,
+           el_composite_temp_f::float8  AS el_composite_temp_f,
+           scg_composite_temp_f::float8 AS scg_composite_temp_f,
+           delta_f::float8              AS delta_f,
+           basis_complete, arbiter_present,
+           member_stations, members_present, missing_stations
+    FROM dd_socalgas_grade
+    WHERE obs_date BETWEEN %(start)s AND %(end)s
+    ORDER BY obs_date
+"""
+
+# Every statistic is FILTERed to arbiter_present: a day SoCalGas never published
+# is an ungraded day, not a zero-delta day. NULL start/end = all time, which is
+# how the panel's long-view summary is served beside a short window of rows.
+_DD_GRADE_SUMMARY_SQL = """
+    SELECT count(*)                                            AS n_days,
+           count(*) FILTER (WHERE arbiter_present)             AS n_graded,
+           (avg(delta_f) FILTER (WHERE arbiter_present))::float8         AS mean_delta_f,
+           (stddev_samp(delta_f) FILTER (WHERE arbiter_present))::float8 AS sd_delta_f,
+           (avg(abs(delta_f)) FILTER (WHERE arbiter_present))::float8    AS mean_abs_delta_f,
+           (min(delta_f) FILTER (WHERE arbiter_present))::float8         AS min_delta_f,
+           (max(delta_f) FILTER (WHERE arbiter_present))::float8         AS max_delta_f,
+           min(obs_date) FILTER (WHERE arbiter_present)        AS first_graded,
+           max(obs_date) FILTER (WHERE arbiter_present)        AS last_graded
+    FROM dd_socalgas_grade
+    WHERE (%(start)s::date IS NULL OR obs_date >= %(start)s)
+      AND (%(end)s::date IS NULL OR obs_date <= %(end)s)
+"""
+
+# rn <= 2 is the whole point: rank 1 is the newest issuance for that target date,
+# rank 2 is the one before it, and their difference is the run-over-run delta.
+# Migration 161 keeps every issuance and indexes (station_id, target_date,
+# issued_ts DESC) for exactly this read.
+_DD_FORECAST_SQL = """
+    WITH scoped AS (
+        SELECT station_id, target_date, issued_ts, tmax_f, tmin_f, tavg_f,
+               hdd, cdd, basis_complete, hours_covered, hours_required,
+               source_product, gridpoint_id, icao,
+               row_number() OVER (PARTITION BY station_id, target_date
+                                  ORDER BY issued_ts DESC) AS rn
+        FROM station_degree_days_forecast
+        WHERE target_date >= %(from_date)s
+          AND target_date < %(to_date)s
+          AND (%(station)s::text IS NULL OR station_id = %(station)s)
+    )
+    SELECT * FROM scoped
+    WHERE rn <= 2
+    ORDER BY station_id, target_date, rn
+"""
+
+
+# ── Params ──────────────────────────────────────────────────────────────────
+
+def _dd_parse_date(raw: Optional[str], field: str) -> Optional[_date]:
+    """ISO date or a 400 naming the field. Never a silent None on bad input."""
+    if raw is None or raw == "":
+        return None
+    try:
+        return _date.fromisoformat(raw)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field} must be an ISO date (YYYY-MM-DD), got {raw!r}",
+        )
+
+
+def _dd_window(start: Optional[_date], end: Optional[_date], anchor: _date,
+               *, default_days: int, max_days: int) -> tuple[_date, _date]:
+    """Resolve (start, end) against an anchor, with both caps enforced loudly."""
+    if end is None:
+        end = anchor
+    if start is None:
+        start = end - _timedelta(days=default_days - 1)
+    if start > end:
+        raise HTTPException(
+            status_code=400,
+            detail=f"start ({start.isoformat()}) is after end ({end.isoformat()})",
+        )
+    span = (end - start).days + 1
+    if span > max_days:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"window of {span} days exceeds the {max_days}-day cap. "
+                    "Narrow start/end — this endpoint never silently truncates."),
+        )
+    return start, end
+
+
+async def _dd_read(sql: str, params: dict) -> list:
+    """One DD read, with the house's 503-on-DB-down contract."""
+    try:
+        return await _cockpit_read(sql, params)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+
+async def _dd_obs_through() -> Optional[_date]:
+    """The composite's right edge — NOT today.
+
+    GHCND actuals lag NOAA's publication schedule by 2-4 days (production sits at
+    2026-08-06 while the wall clock reads 2026-08-10). Every default window in
+    this lane anchors here rather than on `now`, so the ledger's edge is the data's
+    edge and the surface can draw the seam where it actually is.
+    """
+    rows = await _dd_read(_DD_OBS_THROUGH_SQL,
+                          {"lookback": _DD_OBS_THROUGH_LOOKBACK_DAYS})
+    edge = rows[0]["obs_through"] if rows else None
+    if edge is None:
+        rows = await _dd_read(_DD_OBS_THROUGH_FALLBACK_SQL, {})
+        edge = rows[0]["obs_through"] if rows else None
+    return edge
+
+
+async def _dd_region_vocabulary() -> list[str]:
+    """The ratified region ids, off the (cached) vectors read."""
+    payload, _, _ = await _dd_regions_cache.serve(
+        "vectors", lambda: _dd_read(_DD_REGIONS_SQL, {}))
+    return [r["region"] for r in _dd.regions_payload(payload)["regions"]]
+
+
+async def _dd_region_or_400(region: Optional[str]) -> Optional[str]:
+    if region is None or region == "":
+        return None
+    known = await _dd_region_vocabulary()
+    if region not in known:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown region: {region!r}. one of {known}",
+        )
+    return region
+
+
+# ── Routes ──────────────────────────────────────────────────────────────────
+
+@app.get(f"{DD_PREFIX}/regions")
+async def dd_regions(response: Response):
+    """The five ratified composite vectors: members, weights, version, vintage.
+
+        { vector_version, vector_versions, region_count,
+          regions: [ { region, version, vintage, note, member_stations,
+                       weight_sum, members: [{station_id, weight}] } ],
+          cache: {...} }
+
+    Cheap (22 rows off dd_region_weights_active), cached 15 min. `weight_sum` is
+    reported rather than asserted — all five sum to 1.00 today, and if one ever
+    stops the number says so instead of a normalization hiding it.
+
+    `vector_version` is `v1`: these are ratified editorial judgments about which
+    stations stand for a region, not laws of nature, and the surface is required
+    to state the version beside the numbers. DB unavailable -> 503.
+    """
+    assert _pool is not None
+    rows, state, entry = await _dd_regions_cache.serve(
+        "vectors", lambda: _dd_read(_DD_REGIONS_SQL, {}))
+    return _dd_envelope(_dd.regions_payload(rows), state, entry,
+                        _dd_regions_cache, response)
+
+
+@app.get(f"{DD_PREFIX}/daily")
+async def dd_daily(
+    response: Response,
+    region: Optional[str] = Query(
+        None, description="One ratified region id. Omit for all five."),
+    start: Optional[str] = Query(None, description="ISO date, inclusive."),
+    end: Optional[str] = Query(
+        None, description="ISO date, inclusive. Defaults to the composite's "
+                          "right edge (obs_through), NOT today."),
+):
+    """Daily composite degree days against normals, one row per (region, date).
+
+        { start, end, regions_requested, regions_present, vector_version,
+          row_count, obs_through, rows: [...], cache: {...} }
+
+    Every row carries the completeness the view publishes for itself —
+    `basis_complete`, `normals_complete`, `members_present`/`member_stations`,
+    `missing_stations`, `normals_missing_stations`, `min_sample_count` — so a
+    client can say WHY a cell is thin without a second call. None of it is
+    recomputed here.
+
+    Measured 3 ms underneath (dd_region_daily_vs_normal keeps date pushdown, so
+    the window function penalty that makes /cumulative slow does not apply). The
+    5-minute cache is for burst scans, not for latency.
+
+    Default window: the last 45 days ending at `obs_through`. Cap 1100 days; a
+    wider ask is a 400 naming the cap, never a silent truncation.
+    DB unavailable -> 503.
+    """
+    assert _pool is not None
+    region = await _dd_region_or_400(region)
+    s, e = _dd_parse_date(start, "start"), _dd_parse_date(end, "end")
+    anchor = await _dd_obs_through() or _utcnow().date()
+    s, e = _dd_window(s, e, anchor,
+                      default_days=_DD_DAILY_DEFAULT_DAYS,
+                      max_days=_DD_DAILY_MAX_DAYS)
+
+    key = (region, s, e)
+
+    async def _build():
+        rows = await _dd_read(_DD_DAILY_SQL, {"start": s, "end": e, "region": region})
+        return _dd.daily_payload(rows, start=s, end=e,
+                                 regions_requested=[region] if region else None)
+
+    payload, state, entry = await _dd_daily_cache.serve(key, _build)
+    return _dd_envelope(payload, state, entry, _dd_daily_cache, response)
+
+
+@app.get(f"{DD_PREFIX}/cumulative")
+async def dd_cumulative(
+    response: Response,
+    region: Optional[str] = Query(
+        None, description="Filters the CACHED board. The underlying views cost "
+                          "the same for one region as for five, so the query is "
+                          "never narrowed — see the cost note in the source."),
+    as_of: Optional[str] = Query(
+        None, description="ISO date. Defaults to the composite's right edge."),
+):
+    """Month-to-date and season-to-date for every region on one date. THE SLOW ONE.
+
+        { as_of, as_of_source, obs_through, vector_version, region_count,
+          regions: [ { region,
+                       mtd: { window_start, window_end, days_in_window,
+                              days_complete, complete, normals_complete,
+                              hdd, cdd, hdd_norm, cdd_norm,
+                              hdd_departure, cdd_departure,
+                              last_year: {...}, absence: {...}|null },
+                       std: { ...same..., season, season_start } } ],
+          cache: {...} }
+
+    ABSENCE IS A FIRST-CLASS VALUE. A null total is not an error and is not a
+    zero — it is a stated incompleteness with the view's own day counts beside
+    it. `absence.reason` is one of `incomplete_obs` (the "89 of 92 days" case),
+    `incomplete_norm`, `no_season` (a shoulder month has no ruled anchor, which
+    is different from an incomplete season), or `no_row`. Nothing on this path
+    coalesces, and nothing sums daily rows to fill a gap.
+
+    COST AND CACHE, measured on production 2026-08-10: dd_region_mtd is 29.3 s
+    and dd_region_std 22.4 s, board-wide or single-cell alike (the views build all
+    172,656 composite rows before any predicate applies). So the board is built
+    ONCE for all five regions — ~52 s cold — and cached 30 min with
+    stale-while-revalidate: an expired board is served immediately, labelled
+    `cache.state = "stale"`, while a refresh runs behind it. `cache.age_seconds`,
+    the `Age` header and `X-Cache` state the age on every single response.
+
+    Startup warms the default `as_of`, so the cold 52 s is normally paid by the
+    service at boot rather than by a browser. A build that exceeds 240 s -> 504.
+    DB unavailable -> 503.
+    """
+    assert _pool is not None
+    region = await _dd_region_or_400(region)
+    requested = _dd_parse_date(as_of, "as_of")
+    edge = await _dd_obs_through()
+    resolved = requested or edge
+    if resolved is None:
+        raise HTTPException(
+            status_code=503,
+            detail="the regional composite has no rows; no as_of can be resolved",
+        )
+
+    async def _build():
+        return await _dd_build_board(resolved, requested is not None, edge)
+
+    try:
+        board, state, entry = await _dd_cumulative_cache.serve(resolved, _build)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=(f"the cumulative board did not build within "
+                    f"{int(_DD_CUMULATIVE_BUILD_TIMEOUT)}s. The 164 views derive "
+                    "the whole composite per call; retry once the in-flight "
+                    "build lands."),
+        )
+    return _dd_envelope(_dd.filter_board(board, region), state, entry,
+                        _dd_cumulative_cache, response)
+
+
+async def _dd_build_board(as_of: _date, pinned: bool, edge: Optional[_date]) -> dict:
+    """The two slow reads, board-wide, in the order the surface needs them."""
+    mtd = await _dd_read(_DD_MTD_SQL, {"as_of": as_of})
+    std = await _dd_read(_DD_STD_SQL, {"as_of": as_of})
+    return _dd.cumulative_payload(
+        mtd, std,
+        as_of=as_of,
+        as_of_source="requested" if pinned else "latest_obs",
+        obs_through=edge,
+    )
+
+
+@app.get(f"{DD_PREFIX}/socalgas-grade")
+async def dd_socalgas_grade(
+    response: Response,
+    start: Optional[str] = Query(None, description="ISO date, inclusive."),
+    end: Optional[str] = Query(None, description="ISO date, inclusive."),
+):
+    """Our composite against SoCalGas's own published composite, and the delta.
+
+        { start, end, row_count,
+          summary: { window: {...}, all_time: {...} },
+          note, rows: [ { obs_date, el_composite_temp_f, scg_composite_temp_f,
+                          delta_f, abs_delta_f, basis_complete, arbiter_present,
+                          member_stations, members_present, missing_stations } ],
+          cache: {...} }
+
+    `delta_f` is OURS minus THEIRS. Divergence is a finding about our station
+    weights, not an error in SoCalGas's — they are the arbiter here, not the
+    subject, and the surface is required to label it that way.
+
+    Both summaries count only `arbiter_present` days: a day SoCalGas never
+    published is an ungraded day, not a zero-delta day, and `n_days` vs
+    `n_graded` is the honest denominator. `sd_delta_f` is a SAMPLE sd and is null
+    below two graded days rather than 0.0.
+
+    `summary.all_time` is always computed over the whole table (294 ms measured,
+    29,956 rows) so the panel's long view does not depend on the row window. Row
+    window defaults to the last 365 days, cap 1100. DB unavailable -> 503.
+    """
+    assert _pool is not None
+    s, e = _dd_parse_date(start, "start"), _dd_parse_date(end, "end")
+    anchor = await _dd_obs_through() or _utcnow().date()
+    s, e = _dd_window(s, e, anchor,
+                      default_days=_DD_GRADE_DEFAULT_DAYS,
+                      max_days=_DD_GRADE_MAX_DAYS)
+
+    async def _build():
+        rows = await _dd_read(_DD_GRADE_ROWS_SQL, {"start": s, "end": e})
+        win = await _dd_read(_DD_GRADE_SUMMARY_SQL, {"start": s, "end": e})
+        allt = await _dd_read(_DD_GRADE_SUMMARY_SQL, {"start": None, "end": None})
+        return _dd.grade_payload(rows,
+                                 win[0] if win else None,
+                                 allt[0] if allt else None,
+                                 start=s, end=e)
+
+    payload, state, entry = await _dd_grade_cache.serve((s, e), _build)
+    return _dd_envelope(payload, state, entry, _dd_grade_cache, response)
+
+
+@app.get(f"{DD_PREFIX}/forecast")
+async def dd_forecast(
+    response: Response,
+    station: Optional[str] = Query(
+        None, description="GHCN station id. Omit for every station on the board."),
+    days: int = Query(_DD_FORECAST_DEFAULT_DAYS, ge=1, le=_DD_FORECAST_MAX_DAYS,
+                      description="Forward horizon in days from today."),
+):
+    """The forecast degree-day board: newest issuance per target date, PLUS the
+    run-over-run delta against the issuance before it.
+
+        { station, from_date, days, board_state, absence, stations_present,
+          row_count, rows_with_run_over_run_delta, newest_issued_ts,
+          rows: [ { station_id, target_date, issued_ts, tmax_f, tmin_f, tavg_f,
+                    hdd, cdd, basis_complete, hours_covered, hours_required,
+                    prior_issued_ts, prior_hdd, prior_cdd, prior_tavg_f,
+                    delta_hdd, delta_cdd, delta_tavg_f,
+                    delta_basis, delta_absence } ],
+          cache: {...} }
+
+    THE DELTA IS THE TRADER NUMBER. The current issuance is a level; what moves
+    a position is how that level CHANGED since the last run. Migration 161 keeps
+    every issuance and indexes (station_id, target_date, issued_ts DESC) for
+    exactly this subtraction, so the endpoint ships with it rather than adding it
+    later.
+
+    `station_degree_days_forecast` holds 0 rows today (measured 2026-08-10 — the
+    builder has not had its maiden run). That is served as `board_state: "empty"`
+    with an `absence` naming the reason, NOT a 404 and not a bare `[]`: an empty
+    board and a filtered-to-nothing board are different answers. A target date
+    seen for the first time gets null deltas with
+    `delta_absence.reason = "no_prior_issuance"` — a first sighting is not a
+    zero-change day. DB unavailable -> 503.
+    """
+    assert _pool is not None
+    from_date = _utcnow().date()
+    to_date = from_date + _timedelta(days=days)
+    key = (station, from_date, days)
+
+    async def _build():
+        rows = await _dd_read(_DD_FORECAST_SQL, {
+            "from_date": from_date, "to_date": to_date, "station": station,
+        })
+        return _dd.forecast_payload(rows, station=station,
+                                    from_date=from_date, days=days)
+
+    payload, state, entry = await _dd_forecast_cache.serve(key, _build)
+    return _dd_envelope(payload, state, entry, _dd_forecast_cache, response)
+
+
+# ── Startup warm ────────────────────────────────────────────────────────────
+
+async def _dd_warm_cumulative() -> None:
+    """Pay the ~52 s cold build at boot so a browser does not.
+
+    Fail-soft by construction: every exception is logged and swallowed. A ledger
+    that could not pre-warm still serves — the first caller just pays the build
+    — and a service that refuses to start because a cache could not warm is a
+    worse failure than a slow first request.
+    """
+    try:
+        edge = await _dd_obs_through()
+        if edge is None:
+            _dd_log.warning("dd warm: composite has no rows; nothing to warm")
+            return
+        await _dd_cumulative_cache.serve(
+            edge, lambda: _dd_build_board(edge, False, edge))
+        _dd_log.info("dd warm: cumulative board ready for %s", edge)
+    except Exception as e:
+        _dd_log.warning("dd warm: skipped (%s)", e)
