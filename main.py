@@ -69,6 +69,9 @@ Endpoints:
     GET /api/desk/equity                   Paper Desk v0: cumulative settled pnl_dollars by trade_date, settled rows only, gaps left as gaps (no interpolation) (2026-07-31)
     GET /api/desk/by-node                  Paper Desk v0: per-pnode aggregates — n, win rate, total P&L, avg pnl/MWh; nothing-settled nodes sort last, never dropped (2026-07-31)
     GET /api/desk/by-play                  Paper Desk v0: per-screen aggregates — writer carries no machine-readable play key, so play is null with the reason attached (2026-07-31)
+    GET /api/nodes/{pnode_id}/package       Node Analytics v0: the whole per-node package in ONE call off ONE windowed PK read — identity (components_from derived per node) / per-HE dam+rt profile / month x HE heatmap / GridStatus-bin distribution / TB2+TB4 in $/kW-month / the six WECC blocks monthly + last-31-days daily / basis + DART / RT-coverage suppression rule on the wire; window derived from the node's own bank, absence never zero-filled (2026-08-12)
+    GET /api/hubs/{hub}/blocks              Node Analytics v0: the same six blocks on the hub DA curve from timeseries_values (SP15/NP15/ZP26), measured depth 2016-01-01 onward — years deeper than the nodal bank; daily granularity bounded and the bound stated; reconciled to caiso_blocks_daily at 0.00000000 (2026-08-12)
+    GET /api/nodes/top-movers               Node Analytics v0: top-50 by window-avg DART or basis_sp15 off the DURABLE hourly bank, hour-weighted, days_present on every row; chunked one index-served read per date because the whole-range GROUP BY is a measured 24.9 s seq scan — cap 7 days, stated (2026-08-12)
     GET /api/lab/paper-desk                Lab Paper Desk v0: the whole desk in ONE payload off ONE read — blotter (+ rationale, inputs_as_of, paper_bid_curves count) / equity by settled_at / by_node / by_play / book; status is settled|pending|VOID and voids ride the blotter, excluded from every aggregate and counted in book (2026-08-06)
 """
 
@@ -16036,3 +16039,683 @@ async def _dd_warm_cumulative() -> None:
         _dd_log.info("dd warm: cumulative board ready for %s", edge)
     except Exception as e:
         _dd_log.warning("dd warm: skipped (%s)", e)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NODE ANALYTICS API v0 — per-node package + block pricing (2026-08-12)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/nodes/{pnode_id}/package   the whole per-node package, one call
+#   GET /api/hubs/{hub}/blocks          the same block set on the hub DA series
+#   GET /api/nodes/top-movers           the screening-page seed
+#
+# READ-ONLY LANE. No writes, no DDL, no migrations anywhere in this section.
+#
+# ── SUBSTRATE, MEASURED LIVE 2026-08-12 (not inherited from a brief) ────────
+# `atlas_node_hourly_stats`: 46.2 M rows, 2026-05-03 .. 2026-08-11, 101 distinct
+# dates over a 101-day span — GAPLESS, verified by counting distinct dates
+# against the span rather than by assuming it. ~19.3 k nodes x 24 HE/day.
+#
+# THE WINDOW IS ALWAYS COMPUTED FROM THE DATA. Every endpoint below derives its
+# window from min/max(trade_date) — the NODE's own where the node is the
+# subject. No date is hardcoded anywhere in this lane; the bank grows daily and
+# a hardcoded edge would rot within a day of being written.
+#
+# COLUMN REALITY, and it is not uniform:
+#   dam_lmp         ~221 k of ~464 k rows/day — only about HALF the universe
+#                   carries a day-ahead price at all. A node with no DAM is not
+#                   a broken node, and its dam-derived stanzas come back empty
+#                   rather than zero.
+#   dam_congestion  / dam_loss  NULL before 2026-05-14, populated from that date
+#                   on. `components_from` is DERIVED per node (the node's own
+#                   earliest non-null congestion day), never asserted from the
+#                   table-wide date, because a node that started late has a
+#                   later components floor than the warehouse does.
+#   basis_sp15      populated but SPARSE — ~55 k of ~469 k rows/day, i.e. about
+#                   2.3 k of 19.3 k nodes. main.py's older note that this column
+#                   is "NULL on all 2,510,268 rows" was true when written and is
+#                   now STALE: the shelf lit some time after 2026-08-01. This
+#                   lane reads it live and reports what is there.
+#
+# ── TH HUBS ARE IN THIS TABLE, CONTRARY TO THE STANDING NOTE ───────────────
+# TH_SP15_GEN-APND, TH_NP15_GEN-APND and TH_ZP26_GEN-APND all carry a full 24 HE
+# of DAM and RT in atlas_node_hourly_stats today (verified 2026-08-12). The hub
+# endpoint still reads `timeseries_values` instead, and that is a DEPTH choice,
+# not a availability one: the nodal bank starts 2026-05-03, while the hub series
+# reach back to 2016-01-01. Serving hubs from the nodal table would throw away
+# ten years of history to save a join.
+#
+# A TRAP THIS LANE AVOIDS: the sibling ids TH_*_GEN_ONPEAK-APND and
+# TH_*_GEN_OFFPEAK-APND carry 16 and 8 HE per day respectively — they are
+# CAISO's own pre-blocked apnodes, not hourly nodes. Run the block calendar over
+# one of those and every block silently reports the wrong hours. They are not
+# hub aliases here and `/api/hubs/{hub}/blocks` will not resolve to them.
+
+import block_pricing as _bp
+
+NAP_TABLE = "atlas_node_hourly_stats"
+NAP_WINDOWS = ("all", "30", "90")
+
+# Hub lane. The series ARE named 'NP15'/'SP15'/'ZP26' in timeseries_values —
+# recon'd, not guessed. Measured depth 2016-01-01 .. 2026-08-13 (the DA curve
+# runs one day forward of today, which is why last_day can be tomorrow).
+NAP_HUB_DATASET = AN_HUB_DA_DATASET          # 'caiso_lmp_da_hourly'
+NAP_HUBS = ("SP15", "NP15", "ZP26")
+
+# Movers. days is CAPPED and the cap is a measurement (see the plan note on the
+# endpoint), not a preference.
+NAP_MOVERS_METRICS = ("dart", "basis_sp15")
+NAP_MOVERS_TOP_N = 50
+NAP_MOVERS_MAX_DAYS = 7
+NAP_MOVERS_TTL_S = 900
+
+
+def _nap_holiday(d) -> bool:
+    """The lane's calendar — main.py's own, injected into block_pricing.
+
+    There is exactly one NERC calendar in this process and this is the seam
+    where the block layer picks it up.
+    """
+    return is_nerc_holiday(d)
+
+
+# ── Identity ────────────────────────────────────────────────────────────────
+# NAME AND ZONE ARE THINLY COVERED AND THIS LANE SAYS SO RATHER THAN INVENTING.
+# Measured 2026-08-12 over the 24,098-row universe:
+#   * `atlas_pnode_zone` — the natural home for a LAP zone — is EMPTY (0 rows).
+#     There is therefore NO load-zone attribution available at any coverage, and
+#     `zone` below is the CAISO TRADING HUB (atlas_pnode_universe.th_hub,
+#     verbatim, no geographic inference), which is what a power desk means by a
+#     node's zone. It is null for ~90.6% of the universe (2,277 of 24,098 carry
+#     one) and that is CAISO's own attribution, not a gap this lane can fill.
+#   * `name` — there is no gazetteer. `description` equals the pnode_id itself
+#     on 21,362 of 24,098 rows, so it is only surfaced when it actually differs;
+#     otherwise the Atlas plant name (via the crosswalk) is used when one
+#     exists. Both null is the common and honest answer, and the client should
+#     render the id as the primary label.
+#   * `kind` — atlas_pnode_geo.node_type, which IS fully covered (28,834 of
+#     28,834 rows carry both node_type and area).
+_NAP_IDENTITY_SQL = """
+    SELECT u.pnode_id,
+           u.th_hub,
+           u.apnode_type,
+           NULLIF(u.description, u.pnode_id)          AS description_name,
+           g.node_type,
+           g.area,
+           (SELECT min(p.plant_name)
+              FROM atlas_pnode_crosswalk x
+              JOIN atlas_plants p ON p.plant_code = x.plant_code
+             WHERE x.pnode_id = %(pnode_id)s)         AS plant_name
+      FROM atlas_pnode_universe u
+      LEFT JOIN atlas_pnode_geo g ON g.pnode_id = u.pnode_id
+     WHERE u.pnode_id = %(pnode_id)s
+"""
+
+# The node's OWN banked depth, off the PK prefix (index-only). Node-scoped on
+# purpose: the table-wide frontier is a seq scan and does not belong on a
+# per-node request.
+_NAP_DEPTH_SQL = """
+    SELECT min(trade_date) AS first_day,
+           max(trade_date) AS last_day,
+           count(DISTINCT trade_date) AS days_banked
+      FROM atlas_node_hourly_stats
+     WHERE pnode_id = %(pnode_id)s
+"""
+
+# The window read. PK prefix + a date range -> Bitmap Index Scan on
+# atlas_node_hourly_stats_pkey. EXPLAIN (ANALYZE) 2026-08-12, full 101-day
+# window on TH_SP15_GEN-APND:
+#
+#   Bitmap Heap Scan on atlas_node_hourly_stats  (actual rows=2424)
+#     Recheck Cond: ((pnode_id = '...') AND (trade_date >= '2026-05-03'))
+#     ->  Bitmap Index Scan on atlas_node_hourly_stats_pkey (actual rows=2496)
+#           Index Cond: ((pnode_id = '...') AND (trade_date >= '2026-05-03'))
+#   Execution Time: 293 ms cold
+#
+# 2,424 rows = 101 days x 24 HE. The read touches days x 24 rows and NOTHING
+# else — no seq scan, no sort spill. That is the receipt the package's
+# performance claim rests on.
+_NAP_ROWS_SQL = """
+    SELECT trade_date, he, dam_lmp, rt_avg, rt_n, dart, basis_sp15,
+           dam_congestion, dam_loss
+      FROM atlas_node_hourly_stats
+     WHERE pnode_id = %(pnode_id)s
+       AND trade_date >= %(lo)s
+     ORDER BY trade_date, he
+"""
+
+
+def _nap_window_bounds(first_day, last_day, window_days: str):
+    """The [lo, hi] the package computes over, DERIVED from the node's bank.
+
+    'all' is the node's whole bank. '30'/'90' count back from the node's OWN
+    last banked day — not from today, and not from the warehouse's last day. A
+    node that stopped updating a week ago gets its last 30 BANKED days, and the
+    window it actually got is echoed on the wire so the difference is visible.
+    """
+    if first_day is None or last_day is None:
+        return None, None
+    if window_days == "all":
+        return first_day, last_day
+    lo = last_day - _timedelta(days=int(window_days) - 1)
+    return max(lo, first_day), last_day
+
+
+@app.get("/api/nodes/{pnode_id}/package")
+async def nodes_package(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. ALAMT3G_7_B1. Unknown -> 400.",
+    ),
+    window_days: str = Query(
+        default="all",
+        description=f"Window over the node's OWN bank. One of {', '.join(NAP_WINDOWS)}.",
+    ),
+):
+    """
+    The per-node package — identity, shape, distribution, TB and block pricing.
+
+    ONE call returns the whole node page. Every stanza is computed over the SAME
+    window, and that window is echoed in `window` so no chart can quietly be
+    drawn over a different span than the one beside it.
+
+    Stanzas:
+      identity        pnode_id, name, zone, first_day, last_day, days_banked,
+                      components_from (the node's own earliest day with
+                      non-null dam_congestion — derived, never asserted).
+      profile         per HE1-24: p25/p50/p75 (+mean, n) of dam_lmp.
+      profile_rt      the same for rt_avg.
+      heatmap         per (month, HE): mean dam_lmp, months in the bank only.
+      distribution    dam_lmp counts on the GridStatus bin edges.
+      distribution_rt the same for rt_avg.
+      tb              TB2 and TB4 in $/kW-month, by month + a summary over
+                      COMPLETE months only.
+      blocks          6x16 / off_peak / 7x8 / 7x16 / atc / 2x16h, monthly, each
+                      with counted `hours` and a complete-months summary.
+      blocks_daily    the last 31 banked days x block.
+      basis           per-HE p25/p50/p75 of basis_sp15 + monthly averages.
+      dart            the same for dart.
+      rt_coverage_note the suppression rule, stated, with the counts behind it.
+
+    ABSENCE IS STATED, NEVER ZERO-FILLED. An HE, month or day the bank does not
+    carry is ABSENT from its array. The one deliberate exception is
+    `distribution`, where every bin ships even at n=0 — the bins are a fixed
+    axis the client draws, and a missing bar would silently rescale the chart.
+
+    RT SUPPRESSION. When real-time coverage is thin (see `rt_coverage_note`),
+    `avg_rt` on every block row is null rather than an average of whichever
+    hours happened to report. The rule is on the wire, not just in this
+    docstring.
+
+    Errors: blank/unknown pnode_id -> 400; bad window_days -> 400; DB
+    unavailable -> 503. A known node with nothing banked -> 200 with honest
+    empty stanzas and a null window.
+    """
+    assert _pool is not None
+
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+    if window_days not in NAP_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"window_days must be one of {', '.join(NAP_WINDOWS)}",
+        )
+
+    try:
+        ident_rows = await _an_read(_NAP_IDENTITY_SQL, {"pnode_id": node})
+        depth_rows = await _an_read(_NAP_DEPTH_SQL, {"pnode_id": node})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    depth = depth_rows[0] if depth_rows else {}
+    first_day, last_day = depth.get("first_day"), depth.get("last_day")
+
+    # A node with neither an identity row nor a banked row is not a node this
+    # API knows — a client input error, not an empty 200 pretending otherwise.
+    # This mirrors /api/analytics/node/{pnode_id}.
+    if not ident_rows and first_day is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown pnode_id '{node}': no identity and nothing banked",
+        )
+
+    ident = ident_rows[0] if ident_rows else {}
+    identity = {
+        "pnode_id": node,
+        # The plant name when the crosswalk knows one, else a description that
+        # is genuinely a name, else null. Never the id restyled as a name.
+        "name": ident.get("plant_name") or ident.get("description_name"),
+        # in_universe is passed explicitly so "CAISO says this node has no hub"
+        # stays distinct from "CAISO has never listed this node" — see
+        # _an_pair_hub. A node can be banked in the hourly table and still have
+        # no universe row.
+        "zone": _an_pair_hub(ident.get("th_hub"),
+                             in_universe=bool(ident_rows)).get("hub"),
+        "pairing": _an_pair_hub(ident.get("th_hub"),
+                                in_universe=bool(ident_rows))["pairing"],
+        "th_hub": ident.get("th_hub"),
+        "kind": ident.get("node_type") or ident.get("apnode_type"),
+        "area": ident.get("area"),
+        "first_day": first_day.isoformat() if first_day else None,
+        "last_day": last_day.isoformat() if last_day else None,
+        "days_banked": int(depth.get("days_banked") or 0),
+        "components_from": None,   # derived from the rows below
+        "coverage_note": (
+            "zone is atlas_pnode_universe.th_hub verbatim (no geographic "
+            "inference) and is null for ~90% of the universe; "
+            "atlas_pnode_zone is empty, so no LAP-zone attribution exists. "
+            "name is the Atlas plant name or a description that differs from "
+            "the id — both null is common and honest."
+        ),
+    }
+
+    lo, hi = _nap_window_bounds(first_day, last_day, window_days)
+    empty_window = {
+        "days_requested": window_days, "first_day": None, "last_day": None,
+        "days_in_window": 0, "hours": 0,
+    }
+    if lo is None:
+        # Known node, nothing banked. Honest empties, not zeros.
+        return {
+            "pnode_id": node, "window": empty_window, "identity": identity,
+            "profile": [], "profile_rt": [], "heatmap": [],
+            "distribution": _bp.distribution([], "dam_lmp"),
+            "distribution_rt": _bp.distribution([], "rt_avg"),
+            "tb": {}, "blocks": {}, "blocks_daily": [],
+            "basis": {"profile": [], "monthly": []},
+            "dart": {"profile": [], "monthly": []},
+            "rt_coverage_note": _bp.rt_coverage([]),
+            "block_definitions": _bp.BLOCK_DEFINITIONS,
+        }
+
+    try:
+        rows = await _an_read(_NAP_ROWS_SQL, {"pnode_id": node, "lo": lo})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # `he` arrives as smallint and the numerics as Decimal; normalise once here
+    # so every downstream function sees plain ints/floats.
+    win = []
+    for r in rows:
+        win.append({
+            "trade_date": r["trade_date"],
+            "he": int(r["he"]),
+            "dam_lmp": None if r["dam_lmp"] is None else float(r["dam_lmp"]),
+            "rt_avg": None if r["rt_avg"] is None else float(r["rt_avg"]),
+            "rt_n": int(r["rt_n"] or 0),
+            "dart": None if r["dart"] is None else float(r["dart"]),
+            "basis_sp15": None if r["basis_sp15"] is None else float(r["basis_sp15"]),
+            "dam_congestion": (None if r["dam_congestion"] is None
+                               else float(r["dam_congestion"])),
+        })
+
+    days_present = sorted({r["trade_date"] for r in win})
+    w_first = days_present[0] if days_present else None
+    w_last = days_present[-1] if days_present else None
+    window = {
+        "days_requested": window_days,
+        "first_day": w_first.isoformat() if w_first else None,
+        "last_day": w_last.isoformat() if w_last else None,
+        "days_in_window": len(days_present),
+        "hours": len(win),
+    }
+
+    # components_from — the node's OWN earliest day carrying congestion.
+    comp_days = [r["trade_date"] for r in win if r["dam_congestion"] is not None]
+    identity["components_from"] = min(comp_days).isoformat() if comp_days else None
+
+    complete = _bp.month_completeness(w_first, w_last)
+    coverage = _bp.rt_coverage(win)
+
+    # RT SUPPRESSION, applied by NOT COMPUTING the field rather than by nulling
+    # it afterwards — so there is no code path where a suppressed rt average
+    # exists in memory and could leak into a summary.
+    if coverage["suppressed"]:
+        fields, names = ("dam_lmp",), ("avg_dam",)
+    else:
+        fields, names = ("dam_lmp", "rt_avg"), ("avg_dam", "avg_rt")
+
+    blocks = _bp.blocks_monthly(win, _nap_holiday, complete, fields, names)
+    if coverage["suppressed"]:
+        for b in blocks.values():
+            for cell in b["monthly"]:
+                cell["avg_rt"] = None
+
+    # blocks_daily is the LAST 31 BANKED DAYS — banked, not calendar. A gap in
+    # the bank shortens the span rather than producing an empty row.
+    last31 = set(days_present[-31:])
+    daily_rows = [r for r in win if r["trade_date"] in last31]
+    blocks_daily = _bp.blocks_daily(daily_rows, _nap_holiday, fields, names)
+    if coverage["suppressed"]:
+        for cell in blocks_daily:
+            cell["avg_rt"] = None
+
+    return {
+        "pnode_id": node,
+        "window": window,
+        "identity": identity,
+        "profile": _bp.profile(win, "dam_lmp"),
+        "profile_rt": _bp.profile(win, "rt_avg"),
+        "heatmap": _bp.heatmap(win, "dam_lmp"),
+        "distribution": _bp.distribution(win, "dam_lmp"),
+        "distribution_rt": _bp.distribution(win, "rt_avg"),
+        "tb": {str(n): _bp.tb_monthly(win, "dam_lmp", n, complete)
+               for n in _bp.TB_N_VALUES},
+        "blocks": blocks,
+        "blocks_daily": blocks_daily,
+        "basis": {
+            "column": "basis_sp15",
+            "profile": _bp.profile(win, "basis_sp15"),
+            "monthly": _bp.monthly_avg(win, "basis_sp15", complete),
+        },
+        "dart": {
+            "column": "dart",
+            "profile": _bp.profile(win, "dart"),
+            "monthly": _bp.monthly_avg(win, "dart", complete),
+        },
+        "rt_coverage_note": coverage,
+        "block_definitions": _bp.BLOCK_DEFINITIONS,
+    }
+
+
+# ── GET /api/hubs/{hub}/blocks ──────────────────────────────────────────────
+#
+# MEASURED DEPTH, 2026-08-12: dataset caiso_lmp_da_hourly carries series
+# 'NP15', 'SP15' and 'ZP26' with 88,656 hourly rows each, 2016-01-01 ..
+# 2026-08-13. That is ~10.6 years — years deeper than the nodal bank, which is
+# the whole reason this endpoint reads timeseries_values rather than the nodal
+# table (where the same hubs now also live; see the section header).
+#
+# `first_day`/`last_day` are MEASURED per request off the series, never
+# asserted from this comment. last_day routinely reads one day AHEAD of today:
+# the day-ahead curve for tomorrow publishes today, and this lane renders that
+# rather than trimming it to look tidy.
+#
+# RECONCILED. Block values computed by this query's hour sets reproduce the
+# pantry's independently-built `caiso_blocks_daily` to 0.00000000 on every day
+# checked (SP15, 2026-07-01..08, blocks 7x16 and 7x24), and the 6x16 day-set
+# matches its exclusions exactly over the table's full 2016-2026 depth.
+_NAP_HUB_SQL = """
+    SELECT (v.ts AT TIME ZONE %(tz)s)::date                              AS trade_date,
+           EXTRACT(HOUR FROM v.ts AT TIME ZONE %(tz)s)::int + 1          AS he,
+           v.value                                                      AS dam_lmp
+      FROM timeseries_values v
+     WHERE v.dataset = %(dataset)s
+       AND v.series  = %(series)s
+       AND v.value IS NOT NULL
+     ORDER BY v.ts
+"""
+
+# Daily granularity over ten years would be ~23,000 objects on the wire. It is
+# BOUNDED to the most recent N banked days and the bound is STATED in the
+# response — a silent truncation would read as "this is all there is".
+NAP_HUB_DAILY_DAYS = 400
+
+
+@app.get("/api/hubs/{hub}/blocks")
+async def hubs_blocks(
+    hub: str = Path(..., description=f"One of {', '.join(NAP_HUBS)}."),
+    granularity: str = Query(
+        default="monthly",
+        description="monthly (full measured depth) or daily (bounded, see response).",
+    ),
+):
+    """
+    The block set — 6x16 / off_peak / 7x8 / 7x16 / atc / 2x16h — on a hub's DA curve.
+
+    Same calendar, same arithmetic and same response shape as the node
+    package's `blocks`, computed from the hub day-ahead series in
+    `timeseries_values`. Reading the hubs from the deep series rather than from
+    the nodal table is a deliberate depth choice: the nodal bank begins
+    2026-05-03, these series begin 2016-01-01.
+
+    `depth` reports the series' MEASURED first/last day. Nothing here claims
+    history it did not count, and `last_day` is often tomorrow because the
+    day-ahead curve publishes forward.
+
+    `granularity=daily` is bounded to the most recent banked days and says so
+    in `bound`. `monthly` runs over the full measured depth.
+
+    Only the three CAISO trading hubs resolve. The TH_*_GEN_ONPEAK-APND /
+    _OFFPEAK-APND ids are CAISO's own PRE-BLOCKED apnodes carrying 16 and 8
+    hours a day; running an hourly block calendar over them would silently
+    misreport every block, so they are not accepted as aliases here.
+
+    Errors: unknown hub -> 400; bad granularity -> 400; DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    h = (hub or "").strip().upper()
+    if h not in NAP_HUBS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown hub '{hub}': expected one of {', '.join(NAP_HUBS)}",
+        )
+    if granularity not in ("monthly", "daily"):
+        raise HTTPException(
+            status_code=400, detail="granularity must be monthly or daily")
+
+    try:
+        rows = await _an_read(_NAP_HUB_SQL, {
+            "dataset": NAP_HUB_DATASET, "series": h, "tz": MARKET_TZ})
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    win = [{"trade_date": r["trade_date"], "he": int(r["he"]),
+            "dam_lmp": float(r["dam_lmp"])} for r in rows]
+
+    days = sorted({r["trade_date"] for r in win})
+    first_day = days[0] if days else None
+    last_day = days[-1] if days else None
+    depth = {
+        "series": h,
+        "dataset": NAP_HUB_DATASET,
+        "first_day": first_day.isoformat() if first_day else None,
+        "last_day": last_day.isoformat() if last_day else None,
+        "days_banked": len(days),
+        "hours": len(win),
+        "measured": "first_day/last_day counted from the series on this request",
+    }
+
+    body = {
+        "hub": h, "granularity": granularity, "depth": depth,
+        "block_definitions": _bp.BLOCK_DEFINITIONS,
+        # The hub series carries a day-ahead price only — there is no real-time
+        # leg in this dataset, so avg_rt is not fabricated as null-shaped
+        # padding; the block rows simply carry avg_dam.
+        "fields": {"avg_dam": "day-ahead hourly LMP, $/MWh"},
+    }
+
+    if granularity == "monthly":
+        complete = _bp.month_completeness(first_day, last_day)
+        body["blocks"] = _bp.blocks_monthly(
+            win, _nap_holiday, complete, ("dam_lmp",), ("avg_dam",))
+        body["bound"] = None
+        return body
+
+    keep = set(days[-NAP_HUB_DAILY_DAYS:])
+    body["blocks_daily"] = _bp.blocks_daily(
+        [r for r in win if r["trade_date"] in keep],
+        _nap_holiday, ("dam_lmp",), ("avg_dam",))
+    body["bound"] = {
+        "days_returned": len(keep),
+        "days_available": len(days),
+        "rule": (f"daily granularity is bounded to the most recent "
+                 f"{NAP_HUB_DAILY_DAYS} banked days; the full measured depth "
+                 f"is in `depth` and monthly granularity covers all of it"),
+    }
+    return body
+
+
+# ── GET /api/nodes/top-movers ───────────────────────────────────────────────
+#
+# THE RISKY AGGREGATE, MEASURED RATHER THAN ASSUMED (2026-08-12, live).
+#
+# The obvious form — one GROUP BY over a 7-day range — is a PARALLEL SEQ SCAN
+# and it is not close:
+#
+#   SELECT pnode_id, avg(dart), count(DISTINCT trade_date)
+#     FROM atlas_node_hourly_stats
+#    WHERE trade_date BETWEEN '2026-08-05' AND '2026-08-11' AND dart IS NOT NULL
+#    GROUP BY pnode_id ORDER BY avg DESC LIMIT 50
+#
+#   -> Parallel Seq Scan, Rows Removed by Filter: 15,198,614
+#      Sort Method: external merge, 21.8 MB ON DISK
+#      Execution Time: 24,861 ms
+#
+# Dropping count(DISTINCT) to get a HashAggregate does not save it (20,111 ms
+# cold / 18,988 ms warm), and neither does `trade_date = ANY(array)`
+# (18,283 ms). The planner will not use idx_node_hourly_trade_date for a 7-day
+# slice of a 9.9 GB table, and the table does not fit the compute's cache, so
+# the scan is genuinely paid every time.
+#
+# ONE DAY, however, IS index-served: 525 ms warm, 845 ms cold.
+#
+# So this endpoint CHUNKS ONE READ PER DATE and combines them in Python —
+# exactly the idiom /api/analytics/movers already uses on the snapshot table
+# for the same reason. Chunks run concurrently against the pool, so the wall
+# clock is roughly the slowest chunk plus contention rather than their sum.
+#
+# THE WINDOW IS CAPPED AT 7 DAYS AND THE CAP IS STATED on the wire. It is a
+# measurement, not a preference: at 7 chunks this is already the most expensive
+# read in the lane. An over-cap request is a 400, never a silent truncation.
+_NAP_MOVERS_DAY_SQL = """
+    SELECT pnode_id,
+           avg({col})   AS v,
+           count(*)     AS n_hours
+      FROM atlas_node_hourly_stats
+     WHERE trade_date = %(day)s
+       AND {col} IS NOT NULL
+     GROUP BY pnode_id
+"""
+
+# The banked frontier, index-served off idx_node_hourly_trade_date. The lane
+# NEVER hardcodes an end date — the bank grows daily.
+_NAP_FRONTIER_SQL = "SELECT max(trade_date) AS last_day FROM atlas_node_hourly_stats"
+
+_nap_movers_cache: dict = {}
+
+
+@app.get("/api/nodes/top-movers")
+async def nodes_top_movers(
+    response: Response,
+    metric: str = Query(
+        default="dart",
+        description=f"One of {', '.join(NAP_MOVERS_METRICS)}.",
+    ),
+    direction: str = Query(
+        default="up", description="up (highest first) or down (lowest first)."),
+    days: int = Query(
+        default=7,
+        description=f"Window in banked days, 1..{NAP_MOVERS_MAX_DAYS} (measured cap).",
+    ),
+):
+    """
+    Top-50 nodes by window-average DART or SP15 basis — the screening-page seed.
+
+    The window ENDS at the warehouse's last banked day (read per request, never
+    hardcoded) and runs back `days` banked dates.
+
+    `value` is HOUR-WEIGHTED across the window: the chunks are combined by
+    summing (mean x hours) and dividing by total hours, so a node present for
+    three days does not outweigh one present for seven on a per-day mean.
+    `days_present` and `hours` ride every row, so a node ranking on thin
+    coverage is visible rather than hidden behind a rank.
+
+    PERFORMANCE IS BOUNDED AND THE BOUND IS STATED. See `plan` in the response
+    and the measurement note above this endpoint: the whole-range GROUP BY is a
+    24.9 s seq scan, so the read is chunked per date (525-845 ms each,
+    index-served) and capped at 7 days. Results are cached 15 minutes.
+
+    Errors: bad metric/direction/days -> 400; DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    if metric not in NAP_MOVERS_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"metric must be one of {', '.join(NAP_MOVERS_METRICS)}")
+    if direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="direction must be up or down")
+    if not isinstance(days, int) or days < 1 or days > NAP_MOVERS_MAX_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"days must be an integer in 1..{NAP_MOVERS_MAX_DAYS} — the "
+                    f"cap is a measured bound, see the endpoint's plan note"))
+
+    key = (metric, direction, days)
+    hit = _nap_movers_cache.get(key)
+    now = time.monotonic()
+    if hit and (now - hit[0]) < NAP_MOVERS_TTL_S:
+        response.headers["X-Cache"] = "hit"
+        return hit[1]
+
+    try:
+        frontier = await _an_read(_NAP_FRONTIER_SQL, {})
+        last_day = frontier[0]["last_day"] if frontier else None
+        if last_day is None:
+            raise HTTPException(status_code=503, detail="no banked rows")
+        window_days = [last_day - _timedelta(days=i) for i in range(days)]
+
+        # `metric` is validated against a closed tuple above, so this format is
+        # not a SQL-injection seam — it is the only way to vary a COLUMN, which
+        # cannot be a bound parameter.
+        sql = _NAP_MOVERS_DAY_SQL.format(col=metric)
+        chunks = await asyncio.gather(
+            *[_an_read(sql, {"day": d}) for d in window_days])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    # Hour-weighted combine. Sum(mean x hours) / sum(hours) reconstructs the
+    # true window mean from per-day means without re-reading the rows.
+    acc: dict = {}
+    for day, chunk in zip(window_days, chunks):
+        for r in chunk:
+            a = acc.setdefault(r["pnode_id"], {"wsum": 0.0, "hours": 0, "days": 0})
+            n = int(r["n_hours"])
+            a["wsum"] += float(r["v"]) * n
+            a["hours"] += n
+            a["days"] += 1
+
+    ranked = [
+        {"pnode_id": pid,
+         "value": round(a["wsum"] / a["hours"], 4),
+         "days_present": a["days"],
+         "hours": a["hours"]}
+        for pid, a in acc.items() if a["hours"] > 0
+    ]
+    ranked.sort(key=lambda x: x["value"], reverse=(direction == "up"))
+    top = ranked[:NAP_MOVERS_TOP_N]
+
+    body = {
+        "metric": metric,
+        "direction": direction,
+        "window": {
+            "days_requested": days,
+            "first_day": min(window_days).isoformat(),
+            "last_day": last_day.isoformat(),
+            "derived": "last_day is max(trade_date) read per request",
+        },
+        "universe": {
+            "nodes_ranked": len(ranked),
+            "note": ("nodes with no non-null value in the window do not rank "
+                     "and are not counted as zero"),
+        },
+        "count": len(top),
+        "movers": top,
+        "plan": {
+            "shape": "one index-served read per date, combined hour-weighted in-process",
+            "measured_ms_per_chunk": {"warm": 525, "cold": 845},
+            "why_not_one_query": (
+                "a single GROUP BY over the range is a parallel seq scan: "
+                "24,861 ms with a 21.8 MB external merge (measured 2026-08-12)"),
+            "cap_days": NAP_MOVERS_MAX_DAYS,
+            "cache_ttl_s": NAP_MOVERS_TTL_S,
+        },
+    }
+    _nap_movers_cache[key] = (now, body)
+    response.headers["X-Cache"] = "miss"
+    return body
