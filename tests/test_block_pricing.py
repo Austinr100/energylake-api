@@ -243,6 +243,69 @@ def test_blocks_daily_omits_blocks_the_calendar_closed():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 4b. The frontier flag — `partial` on every blocks_daily row
+# ═══════════════════════════════════════════════════════════════════════════
+# A day is complete when the bank holds as many rows for it as the date has
+# CLOCK hours — 23, 24 or 25. Nothing here reads the wall clock; 'today' is not
+# a concept this module has, and the frontier is simply the short day at the end.
+
+def test_hours_in_day_is_23_24_25_across_the_dst_switches():
+    """2026: spring forward Mar 8 (23 h), fall back Nov 1 (25 h)."""
+    assert bp.hours_in_day(D(2026, 7, 6)) == 24
+    assert bp.hours_in_day(D(2026, 3, 8)) == 23
+    assert bp.hours_in_day(D(2026, 11, 1)) == 25
+    # The days either side of a switch are ordinary.
+    assert bp.hours_in_day(D(2026, 3, 7)) == 24
+    assert bp.hours_in_day(D(2026, 11, 2)) == 24
+
+
+def test_incomplete_days_counts_rows_not_distinct_he():
+    """The fall-back day's two 1am rows SHARE HE 1 and both are real hours.
+    Counting distinct HE would report 24 against an expected 25 and flag a
+    complete day as partial."""
+    rows = [{"trade_date": D(2026, 11, 1), "he": he, "dam_lmp": 10.0}
+            for he in list(range(1, 25)) + [1]]      # 25 rows, 24 distinct HE
+    assert len(rows) == 25
+    assert bp.incomplete_days(rows) == set()
+
+    # Drop one and the day is genuinely an hour short.
+    assert bp.incomplete_days(rows[:-1]) == {D(2026, 11, 1)}
+
+
+def test_blocks_daily_flags_the_frontier_day_and_only_it():
+    """Jul 6 is banked through HE14 only — the request landed mid-afternoon.
+    Its rows carry partial: true; the three settled days carry partial: false."""
+    rows = [r for r in _july_fixture()
+            if r["trade_date"] != D(2026, 7, 6) or r["he"] <= 14]
+    daily = bp.blocks_daily(rows, HOL)
+
+    by_date = {}
+    for cell in daily:
+        by_date.setdefault(cell["date"], []).append(cell)
+
+    assert all(c["partial"] is True for c in by_date["2026-07-06"])
+    for day in ("2026-07-03", "2026-07-04", "2026-07-05"):
+        assert all(c["partial"] is False for c in by_date[day]), day
+
+    # The flag travels WITH the average it qualifies: Jul 6's 6x16 is priced
+    # over HE7-14 (8 of its 16 hours), not over the 16 the block nominally has.
+    jul6_6x16 = [c for c in by_date["2026-07-06"] if c["block"] == "6x16"][0]
+    assert jul6_6x16["hours"] == 8
+    assert jul6_6x16["avg_dam"] == pytest.approx(440.0)
+
+
+def test_a_complete_bank_flags_nothing_partial():
+    daily = bp.blocks_daily(_july_fixture(), HOL)
+    assert daily and all(c["partial"] is False for c in daily)
+
+
+def test_the_lane_uses_one_market_timezone():
+    """block_pricing's clock-hour test and main.py's market clock are the same
+    zone. Two zones in one process is how 23/25-hour days start disagreeing."""
+    assert bp.MARKET_TZ == main.MARKET_TZ
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 5. TB2 / TB4 — a 3-day fixture, hand-computed
 # ═══════════════════════════════════════════════════════════════════════════
 #
@@ -463,3 +526,22 @@ def test_rt_coverage_at_the_half_boundary_does_not_suppress():
     cov = bp.rt_coverage(rows)
     assert cov["days_below_threshold"] == 5
     assert cov["suppressed"] is False
+
+
+def test_rt_available_is_the_boards_boolean_and_empty_is_false():
+    """Same rule as rt_coverage, reduced to one bool — except on NO rows, where
+    `suppressed` is false (the rule never fired) and availability is false (the
+    board has nothing to draw)."""
+    import datetime
+    dense = [{"trade_date": D(2026, 6, 1) + datetime.timedelta(days=i),
+              "he": he, "rt_n": 12}
+             for i in range(10) for he in range(1, 25)]
+    thin = [{"trade_date": D(2026, 6, 1) + datetime.timedelta(days=i),
+             "he": he, "rt_n": 0}
+            for i in range(10) for he in range(1, 25)]
+
+    assert bp.rt_available(dense) is True
+    assert bp.rt_available(thin) is False
+
+    assert bp.rt_coverage([])["suppressed"] is False
+    assert bp.rt_available([]) is False

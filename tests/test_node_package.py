@@ -163,7 +163,7 @@ def pool(monkeypatch):
 
 CONTRACT_KEYS = ("identity", "profile", "profile_rt", "heatmap", "distribution",
                  "distribution_rt", "tb", "blocks", "blocks_daily", "basis",
-                 "dart", "rt_coverage_note")
+                 "dart", "rt_available", "rt_coverage_note")
 
 
 def test_package_carries_every_contract_key(client, pool):
@@ -349,15 +349,18 @@ def test_complete_month_summarises_and_partial_month_does_not(client, pool):
 def test_tb_stanza_carries_both_n_and_the_unit(client, pool):
     pool(_router())
     tb = client.get(f"/api/nodes/{NODE}/package").json()["tb"]
-    assert set(tb) == {"2", "4"}
-    for n in ("2", "4"):
+    assert set(tb) == {"tb2", "tb4"}
+    for n in ("tb2", "tb4"):
         assert tb[n]["unit"] == "$/kW-month"
         assert tb[n]["months"][0]["month"] == "2026-07"
         assert "partial" in tb[n]["months"][0]
         assert "summary" in tb[n]
     # Flat 40/10 prices: TB2 spread = 30 -> 30x2/1000 = 0.06 $/kW-day x 31 days.
-    assert tb["2"]["months"][0]["value"] == pytest.approx(0.06 * 31, abs=1e-4)
-    assert tb["4"]["months"][0]["value"] == pytest.approx(30 * 4 / 1000 * 31, abs=1e-4)
+    assert tb["tb2"]["months"][0]["value"] == pytest.approx(0.06 * 31, abs=1e-4)
+    assert tb["tb4"]["months"][0]["value"] == pytest.approx(
+        30 * 4 / 1000 * 31, abs=1e-4)
+    # `n` is still on the stanza — the key is the label, not the only carrier.
+    assert (tb["tb2"]["n"], tb["tb4"]["n"]) == (2, 4)
 
 
 def test_absent_hours_are_absent_not_zero_filled(client, pool):
@@ -402,6 +405,182 @@ def test_dense_rt_is_not_suppressed(client, pool):
     note = client.get(f"/api/nodes/{NODE}/package").json()["rt_coverage_note"]
     assert note["suppressed"] is False
     assert note["days_below_threshold"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4b. The five contract amendments (Lane B, 2026-08-12)
+# ═══════════════════════════════════════════════════════════════════════════
+# Lane B's package page named five fields this contract lacked. Each is pinned
+# here by the name the page reads, because a summary that computes correctly
+# under a different key is still a blank tile on the page.
+
+SUMMARY_KEYS = {"avg", "median", "max", "min", "n_months"}
+
+
+def test_summary_keys_are_explicit_on_tb_and_on_every_block(client, pool):
+    """AMENDMENT 1. {avg, median, max, min, n_months} on tb.tb2, tb.tb4 and
+    every blocks.<block> — the same five keys in all eight places, so the page
+    renders one summary component rather than eight."""
+    pool(_router())
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+
+    for n in ("tb2", "tb4"):
+        assert SUMMARY_KEYS <= set(body["tb"][n]["summary"]), n
+    for block in main._bp.BLOCK_IDS:
+        assert SUMMARY_KEYS <= set(body["blocks"][block]["summary"]), block
+
+    # And they are populated, not merely present. July is the one complete
+    # month; at a flat 40 on-peak the 6x16 summary is that month four ways.
+    s = body["blocks"]["6x16"]["summary"]
+    assert s["n_months"] == 1
+    assert (s["avg"], s["median"], s["max"], s["min"]) == (40.0, 40.0, 40.0, 40.0)
+
+
+def test_basis_and_dart_carry_per_he_and_monthly(client, pool):
+    """AMENDMENT 2. `per_he: [{he, p25, p50, p75}]` (renamed from `profile`,
+    matching the sibling Analytics room's stanza idiom) and
+    `monthly: [{month, avg}]`."""
+    pool(_router())
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+
+    for stanza in ("basis", "dart"):
+        s = body[stanza]
+        assert "profile" not in s, f"{stanza}.profile survived the rename"
+        assert isinstance(s["per_he"], list) and s["per_he"]
+        for row in s["per_he"]:
+            assert {"he", "p25", "p50", "p75"} <= set(row), stanza
+        assert [row["he"] for row in s["per_he"]] == list(range(1, 25))
+        for row in s["monthly"]:
+            assert {"month", "avg"} <= set(row), stanza
+        assert [row["month"] for row in s["monthly"]] == ["2026-07"]
+
+    # The fixture is flat: basis -2 everywhere, dart +5 everywhere.
+    assert body["basis"]["per_he"][0]["p50"] == pytest.approx(-2.0)
+    assert body["basis"]["monthly"][0]["avg"] == pytest.approx(-2.0)
+    assert body["dart"]["per_he"][0]["p50"] == pytest.approx(5.0)
+    assert body["dart"]["monthly"][0]["avg"] == pytest.approx(5.0)
+
+
+def test_empty_bank_keeps_the_basis_and_dart_shape(client, pool):
+    """The honest-empty path ships the SAME keys as the populated one — a page
+    that destructures `basis.per_he` must not crash on a node with no bank."""
+    pool(_router(rows=[], identity=True))
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+    for stanza in ("basis", "dart"):
+        assert set(body[stanza]) == {"column", "per_he", "monthly"}
+        assert body[stanza]["per_he"] == []
+        assert body[stanza]["monthly"] == []
+
+
+def test_blocks_daily_flags_the_frontier_day_partial(client, pool):
+    """AMENDMENT 3. The last banked day is banked through HE13 only — the read
+    landed mid-afternoon. Its rows carry partial: true; every settled day
+    carries partial: false."""
+    rows = [r for r in _july_rows()
+            if r["trade_date"] != D(2026, 7, 31) or r["he"] <= 13]
+    pool(_router(rows))
+    daily = client.get(f"/api/nodes/{NODE}/package").json()["blocks_daily"]
+
+    by_date = {}
+    for cell in daily:
+        by_date.setdefault(cell["date"], []).append(cell)
+
+    assert all(c["partial"] is True for c in by_date["2026-07-31"])
+    assert all(c["partial"] is False
+               for d, cells in by_date.items() if d != "2026-07-31"
+               for c in cells)
+
+    # The averages on the flagged row are over the hours that landed: 6x16 on
+    # Jul 31 is HE7-13, seven of its sixteen hours.
+    jul31_6x16 = [c for c in by_date["2026-07-31"] if c["block"] == "6x16"][0]
+    assert jul31_6x16["hours"] == 7
+    assert jul31_6x16["avg_dam"] == pytest.approx(PEAK_PRICE)
+
+
+def test_blocks_daily_partial_is_false_on_a_complete_bank(client, pool):
+    """Absent-or-false on complete days; this lane emits false explicitly, the
+    same way blocks.monthly and tb.months already do."""
+    pool(_router())
+    daily = client.get(f"/api/nodes/{NODE}/package").json()["blocks_daily"]
+    assert daily and all(c["partial"] is False for c in daily)
+
+
+def test_rt_available_is_per_board_and_the_note_stays_the_explanation(client, pool):
+    """AMENDMENT 5. A bool per board — profile, distribution, blocks — beside
+    the ONE package-level `rt_coverage_note` string. Dense RT: all three true."""
+    pool(_router())
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+
+    assert body["rt_available"] == {
+        "profile": True, "distribution": True, "blocks": True}
+    # The note is still the single explanation and still carries the rule.
+    assert body["rt_coverage_note"]["suppressed"] is False
+    assert "20 of 24" in body["rt_coverage_note"]["rule"]
+    # ...and it is NOT duplicated onto the boards.
+    assert not isinstance(body["rt_available"]["profile"], dict)
+
+
+def test_rt_available_goes_false_on_every_board_when_coverage_is_thin(client, pool):
+    pool(_router(_july_rows(rt=False)))
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+    assert body["rt_available"] == {
+        "profile": False, "distribution": False, "blocks": False}
+    assert body["rt_coverage_note"]["suppressed"] is True
+
+
+def test_rt_available_is_false_on_an_empty_bank(client, pool):
+    """`suppressed` is false with nothing banked — the rule cannot fire without
+    days to count. That is the right answer to 'did the rule trip' and the wrong
+    answer to 'can this board draw RT', which is what these three flags mean."""
+    pool(_router(rows=[], identity=True))
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+    assert body["rt_available"] == {
+        "profile": False, "distribution": False, "blocks": False}
+    assert body["rt_coverage_note"]["suppressed"] is False
+
+
+def test_rt_available_follows_the_boards_own_window(client, pool):
+    """The rule is evaluated over the window the board is drawn from, so a
+    window that excludes the thin days flips the verdict. The fixture's first
+    ten days carry no RT; a 30-day ask off a 40-day bank drops them."""
+    thin = _july_rows(D(2026, 6, 22), D(2026, 7, 1), rt=False)
+    dense = _july_rows(D(2026, 7, 2), D(2026, 7, 31), rt=True)
+    rows = thin + dense
+
+    pool(_router(rows))
+    body = client.get(f"/api/nodes/{NODE}/package?window_days=all").json()
+    # 10 thin days of 40 is not "more than half", so `all` still reads dense.
+    assert body["rt_available"]["profile"] is True
+
+    pool(_router([r for r in rows if r["trade_date"] <= D(2026, 7, 7)]))
+    body = client.get(f"/api/nodes/{NODE}/package?window_days=all").json()
+    # 10 thin of 16 IS more than half -> every board goes dark together.
+    assert body["rt_available"] == {
+        "profile": False, "distribution": False, "blocks": False}
+
+
+def test_days_banked_counts_days_present_not_the_span(client, pool):
+    """AMENDMENT 4, node side. A bank with a hole reports the days it HOLDS.
+    July 1-31 minus a five-day gap is 26 banked days over a 31-day span."""
+    gap = {D(2026, 7, 10), D(2026, 7, 11), D(2026, 7, 12),
+           D(2026, 7, 13), D(2026, 7, 14)}
+    rows = [r for r in _july_rows() if r["trade_date"] not in gap]
+    p = pool(_router(rows))
+    body = client.get(f"/api/nodes/{NODE}/package").json()
+
+    # The count is a DISTINCT count in the READ, not a span arithmetic'd on the
+    # way out — max - min + 1 would report 31 here.
+    depth_q = " ".join(
+        [q for q in p.sink["queries"] if "days_banked" in q][0].split())
+    assert "count(DISTINCT trade_date) AS days_banked" in depth_q
+
+    ident = body["identity"]
+    assert ident["first_day"] == "2026-07-01"
+    assert ident["last_day"] == "2026-07-31"
+    assert ident["days_banked"] == 26            # spanned 31, banked 26
+    assert body["window"]["days_in_window"] == 26
+    # And the gap is a gap, not five empty daily rows.
+    assert "2026-07-12" not in {c["date"] for c in body["blocks_daily"]}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -455,6 +634,38 @@ def test_hub_blocks_monthly_measures_its_own_depth(client, pool):
     # Same calendar as the node lane -> same hour split.
     assert body["blocks"]["6x16"]["monthly"][0]["hours"] == 416
     assert body["blocks"]["atc"]["monthly"][0]["avg_dam"] == pytest.approx(30.0)
+
+
+def test_hub_days_banked_counts_days_present_not_the_span(client, pool):
+    """AMENDMENT 4, hub side. `days_banked` sits beside first_day/last_day and
+    counts the days the series actually holds. Spanned is not banked — the node
+    bank's own April gap is the precedent this rule exists for."""
+    gap = {D(2026, 7, 8), D(2026, 7, 9), D(2026, 7, 10)}
+    rows = [r for r in _july_rows() if r["trade_date"] not in gap]
+    pool(_hub_router(rows))
+    depth = client.get("/api/hubs/SP15/blocks").json()["depth"]
+
+    assert depth["first_day"] == "2026-07-01"     # the span is still 31 days
+    assert depth["last_day"] == "2026-07-31"
+    assert depth["days_banked"] == 28             # but only 28 are banked
+    assert depth["hours"] == 28 * 24
+    assert "counted" in depth["measured"]
+
+
+def test_hub_daily_rows_carry_the_partial_flag(client, pool):
+    """AMENDMENT 3 on the hub board too — one blocks_daily shape, not two.
+    The DA curve publishes a whole day at a time, so a complete series flags
+    nothing; a series truncated mid-day flags exactly that day."""
+    pool(_hub_router())
+    daily = client.get("/api/hubs/SP15/blocks?granularity=daily").json()["blocks_daily"]
+    assert daily and all(c["partial"] is False for c in daily)
+
+    rows = [r for r in _july_rows()
+            if r["trade_date"] != D(2026, 7, 31) or r["he"] <= 18]
+    pool(_hub_router(rows))
+    daily = client.get("/api/hubs/SP15/blocks?granularity=daily").json()["blocks_daily"]
+    flagged = {c["date"] for c in daily if c["partial"]}
+    assert flagged == {"2026-07-31"}
 
 
 def test_hub_reads_the_deep_series_not_the_nodal_table(client, pool):
