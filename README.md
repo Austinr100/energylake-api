@@ -342,6 +342,69 @@ Three facts worth knowing before you consume these:
 
 ---
 
+### Node Analytics v0 — package + block pricing (`/api/nodes/*`, `/api/hubs/*`)
+
+Room 2 of the Analytics Department, built on the **durable** hourly bank
+(`atlas_node_hourly_stats`) rather than the ~7-day snapshot the Nodes room
+reads. Measured live 2026-08-12: 46.2 M rows, **2026-05-03 .. 2026-08-11, 101
+distinct dates over a 101-day span — gapless** (counted, not assumed), ~19.3 k
+nodes x 24 HE.
+
+- `GET /api/nodes/{pnode_id}/package?window_days=all|30|90`
+  -> the whole node page in one call: `identity`, `profile` / `profile_rt`
+  (per-HE p25/p50/p75), `heatmap` (month x HE), `distribution` /
+  `distribution_rt` (GridStatus bin edges), `tb` (TB2 + TB4 in **$/kW-month**),
+  `blocks` (monthly, all six), `blocks_daily` (last 31 banked days), `basis`,
+  `dart`, and `rt_coverage_note`. Unknown id -> 400; known id with nothing
+  banked -> 200 with honest empties; DB unavailable -> 503
+
+- `GET /api/hubs/{hub}/blocks?granularity=monthly|daily` — `SP15|NP15|ZP26`
+  -> the same six blocks on the hub day-ahead curve from `timeseries_values`.
+  **Measured depth 2016-01-01 .. 2026-08-13** (88,656 hourly rows per series) —
+  years deeper than the nodal bank, which is why the hubs are read here and not
+  from the nodal table. `daily` is bounded to the most recent 400 days and says
+  so in `bound`
+
+- `GET /api/nodes/top-movers?metric=dart|basis_sp15&direction=up|down&days=7`
+  -> top-50 by hour-weighted window average, `days_present` and `hours` on every
+  row. Chunked one index-served read per date; `days` capped at 7
+
+**The block definitions (WECC), and they are the whole point:**
+
+| block | definition | nominal h/day |
+|---|---|---|
+| `6x16` | HE7–22, Mon–**Sat**, excluding NERC holidays (On-Peak/HLH) | 16 |
+| `off_peak` | every hour not in 6x16 (Wrap/LLH) | 8 |
+| `7x8` | HE1–6, HE23, HE24, all seven days | 8 |
+| `7x16` | HE7–22, all seven days (the PPA settlement cut) | 16 |
+| `atc` | all hours (7x24) | 23/24/25 |
+| `2x16h` | HE7–22 on Sundays + NERC holidays | — |
+
+Four things worth knowing before you consume these:
+
+- **`6x16` ships here, and it is reconciled.** The Structures room withheld 6x16
+  because no lane had checked the block *arithmetic* against the pantry's own
+  `caiso_blocks_daily`. That check is now done: over 2016-01-01..2026-08-10 the
+  only days that table excludes from 6x16 while keeping 7x16 are Sundays (528)
+  plus exactly the six observed NERC holidays a year — including **2026-07-04,
+  a Saturday, which stays excluded** and so confirms the no-shift rule. Values
+  match to `0.00000000`.
+- **`hours` is a counted receipt, never the nominal 16/8/24.** If the calendar
+  silently stopped excluding holidays, `2x16h` would report zero hours and
+  `6x16` too many — visible on the wire without reading any code. `atc` reports
+  23 and 25 on the DST switch days for the same reason.
+- **Absence is stated, never zero-filled.** An HE, month or day the bank does
+  not carry is *absent* from its array. The one deliberate exception is
+  `distribution`, where every bin ships even at `n: 0` — the bins are a fixed
+  axis the client draws, and a missing bar would silently rescale the chart.
+- **`name` and `zone` are thinly covered and say so.** `atlas_pnode_zone` is
+  **empty (0 rows)**, so no LAP-zone attribution exists at any coverage; `zone`
+  is `atlas_pnode_universe.th_hub` verbatim, null for ~90% of the universe.
+  `name` is the Atlas plant name or a `description` that genuinely differs from
+  the id — both null is common and honest.
+
+---
+
 ### The Paper Desk (`/api/desk/*`)
 
 Five read-only stanzas over `paper_journal`, the table the desk agent writes
