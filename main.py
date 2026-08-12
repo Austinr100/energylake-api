@@ -72,6 +72,9 @@ Endpoints:
     GET /api/nodes/{pnode_id}/package       Node Analytics v0: the whole per-node package in ONE call off ONE windowed PK read — identity (components_from derived per node) / per-HE dam+rt profile / month x HE heatmap / GridStatus-bin distribution / TB2+TB4 in $/kW-month / the six WECC blocks monthly + last-31-days daily / basis + DART / RT-coverage suppression rule on the wire; window derived from the node's own bank, absence never zero-filled (2026-08-12)
     GET /api/hubs/{hub}/blocks              Node Analytics v0: the same six blocks on the hub DA curve from timeseries_values (SP15/NP15/ZP26), measured depth 2016-01-01 onward — years deeper than the nodal bank; daily granularity bounded and the bound stated; reconciled to caiso_blocks_daily at 0.00000000 (2026-08-12)
     GET /api/nodes/top-movers               Node Analytics v0: top-50 by window-avg DART or basis_sp15 off the DURABLE hourly bank, hour-weighted, days_present on every row; chunked one index-served read per date because the whole-range GROUP BY is a measured 24.9 s seq scan — cap 7 days, stated (2026-08-12)
+    GET /api/interconnection/summary       Interconnection Queue v0: every aggregate in ONE call — snapshot chip, by_fuel (rollup; active + all_statuses), by_queue_year (the 27-year vintage chart), by_proposed_cod_year (nulls counted as `undated`, never zero-dated), by_county (top 25 + named `other` remainder), by_transmission_owner, attrition per vintage (withdrawn = withdrawn_date IS NOT NULL, with the 39 status-WITHDRAWN-without-date rows reported beside it); the fuel rollup is a PARSE, so unmapped raw strings ride the response in `unmapped_types` + `Other.raw_types` (2026-08-12)
+    GET /api/interconnection/projects      Interconnection Queue v0: the faceted table, paged (page_size <= 100) — status/fuel/county/to/min_mw/max_mw/queue_year/q filters, every filter a bound parameter and `sort`/`order` whitelisted KEYS into code-side SQL fragments (hostile sort -> 400); rows carry raw generation_type AND rollup fuel, plus first_seen_at and the withdrawn fields (2026-08-12)
+    GET /api/interconnection/events        Interconnection Queue v0: tape_interconnection_events newest-first — the lineage the upsert-in-place queue table cannot give. Populated (8 status_change rows, 2026-06-12..07-31); an empty ledger is an honest 200 with rows:[] and a note, never a reconstruction (2026-08-12)
     GET /api/lab/paper-desk                Lab Paper Desk v0: the whole desk in ONE payload off ONE read — blotter (+ rationale, inputs_as_of, paper_bid_curves count) / equity by settled_at / by_node / by_play / book; status is settled|pending|VOID and voids ride the blotter, excluded from every aggregate and counted in book (2026-08-06)
 """
 
@@ -16719,3 +16722,519 @@ async def nodes_top_movers(
     _nap_movers_cache[key] = (now, body)
     response.headers["X-Cache"] = "miss"
     return body
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/interconnection/* — the CAISO Interconnection Queue, v0 (2026-08-12)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# WHAT THE BANK ACTUALLY HOLDS (read live 2026-08-12, schema-first):
+#
+#   caiso_interconnection_queue — 2,278 rows, ALL present_in_snapshot, 492,196.8
+#   MW, ONE distinct snapshot_date (2026-08-07). That last fact is the important
+#   one and it shapes this whole lane: the table is UPSERT-IN-PLACE, not an
+#   append-only snapshot log. There is exactly one generation of the queue in
+#   the bank, `first_seen_at` is the SAME instant on all 2,278 rows
+#   (2026-06-11T01:03:57Z — the bulk birth of the table) and `last_updated` is
+#   likewise uniform (2026-08-07T21:21:09Z). So `first_seen_at` is SERVED on
+#   every row, as the lane requires, but it cannot yet distinguish a new entrant
+#   from a founding row, and this module says so in `data_note` rather than
+#   letting a chart imply lineage the column does not yet carry. The lineage
+#   that DOES exist today lives in tape_interconnection_events.
+#
+#   tape_interconnection_events — POPULATED: 8 rows, every one event_type
+#   'status_change', detected 2026-06-12 .. 2026-07-31, all on Fridays. So
+#   /events serves real rows; the honest-empty branch is built and tested but is
+#   not the live path.
+#
+#   CADENCE, MEASURED NOT ASSUMED: every banked snapshot_date across both tables
+#   (2026-06-12, 06-26, 07-17, 07-24, 07-31, 08-07) is a Friday, at 8 distinct
+#   dates over 8 weeks with three gaps. That is a weekly Friday refresh with
+#   misses — which is what `data_note` says, in those words. It does not say
+#   "daily", and it does not say "weekly" without the qualifier.
+#
+#   3 statuses: ACTIVE (268), COMPLETED (250), WITHDRAWN (1,760). 1,721 rows
+#   carry a withdrawn_date — the 39-row gap is handled explicitly, see
+#   interconnection._is_withdrawn.
+#
+# READ-ONLY. Three SELECTs, no DDL, no writes, and no table outside the two
+# named above is touched.
+#
+# WHY THE SUMMARY IS ONE READ AND NOT SIX GROUP BYs: the fuel rollup is a parse
+# in Python (41 free-text strings -> 9 display fuels), so `by_fuel` can never be
+# a GROUP BY. Once one facet is computed in process, computing the others in SQL
+# would let two facets of the same response describe two different universes.
+# 2,278 slim rows is a single ~1 MB read; every facet is derived from it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import interconnection as _ic
+
+IC_PREFIX = "/api/interconnection"
+
+_ic_log = logging.getLogger("energylake.interconnection")
+
+# The bank moves once a week at most (see the cadence note above), so these TTLs
+# are about absorbing burst scans of the table, not about chasing a feed.
+_IC_SUMMARY_TTL = 900.0
+_IC_PROJECTS_TTL = 300.0
+_IC_EVENTS_TTL = 300.0
+
+_IC_EVENTS_DEFAULT_LIMIT = 50
+_IC_EVENTS_MAX_LIMIT = 500
+
+# `data_note` is assembled from what the read actually found — snapshot count,
+# the first_seen_at spread, the tape's depth — never from a constant describing
+# a cadence nobody measured.
+_IC_SOURCE_NOTE = (
+    "CAISO public interconnection queue, banked by the pantry. Snapshot cadence "
+    "measured from the banked snapshot_dates across caiso_interconnection_queue "
+    "and tape_interconnection_events: weekly, on Fridays, with gaps (8 distinct "
+    "Friday dates 2026-06-12..2026-08-07). caiso_interconnection_queue is "
+    "upsert-in-place and holds ONE generation of the queue, so first_seen_at is "
+    "uniform across every row today and does NOT yet distinguish new entrants; "
+    "queue-change lineage lives in tape_interconnection_events (/api/"
+    "interconnection/events). No coordinates exist in the bank — geography is "
+    "county/state only, and nothing here infers a location beyond them."
+)
+
+
+# ── The read ────────────────────────────────────────────────────────────────
+# The slim column set the summary needs. Deliberately NOT `SELECT *`: `raw`
+# (jsonb) and `withdrawal_comment` (free text) are the two fat columns and the
+# summary reads neither, which is what keeps a 2,278-row full-table read cheap.
+_IC_SUMMARY_SQL = """
+    SELECT generation_type,
+           capacity_mw::float8 AS capacity_mw,
+           status,
+           county,
+           state,
+           transmission_owner,
+           queue_date,
+           proposed_completion_date,
+           withdrawn_date
+    FROM caiso_interconnection_queue
+    WHERE present_in_snapshot
+"""
+
+_IC_SNAPSHOT_SQL = """
+    SELECT max(snapshot_date) AS snapshot_date,
+           count(DISTINCT snapshot_date) AS snapshot_count,
+           min(first_seen_at) AS first_seen_min,
+           max(first_seen_at) AS first_seen_max,
+           max(last_updated) AS last_updated
+    FROM caiso_interconnection_queue
+"""
+
+# Every filter is a parameter, and every one uses the house optional-filter
+# idiom (`%(p)s::type IS NULL OR ...`): ONE statement, ONE plan, no string
+# building anywhere. The ONLY part of this query that varies is the ORDER BY,
+# and it is substituted from `_IC_SORT_SQL` below — a code-side constant table
+# keyed by the request value. A caller's `sort` string selects a key or it 400s;
+# it never reaches the SQL text. `fuel` is absent on purpose: the rollup is a
+# Python parse and is applied after the read, in `_ic.filter_by_fuel`.
+_IC_PROJECTS_SQL = """
+    SELECT queue_position, project_name, generation_type,
+           capacity_mw::float8 AS capacity_mw,
+           status, study_process, interconnection_location,
+           county, state, transmission_owner, deliverability,
+           queue_date, proposed_completion_date, actual_completion_date,
+           withdrawn_date, withdrawal_comment,
+           first_seen_at, last_updated, snapshot_date, present_in_snapshot
+    FROM caiso_interconnection_queue
+    WHERE present_in_snapshot
+      AND (%(status)s::text IS NULL OR upper(status) = upper(%(status)s))
+      AND (%(county)s::text IS NULL OR upper(county) = upper(%(county)s))
+      AND (%(to)s::text IS NULL OR upper(transmission_owner) = upper(%(to)s))
+      AND (%(min_mw)s::float8 IS NULL OR capacity_mw >= %(min_mw)s)
+      AND (%(max_mw)s::float8 IS NULL OR capacity_mw <= %(max_mw)s)
+      AND (%(queue_year)s::int IS NULL
+           OR extract(year FROM queue_date) = %(queue_year)s)
+      AND (%(q)s::text IS NULL
+           OR project_name ILIKE %(q)s ESCAPE '\\'
+           OR queue_position ILIKE %(q)s ESCAPE '\\')
+    ORDER BY {order_by}, queue_position
+"""
+
+# request `sort` value -> the SQL expression it selects. Nothing else is
+# reachable. NULLS LAST on every branch: 255 rows have no proposed COD, and a
+# sort that floats them to the top of a "soonest first" table is a worse answer
+# than one that puts the absences at the end.
+_IC_SORT_SQL = {
+    "capacity_mw": "capacity_mw",
+    "queue_date": "queue_date",
+    "proposed_completion_date": "proposed_completion_date",
+    "project_name": "project_name",
+}
+
+_IC_EVENTS_SQL = """
+    SELECT id, event_type, queue_position, project_name, generation_type,
+           mw::float8 AS mw, old_values, new_values, detected_at, snapshot_date
+    FROM tape_interconnection_events
+    ORDER BY detected_at DESC, id DESC
+    LIMIT %(limit)s
+"""
+
+
+async def _ic_read(sql: str, params: dict) -> list:
+    """One read against the shared pool, retrying once on a stale connection.
+
+    Same shape as `_dd_read`/`_cockpit_read` — this lane opens no connection of
+    its own and holds nothing across requests.
+    """
+    assert _pool is not None
+    last_exc: Exception | None = None
+    for _attempt in range(2):
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor(row_factory=dict_row) as cur:
+                    await cur.execute(sql, params)
+                    return await cur.fetchall()
+        except _POOL_DEAD_CONN_ERRORS as e:
+            last_exc = e
+    assert last_exc is not None
+    raise last_exc
+
+
+# The dd cache is a general in-process cache with single-flight builds; this
+# lane reuses it rather than growing a second one.
+_ic_summary_cache = _DDCache("interconnection/summary", _IC_SUMMARY_TTL, max_entries=2)
+_ic_projects_cache = _DDCache("interconnection/projects", _IC_PROJECTS_TTL, max_entries=64)
+_ic_events_cache = _DDCache("interconnection/events", _IC_EVENTS_TTL, max_entries=8)
+
+_IC_CACHES = (_ic_summary_cache, _ic_projects_cache, _ic_events_cache)
+
+
+async def _ic_snapshot_chip() -> dict:
+    """snapshot_date + the measured lineage facts behind `data_note`."""
+    rows = await _ic_read(_IC_SNAPSHOT_SQL, {})
+    r = rows[0] if rows else {}
+    fs_min, fs_max = r.get("first_seen_min"), r.get("first_seen_max")
+    return {
+        "snapshot_date": r.get("snapshot_date"),
+        "snapshot_count": r.get("snapshot_count"),
+        "first_seen_at_min": fs_min,
+        "first_seen_at_max": fs_max,
+        "first_seen_at_is_uniform": (fs_min is not None and fs_min == fs_max),
+        "last_updated": r.get("last_updated"),
+    }
+
+
+def _ic_data_note(chip: dict) -> str:
+    """The source note, plus whatever THIS read found about lineage.
+
+    Not a constant: if the pantry ever banks a second snapshot generation, the
+    'first_seen_at is uniform' clause disappears from the response on its own,
+    because it is derived from the read rather than from a comment.
+    """
+    note = _IC_SOURCE_NOTE
+    if chip.get("first_seen_at_is_uniform"):
+        note += (
+            f" As measured on this read: {chip.get('snapshot_count')} distinct "
+            f"snapshot_date(s) banked and first_seen_at identical on every row "
+            f"({_ic._iso(chip.get('first_seen_at_min'))}), so first_seen_at "
+            f"carries no entrant signal yet."
+        )
+    else:
+        note += (
+            f" As measured on this read: {chip.get('snapshot_count')} distinct "
+            f"snapshot_date(s) banked and first_seen_at spanning "
+            f"{_ic._iso(chip.get('first_seen_at_min'))}.."
+            f"{_ic._iso(chip.get('first_seen_at_max'))}, so first_seen_at now "
+            f"distinguishes entrants."
+        )
+    return note
+
+
+# ── Parameter validation ────────────────────────────────────────────────────
+
+def _ic_fuel_or_400(fuel: Optional[str]) -> Optional[str]:
+    """`fuel` filters on the ROLLUP, so its vocabulary is ours, not CAISO's.
+
+    Case-insensitive on the way in (a URL is typed by hand), exact on the way
+    out. An unknown fuel is a 400 naming every legal value — never an empty
+    result set that looks like "no such projects".
+    """
+    if fuel is None or not fuel.strip():
+        return None
+    wanted = fuel.strip().lower()
+    for known in _ic.FUEL_ORDER:
+        if known.lower() == wanted:
+            return known
+    raise HTTPException(
+        status_code=400,
+        detail=(f"unknown fuel: {fuel!r}. `fuel` filters on the display rollup, "
+                f"not the raw generation_type. One of: {list(_ic.FUEL_ORDER)}"),
+    )
+
+
+def _ic_sort_or_400(sort: Optional[str]) -> str:
+    """THE INJECTION SEAM, closed. A `sort` value is a KEY into a code-side
+    table of SQL fragments; it is never interpolated, concatenated or quoted
+    into the statement. Anything outside the whitelist is a 400 naming the
+    whitelist — not a silent fall back to the default, which would let a hostile
+    or merely mistyped sort look like it worked."""
+    if sort is None or not sort.strip():
+        return _ic.DEFAULT_SORT
+    key = sort.strip()
+    if key not in _IC_SORT_SQL:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"unknown sort: {sort!r}. One of: "
+                    f"{sorted(_IC_SORT_SQL)}"),
+        )
+    return key
+
+
+def _ic_order_or_400(order: Optional[str], sort_key: str) -> str:
+    """asc | desc. Defaults per column (MW and dates read newest/biggest first,
+    a name reads A-Z), and is likewise a key, never text spliced into SQL."""
+    if order is None or not order.strip():
+        return _ic.SORT_WHITELIST[sort_key][1]
+    o = order.strip().lower()
+    if o not in ("asc", "desc"):
+        raise HTTPException(
+            status_code=400, detail=f"unknown order: {order!r}. One of ['asc', 'desc']")
+    return o
+
+
+def _ic_status_or_400(status: Optional[str]) -> Optional[str]:
+    if status is None or not status.strip():
+        return None
+    s = status.strip().upper()
+    if s not in _ic.KNOWN_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown status: {status!r}. One of: {list(_ic.KNOWN_STATUSES)}",
+        )
+    return s
+
+
+def _ic_order_by(sort_key: str, order: str) -> str:
+    """Assemble ORDER BY from two validated KEYS. Both halves are constants
+    chosen by dict lookup; there is no path from a request string to this text."""
+    expr = _IC_SORT_SQL[sort_key]
+    direction = "ASC" if order == "asc" else "DESC"
+    return f"{expr} {direction} NULLS LAST"
+
+
+# ── Routes ──────────────────────────────────────────────────────────────────
+
+@app.get(f"{IC_PREFIX}/summary")
+async def interconnection_summary(response: Response):
+    """Every aggregate for the interconnection tab, in ONE call.
+
+        { snapshot_date, data_note, generated_from_rows,
+          snapshot:              { snapshot_date, project_count, total_mw,
+                                   statuses: [{status, count, mw}] },
+          by_fuel:               { active: {fuel -> {count, mw}},
+                                   all_statuses: {...},
+                                   active_statuses: ["ACTIVE"] },
+          by_queue_year:         [{year, count, mw}]  — the 27-year vintage chart
+          by_proposed_cod_year:  { years: [{year, count, mw}], undated: {...} },
+          by_county:             { top: [{county, state, count, mw}], other,
+                                   group_count, top_n },
+          by_transmission_owner: [{to, count, mw}],
+          attrition:             { years: [{year, enqueued_*, withdrawn_*,
+                                            surviving_*, withdrawn_mw_share}],
+                                   totals, no_queue_date,
+                                   withdrawn_status_without_date, definition },
+          unmapped_types:        [{generation_type, fuel, unmapped_components,
+                                   known, count, mw}],
+          cache: {...} }
+
+    THE FUEL ROLLUP IS A PARSE AND IT IS NEVER SILENT. 41 free-text
+    generation_type strings roll up to 9 display fuels; any string containing a
+    component no keyword recognises is named in `unmapped_types` with a `known`
+    flag against the 41 banked at recon time, and any string that recognises
+    nothing lands in `Other` with its raw label in `by_fuel[*].Other.raw_types`.
+    "Steam Turbine" (158 rows, 38.3 GW) is deliberately NOT mapped to Natural
+    Gas — see R1 in interconnection.py. `Geothermal` matches zero rows today and
+    is still emitted, at count 0, because an empty bucket is a fact about the
+    queue and a missing one would be a fact about our code.
+
+    ABSENCE IS STATED. Null proposed CODs are `undated` with their own count and
+    MW — never dropped, never zero-dated. `attrition` uses the ruled definition
+    (withdrawn = withdrawn_date IS NOT NULL) and reports beside it the 39 rows /
+    10,857.1 MW that CAISO calls WITHDRAWN with no date, which that definition
+    cannot see. `by_county` is a top-25 with the remainder aggregated as `other`
+    and the full `group_count` stated — a bounded list, never a silent truncation.
+
+    One full-table read of a slim column set (~2,278 rows), all facets derived
+    in process so they cannot disagree; cached 15 minutes against a bank that
+    moves weekly. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    async def _build():
+        chip = await _ic_snapshot_chip()
+        rows = await _ic_read(_IC_SUMMARY_SQL, {})
+        return _ic.summary_payload(
+            rows,
+            snapshot_date=chip.get("snapshot_date"),
+            data_note=_ic_data_note(chip),
+        )
+
+    payload, state, entry = await _ic_summary_cache.serve("summary", _build)
+    return _dd_envelope(payload, state, entry, _ic_summary_cache, response)
+
+
+@app.get(f"{IC_PREFIX}/projects")
+async def interconnection_projects(
+    response: Response,
+    status: Optional[str] = Query(
+        None, description="ACTIVE | COMPLETED | WITHDRAWN. Case-insensitive; "
+                          "anything else is a 400 naming the three."),
+    fuel: Optional[str] = Query(
+        None, description="Filters on the display ROLLUP (Solar, Battery "
+                          "Storage, Solar+Storage Hybrid, ...), not on the raw "
+                          "generation_type. Unknown value -> 400."),
+    county: Optional[str] = Query(None, description="Exact county, case-insensitive."),
+    to: Optional[str] = Query(
+        None, description="Transmission owner, exact + case-insensitive "
+                          "(SCE, PGAE, SDGE, DCRT, GLW, VEA, DSLK, IID)."),
+    min_mw: Optional[float] = Query(None, description="capacity_mw >= this."),
+    max_mw: Optional[float] = Query(None, description="capacity_mw <= this."),
+    queue_year: Optional[int] = Query(None, description="year(queue_date) == this."),
+    q: Optional[str] = Query(
+        None, description="Case-insensitive substring over project_name AND "
+                          "queue_position. LIKE metacharacters match literally."),
+    sort: Optional[str] = Query(
+        None, description="capacity_mw | queue_date | proposed_completion_date "
+                          "| project_name. Anything else is a 400."),
+    order: Optional[str] = Query(
+        None, description="asc | desc. Defaults per column: desc for MW and "
+                          "dates, asc for project_name."),
+    page: int = Query(1, ge=1, description="1-based."),
+    page_size: int = Query(
+        _ic.PAGE_SIZE_DEFAULT, ge=1, le=_ic.PAGE_SIZE_MAX,
+        description=f"<= {_ic.PAGE_SIZE_MAX}."),
+):
+    """The faceted project table, paged.
+
+        { snapshot_date, data_note, sort, order, filters, unmapped_types,
+          page: { page, page_size, total, page_count, has_more },
+          rows: [ { queue_position, project_name, generation_type, fuel,
+                    unmapped_components, capacity_mw, status, study_process,
+                    interconnection_location, county, state,
+                    transmission_owner, deliverability, queue_date,
+                    proposed_completion_date, actual_completion_date,
+                    withdrawn, withdrawn_date, withdrawal_comment,
+                    first_seen_at, last_updated, snapshot_date,
+                    present_in_snapshot } ],
+          cache: {...} }
+
+    EVERY ROW CARRIES BOTH generation_type (raw, as CAISO wrote it) AND fuel
+    (our rollup). A client that disagrees with the rollup can re-derive its own;
+    neither is hidden behind the other.
+
+    SQL INJECTION POSTURE. Every filter is a bound parameter under the house
+    `%(p)s::type IS NULL OR ...` idiom — one statement, one plan, no string
+    building. `sort` and `order` are KEYS into code-side constant tables of SQL
+    fragments; a value outside either whitelist is a 400 naming the whitelist,
+    never a silent fallback. There is no path from a request string into the
+    statement text, and tests/test_interconnection.py proves a hostile `sort`
+    400s rather than executing.
+
+    `fuel` is applied AFTER the read, in process, because the rollup is a parse
+    over free text and cannot be a SQL predicate. Ordering, `page.total` and the
+    page slice are therefore all computed over the fuel-filtered set — a page is
+    never a post-filtered fragment of some larger SQL page. `unmapped_types`
+    describes the whole filtered result set, not the visible page.
+
+    A page past the end is an empty `rows` with a truthful `total`, not a 404.
+    DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    status_v = _ic_status_or_400(status)
+    fuel_v = _ic_fuel_or_400(fuel)
+    sort_key = _ic_sort_or_400(sort)
+    order_v = _ic_order_or_400(order, sort_key)
+
+    if min_mw is not None and max_mw is not None and min_mw > max_mw:
+        raise HTTPException(
+            status_code=400,
+            detail=f"min_mw ({min_mw}) is greater than max_mw ({max_mw})",
+        )
+
+    q_like = f"%{_cockpit_like_escape(q.strip())}%" if (q and q.strip()) else None
+
+    params = {
+        "status": status_v,
+        "county": county.strip() if (county and county.strip()) else None,
+        "to": to.strip() if (to and to.strip()) else None,
+        "min_mw": min_mw,
+        "max_mw": max_mw,
+        "queue_year": queue_year,
+        "q": q_like,
+    }
+    filters = {
+        "status": status_v,
+        "fuel": fuel_v,
+        "county": params["county"],
+        "to": params["to"],
+        "min_mw": min_mw,
+        "max_mw": max_mw,
+        "queue_year": queue_year,
+        "q": q.strip() if (q and q.strip()) else None,
+    }
+
+    key = (tuple(sorted(filters.items(), key=lambda kv: kv[0])),
+           sort_key, order_v, page, page_size)
+
+    async def _build():
+        chip = await _ic_snapshot_chip()
+        sql = _IC_PROJECTS_SQL.format(order_by=_ic_order_by(sort_key, order_v))
+        rows = await _ic_read(sql, params)
+        rows = _ic.filter_by_fuel(rows, fuel_v)
+        return _ic.projects_payload(
+            rows,
+            page=page, page_size=page_size,
+            sort=sort_key, order=order_v, filters=filters,
+            snapshot_date=chip.get("snapshot_date"),
+            data_note=_ic_data_note(chip),
+        )
+
+    payload, state, entry = await _ic_projects_cache.serve(key, _build)
+    return _dd_envelope(payload, state, entry, _ic_projects_cache, response)
+
+
+@app.get(f"{IC_PREFIX}/events")
+async def interconnection_events(
+    response: Response,
+    limit: int = Query(
+        _IC_EVENTS_DEFAULT_LIMIT, ge=1, le=_IC_EVENTS_MAX_LIMIT,
+        description=f"<= {_IC_EVENTS_MAX_LIMIT}."),
+):
+    """The tape join: banked queue changes, newest first.
+
+        { count, limit, event_types, note,
+          rows: [ { id, event_type, queue_position, project_name,
+                    generation_type, fuel, mw, changed_fields,
+                    old_values, new_values, detected_at, snapshot_date } ],
+          cache: {...} }
+
+    THIS IS THE LINEAGE THE QUEUE TABLE CANNOT GIVE. caiso_interconnection_queue
+    is upsert-in-place and holds one generation, so a project's history is not
+    recoverable from it; tape_interconnection_events is where a change is
+    actually recorded. Verified populated 2026-08-12: 8 rows, all
+    event_type='status_change', detected 2026-06-12..2026-07-31, each an
+    ACTIVE -> WITHDRAWN or ACTIVE -> COMPLETED transition.
+
+    `changed_fields` is derived from the keys of old_values/new_values so a
+    client can name what moved without diffing two jsonb blobs.
+
+    HONEST EMPTY. If the ledger holds nothing the response is 200 with
+    `rows: []`, `count: 0` and a `note` saying so. Nothing on this path
+    reconstructs an event from the queue snapshot, infers one from a
+    withdrawn_date, or invents history the bank does not hold.
+    DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    async def _build():
+        rows = await _ic_read(_IC_EVENTS_SQL, {"limit": limit})
+        return _ic.events_payload(rows, limit=limit)
+
+    payload, state, entry = await _ic_events_cache.serve(limit, _build)
+    return _dd_envelope(payload, state, entry, _ic_events_cache, response)
