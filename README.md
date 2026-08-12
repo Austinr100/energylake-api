@@ -353,17 +353,40 @@ nodes x 24 HE.
 - `GET /api/nodes/{pnode_id}/package?window_days=all|30|90`
   -> the whole node page in one call: `identity`, `profile` / `profile_rt`
   (per-HE p25/p50/p75), `heatmap` (month x HE), `distribution` /
-  `distribution_rt` (GridStatus bin edges), `tb` (TB2 + TB4 in **$/kW-month**),
-  `blocks` (monthly, all six), `blocks_daily` (last 31 banked days), `basis`,
-  `dart`, and `rt_coverage_note`. Unknown id -> 400; known id with nothing
-  banked -> 200 with honest empties; DB unavailable -> 503
+  `distribution_rt` (GridStatus bin edges), `tb` (`tb2` + `tb4` in
+  **$/kW-month**), `blocks` (monthly, all six), `blocks_daily` (last 31 banked
+  days), `basis`, `dart`, `rt_available`, and `rt_coverage_note`. Unknown id ->
+  400; known id with nothing banked -> 200 with honest empties; DB unavailable
+  -> 503
+  - `tb.tb2` / `tb.tb4` and every `blocks.<block>` carry the same
+    `summary: {avg, median, max, min, n_months}`, over **complete months only**
+    — a half month still ships in `months`, flagged `partial`, and is simply
+    kept out of the summary
+  - `basis` / `dart` are `{column, per_he: [{he, p25, p50, p75, ...}], monthly:
+    [{month, avg, ...}]}` — `per_he` is the same stanza key the Analytics room's
+    ladders use, so the two rooms' ladders read alike
+  - every `blocks_daily` row carries `partial`: **true** when the bank does not
+    hold the whole trade date yet (the frontier day — the request landed
+    mid-afternoon and the day's later hours have not published). The averages on
+    a flagged row are over the hours that landed, which is why the flag travels
+    with them. Completeness is 23/24/25 clock hours, counted — never a flat 24,
+    or every spring-forward day would read partial forever
+  - `rt_available: {profile, distribution, blocks}` — one bool per board that
+    can draw a real-time series, each evaluated by the coverage rule over that
+    board's own window. `rt_coverage_note` stays the single prose explanation;
+    these three are the verdict a board reads. Nothing banked -> `false` on all
+    three (`suppressed: false` there means the rule never fired, not that RT is
+    drawable)
 
 - `GET /api/hubs/{hub}/blocks?granularity=monthly|daily` — `SP15|NP15|ZP26`
   -> the same six blocks on the hub day-ahead curve from `timeseries_values`.
   **Measured depth 2016-01-01 .. 2026-08-13** (88,656 hourly rows per series) —
   years deeper than the nodal bank, which is why the hubs are read here and not
-  from the nodal table. `daily` is bounded to the most recent 400 days and says
-  so in `bound`
+  from the nodal table. `depth` carries `days_banked` — a **counted** distinct
+  day count, beside `first_day`/`last_day`: spanned is not banked, and a series
+  with a hole says so rather than implying the span. `daily` is bounded to the
+  most recent 400 days and says so in `bound`, and its rows carry the same
+  `partial` flag as the node lane's
 
 - `GET /api/nodes/top-movers?metric=dart|basis_sp15&direction=up|down&days=7`
   -> top-50 by hour-weighted window average, `days_present` and `hours` on every

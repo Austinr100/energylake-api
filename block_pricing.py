@@ -62,8 +62,12 @@ the 25th hour and quietly disagree with the pantry's own n_hours of 25.
 from __future__ import annotations
 
 from datetime import date as _date
+from datetime import datetime as _datetime
+from datetime import time as _time
 from datetime import timedelta as _timedelta
+from datetime import timezone as _timezone
 from typing import Callable, Iterable, Optional, Sequence
+from zoneinfo import ZoneInfo
 
 # ── The block menu ───────────────────────────────────────────────────────────
 # Order is the wire order. `main.py` iterates this tuple, so a block cannot
@@ -453,6 +457,55 @@ def monthly_avg(rows: Iterable[dict], field: str, complete_months: set) -> list:
 # holidays, 2x16h would report zero hours and 6x16 would report too many, and
 # that is visible on the wire without reading any code.
 
+# ── Day completeness — the frontier flag ────────────────────────────────────
+# A daily row is only comparable to the rows beside it when the bank actually
+# holds the whole day. The frontier day almost never does: the request lands
+# mid-afternoon, the day's later hours have not published, and its block
+# averages are computed over the hours that HAVE — a number that looks like a
+# settled block price and is not one. `blocks_daily` flags those rows rather
+# than dropping them (dropping the newest day from a board whose whole job is to
+# be current would be worse) and the client renders the flag.
+#
+# The test is COUNTED, not clock-based: a date is complete when the bank holds
+# as many rows for it as the date has clock hours. Nothing here asks what time
+# it is — 'today' is not a concept this module has access to, and a bank that
+# lags a day would make a wall-clock test lie in both directions.
+#
+# 23/24/25, NOT a constant 24 — the DST switch days genuinely carry 23 and 25
+# hours (see the DST note at the top of this file), so a fixed 24 would flag
+# every spring-forward day as partial forever and would miss a fall-back day
+# that is genuinely an hour short.
+MARKET_TZ = "America/Los_Angeles"
+
+
+def hours_in_day(d: _date, tz: str = MARKET_TZ) -> int:
+    """The number of CLOCK hours the trade date `d` carries: 23, 24 or 25."""
+    zone = ZoneInfo(tz)
+    start = _datetime.combine(d, _time(0), tzinfo=zone).astimezone(_timezone.utc)
+    end = _datetime.combine(d + _timedelta(days=1), _time(0),
+                            tzinfo=zone).astimezone(_timezone.utc)
+    return int((end - start).total_seconds() // 3600)
+
+
+def incomplete_days(rows: Iterable[dict], tz: str = MARKET_TZ) -> set:
+    """The dates in `rows` the bank does not hold a full day of hours for.
+
+    Rows are COUNTED, not deduplicated by HE: the fall-back day's two 1am rows
+    share one HE and both are real hours, so counting distinct HE would report
+    24 against an expected 25 and flag a complete day as partial.
+
+    The frontier day is the usual member of this set. An interior day with a
+    hole in the bank is also genuinely incomplete and is flagged the same way —
+    the row is short either way, and which end of the window it sits at does not
+    change what the average is missing.
+    """
+    counts: dict = {}
+    for r in rows:
+        d = r["trade_date"]
+        counts[d] = counts.get(d, 0) + 1
+    return {d for d, n in counts.items() if n < hours_in_day(d, tz)}
+
+
 def _block_rows(rows: Iterable[dict], block: str,
                 is_holiday: Callable[[_date], bool]) -> list:
     """Rows whose (date, he) falls in `block`."""
@@ -477,11 +530,19 @@ def blocks_daily(rows: Iterable[dict], is_holiday: Callable[[_date], bool],
     ABSENT — it is not a zero-hour row. A pair that exists but priced nothing is
     present with `hours: 0` and null averages, which is a different statement:
     the block was open and the bank is empty.
+
+    Every row carries `partial`: true when the bank does not yet hold the whole
+    trade date (the frontier day being the usual case — see `incomplete_days`),
+    false when it does. The averages on a partial row are computed over the
+    hours that landed, which is exactly why the flag has to travel with them.
     """
     out = []
     by_date: dict = {}
     for r in rows:
         by_date.setdefault(r["trade_date"], []).append(r)
+    # Off `by_date`, not off `rows` — `rows` is an Iterable and the loop above
+    # may have exhausted it.
+    short = incomplete_days(r for rs in by_date.values() for r in rs)
     for d in sorted(by_date):
         for block in BLOCK_IDS:
             hrs = set(block_hours(block, d, is_holiday))
@@ -495,6 +556,7 @@ def blocks_daily(rows: Iterable[dict], is_holiday: Callable[[_date], bool],
                 cell[name] = _r(_mean(vals))
                 counted = max(counted, len(vals))
             cell["hours"] = counted
+            cell["partial"] = d in short
             out.append(cell)
     return out
 
@@ -558,6 +620,23 @@ RT_COVERAGE_RULE = (
     f"{RT_COVERAGE_MIN_HE} of {RT_COVERAGE_MIN_HE_OF} HEs carry real-time "
     "coverage (rt_n > 0) on more than half the days in the window"
 )
+
+
+def rt_available(rows: Iterable[dict]) -> bool:
+    """Whether THIS board's own window can carry a real-time series at all.
+
+    The same rule as `rt_coverage`, reduced to the one boolean a board needs to
+    decide between drawing an RT series and drawing the absence. Evaluated over
+    the rows the board is actually drawn from, so two boards over two windows
+    can honestly disagree.
+
+    An EMPTY window is False, not True. `rt_coverage` reports `suppressed:
+    false` on no rows because the rule cannot fire without days to count — that
+    is the right answer to "did the rule trip" and the wrong answer to "can this
+    board show RT", which is the question here.
+    """
+    cov = rt_coverage(rows)
+    return cov["days"] > 0 and not cov["suppressed"]
 
 
 def rt_coverage(rows: Iterable[dict]) -> dict:

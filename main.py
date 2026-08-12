@@ -16231,14 +16231,22 @@ async def nodes_package(
       heatmap         per (month, HE): mean dam_lmp, months in the bank only.
       distribution    dam_lmp counts on the GridStatus bin edges.
       distribution_rt the same for rt_avg.
-      tb              TB2 and TB4 in $/kW-month, by month + a summary over
-                      COMPLETE months only.
+      tb              `tb2` and `tb4` in $/kW-month, by month + a summary over
+                      COMPLETE months only: {avg, median, max, min, n_months}.
       blocks          6x16 / off_peak / 7x8 / 7x16 / atc / 2x16h, monthly, each
-                      with counted `hours` and a complete-months summary.
-      blocks_daily    the last 31 banked days x block.
-      basis           per-HE p25/p50/p75 of basis_sp15 + monthly averages.
+                      with counted `hours` and a complete-months `summary` on
+                      the same {avg, median, max, min, n_months} keys as `tb`.
+      blocks_daily    the last 31 banked days x block, each row carrying
+                      `partial` — true when the bank does not hold the whole
+                      trade date yet (the frontier day).
+      basis           `per_he` p25/p50/p75 of basis_sp15 + `monthly` averages.
       dart            the same for dart.
+      rt_available    one bool per board that can draw a real-time series —
+                      `profile`, `distribution`, `blocks` — each evaluated by
+                      the coverage rule over that board's own window.
       rt_coverage_note the suppression rule, stated, with the counts behind it.
+                      This stays the SINGLE explanation; `rt_available` carries
+                      the per-board verdict and repeats no prose.
 
     ABSENCE IS STATED, NEVER ZERO-FILLED. An HE, month or day the bank does not
     carry is ABSENT from its array. The one deliberate exception is
@@ -16326,8 +16334,12 @@ async def nodes_package(
             "distribution": _bp.distribution([], "dam_lmp"),
             "distribution_rt": _bp.distribution([], "rt_avg"),
             "tb": {}, "blocks": {}, "blocks_daily": [],
-            "basis": {"profile": [], "monthly": []},
-            "dart": {"profile": [], "monthly": []},
+            "basis": {"column": "basis_sp15", "per_he": [], "monthly": []},
+            "dart": {"column": "dart", "per_he": [], "monthly": []},
+            # Nothing banked -> no board can draw RT. False here, not the
+            # `suppressed: false` of a rule that never got to fire.
+            "rt_available": {"profile": False, "distribution": False,
+                             "blocks": False},
             "rt_coverage_note": _bp.rt_coverage([]),
             "block_definitions": _bp.BLOCK_DEFINITIONS,
         }
@@ -16371,6 +16383,19 @@ async def nodes_package(
     complete = _bp.month_completeness(w_first, w_last)
     coverage = _bp.rt_coverage(win)
 
+    # PER-BOARD RT AVAILABILITY. One boolean per board that can draw a real-time
+    # series, each evaluated over THAT board's own rows by the same rule the
+    # package-level `rt_coverage_note` states — the note stays the single
+    # explanation, and these are the three flags a board reads to decide between
+    # a series and an honest blank. The three boards share this window today, so
+    # they agree today; they are computed separately rather than aliased so a
+    # board that narrows its window later cannot inherit another board's verdict.
+    rt_available = {
+        "profile": _bp.rt_available(win),
+        "distribution": _bp.rt_available(win),
+        "blocks": _bp.rt_available(win),
+    }
+
     # RT SUPPRESSION, applied by NOT COMPUTING the field rather than by nulling
     # it afterwards — so there is no code path where a suppressed rt average
     # exists in memory and could leak into a summary.
@@ -16403,20 +16428,21 @@ async def nodes_package(
         "heatmap": _bp.heatmap(win, "dam_lmp"),
         "distribution": _bp.distribution(win, "dam_lmp"),
         "distribution_rt": _bp.distribution(win, "rt_avg"),
-        "tb": {str(n): _bp.tb_monthly(win, "dam_lmp", n, complete)
+        "tb": {f"tb{n}": _bp.tb_monthly(win, "dam_lmp", n, complete)
                for n in _bp.TB_N_VALUES},
         "blocks": blocks,
         "blocks_daily": blocks_daily,
         "basis": {
             "column": "basis_sp15",
-            "profile": _bp.profile(win, "basis_sp15"),
+            "per_he": _bp.profile(win, "basis_sp15"),
             "monthly": _bp.monthly_avg(win, "basis_sp15", complete),
         },
         "dart": {
             "column": "dart",
-            "profile": _bp.profile(win, "dart"),
+            "per_he": _bp.profile(win, "dart"),
             "monthly": _bp.monthly_avg(win, "dart", complete),
         },
+        "rt_available": rt_available,
         "rt_coverage_note": coverage,
         "block_definitions": _bp.BLOCK_DEFINITIONS,
     }
