@@ -3,6 +3,7 @@ Tests for the Interconnection Queue API v0 (2026-08-12):
   GET /api/interconnection/summary
   GET /api/interconnection/projects
   GET /api/interconnection/events
+  GET /api/interconnection/rollups   (v0.1, 2026-08-13)
 
 CONTRACT TESTS OVER THE REAL COLUMN SHAPES. Every fixture row below carries the
 column set caiso_interconnection_queue / tape_interconnection_events actually
@@ -20,6 +21,18 @@ The live facts these tests pin (read 2026-08-12, snapshot_date 2026-08-07):
   255 rows have no proposed_completion_date  -> `undated`
   106 distinct (county, state) groups        -> top 25 + `other`
   tape_interconnection_events POPULATED: 8 rows, all event_type='status_change'
+
+The v0.1 rollup facts (read 2026-08-13, same 2026-08-07 generation), pinned by
+tests/fixtures/caiso_queue_grains_2026_08_13.json:
+
+  101 county keys (100 named + `unlocated` for 5 NULL rows); 58 have NO ACTIVE
+      row and appear in the active view at zero, not missing
+  8 state keys (7 named + `unlocated` for 4 NULL rows)
+  23 study_process keys (22 named + `unspecified` for 1 NULL row)
+  county -> state is NOT a function: LINCOLN spans ID/NM/NV, MARICOPA AZ/CA,
+      SAN BENITO CA/NV, and `unlocated` splits 1 CA / 4 stateless
+  caiso_interconnection_queue_snapshots (migration 178, applied): ONE
+      generation, 2026-08-07, 2,278 rows / 492,196.796 MW -> depth 1
 
 Most of the suite exercises the pure layer in interconnection.py directly; route
 tests use the _FakePool idiom from test_weather_delta_board.py.
@@ -46,12 +59,25 @@ FIXTURE_PATH = (
 )
 
 
+GRAINS_PATH = (
+    pathlib.Path(__file__).parent
+    / "fixtures"
+    / "caiso_queue_grains_2026_08_13.json"
+)
+
+
 def _load_gen_types() -> dict:
     with FIXTURE_PATH.open() as fh:
         return json.load(fh)["types"]
 
 
+def _load_grains() -> dict:
+    with GRAINS_PATH.open() as fh:
+        return json.load(fh)
+
+
 GEN_TYPES = _load_gen_types()
+GRAINS = _load_grains()
 
 
 # ---------------------------------------------------------------------------
@@ -599,12 +625,27 @@ class _FakePool:
     inspecting the SQL, and RECORD every statement so a test can assert on the
     text that was actually sent."""
 
-    def __init__(self, queue_rows=None, event_rows=None):
+    def __init__(self, queue_rows=None, event_rows=None, generation_rows=None):
         self.queue_rows = queue_rows if queue_rows is not None else []
         self.event_rows = event_rows if event_rows is not None else []
+        # The GROUP BY (snapshot_date, status) aggregate over the snapshots
+        # table — already reduced, exactly as the database returns it. `None`
+        # means "not supplied": the default below mirrors the live depth-1 bank.
+        self.generation_rows = generation_rows
         self.executed = []
 
     def answer(self, sql, params):
+        if "caiso_interconnection_queue_snapshots" in sql:
+            if self.generation_rows is not None:
+                return [dict(r) for r in self.generation_rows]
+            return [
+                {"snapshot_date": D(2026, 8, 7), "status": "ACTIVE",
+                 "row_count": 268, "mw": 75977.333},
+                {"snapshot_date": D(2026, 8, 7), "status": "COMPLETED",
+                 "row_count": 250, "mw": 34912.787},
+                {"snapshot_date": D(2026, 8, 7), "status": "WITHDRAWN",
+                 "row_count": 1760, "mw": 381306.675},
+            ]
         if "max(snapshot_date)" in sql:
             return [{
                 "snapshot_date": D(2026, 8, 7),
@@ -857,11 +898,18 @@ def test_events_is_an_honest_empty_when_the_ledger_is(monkeypatch):
         cache.clear()
 
 
+_ALL_IC_ROUTES = (
+    "/api/interconnection/summary",
+    "/api/interconnection/projects",
+    "/api/interconnection/events",
+    "/api/interconnection/rollups",
+)
+
+
 def test_the_lane_issues_no_writes_and_no_ddl(client):
-    """READ-ONLY, proved over every statement the three routes send."""
-    client.get("/api/interconnection/summary")
-    client.get("/api/interconnection/projects")
-    client.get("/api/interconnection/events")
+    """READ-ONLY, proved over every statement all FOUR routes send."""
+    for path in _ALL_IC_ROUTES:
+        client.get(path)
     assert client.pool.executed
     for sql, _ in client.pool.executed:
         head = sql.strip().split()[0].upper()
@@ -872,10 +920,472 @@ def test_the_lane_issues_no_writes_and_no_ddl(client):
             assert forbidden not in upper, (forbidden, sql)
 
 
-def test_only_the_two_banked_tables_are_touched(client):
-    client.get("/api/interconnection/summary")
-    client.get("/api/interconnection/projects")
-    client.get("/api/interconnection/events")
+def test_only_the_three_banked_tables_are_touched(client):
+    """v0 touched two tables; v0.1 adds the snapshots table and NOTHING else."""
+    for path in _ALL_IC_ROUTES:
+        client.get(path)
     for sql, _ in client.pool.executed:
         tables = {w for w in sql.replace("\n", " ").split() if w.startswith(("caiso_", "tape_"))}
-        assert tables <= {"caiso_interconnection_queue", "tape_interconnection_events"}
+        assert tables <= {"caiso_interconnection_queue",
+                          "caiso_interconnection_queue_snapshots",
+                          "tape_interconnection_events"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v0.1 — the full-cardinality rollups
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The shaping tests below run on a hand-built bank that reproduces the live
+# bank's awkward corners rather than its easy case: a county under two states, a
+# county with no ACTIVE row, a NULL county WITH a state, a NULL county WITHOUT
+# one, a NULL study_process, a BLANK study_process, and two county strings the
+# bank really holds and we really do not repair ("USA", "KINGS/KERN").
+
+def _rollup_rows():
+    return [
+        # KERN/CA — the ordinary case: some active, some not.
+        _row(county="KERN", state="CA", study_process="C14",
+             status="ACTIVE", capacity_mw=100.0),
+        _row(county="KERN", state="CA", study_process="C14",
+             status="WITHDRAWN", capacity_mw=200.0),
+        # MARICOPA under TWO states — the live ambiguity, reproduced.
+        _row(county="MARICOPA", state="AZ", study_process="C13",
+             status="ACTIVE", capacity_mw=50.0),
+        _row(county="MARICOPA", state="CA", study_process="C13",
+             status="COMPLETED", capacity_mw=25.0),
+        # A county with ZERO active rows — must be DIMMED, not missing.
+        _row(county="MONO", state="CA", study_process="SGIP",
+             status="WITHDRAWN", capacity_mw=19.993),
+        # NULL county AND NULL state -> `unlocated` at both grains.
+        _row(county=None, state=None, study_process="FT",
+             status="WITHDRAWN", capacity_mw=10.0),
+        # NULL county WITH a state -> `unlocated` county, CA state.
+        _row(county=None, state="CA", study_process="FT",
+             status="WITHDRAWN", capacity_mw=5.0),
+        # NULL study_process -> `unspecified`.
+        _row(county="USA", state="CA", study_process=None,
+             status="WITHDRAWN", capacity_mw=18.0),
+        # BLANK study_process -> also `unspecified`; county rides out as banked.
+        _row(county="KINGS/KERN", state="CA", study_process="   ",
+             status="WITHDRAWN", capacity_mw=20.0),
+    ]
+
+
+def _payload():
+    return ic.rollups_payload(
+        _rollup_rows(),
+        generation_rows=[
+            {"snapshot_date": D(2026, 8, 7), "status": "ACTIVE",
+             "row_count": 268, "mw": 75977.333},
+            {"snapshot_date": D(2026, 8, 7), "status": "COMPLETED",
+             "row_count": 250, "mw": 34912.787},
+            {"snapshot_date": D(2026, 8, 7), "status": "WITHDRAWN",
+             "row_count": 1760, "mw": 381306.675},
+        ],
+        generations_source="caiso_interconnection_queue_snapshots",
+        snapshot_date=D(2026, 8, 7),
+        data_note="note",
+    )
+
+
+# ── Nothing is folded, nothing is truncated ─────────────────────────────────
+
+@pytest.mark.parametrize("block,want_keys", [
+    ("by_county", {"KERN", "MARICOPA", "MONO", "USA", "KINGS/KERN", "unlocated"}),
+    ("by_state", {"CA", "AZ", "unlocated"}),
+    ("by_process", {"C14", "C13", "SGIP", "FT", "unspecified"}),
+])
+def test_every_key_at_every_grain_no_other_bucket(block, want_keys):
+    """THE `other: 343` ERA ENDS HERE. Every key, at every grain, named."""
+    b = _payload()[block]
+    assert set(b["all_statuses"]) == want_keys
+    assert set(b["keys"]) == want_keys
+    assert b["key_count"] == len(want_keys)
+    # and there is no folding bucket anywhere in the block
+    assert "other" not in b
+    assert "top" not in b and "top_n" not in b
+
+
+@pytest.mark.parametrize("block", ["by_county", "by_state", "by_process"])
+def test_nothing_is_dropped_the_grain_partitions_the_bank(block):
+    """sum over the keys == the whole bank, at every grain. A dropped NULL row
+    or a folded key would break this arithmetic, which is the point."""
+    body = _payload()
+    b = body[block]
+    assert sum(v["count"] for v in b["all_statuses"].values()) == 9
+    assert round(sum(v["mw"] for v in b["all_statuses"].values()), 1) == \
+        body["snapshot"]["total_mw"] == 448.0
+
+
+# ── Missing is a named key ──────────────────────────────────────────────────
+
+def test_a_null_county_is_the_named_key_unlocated_never_dropped():
+    b = _payload()["by_county"]
+    assert b["missing_key"] == "unlocated"
+    assert b["all_statuses"]["unlocated"] == {"count": 2, "mw": 15.0}
+
+
+def test_a_null_state_is_unlocated_but_a_stateless_county_row_still_has_its_state():
+    """The two NULL-county rows split: one carries state CA, one carries none.
+    They are ONE `unlocated` county key and TWO different state keys — the
+    grains are independent, and neither invents the other's value."""
+    b = _payload()["by_state"]
+    assert b["all_statuses"]["unlocated"] == {"count": 1, "mw": 10.0}
+    assert b["all_statuses"]["CA"]["count"] == 7
+
+
+@pytest.mark.parametrize("process", [None, "   "])
+def test_a_null_or_blank_study_process_is_unspecified(process):
+    rows = [_row(study_process=process, capacity_mw=7.0, status="WITHDRAWN")]
+    b = ic.grain_block(rows, "study_process", grain="study_process",
+                       missing_key=ic.UNSPECIFIED_KEY)
+    assert b["all_statuses"] == {"unspecified": {"count": 1, "mw": 7.0}}
+
+
+# ── Dimmed at zero, not missing at zero ─────────────────────────────────────
+
+@pytest.mark.parametrize("block,zero_keys", [
+    ("by_county", {"MONO", "USA", "KINGS/KERN", "unlocated"}),
+    ("by_state", {"unlocated"}),
+    ("by_process", {"SGIP", "FT", "unspecified"}),
+])
+def test_active_carries_every_key_including_the_zeros(block, zero_keys):
+    """A key that VANISHES from the active view reads as 'no such county'. A key
+    at zero reads as 'nothing live here'. Only the second is true."""
+    b = _payload()[block]
+    assert set(b["active"]) == set(b["all_statuses"])
+    for k in zero_keys:
+        assert b["active"][k] == {"count": 0, "mw": 0.0}, k
+    assert b["keys_with_zero_active"] == len(zero_keys)
+
+
+@pytest.mark.parametrize("block", ["by_county", "by_state", "by_process"])
+def test_active_and_all_statuses_share_one_key_order(block):
+    """Zippable by construction — a client can render the two maps side by side
+    without re-sorting either of them."""
+    b = _payload()[block]
+    assert list(b["active"]) == list(b["all_statuses"]) == b["keys"]
+
+
+def test_the_key_order_is_descending_all_statuses_mw_on_the_UNROUNDED_value():
+    """KINGS/KERN (20.0) outranks MONO (19.993) even though both round to 20.0
+    on the way out. Ordering is decided before rounding, ties by key string."""
+    keys = _payload()["by_county"]["keys"]
+    assert keys == ["KERN", "MARICOPA", "KINGS/KERN", "MONO", "USA", "unlocated"]
+
+
+def test_active_statuses_is_published_so_nobody_has_to_guess():
+    for block in ("by_county", "by_state", "by_process"):
+        assert _payload()[block]["active_statuses"] == ["ACTIVE"]
+
+
+# ── Keys are the strings AS BANKED ──────────────────────────────────────────
+
+@pytest.mark.parametrize("banked", ["USA", "KINGS/KERN"])
+def test_county_strings_ride_out_exactly_as_banked(banked):
+    """Real values in this table. No title-casing, no splitting on '/', no
+    lookup, no repair — this lane does not invent geography."""
+    assert banked in _payload()["by_county"]["all_statuses"]
+
+
+def test_the_county_grain_keys_on_county_alone_not_on_county_state():
+    """MARICOPA is ONE county with two states behind it, not two counties. A
+    compound (county, state) key would silently split it on a page that asked
+    for counties."""
+    b = _payload()["by_county"]
+    assert b["all_statuses"]["MARICOPA"] == {"count": 2, "mw": 75.0}
+
+
+# ── State pairing is measured, and it is not clean ──────────────────────────
+
+def test_an_ambiguous_county_gets_no_invented_state():
+    b = _payload()["by_county"]
+    assert b["key_states"]["MARICOPA"] == ["AZ", "CA"]
+    assert b["key_state"]["MARICOPA"] is None
+    assert "MARICOPA" in b["state_pairing"]["ambiguous_keys"]
+    assert b["state_pairing"]["clean"] is False
+    assert "NOT a function" in b["state_pairing"]["note"]
+    assert "MARICOPA" in b["state_pairing"]["note"]
+
+
+def test_an_unambiguous_county_does_get_its_state():
+    b = _payload()["by_county"]
+    assert b["key_states"]["KERN"] == ["CA"]
+    assert b["key_state"]["KERN"] == "CA"
+    assert "KERN" not in b["state_pairing"]["ambiguous_keys"]
+
+
+def test_the_pairing_note_flips_to_clean_when_the_bank_is():
+    """MEASURED, not hard-coded: hand it a bank where every county has one
+    state and the payload says so on its own."""
+    rows = [_row(county="KERN", state="CA"), _row(county="INYO", state="CA")]
+    b = ic.county_block(rows)
+    assert b["state_pairing"]["clean"] is True
+    assert b["state_pairing"]["ambiguous_keys"] == []
+    assert b["key_state"] == {"KERN": "CA", "INYO": "CA"}
+
+
+def test_a_stateless_row_makes_the_unlocated_key_itself_ambiguous():
+    """The live `unlocated` bucket holds 1 CA row and 4 stateless ones, so even
+    the missing-county key spans two state values. It is reported, not tidied."""
+    b = _payload()["by_county"]
+    assert b["key_states"]["unlocated"] == ["CA", "unlocated"]
+    assert b["key_state"]["unlocated"] is None
+
+
+# ── generations — the honest trend read ─────────────────────────────────────
+
+def test_generations_reports_depth_1_as_a_point_not_a_trend():
+    g = _payload()["generations"]
+    assert g["depth"] == 1
+    assert g["snapshot_dates"] == ["2026-08-07"]
+    assert g["source_table"] == "caiso_interconnection_queue_snapshots"
+    assert "POINT, not a trend" in g["note"]
+    e = g["entries"][0]
+    assert e["snapshot_date"] == "2026-08-07"
+    assert e["rows"] == 2278
+    assert e["mw_total"] == 492196.8
+    assert e["by_status"]["ACTIVE"] == {"count": 268, "mw": 75977.3}
+    assert e["by_status"]["WITHDRAWN"] == {"count": 1760, "mw": 381306.7}
+    assert e["by_status"]["COMPLETED"] == {"count": 250, "mw": 34912.8}
+
+
+def test_a_generation_entry_reconciles_to_its_own_statuses():
+    e = _payload()["generations"]["entries"][0]
+    assert sum(v["count"] for v in e["by_status"].values()) == e["rows"]
+    assert round(sum(v["mw"] for v in e["by_status"].values()), 1) == e["mw_total"]
+
+
+def test_generations_are_ordered_ascending_and_gaps_are_not_interpolated():
+    """Fed out of order, they come back oldest-first — and the two-week hole
+    between 07-24 and 08-07 stays a hole."""
+    g = ic.generations_block([
+        {"snapshot_date": D(2026, 8, 7), "status": "ACTIVE", "row_count": 3, "mw": 30.0},
+        {"snapshot_date": D(2026, 7, 17), "status": "ACTIVE", "row_count": 1, "mw": 10.0},
+        {"snapshot_date": D(2026, 7, 24), "status": "ACTIVE", "row_count": 2, "mw": 20.0},
+    ], source_table="t")
+    assert g["depth"] == 3
+    assert g["snapshot_dates"] == ["2026-07-17", "2026-07-24", "2026-08-07"]
+    assert [e["rows"] for e in g["entries"]] == [1, 2, 3]
+    assert "not interpolated" in g["note"]
+
+
+def test_an_empty_snapshots_table_is_an_honest_depth_zero():
+    g = ic.generations_block([], source_table="t")
+    assert g["depth"] == 0
+    assert g["entries"] == []
+    assert g["snapshot_dates"] == []
+    assert "absence, not an error" in g["note"]
+    assert "nothing is reconstructed" in g["note"].lower()
+
+
+def test_generations_statuses_are_ordered_by_mw_within_a_generation():
+    e = _payload()["generations"]["entries"][0]
+    assert list(e["by_status"]) == ["WITHDRAWN", "ACTIVE", "COMPLETED"]
+
+
+# ── The live bank, rebuilt from the checked-in recon receipt ────────────────
+
+def _rows_from_grain(grain: str, column: str):
+    """Rebuild a row set that reproduces the live aggregate at ONE grain.
+
+    Per key: `active_count` ACTIVE rows carrying `active_mw` between them and
+    the rest non-ACTIVE carrying the complement, with the MW concentrated on one
+    row of each group. Counts and MW sums are therefore exactly the live ones —
+    which is all a grain block reads.
+    """
+    rows = []
+    for key, n, mw, an, amw in GRAINS["grains"][grain]["rows"]:
+        missing = GRAINS["grains"][grain]["missing_key"]
+        value = None if key == missing else key
+        for i in range(an):
+            rows.append(_row(**{column: value, "status": "ACTIVE",
+                                "capacity_mw": amw if i == 0 else 0.0}))
+        for i in range(n - an):
+            rows.append(_row(**{column: value, "status": "WITHDRAWN",
+                                "capacity_mw": (mw - amw) if i == 0 else 0.0}))
+    return rows
+
+
+@pytest.mark.parametrize("grain,column", [
+    ("county", "county"),
+    ("state", "state"),
+    ("study_process", "study_process"),
+])
+def test_the_live_grain_reproduces_key_for_key(grain, column):
+    """THE RECON RECEIPT, EXECUTED. Every key the 2026-08-13 read found, with
+    its live count and MW, all-statuses and active-only. A folded key, a dropped
+    NULL or a truncated tail moves this test."""
+    want = GRAINS["grains"][grain]
+    missing = want["missing_key"]
+    block = ic.grain_block(_rows_from_grain(grain, column),
+                           column, grain=grain, missing_key=missing)
+
+    assert block["key_count"] == want["key_count"]
+    assert block["keys_with_zero_active"] == want["keys_with_zero_active"]
+    assert missing in block["all_statuses"], "the NULL bucket was dropped"
+    assert len([k for k in block["keys"] if k != missing]) == want["named_keys"]
+
+    for key, n, mw, an, amw in want["rows"]:
+        assert block["all_statuses"][key] == {"count": n, "mw": round(mw, 1)}, key
+        assert block["active"][key] == {"count": an, "mw": round(amw, 1)}, key
+
+
+def test_the_live_grains_each_account_for_all_2278_rows():
+    for grain, column in (("county", "county"), ("state", "state"),
+                          ("study_process", "study_process")):
+        block = ic.grain_block(_rows_from_grain(grain, column),
+                               column, grain=grain,
+                               missing_key=GRAINS["grains"][grain]["missing_key"])
+        counts = sum(v["count"] for v in block["all_statuses"].values())
+        assert counts == GRAINS["totals"]["rows"] == 2278, grain
+        # Each key's MW is rounded to 0.1 on the way out, so summing 101 of them
+        # back up drifts from the live 492,196.796 by less than a megawatt
+        # (0.8 MW at the county grain). The COUNT above is exact and is what
+        # proves nothing was dropped; this is the magnitude check beside it.
+        mw = sum(v["mw"] for v in block["all_statuses"].values())
+        assert abs(mw - GRAINS["totals"]["mw"]) < 1.0, (grain, mw)
+
+
+def test_the_ambiguous_county_keys_are_exactly_the_four_the_bank_holds():
+    """100 named counties, 106 (county, state) pairs — and this is where the six
+    extra pairs live. Rebuilt from the receipt, not asserted from memory."""
+    rows = []
+    for county, states in GRAINS["county_states_ambiguous"].items():
+        for st in states:
+            rows.append(_row(
+                county=None if county == "unlocated" else county,
+                state=None if st == "unlocated" else st))
+    rows.append(_row(county="KERN", state="CA"))
+    block = ic.county_block(rows)
+    assert block["state_pairing"]["ambiguous_keys"] == \
+        sorted(GRAINS["county_states_ambiguous"])
+    for county, states in GRAINS["county_states_ambiguous"].items():
+        assert block["key_states"][county] == sorted(states)
+        assert block["key_state"][county] is None
+
+
+def test_the_live_generation_depth_is_one():
+    gens = GRAINS["generations"]
+    g = ic.generations_block(
+        [{"snapshot_date": D(*[int(p) for p in e["snapshot_date"].split("-")]),
+          "status": s, "row_count": v[0], "mw": v[1]}
+         for e in gens for s, v in e["by_status"].items()],
+        source_table="caiso_interconnection_queue_snapshots")
+    assert g["depth"] == len(gens) == 1
+    assert g["entries"][0]["rows"] == GRAINS["totals"]["rows"]
+    assert g["entries"][0]["mw_total"] == round(GRAINS["totals"]["mw"], 1)
+
+
+# ── The route ───────────────────────────────────────────────────────────────
+
+def test_rollups_serves_the_pinned_contract(client):
+    body = client.get("/api/interconnection/rollups").json()
+    for key in ("snapshot_date", "data_note", "rollup_note",
+                "generated_from_rows", "snapshot", "by_county", "by_state",
+                "by_process", "generations", "cache"):
+        assert key in body, key
+    for block in ("by_county", "by_state", "by_process"):
+        for key in ("grain", "key_count", "missing_key", "active_statuses",
+                    "keys_with_zero_active", "keys", "all_statuses", "active"):
+            assert key in body[block], (block, key)
+    for key in ("key_states", "key_state", "state_pairing"):
+        assert key in body["by_county"], key
+    assert body["by_county"]["grain"] == "county"
+    assert body["by_state"]["grain"] == "state"
+    assert body["by_process"]["grain"] == "study_process"
+    assert body["generations"]["depth"] == 1
+
+
+def test_the_rollup_snapshot_chip_is_the_same_block_summary_serves(client):
+    """No module can drift from its neighbour: the two surfaces share one
+    helper, one table and one read shape, so their chips must agree."""
+    roll = client.get("/api/interconnection/rollups").json()
+    summ = client.get("/api/interconnection/summary").json()
+    assert roll["snapshot"] == summ["snapshot"]
+    assert roll["snapshot_date"] == summ["snapshot_date"] == "2026-08-07"
+    assert roll["data_note"] == summ["data_note"]
+
+
+def test_the_rollups_read_never_pulls_the_fat_columns(client):
+    client.get("/api/interconnection/rollups")
+    reads = [s for s, _ in client.pool.executed
+             if "FROM caiso_interconnection_queue\n" in s
+             and "max(snapshot_date)" not in s]
+    assert reads
+    select_list = reads[0].split("FROM")[0]
+    selected = {t.strip(" ,\n") for t in select_list.replace("SELECT", "").split()}
+    assert "raw" not in selected
+    assert "withdrawal_comment" not in selected
+    assert "generation_type" not in selected      # the rollups parse no fuel
+    assert "SELECT *" not in reads[0]
+
+
+def test_the_generations_read_is_reduced_in_the_database(client):
+    """depth x statuses over the wire, not depth x 2,278 rows. The aggregate is
+    what keeps this cheap as the bank deepens."""
+    client.get("/api/interconnection/rollups")
+    gen_sql = [s for s, _ in client.pool.executed
+               if "caiso_interconnection_queue_snapshots" in s]
+    assert len(gen_sql) == 1
+    assert "GROUP BY snapshot_date, status" in gen_sql[0]
+    assert "count(*)" in gen_sql[0] and "sum(capacity_mw)" in gen_sql[0]
+
+
+def test_the_snapshots_table_is_read_by_nothing_but_generations(client):
+    """The live table stays the source of truth for the current generation; the
+    snapshots table is the trend read and nothing else."""
+    for path in ("/api/interconnection/summary", "/api/interconnection/projects",
+                 "/api/interconnection/events"):
+        client.get(path)
+    assert not any("caiso_interconnection_queue_snapshots" in s
+                   for s, _ in client.pool.executed)
+
+
+# ── The v0 contract is byte-stable ──────────────────────────────────────────
+
+def test_v0_top_level_keys_are_unchanged_by_this_commit(client):
+    """EVERY PRE-EXISTING KEY IS LOAD-BEARING. These are the exact top-level key
+    sets v0 shipped; nothing here was renamed, reshaped or removed."""
+    summary = client.get("/api/interconnection/summary").json()
+    assert set(summary) == {
+        "snapshot_date", "data_note", "generated_from_rows", "snapshot",
+        "by_fuel", "by_queue_year", "by_proposed_cod_year", "by_county",
+        "by_transmission_owner", "attrition", "unmapped_types", "cache"}
+
+    projects = client.get("/api/interconnection/projects").json()
+    assert set(projects) == {
+        "snapshot_date", "data_note", "sort", "order", "filters", "page",
+        "unmapped_types", "rows", "cache"}
+
+    events = client.get("/api/interconnection/events").json()
+    assert set(events) == {"count", "limit", "event_types", "rows", "note", "cache"}
+
+
+def test_summary_by_county_keeps_its_v0_top_n_shape(client):
+    """The full-cardinality rollup lives on /rollups PRECISELY so this one does
+    not move. /summary's by_county is still the top-25 + named remainder the
+    dashboard captured."""
+    by_county = client.get("/api/interconnection/summary").json()["by_county"]
+    assert set(by_county) == {"top", "other", "group_count", "top_n"}
+    assert by_county["top_n"] == ic.COUNTY_TOP_N == 25
+    assert set(by_county["other"]) == {"count", "mw", "group_count"}
+    assert set(by_county["top"][0]) == {"county", "state", "count", "mw"}
+
+
+def test_the_extracted_snapshot_helper_did_not_move_summary(client):
+    """`_snapshot_block` was lifted out of summary_payload for reuse. Same keys,
+    same values, same order — an extraction, not a change."""
+    snapshot = client.get("/api/interconnection/summary").json()["snapshot"]
+    assert list(snapshot) == ["snapshot_date", "project_count", "total_mw",
+                              "statuses"]
+    assert snapshot == {
+        "snapshot_date": "2026-08-07",
+        "project_count": 3,
+        "total_mw": 600.0,
+        "statuses": [
+            {"status": "COMPLETED", "count": 1, "mw": 300.0},
+            {"status": "WITHDRAWN", "count": 1, "mw": 200.0},
+            {"status": "ACTIVE", "count": 1, "mw": 100.0},
+        ],
+    }
