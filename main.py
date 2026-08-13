@@ -75,6 +75,7 @@ Endpoints:
     GET /api/interconnection/summary       Interconnection Queue v0: every aggregate in ONE call — snapshot chip, by_fuel (rollup; active + all_statuses), by_queue_year (the 27-year vintage chart), by_proposed_cod_year (nulls counted as `undated`, never zero-dated), by_county (top 25 + named `other` remainder), by_transmission_owner, attrition per vintage (withdrawn = withdrawn_date IS NOT NULL, with the 39 status-WITHDRAWN-without-date rows reported beside it); the fuel rollup is a PARSE, so unmapped raw strings ride the response in `unmapped_types` + `Other.raw_types` (2026-08-12)
     GET /api/interconnection/projects      Interconnection Queue v0: the faceted table, paged (page_size <= 100) — status/fuel/county/to/min_mw/max_mw/queue_year/q filters, every filter a bound parameter and `sort`/`order` whitelisted KEYS into code-side SQL fragments (hostile sort -> 400); rows carry raw generation_type AND rollup fuel, plus first_seen_at and the withdrawn fields (2026-08-12)
     GET /api/interconnection/events        Interconnection Queue v0: tape_interconnection_events newest-first — the lineage the upsert-in-place queue table cannot give. Populated (8 status_change rows, 2026-06-12..07-31); an empty ledger is an honest 200 with rows:[] and a note, never a reconstruction (2026-08-12)
+    GET /api/interconnection/rollups       Interconnection Queue v0.1: FULL-cardinality rollups — every key at county (101 = 100 + `unlocated`), state (8) and study_process (23 = 22 + `unspecified`) grain, all-statuses AND active-only, no `other` bucket and no truncation; `active` carries every key `all_statuses` does, zeros included (58 counties have no ACTIVE rows). county->state is MEASURED and NOT clean (LINCOLN/MARICOPA/SAN BENITO span states), so `key_states` lists them and `key_state` is null rather than picking one. `generations` reads caiso_interconnection_queue_snapshots grouped by snapshot_date — `depth: 1` today, stated as a point rather than drawn as a trend (2026-08-13)
     GET /api/lab/paper-desk                Lab Paper Desk v0: the whole desk in ONE payload off ONE read — blotter (+ rationale, inputs_as_of, paper_bid_curves count) / equity by settled_at / by_node / by_play / book; status is settled|pending|VOID and voids ride the blotter, excluded from every aggregate and counted in book (2026-08-06)
 """
 
@@ -16804,6 +16805,7 @@ _ic_log = logging.getLogger("energylake.interconnection")
 _IC_SUMMARY_TTL = 900.0
 _IC_PROJECTS_TTL = 300.0
 _IC_EVENTS_TTL = 300.0
+_IC_ROLLUPS_TTL = 900.0
 
 _IC_EVENTS_DEFAULT_LIMIT = 50
 _IC_EVENTS_MAX_LIMIT = 500
@@ -16900,6 +16902,46 @@ _IC_EVENTS_SQL = """
     LIMIT %(limit)s
 """
 
+# ── The rollups read (v0.1, 2026-08-13) ─────────────────────────────────────
+# Four columns and a capacity. The full-cardinality grains need county, state
+# and study_process and nothing else, so this is a narrower read than the
+# summary's — no generation_type (the rollups do not parse fuel), no dates.
+_IC_ROLLUPS_SQL = """
+    SELECT county, state, study_process, status,
+           capacity_mw::float8 AS capacity_mw
+    FROM caiso_interconnection_queue
+    WHERE present_in_snapshot
+"""
+
+# The generations read — the ONLY statement in this lane that touches
+# caiso_interconnection_queue_snapshots (migration 178, applied; PK
+# (snapshot_date, queue_position)).
+#
+# REDUCED IN THE DATABASE, ON PURPOSE. Fetching every snapshot row and grouping
+# in Python would cost depth x 2,278 rows over the wire; this returns
+# depth x statuses (3 rows today) and stays that size as the bank deepens.
+#
+# MEASURED PLAN, not assumed (EXPLAIN ANALYZE, 2026-08-13): Seq Scan -> HashAgg
+# -> Sort, 428 shared blocks, 1.407 ms execution / 0.761 ms planning. The PK
+# leads on snapshot_date but the planner does NOT use it and is right not to:
+# the aggregate has to touch every row of every generation, and capacity_mw is
+# not in the index so an index scan would add a heap fetch per row on top of the
+# same work. Cost grows linearly with depth (~2,278 rows / ~428 blocks per
+# generation); a year of weekly snapshots is ~118k rows, still a low-tens-of-ms
+# aggregate. If it ever stops being cheap the lever is a covering index on
+# (snapshot_date, status, capacity_mw) — a migration, and therefore not this
+# lane's to make.
+_IC_GENERATIONS_SQL = """
+    SELECT snapshot_date, status,
+           count(*) AS row_count,
+           sum(capacity_mw)::float8 AS mw
+    FROM caiso_interconnection_queue_snapshots
+    GROUP BY snapshot_date, status
+    ORDER BY snapshot_date, status
+"""
+
+_IC_SNAPSHOTS_TABLE = "caiso_interconnection_queue_snapshots"
+
 
 async def _ic_read(sql: str, params: dict) -> list:
     """One read against the shared pool, retrying once on a stale connection.
@@ -16926,8 +16968,10 @@ async def _ic_read(sql: str, params: dict) -> list:
 _ic_summary_cache = _DDCache("interconnection/summary", _IC_SUMMARY_TTL, max_entries=2)
 _ic_projects_cache = _DDCache("interconnection/projects", _IC_PROJECTS_TTL, max_entries=64)
 _ic_events_cache = _DDCache("interconnection/events", _IC_EVENTS_TTL, max_entries=8)
+_ic_rollups_cache = _DDCache("interconnection/rollups", _IC_ROLLUPS_TTL, max_entries=2)
 
-_IC_CACHES = (_ic_summary_cache, _ic_projects_cache, _ic_events_cache)
+_IC_CACHES = (_ic_summary_cache, _ic_projects_cache, _ic_events_cache,
+              _ic_rollups_cache)
 
 
 async def _ic_snapshot_chip() -> dict:
@@ -17264,3 +17308,87 @@ async def interconnection_events(
 
     payload, state, entry = await _ic_events_cache.serve(limit, _build)
     return _dd_envelope(payload, state, entry, _ic_events_cache, response)
+
+
+@app.get(f"{IC_PREFIX}/rollups")
+async def interconnection_rollups(response: Response):
+    """FULL-CARDINALITY rollups — every key at every grain — plus generations.
+
+        { snapshot_date, data_note, rollup_note, generated_from_rows,
+          snapshot:    { snapshot_date, project_count, total_mw,
+                         statuses: [{status, count, mw}] },
+          by_county:   { grain, key_count, missing_key, active_statuses,
+                         keys_with_zero_active, keys: [...],
+                         all_statuses: {county -> {count, mw}},
+                         active:       {county -> {count, mw}},
+                         key_states:   {county -> [state, ...]},
+                         key_state:    {county -> state | null},
+                         state_pairing:{clean, ambiguous_keys, note} },
+          by_state:    { grain ... active }   # same block, state grain
+          by_process:  { grain ... active }   # same block, study_process grain
+          generations: { source_table, depth, snapshot_dates, note,
+                         entries: [{snapshot_date, rows, mw_total,
+                                    by_status: {status -> {count, mw}}}] },
+          cache: {...} }
+
+    WHY THIS IS A NEW ENDPOINT AND NOT NEW KEYS ON /summary. /summary already
+    serves `by_county`, and it serves a TOP-25 with an aggregated remainder:
+    `{top, other, group_count, top_n}`. The dashboard has captured that shape.
+    A full 101-key rollup under the same key name would be a reshape of a
+    load-bearing key, not an addition — so it lives here, under its own name, on
+    its own surface. /summary, /projects and /events are byte-identical to what
+    they served before this commit.
+
+    NOTHING IS FOLDED AND NOTHING IS TRUNCATED. 101 county keys (100 named +
+    `unlocated`), 8 state keys (7 + `unlocated`), 23 process keys (22 +
+    `unspecified`) on the 2026-08-13 read. There is no "other" bucket at any
+    grain; `key_count` states the cardinality so a client can check.
+
+    DIMMED AT ZERO, NOT MISSING AT ZERO. `active` carries EVERY key
+    `all_statuses` carries, in the same order — 58 of the 101 counties have zero
+    ACTIVE rows and appear as {"count": 0, "mw": 0.0}. A vanished key would read
+    as "no such county"; a zeroed key reads as "nothing live here", which is the
+    true statement. `keys_with_zero_active` counts them.
+
+    STATE PAIRING IS MEASURED, NOT ASSUMED, AND NOT CLEAN. 100 named counties
+    produce 106 (county, state) pairs: LINCOLN appears under ID/NM/NV, MARICOPA
+    under AZ/CA, SAN BENITO under CA/NV, and the `unlocated` rows split 1 CA / 4
+    stateless. County names are not unique across the seven states this queue
+    spans. So no county is given a single invented state: `key_states` always
+    lists every state observed, `key_state` is populated only where there is
+    exactly one, and `state_pairing.note` says which keys are ambiguous and why.
+
+    NO GEOGRAPHY IS INVENTED. County and state are the strings AS BANKED —
+    `KINGS/KERN` and `USA` are real county values in this table and ride out
+    unchanged. No coordinates exist in the bank; nothing here geocodes,
+    normalizes, or infers a location. Same for the 22 raw `study_process`
+    strings: the cluster cut is CAISO's vocabulary, not ours.
+
+    GENERATIONS IS THE HONEST TREND READ. It is the only block sourced from
+    `caiso_interconnection_queue_snapshots`, reduced in the database by
+    GROUP BY (snapshot_date, status). `depth` is 1 today — ONE generation
+    (2026-08-07, 2,278 rows, 492,196.8 MW) — and depth is a first-class field so
+    the page can state that instead of drawing a flat line through a single
+    point. Nothing interpolates, back-fills, or borrows a second point from the
+    upsert-in-place queue table.
+
+    Two reads of the live table's grain columns plus one aggregate over the
+    snapshots table, all facets derived in process so they cannot disagree;
+    cached 15 minutes against a bank that moves weekly. DB unavailable -> 503.
+    """
+    assert _pool is not None
+
+    async def _build():
+        chip = await _ic_snapshot_chip()
+        rows = await _ic_read(_IC_ROLLUPS_SQL, {})
+        gen_rows = await _ic_read(_IC_GENERATIONS_SQL, {})
+        return _ic.rollups_payload(
+            rows,
+            generation_rows=gen_rows,
+            generations_source=_IC_SNAPSHOTS_TABLE,
+            snapshot_date=chip.get("snapshot_date"),
+            data_note=_ic_data_note(chip),
+        )
+
+    payload, state, entry = await _ic_rollups_cache.serve("rollups", _build)
+    return _dd_envelope(payload, state, entry, _ic_rollups_cache, response)
