@@ -762,10 +762,24 @@ def test_vom_adder_is_optional_and_defaults_to_zero():
 
 
 def test_6x16_is_not_on_the_menu():
-    """The NERC on-peak block needs a holiday calendar, and this codebase holds
-    two that disagree (observed vs actual dates). Shipping it would ship a block
-    that silently disagrees with the pantry's own caiso_blocks_daily column."""
+    """6x16 is out of THIS menu's scope, and no longer for the old reason.
+
+    The original justification — that main.py's calendar applied federal
+    observance and so disagreed with the pantry's — is dead: main.py now derives
+    the NERC rule (Saturday not moved) and tests/test_nerc_calendar.py pins it
+    against all 66 rows of the pantry's own market_calendar. 6x16 is served by
+    block_pricing.py on exactly that calendar.
+
+    What keeps it off THIS menu is the contract asserted in structures.py: these
+    three hour sets are holiday-calendar-INDEPENDENT, which is what makes the
+    partition identity 7x16 x h16 + 7x8 x h8 == 7x24 x h24 hold unconditionally.
+    A day-filtered block would break it.
+    """
     assert "6x16" not in S.BLOCKS
+    # The scope boundary is real, not a workaround: 6x16 IS available, in the
+    # lane that owns a holiday calendar.
+    import block_pricing
+    assert "6x16" in block_pricing.BLOCK_IDS
     with pytest.raises(S.StructureError) as exc:
         S.normalize_definition({"structure": "asian_call", "strike": 26.0,
                                 "block": "6x16",
