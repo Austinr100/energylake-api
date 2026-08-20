@@ -73,14 +73,31 @@ class StructureError(ValueError):
 # SP15: 9.335716875, 14.5328445833333, ...). The reconciliation is what pins
 # these hour sets as the house block grammar.
 #
-# 6x16 IS DELIBERATELY ABSENT from the v0 menu. The NERC on-peak block needs a
-# holiday calendar, and the two calendars in this codebase disagree: main.py's
-# locked _NERC_HOLIDAYS uses OBSERVED dates (2026-07-03) while the pantry's
-# caiso_blocks_daily 6x16 lane uses ACTUAL dates (it publishes a 6x16 for Fri
-# 2026-07-03 and withholds one for Sat 2026-07-04). Shipping 6x16 would mean
-# shipping a block that silently disagrees with the pantry's own column. The
-# three blocks below are holiday-calendar-independent, so they cannot. The
-# divergence is filed as a data-roadmap item, not papered over here.
+# 6x16 IS ABSENT from THIS menu, and the reason has CHANGED — read on before
+# reusing the old one.
+#
+# THE ORIGINAL REASON IS NOW FALSE, and is recorded here rather than deleted
+# because it was cited as a data-roadmap item. It said the two calendars in this
+# codebase disagreed: that main.py's `_NERC_HOLIDAYS` applied FEDERAL observance
+# (rolling Sat 2026-07-04 back to Fri 2026-07-03) while the pantry's
+# caiso_blocks_daily 6x16 lane used the NERC rule. Only the first half was ever
+# a real defect, and it has been fixed: main.py now derives the calendar from
+# the NERC rule — a fixed-date holiday on a SUNDAY is observed the following
+# MONDAY, one on a SATURDAY is NOT MOVED — so Sat 2026-07-04 is the holiday and
+# Fri 2026-07-03 is an ordinary on-peak day. main.nerc_holidays /
+# main.is_nerc_holiday are the rule, `_NERC_HOLIDAYS` is its materialization,
+# and tests/test_nerc_calendar.py pins it against all 66 rows of the pantry's
+# own `market_calendar` (region='CAISO', 2020-2030). There is ONE calendar in
+# this codebase now, and it agrees with the pantry's.
+#
+# WHAT REPLACED IT. The 2026-08-18 writer work (block_pricing.py) serves 6x16 on
+# exactly that calendar, reconciled against caiso_blocks_daily over its full
+# depth back to 2016-01-01 — so 6x16 is not withheld anywhere any more; it lives
+# in block_pricing.BLOCK_IDS, which is where a caller should now reach for it.
+# This menu keeps the three holiday-calendar-INDEPENDENT hour sets below because
+# that independence is its own contract: the partition identity asserted a few
+# lines down (7x16 x h16 + 7x8 x h8 == 7x24 x h24) holds without any calendar at
+# all, and 6x16 would break it. That is a scope boundary, not a disagreement.
 
 _HOURS_7x16 = tuple(range(6, 22))                       # HE7..HE22
 _HOURS_7x8 = tuple(list(range(0, 6)) + [22, 23])        # HE1..HE6 + HE23..HE24
