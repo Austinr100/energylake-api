@@ -77,6 +77,9 @@ Endpoints:
     GET /api/interconnection/events        Interconnection Queue v0: tape_interconnection_events newest-first — the lineage the upsert-in-place queue table cannot give. Populated (8 status_change rows, 2026-06-12..07-31); an empty ledger is an honest 200 with rows:[] and a note, never a reconstruction (2026-08-12)
     GET /api/interconnection/rollups       Interconnection Queue v0.1: FULL-cardinality rollups — every key at county (101 = 100 + `unlocated`), state (8) and study_process (23 = 22 + `unspecified`) grain, all-statuses AND active-only, no `other` bucket and no truncation; `active` carries every key `all_statuses` does, zeros included (58 counties have no ACTIVE rows). county->state is MEASURED and NOT clean (LINCOLN/MARICOPA/SAN BENITO span states), so `key_states` lists them and `key_state` is null rather than picking one. `generations` reads caiso_interconnection_queue_snapshots grouped by snapshot_date — `depth: 1` today, stated as a point rather than drawn as a trend (2026-08-13)
     GET /api/lab/paper-desk                Lab Paper Desk v0: the whole desk in ONE payload off ONE read — blotter (+ rationale, inputs_as_of, paper_bid_curves count) / equity by settled_at / by_node / by_play / book; status is settled|pending|VOID and voids ride the blotter, excluded from every aggregate and counted in book (2026-08-06)
+    GET /api/node-stats/screener           Node Screener v0: migration 182's node_stats_block at the LATEST as_of for that (window_days, market) — coverage (hours_expected/hours_present) on EVERY row, the p05..p99 ladder passed through with its NULLS INTACT and pctl_ceiling beside them (the writer's refusal is the product; nothing is computed, filled or defaulted), plus mean/sigma/min/max RECOMBINED from node_stats_hourly's sufficient statistics in numeric — never a mean of per-HE means. ON_PEAK/OFF_PEAK are NERC 6x16 and its complement, day-selected, so their moments are withheld with the reason while their percentiles are served in full. `sort` is a whitelisted KEY into a code-side fragment (hostile sort -> 400) over BANKED statistics only; nulls always last. as_of AND computed_at both on the wire, and the 2026-08-13..16 pre-repair span labels itself (2026-08-20)
+    GET /api/node-stats/node/{pnode_id}    Node Screener v0: the stance ladder — one block at window_days 3/7/14/30 x DAM/RTPD, EACH AT ITS OWN latest as_of (the writer advances them independently, so one global as_of would cross-date the cells), plus the HE1-24 rail from node_stats_hourly carrying all five measures with their moments AND the raw n/sum/sum2 they came from, so a client can pool a custom hour set and check the arithmetic. Structural nulls (dart on DAM, basis/congestion/loss on RTPD) are named per market as schema, not gaps (2026-08-20)
+    GET /api/node-stats/breadth            Node Screener v0: zone_breadth_daily, the latest N days PER (zone_key, market) — ranked within each zone rather than against a shared date floor, so a zone that stopped reporting shows its own last N days; counts pass through as banked with nodes_priced/nodes_in_zone coverage beside them (2026-08-20)
 """
 
 import asyncio
@@ -17392,3 +17395,729 @@ async def interconnection_rollups(response: Response):
 
     payload, state, entry = await _ic_rollups_cache.serve("rollups", _build)
     return _dd_envelope(payload, state, entry, _ic_rollups_cache, response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NODE SCREENER v0 — the read layer over migration 182's bank
+# (D-08-20; recon receipts inline below)
+#
+# THREE TABLES, ONE CONTRACT.
+#   node_stats_block   per (pnode_id, block_key, window_days, market, as_of):
+#                      coverage, n, the percentile ladder, and the ceiling the
+#                      writer was willing to publish to. NO sums.
+#   node_stats_hourly  per (pnode_id, he, window_days, market, as_of): the
+#                      SUFFICIENT STATISTICS (n, Σx, Σx², min, max) for lmp,
+#                      dart, basis, congestion and loss. This is the only place
+#                      a mean or a sigma can honestly come from.
+#   zone_breadth_daily per (zone_key, zone_family, trade_date, market): the
+#                      advance/decline tape.
+#
+# WHY THERE ARE TWO READS ON THE SCREENER AND NOT ONE. The block table banks no
+# sums, so mean/sigma/min/max must be recombined from the hourly rail. Folding
+# that in as a LATERAL would make the planner free to evaluate it across the
+# whole ~19k-row market slice BEFORE the ORDER BY ... LIMIT cuts it to a page.
+# Selecting the page first and recombining only its pnode_ids keeps the second
+# read provably bounded at (page size x 24) rows off the hourly primary key.
+# Measured on the live bank, warm: page read 80 ms, recombination 30 ms.
+#
+# WHAT THIS LANE WILL NOT DO — all three enforced in node_stats.py and restated
+# here because this is where a future edit would break them:
+#   * It will not compute, fill, interpolate or default a NULL percentile. The
+#     null IS the writer's refusal at the banked depth, and `pctl_ceiling` rides
+#     every row so the client can render the refusal instead of a blank.
+#   * It will not average per-HE means. Every derived moment is pooled from
+#     Σn/Σx/Σx² in `numeric` (float64 cancels catastrophically on Σx² −
+#     (Σx)²/n at CAISO price magnitudes), and ON_PEAK/OFF_PEAK — which select by
+#     DAY, not by hour — get no derived moments at all rather than a plausible
+#     wrong one.
+#   * It will not mask a vintage. `as_of` and `computed_at` both ride every
+#     response because they are different clocks, and the 2026-08-13..16
+#     pre-repair span labels itself on the wire.
+#
+# READ-ONLY BY CONSTRUCTION: three SELECTs and nothing else. No DDL, no writes.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import node_stats as _ns
+
+NS_PREFIX = "/api/node-stats"
+
+# The percentile columns, spelled once. Code-side constant -> safe to format.
+_NS_PCTL_COLS = ", ".join(
+    f"b.{p}_{m}" for m in ("lmp", "dart") for p in _ns.NS_PERCENTILES
+)
+
+# ── The as_of resolver ───────────────────────────────────────────────────────
+# LATEST as_of is resolved PER (window_days, market) and never once globally:
+# the writer advances the two markets and the six windows independently, so a
+# single global max would silently serve one slice's rows against another
+# slice's date. Index-only backward scan on idx_node_stats_block_asof
+# (as_of, window_days, market, block_key) — measured 12 ms cold, 4 ms warm.
+_NS_LATEST_AS_OF_SQL = """
+    SELECT b.as_of
+    FROM node_stats_block b
+    WHERE b.window_days = %(window_days)s
+      AND b.market = %(market)s
+    ORDER BY b.as_of DESC
+    LIMIT 1
+"""
+
+# ── The screener page ────────────────────────────────────────────────────────
+# `{order_by}` is substituted from _ns.order_by_sql(), which indexes two
+# code-side whitelists and KeyErrors on anything else — no request string can
+# reach the SQL text (the same discipline /api/interconnection/projects uses).
+# `count(*) OVER ()` gives the client a real total to page against; it costs one
+# WindowAgg over a slice the query already had to materialize.
+# The prefix filter is a genuine LIKE 'ABC%' with metacharacters escaped, so a
+# user string matches literally.
+_NS_SCREENER_SQL = """
+    SELECT b.pnode_id,
+           b.hours_expected, b.hours_present,
+           b.n_lmp, b.pctl_ceiling_lmp,
+           b.n_dart, b.pctl_ceiling_dart,
+           {pctl_cols},
+           b.first_banked, b.last_banked, b.computed_at,
+           count(*) OVER () AS total_matched
+    FROM node_stats_block b
+    WHERE b.as_of = %(as_of)s
+      AND b.window_days = %(window_days)s
+      AND b.market = %(market)s
+      AND b.block_key = %(block_key)s
+      AND (%(prefix)s::text IS NULL OR b.pnode_id LIKE %(prefix)s::text ESCAPE '\\')
+    ORDER BY {order_by}
+    LIMIT %(limit)s OFFSET %(offset)s
+"""
+
+
+def _ns_pooled_exprs(measure: str, *, agg: bool, alias: str = "") -> str:
+    """The recombination expressions for one measure, as SQL text.
+
+    RULE 2 OF THE LANE, WRITTEN ONCE. `agg=True` pools ACROSS the HE rows of a
+    block (the screener and the ladder); `agg=False` reads a single HE row as it
+    stands (the rail). Both compute the same thing from the same statistics:
+
+        mean  = Σx / Σn
+        sigma = sqrt( (Σx² − (Σx)²/Σn) / (Σn − 1) )
+
+    which is the pooled sample moment over every observation in the block — NOT
+    the mean of the per-HE means, which would weight a 6-observation hour the
+    same as a 7-observation one.
+
+    Three details that are load-bearing:
+      * All of it stays in `numeric`. Σx² for CAISO prices is large enough that
+        float64 loses the whole variance to cancellation on Σx² − (Σx)²/n.
+      * GREATEST(..., 0) clamps the one case where that difference can still go
+        very slightly negative from the writer's own rounding of Σx². It is a
+        floor at exactly zero, never a fudge upward.
+      * sigma is NULL at n<2, where a sample sigma is undefined. It is not 0.0 —
+        a single observation has no spread, and saying "0" would claim it does.
+
+    `measure` is indexed out of a code-side dict by the caller, never a request
+    string. `alias` prefixes the OUTPUT column names: the ladder selects these
+    beside a node_stats_block row that already has its own `n_lmp`/`n_dart`, and
+    an unprefixed alias would collide. dict_row keeps the LAST column of a
+    duplicated name, so the collision would silently overwrite the BANKED count
+    with the recombined one — and on a day-filtered block, where the recombining
+    LATERAL yields NULL, it would blank a populated banked field outright. The
+    prefix is what stops that.
+    """
+    n = f"sum(h.n_{measure})" if agg else f"h.n_{measure}"
+    s = f"sum(h.sum_{measure})" if agg else f"h.sum_{measure}"
+    s2 = f"sum(h.sum_{measure}2)" if agg else f"h.sum_{measure}2"
+    mn = f"min(h.min_{measure})" if agg else f"h.min_{measure}"
+    mx = f"max(h.max_{measure})" if agg else f"h.max_{measure}"
+    return f"""
+           {n} AS {alias}n_{measure},
+           {s} AS {alias}sum_{measure},
+           {s2} AS {alias}sum_{measure}2,
+           CASE WHEN {n} > 0
+                THEN {s} / {n} END AS {alias}mean_{measure},
+           CASE WHEN {n} > 1
+                THEN sqrt(GREATEST(
+                         ({s2} - ({s} * {s}) / {n}) / ({n} - 1), 0)) END
+                AS {alias}sigma_{measure},
+           {mn} AS {alias}min_{measure},
+           {mx} AS {alias}max_{measure}"""
+
+
+def _ns_derived_sql(measures: tuple[str, ...]) -> str:
+    """Pool the hourly rail over one block's HE set for a list of pnode_ids.
+
+    Index Scan on node_stats_hourly_pkey (pnode_id, he, window_days, market,
+    as_of) — bounded at (page size x |HE set|) rows by construction. Measured at
+    limit=100, ALL24, RTPD: 2,400 rows, 30 ms warm.
+    """
+    cols = ",".join(_ns_pooled_exprs(m, agg=True) for m in measures)
+    return f"""
+    SELECT h.pnode_id,{cols}
+    FROM node_stats_hourly h
+    WHERE h.as_of = %(as_of)s
+      AND h.window_days = %(window_days)s
+      AND h.market = %(market)s
+      AND h.he = ANY(%(hours)s::smallint[])
+      AND h.pnode_id = ANY(%(pnodes)s::text[])
+    GROUP BY h.pnode_id
+"""
+
+
+# ── The stance ladder ────────────────────────────────────────────────────────
+# One node, one block, the four short windows x both markets, EACH AT ITS OWN
+# LATEST as_of. The grid is built from arrays rather than a formatted VALUES
+# list so the windows and markets stay bound parameters, and `latest` resolves
+# per cell through a LATERAL — eight index-only backward scans, not one global
+# max that would cross-date the cells.
+#
+# The recombination rides along as a second LATERAL here (unlike on the
+# screener) because the outer read is exactly eight rows: there is no page for
+# the planner to over-evaluate. When the block is day-filtered the caller passes
+# an empty HE array, the aggregate comes back all-NULL, and node_stats.py
+# returns the day-filter refusal — the same answer by a cheaper route.
+_NS_DERIVED_ALIAS = "d_"
+
+
+def _ns_ladder_sql(measures: tuple[str, ...]) -> str:
+    cols = ",".join(
+        _ns_pooled_exprs(m, agg=True, alias=_NS_DERIVED_ALIAS) for m in measures)
+    return f"""
+    WITH grid AS (
+        SELECT w AS window_days, m AS market
+        FROM unnest(%(windows)s::smallint[]) AS w
+        CROSS JOIN unnest(%(markets)s::text[]) AS m
+    ),
+    latest AS (
+        SELECT g.window_days, g.market, l.as_of
+        FROM grid g
+        CROSS JOIN LATERAL (
+            SELECT b.as_of
+            FROM node_stats_block b
+            WHERE b.window_days = g.window_days
+              AND b.market = g.market
+            ORDER BY b.as_of DESC
+            LIMIT 1
+        ) l
+    )
+    SELECT b.window_days, b.market, b.as_of, b.computed_at,
+           b.pnode_id, b.hours_expected, b.hours_present,
+           b.n_lmp, b.pctl_ceiling_lmp,
+           b.n_dart, b.pctl_ceiling_dart,
+           {_NS_PCTL_COLS},
+           b.first_banked, b.last_banked,
+           d.*
+    FROM latest l
+    JOIN node_stats_block b
+      ON b.window_days = l.window_days
+     AND b.market = l.market
+     AND b.as_of = l.as_of
+     AND b.pnode_id = %(pnode_id)s
+     AND b.block_key = %(block_key)s
+    LEFT JOIN LATERAL (
+        SELECT {cols}
+        FROM node_stats_hourly h
+        WHERE h.pnode_id = b.pnode_id
+          AND h.as_of = b.as_of
+          AND h.window_days = b.window_days
+          AND h.market = b.market
+          AND h.he = ANY(%(hours)s::smallint[])
+    ) d ON TRUE
+    ORDER BY b.window_days, b.market
+"""
+
+
+# ── The HE rail ──────────────────────────────────────────────────────────────
+# All 24 hour-endings for one node, both markets, at each market's own latest
+# as_of. No pooling here: each row IS one HE's sufficient statistics, so the
+# moments are computed in place and the raw Σx/Σx² ride along so a client can
+# pool its own custom hour set and check our arithmetic against the same
+# numbers. All five measures are selected; structural nulls fall out of the
+# bank itself and node_stats.py names them per market.
+def _ns_rail_sql(measures: tuple[str, ...]) -> str:
+    cols = ",".join(_ns_pooled_exprs(m, agg=False) for m in measures)
+    return f"""
+    WITH latest AS (
+        SELECT m AS market,
+               (SELECT b.as_of
+                  FROM node_stats_block b
+                 WHERE b.window_days = %(window_days)s
+                   AND b.market = m
+                 ORDER BY b.as_of DESC
+                 LIMIT 1) AS as_of
+        FROM unnest(%(markets)s::text[]) AS m
+    )
+    SELECT h.market, h.as_of, h.he,
+           h.hours_expected, h.hours_present, h.computed_at,{cols}
+    FROM latest l
+    JOIN node_stats_hourly h
+      ON h.market = l.market
+     AND h.as_of = l.as_of
+     AND h.window_days = %(window_days)s
+     AND h.pnode_id = %(pnode_id)s
+    ORDER BY h.market, h.he
+"""
+
+
+# ── Zone breadth ─────────────────────────────────────────────────────────────
+# Latest N days PER (zone_key, market). row_number() rather than a shared date
+# floor because a zone that stopped reporting must show its own last N days
+# rather than an empty window borrowed from a healthier zone's calendar.
+_NS_BREADTH_SQL = """
+    WITH ranked AS (
+        SELECT z.zone_key, z.zone_family, z.market, z.trade_date,
+               z.nodes_in_zone, z.nodes_priced, z.nodes_up, z.nodes_down,
+               z.net_breadth, z.computed_at,
+               row_number() OVER (PARTITION BY z.zone_key, z.market
+                                  ORDER BY z.trade_date DESC) AS rn
+        FROM zone_breadth_daily z
+        WHERE (%(market)s::text IS NULL OR z.market = %(market)s::text)
+          AND (%(zone_keys)s::text[] IS NULL
+               OR z.zone_key = ANY(%(zone_keys)s::text[]))
+    )
+    SELECT * FROM ranked
+    WHERE rn <= %(days)s
+    ORDER BY zone_key, market, trade_date DESC
+"""
+
+
+async def _ns_read(sql: str, params: dict) -> list:
+    """One pooled read with the shared retry-once-on-dead-connection behaviour.
+    Delegates to the Cockpit reader so there is ONE such helper in this file."""
+    return await _cockpit_read(sql, params)
+
+
+def _ns_400(message: str | None) -> None:
+    """Turn a node_stats validator's message into the 400 it describes."""
+    if message:
+        raise HTTPException(status_code=400, detail=message)
+
+
+async def _ns_latest_as_of(window_days: int, market: str):
+    rows = await _ns_read(
+        _NS_LATEST_AS_OF_SQL, {"window_days": window_days, "market": market})
+    return rows[0]["as_of"] if rows else None
+
+
+def _ns_split_aggs(rows: list, measures: tuple[str, ...]) -> dict[str, dict]:
+    """{pnode_id: {measure: {n, mean, sigma, min, max}}} from one wide agg read.
+
+    The recombination query returns every measure on one row per node; this
+    fans it back out into the per-measure shape node_stats.derived_block reads.
+    A measure whose n came back NULL (structurally absent on this market) is
+    still emitted — derived_block is what decides how to say so, not this.
+    """
+    out: dict[str, dict] = {}
+    for r in rows:
+        out[r["pnode_id"]] = {
+            m: {
+                "n": r.get(f"n_{m}"),
+                "mean": r.get(f"mean_{m}"),
+                "sigma": r.get(f"sigma_{m}"),
+                "min": r.get(f"min_{m}"),
+                "max": r.get(f"max_{m}"),
+            }
+            for m in measures
+        }
+    return out
+
+
+def _ns_computed_at_span(rows: list) -> tuple:
+    """(min, max) of computed_at across the served rows, or (None, None).
+
+    Shipped beside as_of because they are different clocks — the newest window
+    is not necessarily the most recently stamped one, and a client that wants to
+    know whether a row predates a repair has only this field to look at.
+    """
+    stamps = [r["computed_at"] for r in rows if r.get("computed_at") is not None]
+    return (min(stamps), max(stamps)) if stamps else (None, None)
+
+
+@app.get(f"{NS_PREFIX}/screener")
+async def node_stats_screener(
+    market: str = Query(
+        default="DAM",
+        description=f"Market. One of {list(_ns.NS_MARKETS)}.",
+    ),
+    window_days: int = Query(
+        default=_ns.NS_DEFAULT_WINDOW,
+        description=f"Look-back window in days. One of {list(_ns.NS_WINDOWS)}.",
+    ),
+    block_key: str = Query(
+        default=_ns.NS_DEFAULT_BLOCK,
+        description=(
+            "Hour block. ALL24, ON_PEAK, OFF_PEAK, the five intraday blocks "
+            "(off_peak_overnight/morning_on_peak/midday_solar/evening_on_peak/"
+            "late_off_peak) or a single HE01..HE24. See `blocks` in the "
+            "response for each block's HE set."
+        ),
+    ),
+    sort: str = Query(
+        default=_ns.NS_DEFAULT_SORT,
+        description=(
+            "Sort key. Any BANKED statistic — a percentile (p05..p99, _lmp or "
+            "_dart), n_lmp, n_dart, hours_present, hours_expected, or "
+            "pnode_id. Nulls always sort last. Hostile values -> 400."
+        ),
+    ),
+    dir: str = Query(
+        default=_ns.NS_DEFAULT_DIR,
+        description="Sort direction: asc or desc.",
+    ),
+    limit: int = Query(
+        default=_ns.NS_LIMIT_DEFAULT,
+        description=f"Page size, 1..{_ns.NS_LIMIT_MAX}.",
+    ),
+    offset: int = Query(default=0, description="Page offset, 0-based."),
+    pnode: str = Query(
+        default="",
+        description=(
+            "Optional case-sensitive PREFIX filter on pnode_id. LIKE "
+            "metacharacters match literally. Empty browses the whole slice."
+        ),
+    ),
+):
+    """
+    The Node Screener — every node's distribution for one block, one window, one
+    market, at the LATEST as_of that (window, market) holds.
+
+    WHAT A ROW IS. Coverage first (`hours_expected`, `hours_present` and their
+    ratio, on every row without exception), then one stanza per measure:
+
+      lmp   n · pctl_ceiling · the p05/p25/p50/p75/p95/p99 ladder · derived
+      dart  the same, and `null` outright on DAM — see `structural_nulls`
+
+    THE NULLS ARE THE PRODUCT. The writer publishes a percentile only to the
+    depth the bank can support and records how far it went in `pctl_ceiling`.
+    A node with ceiling `p50` carries p05/p25/p50 and NULL p75/p95/p99, and
+    this API does not compute, interpolate, borrow or default them — the
+    refusal lives in the data and is passed through intact. `pctl_ceiling` is
+    on every row, populated or not, so the client renders the refusal rather
+    than an empty cell. Nulls sort LAST in both directions, so a refused node
+    is never re-ranked as though its null were a zero.
+
+    `derived` IS RECOMBINED, NOT AVERAGED. node_stats_block banks no sums, so
+    mean/sigma/min/max come from node_stats_hourly's sufficient statistics
+    pooled over the block's HE set — mean = Σx/Σn, sigma = √((Σx² − (Σx)²/Σn)
+    /(Σn−1)), all in `numeric`. It is NOT the mean of the 24 per-HE means.
+    `derived.method` states the arithmetic and `derived.he_set` states which
+    hours went into it. ON_PEAK and OFF_PEAK select by DAY (NERC 6x16 and its
+    complement) and the hourly rail keeps no day dimension, so they come back
+    `available: false` with the reason — their percentiles, coverage and
+    ceiling are served in full, only the moments are withheld.
+
+    VINTAGE. `vintage.as_of` is the window's end date and `vintage.computed_at`
+    is when the writer stamped the served rows; they are different clocks and
+    both ride the response. When the served as_of falls in a span with a known
+    open issue, `vintage.known_issue` says so on the wire. Nothing is masked.
+
+    Response:
+        {
+          "market": "DAM", "window_days": 7, "block_key": "ALL24",
+          "vintage": {"as_of": "2026-08-16", "computed_at": {...}},
+          "structural_nulls": {"market": "DAM", "measures": ["dart"], ...},
+          "sort": {...}, "paging": {"limit": 100, "offset": 0, "total": 9893},
+          "blocks": [...], "count": 100, "rows": [...]
+        }
+
+    Bad market/window/block/sort/dir/paging -> 400. A (window, market) the bank
+    has never stamped -> 200 with rows:[] and a null as_of. DB down -> 503.
+    """
+    assert _pool is not None
+
+    _ns_400(_ns.validate_market(market))
+    _ns_400(_ns.validate_window(window_days))
+    _ns_400(_ns.validate_block(block_key))
+    _ns_400(_ns.validate_sort(sort))
+    _ns_400(_ns.validate_dir(dir))
+    _ns_400(_ns.validate_paging(limit, offset))
+
+    prefix_raw = (pnode or "").strip()
+    prefix = f"{_cockpit_like_escape(prefix_raw)}%" if prefix_raw else None
+
+    try:
+        as_of = await _ns_latest_as_of(window_days, market)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    envelope = {
+        "market": market,
+        "window_days": window_days,
+        "block_key": block_key,
+        "structural_nulls": _ns.structural_nulls(
+            market, measures=_ns.NS_BLOCK_MEASURES),
+        "sort": {"key": sort, "dir": dir, "nulls": "last",
+                 "sortable": sorted(_ns.NS_SORT_KEYS)},
+        "blocks": _ns.block_catalog(),
+        "source": {"rows": _ns.NS_BLOCK_TABLE, "derived": _ns.NS_HOURLY_TABLE},
+    }
+
+    if as_of is None:
+        # The bank has never stamped this (window, market). An honest empty 200
+        # with a null as_of, not a 404 pretending the slice is a bad request.
+        return {
+            **envelope,
+            "vintage": _ns.vintage(None),
+            "paging": {"limit": limit, "offset": offset, "total": 0},
+            "count": 0,
+            "rows": [],
+        }
+
+    sql = _NS_SCREENER_SQL.format(
+        pctl_cols=_NS_PCTL_COLS, order_by=_ns.order_by_sql(sort, dir))
+    params = {
+        "as_of": as_of, "window_days": window_days, "market": market,
+        "block_key": block_key, "prefix": prefix,
+        "limit": limit, "offset": offset,
+    }
+
+    try:
+        rows = await _ns_read(sql, params)
+
+        # The recombination runs ONLY over the page that was already selected,
+        # and only when the block is an HE set. Empty page -> no second read.
+        hours = _ns.NS_BLOCK_HOURS.get(block_key)
+        measures = tuple(_ns.NS_BLOCK_MEASURES)
+        aggs: dict[str, dict] = {}
+        if rows and hours:
+            agg_rows = await _ns_read(_ns_derived_sql(measures), {
+                "as_of": as_of, "window_days": window_days, "market": market,
+                "hours": list(hours),
+                "pnodes": [r["pnode_id"] for r in rows],
+            })
+            aggs = _ns_split_aggs(agg_rows, measures)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    total = int(rows[0]["total_matched"]) if rows else 0
+    lo, hi = _ns_computed_at_span(rows)
+
+    return {
+        **envelope,
+        "vintage": _ns.vintage(as_of, lo, hi),
+        "paging": {"limit": limit, "offset": offset, "total": total,
+                   "pnode_prefix": prefix_raw or None},
+        "count": len(rows),
+        "rows": [
+            _ns.screener_row(r, market=market, block_key=block_key,
+                             aggs=aggs.get(r["pnode_id"], {}))
+            for r in rows
+        ],
+    }
+
+
+@app.get(f"{NS_PREFIX}/node/{{pnode_id}}")
+async def node_stats_node(
+    pnode_id: str = Path(
+        ...,
+        description="CAISO pricing-node id, e.g. 0096WD_7_N001. Unbanked -> 400.",
+    ),
+    block_key: str = Query(
+        default=_ns.NS_DEFAULT_BLOCK,
+        description="The block the ladder is read on. Same vocabulary as the screener.",
+    ),
+    rail_window_days: int = Query(
+        default=_ns.NS_DEFAULT_HE_RAIL_WINDOW,
+        description=(
+            f"Window for the HE rail. One of {list(_ns.NS_WINDOWS)}. The ladder "
+            f"itself always spans {list(_ns.NS_LADDER_WINDOWS)}."
+        ),
+    ),
+):
+    """
+    One node's STANCE LADDER — the same block read at 3/7/14/30 days in both
+    markets — plus the HE rail underneath it.
+
+    THE LADDER IS THE POINT. Eight cells (four windows x two markets), each at
+    ITS OWN latest as_of, because the writer advances windows and markets
+    independently and a single global as_of would cross-date them. Reading down
+    a column is the whole stance question: a node whose 3d p95 towers over its
+    30d p95 is doing something now; one where they agree is a regime. Each cell
+    carries the same row shape the screener serves — coverage, the ladder, the
+    ceiling, and the recombined moments — plus its own `as_of` and
+    `computed_at`, so a stale cell is visible as a stale cell rather than
+    silently averaged into the others.
+
+    THE HE RAIL is all 24 hour-endings from node_stats_hourly, both markets, at
+    `rail_window_days`. It carries all five banked measures (lmp, dart, basis,
+    congestion, loss), each with its moments AND the raw sufficient statistics
+    (n, sum, sum2) it was computed from — so a client can pool a custom hour set
+    itself and check this server's arithmetic against the same numbers. Which
+    measures are real on which market is structural, not coverage: see
+    `structural_nulls` on each market's rail.
+
+    Every null percentile, every pctl_ceiling and every coverage count obeys the
+    same rules as the screener — nothing here fills, defaults or masks.
+
+    A pnode_id the bank has never stamped -> 400 (it is an input error, matching
+    /api/analytics/node/{pnode_id}). A banked node with a thin rail -> 200 with
+    honest empty stanzas. DB down -> 503.
+    """
+    assert _pool is not None
+
+    node = (pnode_id or "").strip()
+    if not node:
+        raise HTTPException(status_code=400, detail="pnode_id is required")
+    _ns_400(_ns.validate_block(block_key))
+    _ns_400(_ns.validate_window(rail_window_days))
+
+    hours = _ns.NS_BLOCK_HOURS.get(block_key)
+    block_measures = tuple(_ns.NS_BLOCK_MEASURES)
+    rail_measures = tuple(_ns.NS_HOURLY_MEASURES)
+
+    try:
+        ladder_rows = await _ns_read(_ns_ladder_sql(block_measures), {
+            "pnode_id": node,
+            "block_key": block_key,
+            "windows": list(_ns.NS_LADDER_WINDOWS),
+            "markets": list(_ns.NS_MARKETS),
+            # Day-filtered block -> empty HE set -> the LATERAL aggregates come
+            # back all-NULL and node_stats.py returns the day-filter refusal.
+            "hours": list(hours) if hours else [],
+        })
+        rail_rows = await _ns_read(_ns_rail_sql(rail_measures), {
+            "pnode_id": node,
+            "window_days": rail_window_days,
+            "markets": list(_ns.NS_MARKETS),
+        })
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    if not ladder_rows and not rail_rows:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"unknown pnode_id '{node}': migration 182's bank holds no "
+                    f"rows for it at any banked window or market"),
+        )
+
+    ladder = []
+    for r in ladder_rows:
+        cell_market = r["market"]
+        # The recombination's columns are `d_`-prefixed so they cannot collide
+        # with the block row's own n_lmp/n_dart in the same result row. The
+        # stanza's `n` therefore stays the BANKED count and `derived.n` is the
+        # pooled one; on an HE-set block they agree (474/474 measured), and when
+        # they ever would not, the block table is the authority.
+        a = _NS_DERIVED_ALIAS
+        aggs = {
+            m: {"n": r.get(f"{a}n_{m}"), "mean": r.get(f"{a}mean_{m}"),
+                "sigma": r.get(f"{a}sigma_{m}"), "min": r.get(f"{a}min_{m}"),
+                "max": r.get(f"{a}max_{m}")}
+            for m in block_measures
+        }
+        ladder.append({
+            "window_days": _ns.i(r["window_days"]),
+            "market": cell_market,
+            "vintage": _ns.vintage(r["as_of"], r.get("computed_at"),
+                                   r.get("computed_at")),
+            "structural_nulls": _ns.structural_nulls(
+                cell_market, measures=_ns.NS_BLOCK_MEASURES),
+            **_ns.screener_row(r, market=cell_market, block_key=block_key,
+                               aggs=aggs),
+        })
+
+    rails = []
+    for market, rows in _ns.group_by_first(rail_rows, "market").items():
+        lo, hi = _ns_computed_at_span(rows)
+        rails.append({
+            "market": market,
+            "window_days": rail_window_days,
+            "vintage": _ns.vintage(rows[0]["as_of"] if rows else None, lo, hi),
+            "structural_nulls": _ns.structural_nulls(
+                market, measures=_ns.NS_HOURLY_MEASURES),
+            "count": len(rows),
+            "hours": [_ns.hourly_row(r, market=market) for r in rows],
+        })
+
+    return {
+        "pnode_id": node,
+        "block_key": block_key,
+        "ladder": {
+            "windows": list(_ns.NS_LADDER_WINDOWS),
+            "markets": list(_ns.NS_MARKETS),
+            "count": len(ladder),
+            "cells": ladder,
+        },
+        "he_rail": {
+            "window_days": rail_window_days,
+            "markets": rails,
+        },
+        "blocks": _ns.block_catalog(),
+        "source": {"ladder": _ns.NS_BLOCK_TABLE, "he_rail": _ns.NS_HOURLY_TABLE,
+                   "derived": _ns.NS_HOURLY_TABLE},
+    }
+
+
+@app.get(f"{NS_PREFIX}/breadth")
+async def node_stats_breadth(
+    days: int = Query(
+        default=_ns.NS_BREADTH_DAYS_DEFAULT,
+        description=f"Trade days per zone, 1..{_ns.NS_BREADTH_DAYS_MAX}.",
+    ),
+    market: str = Query(
+        default="",
+        description=f"Optional market filter. One of {list(_ns.NS_MARKETS)}; empty = both.",
+    ),
+    zone_key: str = Query(
+        default="",
+        description="Optional comma-separated zone_key filter; empty = every zone.",
+    ),
+):
+    """
+    Zone breadth — the advance/decline tape from zone_breadth_daily.
+
+    The latest `days` trade dates PER (zone_key, market), ranked within each
+    zone rather than against a shared date floor: a zone that stopped reporting
+    shows its own last N days instead of an empty window borrowed from a
+    healthier zone's calendar, and the `trade_date` on each row says which.
+
+    Counts pass through exactly as banked. `priced_coverage` is
+    nodes_priced/nodes_in_zone, carried for the same reason coverage rides every
+    price row: a net_breadth of +527 means one thing over 537 priced nodes of
+    710 and another over 70, and the ratio is what lets a client tell.
+
+    Response:
+        {
+          "days": 7, "as_of": "2026-08-16", "count": 5,
+          "zones": [{"zone_key": "TH_SP15_GEN-APND", "zone_family": "HUB_AGG",
+                     "markets": [{"market": "DAM", "count": 7,
+                                  "days": [{"trade_date": "...", ...}]}]}]
+        }
+
+    Bad days/market/zone filter -> 400. No matching rows -> 200 with zones:[].
+    DB down -> 503.
+    """
+    assert _pool is not None
+
+    _ns_400(_ns.validate_breadth_days(days))
+    market_clean = (market or "").strip().upper()
+    if market_clean:
+        _ns_400(_ns.validate_market(market_clean))
+    zones = [z.strip() for z in (zone_key or "").split(",") if z.strip()]
+
+    try:
+        rows = await _ns_read(_NS_BREADTH_SQL, {
+            "days": days,
+            "market": market_clean or None,
+            "zone_keys": zones or None,
+        })
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+    out = []
+    for zk, zrows in _ns.group_by_first(rows, "zone_key").items():
+        out.append({
+            "zone_key": zk,
+            "zone_family": zrows[0].get("zone_family"),
+            "markets": [
+                {"market": mk, "count": len(mrows),
+                 "days": [_ns.breadth_row(r) for r in mrows]}
+                for mk, mrows in _ns.group_by_first(zrows, "market").items()
+            ],
+        })
+
+    dates = [r["trade_date"] for r in rows if r.get("trade_date") is not None]
+    return {
+        "days": days,
+        "market": market_clean or None,
+        "zone_key_filter": zones or None,
+        "as_of": _ns.iso_d(max(dates)) if dates else None,
+        "count": len(out),
+        "zones": out,
+        "source": {"rows": _ns.NS_BREADTH_TABLE},
+    }
