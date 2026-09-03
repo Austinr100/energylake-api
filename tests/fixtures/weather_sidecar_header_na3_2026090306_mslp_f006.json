@@ -1,0 +1,31 @@
+{
+  "_provenance": {
+    "what": "The Atlas A value-sidecar HEADER contract, pinned as a fixture so tests/test_weather_point.py runs the real index arithmetic against the real geometry with no network.",
+    "source": "weather/values/gfs/na3/20260903/06Z/mslp_f006.json — the live proof object the captain dispatched for Spec A (2026-09-03).",
+    "captured": "2026-09-03",
+    "notes": [
+      "shape is [ny, nx] = [rows, columns]; the .f32 beside it is a flat C-order little-endian float32 dump of exactly ny*nx*4 = 517704 bytes.",
+      "lat_order 'ascending' means row j=0 is the SOUTHERNMOST: lat(j) = 14.75 + 0.25*j, so the crop spans 14.75N..70.00N.",
+      "lon_convention 'west_negative_monotonic' means the longitude axis is one monotonically increasing run of west-negative degrees that is allowed to walk PAST -180 rather than wrapping: lon(i) = -186.75 + 0.25*i, spanning -186.75..-41.25 (583 columns = 582 steps of 0.25 = 145.5 degrees). Columns 0..26 are east of the antimeridian on a wrapped map (+173.25..+180).",
+      "sha256 is the digest of the WHOLE .f32 object. A 4-byte range read cannot check it; the point API echoes it with verified:false and Spec A's write-time manifest is where the chain is proven.",
+      "The digest below is the fixture's own placeholder, NOT the live object's — nothing in this lane verifies it, and a real-looking digest here would invite someone to think it had been checked."
+    ]
+  },
+  "param": "mslp",
+  "model": "gfs",
+  "crop": "na3",
+  "run": "2026-09-03T06Z",
+  "fhr": 6,
+  "valid": "2026-09-03T12:00:00Z",
+  "shape": [222, 583],
+  "lat0": 14.75,
+  "lon0": -186.75,
+  "dlat": 0.25,
+  "dlon": 0.25,
+  "lat_order": "ascending",
+  "lon_convention": "west_negative_monotonic",
+  "dtype": "float32",
+  "endianness": "little",
+  "units": "Pa",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}
