@@ -225,6 +225,61 @@ from a server component or route handler and render the first chart
   the archive bucket (see `R2_*` in `.env.example`). This service never writes
   to the bucket; `boto3` is imported lazily, only when a Model Room route is hit.
 
+### Weather Atlas B — the point API (`/api/weather/point*`)
+
+The tiles carry the hover; **this carries the click.** Atlas A writes a *value
+sidecar* beside every rendered frame — a raw little-endian float32 array
+`{param}_f{fhr}.f32` plus a `.json` header describing its geometry — and these
+two routes turn a (lat, lon) into a byte offset in that array and read
+**exactly four bytes** out of it over HTTP `Range`.
+
+**The array never enters the container.** The `na3` crop is 222x583 float32 =
+517,704 bytes per frame, and a 41-frame ladder is 21 MB. `bytes_read` rides on
+every response as the standing assertion that none of it was fetched: 4 for a
+click, 164 for the whole ladder. Geometry, decode, key scheme and the range
+store live in `weather_point.py`; the store takes an injectable transport, so
+the whole suite runs against a synthetic sidecar with no network.
+
+- `GET /api/weather/point?lat=&lon=&param=&run=&fhr=&model=gfs&crop=na3&chain=0`
+  -> one cell: `{value, units, display, cell:{lat,lon,j,i,distance_km},
+  source:{key, sha256, offset, range, bytes_read: 4}, header:{...axes},
+  verified: false}`. `?chain=1` adds the charter §7 rung stub
+  (`temperature|degree_day|load|lmp`), first rung filled and the rest dark with
+  a stated reason apiece.
+
+- `GET /api/weather/point/ladder?lat=&lon=&param=&run=&fhr_step=6&fhr_max=240`
+  -> the same cell across the forecast ladder: **41 four-byte range GETs, one
+  header, at most 8 in flight**, `full_object_reads: 0`. A frame the writer has
+  not reached yet fails on its own row (`available: false` + its own error) —
+  the other forty still carry values.
+
+  Four behaviours are load-bearing and each is pinned in
+  `tests/test_weather_point.py`:
+  * **NaN is an answer, not an error.** The crop's off-domain corners and the
+    antimeridian strip hold NaN; they come back `200` with `value: null` and
+    `reason: "nodata"` — never `0.0`.
+  * **Outside the crop is a 404 that states the bounds**, never a nearest-edge
+    value: an edge cell handed back silently is indistinguishable from a real one.
+  * **`verified` is always `false`, and says why.** The header's sha256 is over
+    the whole object and a four-byte read cannot check it. The chain is proven
+    in Atlas A's write-time manifest, not per click.
+  * **A store that ignores `Range`** (200 + the whole object) is refused with a
+    502 rather than absorbed — honouring it would make `bytes_read: 4` a lie on
+    the very response reporting it.
+
+  Longitudes are normalised onto the sidecar's own axis: `na3` runs
+  -186.75..-41.25 under `west_negative_monotonic`, a monotonic run that walks
+  past -180 so the western Aleutians have columns without a seam. A click there
+  arrives as +173.50 and is moved onto the axis by a single 360-degree shift.
+
+  Config: `WEATHER_VALUES_BASE_URL` (a public/CDN base — no credentials used at
+  all) **or** the `WEATHER_VALUES_*` R2 vars (see `.env.example`). Note the
+  Model Room's `R2_*` token is scoped to `d2/` and generally cannot read
+  `weather/values/`, hence the separate set. Unconfigured -> 503, and the rest
+  of the API is unaffected: `httpx` is imported inside the store, never at
+  module import. **No new dependencies** — the R2 request signer is ~40 lines of
+  stdlib `hmac`/`hashlib` rather than a boto3 import.
+
 ### The Structures room (`/api/analytics/structures/*`)
 
 Room 2 of the Analytics Department: swaps, monthly-average (Asian) options and

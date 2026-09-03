@@ -52,6 +52,8 @@ Endpoints:
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
     GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the R2 archive (D-07-22)
     GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame (PNG/JSON) from R2, d2/-allowlisted, long immutable cache (D-07-22)
+    GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
+    GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
     GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
@@ -18121,3 +18123,356 @@ async def node_stats_breadth(
         "zones": out,
         "source": {"rows": _ns.NS_BREADTH_TABLE},
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Weather Atlas B — the point API (2026-09-03)
+#
+#   GET /api/weather/point?lat=&lon=&param=&model=gfs&run=YYYYMMDDTHHZ&fhr=
+#   GET /api/weather/point/ladder?lat=&lon=&param=&model=gfs&run=
+#
+# THE TILES CARRY THE HOVER; THIS CARRIES THE CLICK. Spec A writes a value
+# sidecar beside every rendered frame — a raw little-endian float32 array
+# `{param}_f{fhr}.f32` plus a `.json` header describing its geometry. A click
+# is turned into a byte offset in that array and answered with an HTTP `Range`
+# read of EXACTLY FOUR BYTES. The na3 crop is 222x583 float32 = 517,704 bytes;
+# a 41-frame ladder is 21 MB. None of that ever enters this container, and
+# `bytes_read` rides on every response as the standing assertion that it did
+# not. The ladder is 41 four-byte reads (one per forecast hour), bounded at 8
+# in flight — never one full-object read.
+#
+# WHAT IS DELIBERATELY NOT DONE HERE:
+#   * No GRIB decode. This lane reads Spec A's output; it never opens a grid.
+#   * No array caching. The header is cached forever by key (immutable per
+#     frame) and single values are LRU'd; nothing array-shaped is held.
+#   * No sha verification. The header's sha256 is over the WHOLE object and a
+#     four-byte range read cannot check it, so it is echoed with
+#     `verified: false` stated outright. Spec A's manifest is where the chain
+#     is proven, at write time, over the whole object.
+#   * No nearest-edge fallback. A point outside the crop is a 404 that states
+#     the bounds; an edge value handed back silently would answer a question
+#     about a place the crop does not cover.
+#
+# The geometry, the key scheme, the decode and the store live in
+# `weather_point.py` so all of it is testable against a synthetic sidecar with
+# no network; this file owns the routes, the query validation and the envelope.
+#
+# Auth/config: `WEATHER_VALUES_BASE_URL` (a public/CDN base under which the
+# `weather/values/...` keys resolve) OR an R2 token that can read the
+# `weather/values/` prefix (`WEATHER_VALUES_*`, defaulting to the Model Room's
+# `R2_*` connection). Unconfigured → 503, and the rest of the API is unaffected:
+# `httpx` is imported inside the store, not at module top.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import weather_point as _wp
+
+# Public/CDN base for the sidecar prefix. When set, reads are plain GETs and no
+# credentials are used at all — the preferred shape for an immutable, public
+# forecast archive.
+WEATHER_VALUES_BASE_URL = os.environ.get("WEATHER_VALUES_BASE_URL", "")
+
+# Otherwise: SigV4 against R2. The Model Room's token is scoped to `d2/` and so
+# generally CANNOT read `weather/values/`; these vars exist so the captain can
+# point this lane at a bucket/token that can, without disturbing that one. They
+# fall back to the Model Room's connection for the case where one token covers
+# both prefixes.
+WEATHER_VALUES_BUCKET = os.environ.get("WEATHER_VALUES_BUCKET", "") or R2_ARCHIVE_BUCKET
+WEATHER_VALUES_ENDPOINT = os.environ.get("WEATHER_VALUES_ENDPOINT", "") or R2_ENDPOINT
+WEATHER_VALUES_ACCESS_KEY_ID = (
+    os.environ.get("WEATHER_VALUES_ACCESS_KEY_ID", "") or R2_ACCESS_KEY_ID)
+WEATHER_VALUES_SECRET_ACCESS_KEY = (
+    os.environ.get("WEATHER_VALUES_SECRET_ACCESS_KEY", "") or R2_SECRET_ACCESS_KEY)
+
+# fhr ceiling accepted on the single-point route. GFS runs to f384; the ladder
+# stops at f240 by default (41 frames at 6 h) but a single frame beyond that is
+# a legitimate ask if Spec A wrote it.
+_WP_FHR_MAX = 384
+
+_weather_store: "Optional[_wp.SidecarStore]" = None
+
+
+def _get_weather_store() -> "_wp.SidecarStore":
+    """The process-wide sidecar store (header cache + value LRU live on it).
+    Built lazily so an unconfigured deploy costs nothing; tests replace it
+    outright with one carrying an injected transport."""
+    global _weather_store
+    if _weather_store is None:
+        _weather_store = _wp.SidecarStore(
+            base_url=WEATHER_VALUES_BASE_URL,
+            endpoint=WEATHER_VALUES_ENDPOINT,
+            bucket=WEATHER_VALUES_BUCKET,
+            access_key=WEATHER_VALUES_ACCESS_KEY_ID,
+            secret_key=WEATHER_VALUES_SECRET_ACCESS_KEY,
+        )
+    return _weather_store
+
+
+def _wp_raise(e: "_wp.PointError"):
+    """A lane refusal → the HTTP answer, body intact. Every PointError detail is
+    a dict naming what the reader needs (the key, or the bounds), and it is
+    handed through unflattened — a stringified body would destroy the exact
+    thing these errors exist to carry."""
+    raise HTTPException(status_code=e.status, detail=e.detail)
+
+
+async def _wp_header(store, hkey: str, vkey: str, pngkey: str):
+    """Fetch the frame header, or raise the fail-loud 404.
+
+    THE 404 THAT TEACHES. An absent sidecar has two causes and they need
+    different people: "not written" (Spec A's writer never ran for this frame)
+    and "not rendered" (nothing at all exists for it). So the body names BOTH
+    sidecar keys AND states the result of a one-byte presence probe against the
+    sibling PNG — with the probed key spelled out, so a reader who finds this
+    render-key scheme wrong can see that instead of inferring it from a false
+    negative.
+    """
+    try:
+        return await store.get_header(hkey)
+    except _wp.PointError as e:
+        if e.status != 404:
+            _wp_raise(e)
+        rendered = await store.exists(pngkey)
+        _wp_raise(_wp.PointError(404, {
+            "error": "sidecar not found",
+            "expected": {"header": hkey, "values": vkey},
+            "png": {"key": pngkey, "exists": rendered, "probed": True},
+            "diagnosis": ("frame rendered but the value sidecar was not written"
+                          if rendered else
+                          "no frame for this (model, crop, run, param, fhr)"),
+        }))
+
+
+def _wp_common(model: str, crop: str, param: str, run: str):
+    """Slug + run validation, spelled once for both routes. Runs BEFORE any key
+    is built, so a hostile request string never becomes part of an object key."""
+    try:
+        _wp.validate_slugs(model, crop, param)
+        return _wp.parse_run(run)
+    except _wp.PointError as e:
+        _wp_raise(e)
+
+
+def _wp_header_block(hdr, hkey: str) -> dict:
+    """The header echo. `verified` is false and says why: a range read cannot
+    check a whole-object digest, and claiming otherwise would be the exact lie
+    the field exists to prevent."""
+    block = {"key": hkey, "sha256": hdr.sha256, "units": hdr.units}
+    block.update(hdr.axes())
+    block["verified"] = False
+    block["verified_reason"] = (
+        "sha256 is over the whole object; a 4-byte range read cannot check it "
+        "— the chain is proven in Spec A's write-time manifest"
+    )
+    return block
+
+
+@app.get("/api/weather/point")
+async def weather_point(
+    lat: float = Query(..., ge=-90, le=90, description="degrees north"),
+    lon: float = Query(..., description="degrees east, any wrapping"),
+    param: str = Query(..., description="sidecar parameter, e.g. mslp, t2m_anom"),
+    run: str = Query(..., description="model run, YYYYMMDDTHHZ (e.g. 20260903T06Z)"),
+    fhr: int = Query(0, ge=0, le=_WP_FHR_MAX, description="forecast hour"),
+    model: str = Query("gfs", description="feed slug"),
+    crop: str = Query("na3", description="sidecar crop"),
+    chain: int = Query(0, ge=0, le=1,
+                       description="1 → also return the charter §7 rung stub"),
+):
+    """One grid cell, read as four bytes.
+
+    The value and units on the wire are ALWAYS the sidecar's own; `display`
+    carries the presentation pair and names the conversion it used. A NaN cell
+    (the crop's off-domain corners, the antimeridian strip) answers 200 with
+    `value: null` and `reason: "nodata"` — that is a fact about the grid, not a
+    failure of the request. A point outside the crop is a 404 stating the
+    bounds. A missing sidecar is a 404 naming both keys and the PNG probe.
+    """
+    store = _get_weather_store()
+    if not store.configured():
+        raise HTTPException(
+            status_code=503,
+            detail=("weather value sidecar storage not configured "
+                    "(set WEATHER_VALUES_BASE_URL or the WEATHER_VALUES_* R2 vars)"))
+
+    run_dt = _wp_common(model, crop, param, run)
+    started = time.perf_counter()
+
+    hkey = _wp.header_key(model, crop, run_dt, param, fhr)
+    vkey = _wp.value_key(model, crop, run_dt, param, fhr)
+    pngkey = _wp.render_key(model, crop, run_dt, param, fhr)
+    hdr = await _wp_header(store, hkey, vkey, pngkey)
+
+    try:
+        cell = _wp.locate(lat, lon, hdr, crop=crop)
+        offset = _wp.byte_offset(cell["j"], cell["i"], hdr)
+        value = await store.get_value(vkey, offset)
+    except _wp.PointError as e:
+        _wp_raise(e)
+
+    units = hdr.units
+    valid = _wp.valid_time(run_dt, fhr)
+    out = {
+        "param": param,
+        "model": model,
+        "crop": crop,
+        "run": _wp.format_run(run_dt),
+        "fhr": fhr,
+        "valid": _wp.format_valid(valid),
+        "point": {"lat": lat, "lon": _wp.wrap180(lon)},
+        "cell": cell,
+        "value": value,
+        "units": units,
+        "display": _wp.display_value(value, units, param),
+        "source": {
+            "key": vkey,
+            "sha256": hdr.sha256,
+            "offset": offset,
+            "range": _wp.range_header(offset),
+            "bytes_read": _wp.BYTES_PER_POINT,
+            "requests": 1,
+            "mode": store.mode(),
+        },
+        "header": _wp_header_block(hdr, hkey),
+        "verified": False,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+    }
+    if value is None:
+        # 204-CLASS, NOT AN ERROR. The status stays 200 because the request was
+        # answered: this cell is one the model did not write. `reason` is what
+        # the panel renders instead of a number.
+        out["reason"] = "nodata"
+    if chain:
+        out["chain"] = _wp.chain_stub(lat, lon, param, value, units,
+                                      _WEATHER_STATIONS)
+    return out
+
+
+@app.get("/api/weather/point/ladder")
+async def weather_point_ladder(
+    lat: float = Query(..., ge=-90, le=90, description="degrees north"),
+    lon: float = Query(..., description="degrees east, any wrapping"),
+    param: str = Query(..., description="sidecar parameter, e.g. mslp, t2m_anom"),
+    run: str = Query(..., description="model run, YYYYMMDDTHHZ (e.g. 20260903T06Z)"),
+    model: str = Query("gfs", description="feed slug"),
+    crop: str = Query("na3", description="sidecar crop"),
+    fhr_step: int = Query(_wp.LADDER_FHR_STEP, ge=1, le=24),
+    fhr_max: int = Query(_wp.LADDER_FHR_MAX, ge=0, le=_WP_FHR_MAX),
+    chain: int = Query(0, ge=0, le=1),
+):
+    """The same click across the whole forecast ladder.
+
+    f000..f240 every 6 h → 41 frames, ONE header read and 41 four-byte range
+    GETs, at most 8 in flight. The header is read once because the crop geometry
+    is a property of the crop, not of the forecast hour; every frame's OWN key
+    and byte offset still ride on its row, so nothing is inferred about where a
+    value came from.
+
+    A ladder is not all-or-nothing: an unwritten frame answers with its own
+    `error` on its own row (and `available: false`) while the other forty carry
+    values. `bytes_read` is 4 per rung and `4 x rungs` in total — that total,
+    not a full-object read, is the whole point of the lane.
+    """
+    store = _get_weather_store()
+    if not store.configured():
+        raise HTTPException(
+            status_code=503,
+            detail=("weather value sidecar storage not configured "
+                    "(set WEATHER_VALUES_BASE_URL or the WEATHER_VALUES_* R2 vars)"))
+
+    run_dt = _wp_common(model, crop, param, run)
+    try:
+        fhrs = _wp.ladder_fhrs(fhr_step, fhr_max)
+    except _wp.PointError as e:
+        _wp_raise(e)
+    started = time.perf_counter()
+
+    # THE HEADER, ONCE. Read from the first rung whose header exists — a run
+    # missing f000 is a real state (the writer works forward) and must not cost
+    # the whole ladder. Bounded at three attempts so a wholly-absent run fails
+    # fast, naming the first key it looked for.
+    hdr = None
+    hkey = _wp.header_key(model, crop, run_dt, param, fhrs[0])
+    header_requests = 0
+    for probe_fhr in fhrs[:3]:
+        probe_key = _wp.header_key(model, crop, run_dt, param, probe_fhr)
+        header_requests += 1
+        try:
+            hdr = await store.get_header(probe_key)
+            hkey = probe_key
+            break
+        except _wp.PointError as e:
+            if e.status != 404:
+                _wp_raise(e)
+    if hdr is None:
+        await _wp_header(
+            store, hkey,
+            _wp.value_key(model, crop, run_dt, param, fhrs[0]),
+            _wp.render_key(model, crop, run_dt, param, fhrs[0]))
+
+    try:
+        cell = _wp.locate(lat, lon, hdr, crop=crop)
+    except _wp.PointError as e:
+        _wp_raise(e)
+    offset = _wp.byte_offset(cell["j"], cell["i"], hdr)
+
+    keys = [_wp.value_key(model, crop, run_dt, param, f) for f in fhrs]
+    results = await store.get_values([(k, offset) for k in keys],
+                                     concurrency=_wp.LADDER_CONCURRENCY)
+
+    units = hdr.units
+    values = []
+    read = 0
+    for f, key, res in zip(fhrs, keys, results):
+        row = {
+            "fhr": f,
+            "valid": _wp.format_valid(_wp.valid_time(run_dt, f)),
+            "key": key,
+        }
+        if isinstance(res, _wp.PointError):
+            row.update({"available": False, "value": None,
+                        "error": res.detail, "bytes_read": 0})
+        else:
+            read += _wp.BYTES_PER_POINT
+            row.update({
+                "available": True,
+                "value": res,
+                "display": _wp.display_value(res, units, param),
+                "bytes_read": _wp.BYTES_PER_POINT,
+            })
+            if res is None:
+                row["reason"] = "nodata"
+        values.append(row)
+
+    out = {
+        "param": param,
+        "model": model,
+        "crop": crop,
+        "run": _wp.format_run(run_dt),
+        "fhr_step": fhr_step,
+        "fhr_max": fhr_max,
+        "count": len(values),
+        "point": {"lat": lat, "lon": _wp.wrap180(lon)},
+        "cell": cell,
+        "units": units,
+        "values": values,
+        "source": {
+            "prefix": _wp.VALUES_ROOT,
+            "offset": offset,
+            "range": _wp.range_header(offset),
+            "bytes_per_point": _wp.BYTES_PER_POINT,
+            "bytes_read": read,
+            "requests": len(values),
+            "header_requests": header_requests,
+            "concurrency": _wp.LADDER_CONCURRENCY,
+            "mode": store.mode(),
+            "full_object_reads": 0,
+        },
+        "header": _wp_header_block(hdr, hkey),
+        "verified": False,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+    }
+    if chain:
+        first = next((r["value"] for r in values if r.get("available")), None)
+        out["chain"] = _wp.chain_stub(lat, lon, param, first, units,
+                                      _WEATHER_STATIONS)
+    return out
