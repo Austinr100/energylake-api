@@ -4,3 +4,10 @@ psycopg[binary,pool]>=3.2.10
 # Model Room R2 archive proxy (D-07-22): S3-compatible client for Cloudflare R2.
 # Only imported lazily inside the /api/model-room/* routes.
 boto3>=1.34
+# Weather Atlas B point API (2026-09-03): the sidecar store's range-GET client.
+# Imported lazily inside weather_point.SidecarStore._get_client. The module
+# docstring claimed httpx was "already a dev/runtime dep of the framework" —
+# true only of the TEST environment (starlette's TestClient carries it), false
+# on Railway, where every /api/weather/point* read died on ModuleNotFoundError
+# as a bare 500 (found by the 2026-09-04 proof curl). This line is the fix.
+httpx>=0.27
