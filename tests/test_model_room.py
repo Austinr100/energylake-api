@@ -21,6 +21,8 @@ LIVE RECEIPTS (captured against production 2026-07-23, R2 token provisioned):
     The seed-era loose cycles at d2/synoptic/ (20260721 18Z/12Z) carry NO
     manifest under d2/renders/, so the manifest-presence seam drops them off the
     listing — ruled-expected.
+  * /frame/weather/tiles/... -> 200 (Atlas tile bank, admitted 2026-09-04);
+    /frame/weather/values/... -> 403 (server-side only, never proxied)
   * /frame/d2/renders/gfs/20260723/00Z/manifest.json -> 200, application/json,
     etag "b7ab5acd268fde7267cebe6d912372ea", and
     Cache-Control: public, max-age=31536000, immutable.
@@ -356,6 +358,77 @@ def test_frame_503_when_unprovisioned(client, monkeypatch):
     r = client.get("/api/model-room/frame/d2/synoptic/gfs/20260721/18Z/500mb.png")
     assert r.status_code == 503
     print("ok frame_503_when_unprovisioned")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# frame — weather/tiles/ (Atlas tile bank, admitted 2026-09-04)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# THE DEFECT THESE CLOSE: the frame route answered 403 in 2 ms for live Atlas
+# tile keys (Railway log, 2026-09-04) — the validator refusing the key before
+# R2, because the allowlist predated the tile bank. The bank lives in the SAME
+# archive bucket as d2/, so this is an allowlist admission, not a bucket switch.
+
+TILE_MANIFEST_KEY = "weather/tiles/gfs/na3/20260903/06Z/mslp/f006/manifest.json"
+TILE_PNG_KEY = "weather/tiles/gfs/na3/20260903/00Z/z500_anom/f072/3/2/1.png"
+
+
+def test_frame_serves_tile_manifest_json(client, monkeypatch):
+    """THE RECEIPT: the exact key from the 2026-09-04 403 log line now returns
+    200, application/json, immutable cache."""
+    fake = FakeR2(objects={
+        TILE_MANIFEST_KEY: (b'{"param":"mslp","fhr":6}', "application/json")})
+    configure(monkeypatch, fake)
+    r = client.get(f"/api/model-room/frame/{TILE_MANIFEST_KEY}")
+    assert r.status_code == 200
+    assert r.json() == {"param": "mslp", "fhr": 6}
+    assert r.headers["content-type"] == "application/json"
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert fake.got() == [TILE_MANIFEST_KEY]
+    print("ok frame_serves_tile_manifest_json")
+
+
+def test_frame_serves_tile_png(client, monkeypatch):
+    """A tile PNG under weather/tiles/ streams as image/png — including when R2
+    stored no ContentType, proving the suffix map (not a d2/-shaped branch) is
+    what decides the type."""
+    fake = FakeR2(objects={TILE_PNG_KEY: (PNG_MAGIC, None)})
+    configure(monkeypatch, fake)
+    r = client.get(f"/api/model-room/frame/{TILE_PNG_KEY}")
+    assert r.status_code == 200
+    assert r.content == PNG_MAGIC
+    assert r.headers["content-type"] == "image/png"
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
+    print("ok frame_serves_tile_png")
+
+
+def test_frame_weather_values_prefix_rejected_before_r2(client, monkeypatch):
+    """LEAST SURFACE: weather/values/ sidecars are read SERVER-SIDE by the point
+    API and are NOT admitted to the public proxy — 403, bucket never touched."""
+    key = "weather/values/gfs/na3/20260903/06Z/mslp/f006.f32"
+    fake = FakeR2(objects={key: (b"\x00\x00\x00\x00", "application/octet-stream")})
+    configure(monkeypatch, fake)
+    r = client.get(f"/api/model-room/frame/{key}")
+    assert r.status_code == 403
+    assert fake.got() == []          # validation blocked it before any R2 call
+    print("ok frame_weather_values_prefix_rejected_before_r2")
+
+
+def test_frame_tiles_traversal_rejected_at_validator(monkeypatch):
+    """The pre-existing traversal guards apply to the NEW prefix unchanged —
+    one code path, not a second. Escaping weather/tiles/ into d2/ still fails,
+    even though d2/ is itself allowlisted."""
+    for bad in ("weather/tiles/../d2/renders/x.png", "weather/tiles//x.png",
+                "weather/tiles/./x.png", "/weather/tiles/x.png",
+                "weather/tiles/", "weather/tiles", "weather/tiles/x\\y",
+                "weather", "weather/other/x.png"):
+        with pytest.raises(HTTPException) as ei:
+            main._validate_frame_key(bad)
+        assert ei.value.status_code in (400, 403), bad
+    # Clean tile keys survive untouched.
+    for ok in (TILE_MANIFEST_KEY, TILE_PNG_KEY):
+        assert main._validate_frame_key(ok) == ok
+    print("ok frame_tiles_traversal_rejected_at_validator")
 
 
 if __name__ == "__main__":

@@ -215,15 +215,31 @@ from a server component or route handler and render the first chart
   R2 token unprovisioned -> 503
 
 - `GET /api/model-room/frame/{key}`
-  -> streams one archived D2 frame object (PNG or JSON) straight from R2 with a
+  -> streams one archived frame object (PNG or JSON) straight from R2 with a
   long immutable cache (`Cache-Control: public, max-age=31536000, immutable`).
-  The key is validated against the `d2/` prefix allowlist BEFORE it touches R2
-  (no traversal, no other prefixes) — a bad key is rejected 400/403 and never
-  reaches the bucket. Missing object -> 404; R2 token unprovisioned -> 503
+  The key is validated against the `d2/` **and** `weather/tiles/` prefix
+  allowlist BEFORE it touches R2 (no traversal, no other prefixes) — a bad key
+  is rejected 400/403 and never reaches the bucket. Missing object -> 404;
+  R2 token unprovisioned -> 503
 
-  Both Model Room routes read from a **read-only** R2 token scoped to `d2/` on
-  the archive bucket (see `R2_*` in `.env.example`). This service never writes
-  to the bucket; `boto3` is imported lazily, only when a Model Room route is hit.
+  `weather/tiles/` — the Weather Atlas tile bank, in the *same* archive bucket —
+  was admitted 2026-09-04. Immutable caching is correct for it: tile keys embed
+  model/run/cycle/param/fhr and are never rewritten in place (the 30-day R2
+  lifecycle deletes keys, it does not mutate them). Content type comes from the
+  object's stored `ContentType`, falling back to the same suffix map used for
+  `d2/`, so `.../manifest.json` serves `application/json` and tiles serve
+  `image/png`.
+
+  `weather/values/` is deliberately **not** admitted: the Atlas value sidecars
+  are read server-side by the point API (`/api/weather/point*`), so nothing on
+  the public proxy needs them and least-surface wins.
+
+  Both Model Room routes read from a **read-only** R2 token on the archive
+  bucket (see `R2_*` in `.env.example`). That token must be able to read
+  `weather/tiles/` as well as `d2/`; if it is still `d2/`-scoped, tile keys pass
+  the allowlist and then fail at R2 as a 502 (AccessDenied). This service never
+  writes to the bucket; `boto3` is imported lazily, only when a Model Room route
+  is hit.
 
 ### Weather Atlas B — the point API (`/api/weather/point*`)
 
