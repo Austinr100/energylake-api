@@ -51,7 +51,7 @@ Endpoints:
     GET /api/nodes/facets                  Cockpit facets: distinct area / node_type categories with node counts over the same latest-instant universe as /nodes/search, cached (D-07-21)
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
     GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the R2 archive (D-07-22)
-    GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame (PNG/JSON) from R2, d2/-allowlisted, long immutable cache (D-07-22)
+    GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame or Atlas tile (PNG/JSON) from R2, d2/ + weather/tiles/-allowlisted, long immutable cache (D-07-22)
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
@@ -8587,11 +8587,16 @@ async def watchboard(request: Request):
 #         first. Availability = manifest-presence — see _cycle_is_available.
 #   GET /api/model-room/frame/{key}
 #       → streams the R2 object (PNG or JSON) with a long immutable cache. The
-#         key is VALIDATED against the d2/ prefix allowlist (no traversal, no
-#         other prefixes) BEFORE it ever touches R2.
+#         key is VALIDATED against the d2/ + weather/tiles/ prefix allowlist
+#         (no traversal, no other prefixes) BEFORE it ever touches R2.
+#         weather/tiles/ (the Weather Atlas tile bank) was admitted 2026-09-04;
+#         it lives in the same archive bucket. weather/values/ is NOT admitted.
 #
-# Auth: a READ-ONLY R2 token scoped to d2/ on the archive bucket, provisioned by
+# Auth: a READ-ONLY R2 token on the archive bucket, provisioned by
 # the captain (account-token doctrine) and supplied via the R2_* env vars below.
+# NOTE: that token must be able to READ weather/tiles/ as well as d2/, or the
+# frame route answers 502 (AccessDenied) for tile keys — a token-scope action on
+# the deploy side, not something this validator can grant.
 # When those are absent the endpoints answer 503 and the rest of the API is
 # unaffected — boto3/R2 is imported and touched ONLY inside this section, lazily.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -8608,11 +8613,18 @@ R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "") or (
     f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else ""
 )
 
-# The ONE allowed prefix + the frozen key scheme. The Model Room serves only the
-# d2/ subtree; nothing else is reachable through the frame proxy. Cycle listing
-# reads the render leg's d2/renders/ subtree; the frame proxy still serves ANY
-# d2/ key (d2/renders AND the seed-era d2/synoptic objects alike).
+# The allowed prefixes + the frozen key scheme. Cycle listing reads the render
+# leg's d2/renders/ subtree; the frame proxy serves ANY d2/ key (d2/renders AND
+# the seed-era d2/synoptic objects alike) and, since 2026-09-04, any
+# weather/tiles/ key — the Weather Atlas tile bank, which lives in the SAME
+# archive bucket. Nothing else is reachable through the frame proxy.
+#
+# weather/values/ is deliberately NOT admitted: the Atlas value sidecars are
+# read server-side by the point API (/api/weather/point), so nothing on the
+# public proxy needs them and least-surface wins.
 _MODEL_ROOM_KEY_PREFIX = "d2/"
+_MODEL_ROOM_TILES_PREFIX = "weather/tiles/"
+_FRAME_KEY_PREFIXES = (_MODEL_ROOM_KEY_PREFIX, _MODEL_ROOM_TILES_PREFIX)
 _MODEL_ROOM_RENDERS_ROOT = "d2/renders/"
 _MODEL_ROOM_MANIFEST_LEAF = "manifest.json"
 _MODEL_ROOM_MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
@@ -8684,9 +8696,10 @@ def _r2_error_status(e) -> int:
 
 
 def _validate_frame_key(key: str) -> str:
-    """Validate a frame key against the d2/ allowlist. Rejects traversal,
-    absolute paths, empty/dot segments, NUL/backslash, and any prefix other than
-    d2/. Returns the key unchanged when safe; raises HTTPException otherwise.
+    """Validate a frame key against the frame allowlist (d2/ and
+    weather/tiles/). Rejects traversal, absolute paths, empty/dot segments,
+    NUL/backslash, and any other prefix. Returns the key unchanged when safe;
+    raises HTTPException otherwise.
 
     This runs BEFORE any R2 call, so a hostile key never reaches the bucket.
     """
@@ -8698,10 +8711,14 @@ def _validate_frame_key(key: str) -> str:
     segments = key.split("/")
     if any(seg in ("", ".", "..") for seg in segments):
         raise HTTPException(status_code=400, detail="invalid frame key (traversal)")
-    # Single allowed prefix; the key must live UNDER it (never the bare prefix).
-    if segments[0] != "d2" or not key.startswith(_MODEL_ROOM_KEY_PREFIX):
+    # The key must live UNDER one of the allowed prefixes (never the bare
+    # prefix — each literal carries its trailing slash, so "d2" and
+    # "weather/tiles" fail this startswith). One gate, one code path: the
+    # traversal/dot/absolute rejections above already applied to every prefix.
+    if not any(key.startswith(p) for p in _FRAME_KEY_PREFIXES):
         raise HTTPException(
-            status_code=403, detail="frame key outside the d2/ allowlist")
+            status_code=403,
+            detail="frame key outside the d2/ + weather/tiles/ allowlist")
     return key
 
 
@@ -8820,11 +8837,19 @@ async def model_room_cycles(
 
 @app.get("/api/model-room/frame/{key:path}")
 async def model_room_frame(
-    key: str = Path(..., description="R2 object key under d2/"),
+    key: str = Path(..., description="R2 object key under d2/ or weather/tiles/"),
 ):
     """Stream one archived frame object (PNG or JSON) from R2, long-immutable
-    cached. The key is validated against the d2/ allowlist FIRST — no traversal,
-    no prefixes other than d2/. Missing object → 404; R2 unprovisioned → 503.
+    cached. The key is validated against the d2/ + weather/tiles/ allowlist
+    FIRST — no traversal, no other prefixes. Missing object → 404; R2
+    unprovisioned → 503.
+
+    Immutable caching is correct for BOTH prefixes: tile keys embed
+    model/run/cycle/param/fhr and are never rewritten in place (the 30-day R2
+    lifecycle deletes keys, it does not mutate them). Content type is the
+    object's stored ContentType, falling back to the same suffix map used for
+    d2/ — so .../manifest.json is application/json and tile PNGs are image/png
+    with no prefix-specific branch.
     """
     safe_key = _validate_frame_key(key)
     if not _model_room_configured():
