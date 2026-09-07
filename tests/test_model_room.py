@@ -3,6 +3,17 @@ Tests for the Model Room R2 archive proxy (D-07-22):
   GET /api/model-room/cycles?model=gfs&days=7
   GET /api/model-room/frame/{key}
 
+THE STORE UNDER /cycles CHANGED (2026-09-06). The cycle index is no longer
+rebuilt per request by walking R2; it is one indexed read of the render ledger
+d2_render_runs (the O(1) re-base — the endpoint was answering 499 at 14-16 s).
+So the /cycles tests below drive a FakeDB swapped into `main._pool`, in the same
+monkeypatch style as the sibling suites, and the FakeR2 stands beside it purely
+as the FALSIFIER: the defect class was "this handler lists R2", and
+test_cycles_makes_zero_r2_calls proves it no longer does — zero list calls, with
+the R2 config left fully provisioned so nothing but the code path explains it.
+
+The /frame tests are untouched: that route is still an R2 proxy.
+
 R2 is never hit for real here — a FakeR2 client (an in-memory key/object store
 that mimics the S3 list_objects_v2 / get_object surface the endpoints use)
 stands in, injected by monkeypatching main._get_r2_client. The four R2_* config
@@ -15,7 +26,8 @@ the validator (main._validate_frame_key), and end-to-end through the frame route
 
 LIVE RECEIPTS (captured against production 2026-07-23, R2 token provisioned):
   * /cycles?model=gfs&days=7 -> {"cycles":[{gfs,20260723,00}]}
-    (pinned byte-for-byte in test_cycles_live_payload_pin_manifest_era). The
+    (pinned byte-for-byte in test_cycles_live_payload_pin_manifest_era — the
+    SAME payload, now proven out of the ledger rather than the walk). The
     first machine-made render manifest is live: d2/renders/gfs/20260723/00Z/
     manifest.json (etag b7ab5acd268fde7267cebe6d912372ea, WECC 41/41, NA 33/41).
     The seed-era loose cycles at d2/synoptic/ (20260721 18Z/12Z) carry NO
@@ -32,6 +44,7 @@ contract regress-guard without a live bucket in CI.
 
 import datetime
 
+import psycopg
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -130,11 +143,21 @@ def client():
     return TestClient(main.app)
 
 
+# The seed-era loose objects still live under the DIFFERENT d2/synoptic/ prefix.
+# They are servable through /frame but carry no manifest under d2/renders/ and no
+# row in the render ledger, so /cycles never lists them (ruled-expected).
+_SEED_ARTIFACTS = ["anomaly_map.png", "synoptic.json", "receipt.md"]
+
+
+def _seed_cycle_keys(model, date, cycle):
+    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}" for a in _SEED_ARTIFACTS]
+
+
 # A render cycle's objects under d2/renders/ (the extended FHR-sequence layout
-# the pantry d2.sequence CLI writes). The manifest.json leaf is the availability
-# assertion — written LAST, only once the fail-fraction gate passes; the PNG
-# ladder is present but never counted. `manifest=False` models a render still in
-# flight (frames landing, manifest not yet written) — correctly NOT available.
+# the pantry d2.sequence CLI writes). These keys no longer decide the /cycles
+# answer — the ledger does — but they are exactly what the OLD walk would have
+# listed, which is what makes them the right bait for the zero-R2-calls
+# falsifier: a handler that still walks would find them.
 def _render_cycle_keys(model, date, cycle, manifest=True, frames=3,
                        region="north_america", param="z500_anom"):
     base = f"d2/renders/{model}/{date}/{cycle}Z"
@@ -144,32 +167,117 @@ def _render_cycle_keys(model, date, cycle, manifest=True, frames=3,
     return keys
 
 
-# The seed-era loose objects still live under the DIFFERENT d2/synoptic/ prefix.
-# They are servable through /frame but carry no manifest under d2/renders/, so
-# the manifest-presence seam never lists them (ruled-expected).
-_SEED_ARTIFACTS = ["anomaly_map.png", "synoptic.json", "receipt.md"]
+# ---------------------------------------------------------------------------
+# FakeDB: the render ledger d2_render_runs, in memory, behind the app's pool
+# shape. It does not parse SQL — it applies the ONE read the endpoint issues
+# (model =, run_date >=, manifest_sha IS NOT NULL, DISTINCT (run_date, cycle),
+# newest first) to its rows, and captures the query + params so the structural
+# rails can ALSO be asserted at the source-of-truth level (test_cycles_sql_shape,
+# test_cycles_cutoff_param_is_inclusive_window).
+#
+# Rows are faked as psycopg's dict_row yields them from the SELECT: run_date a
+# datetime.date, cycle a smallint (int). The zero-padding and the YYYYMMDD token
+# are the ENDPOINT's job, which is precisely what these tests pin.
+# ---------------------------------------------------------------------------
+
+def banked(model, date_token, cycle, param="z500_anom", region="north_america",
+           manifest_sha="e3a32a60effa"):
+    """One ledger row. A real cycle banks SEVERAL — one per param x region — all
+    carrying the same per-cycle manifest_sha; the endpoint's DISTINCT is what
+    collapses that fan-out back to one cycle."""
+    return {
+        "model": model,
+        "run_date": datetime.date(int(date_token[:4]), int(date_token[4:6]),
+                                  int(date_token[6:8])),
+        "cycle": int(cycle),
+        "param": param,
+        "region": region,
+        "manifest_sha": manifest_sha,
+    }
 
 
-def _seed_cycle_keys(model, date, cycle):
-    return [f"d2/synoptic/{model}/{date}/{cycle}Z/{a}" for a in _SEED_ARTIFACTS]
+class _FakeDBCursor:
+    def __init__(self, ledger, sink, fail):
+        self._ledger = ledger
+        self._sink = sink
+        self._fail = fail
+        self._rows = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def execute(self, query, params=None):
+        self._sink["query"] = query
+        self._sink["params"] = params
+        self._sink["calls"] = self._sink.get("calls", 0) + 1
+        if self._fail is not None:
+            raise self._fail
+        hits = {
+            (r["run_date"], r["cycle"])
+            for r in self._ledger
+            if r["model"] == params["model"]
+            and r["run_date"] >= params["cutoff"]
+            and r["manifest_sha"] is not None      # the availability seam
+        }
+        self._rows = [{"run_date": d, "cycle": c}
+                      for d, c in sorted(hits, reverse=True)]
+
+    async def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeDBConn:
+    def __init__(self, ledger, sink, fail):
+        self._args = (ledger, sink, fail)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def cursor(self):
+        return _FakeDBCursor(*self._args)
+
+
+class FakeDB:
+    def __init__(self, rows=None, fail=None):
+        self.ledger = list(rows or [])
+        self.sink = {}
+        self.fail = fail
+
+    def connection(self):
+        return _FakeDBConn(self.ledger, self.sink, self.fail)
+
+
+def use_ledger(monkeypatch, rows=None, fail=None):
+    db = FakeDB(rows=rows, fail=fail)
+    monkeypatch.setattr(main, "_pool", db)
+    return db
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# cycles
+# cycles — served from the ledger (the O(1) re-base, 2026-09-06)
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_cycles_lists_published_cycles_newest_first(client, monkeypatch):
-    """The shape receipt: three manifested render cycles present, newest first,
-    each row {model, date, cycle}. Availability = manifest.json present under
-    d2/renders/."""
+    """The shape receipt: three banked cycles, newest first, each row
+    {model, date, cycle}. The (param, region) fan-out is seeded deliberately —
+    20260722/00 banks four rows — so the DISTINCT collapse is proven, not
+    assumed."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
-    keys = (
-        _render_cycle_keys("gfs", "20260722", "00")
-        + _render_cycle_keys("gfs", "20260721", "18")
-        + _render_cycle_keys("gfs", "20260721", "12")
-    )
-    fake = FakeR2(keys=keys)
-    configure(monkeypatch, fake)
+    use_ledger(monkeypatch, [
+        banked("gfs", "20260722", 0, param="z500_anom", region="north_america"),
+        banked("gfs", "20260722", 0, param="z500_anom", region="wecc"),
+        banked("gfs", "20260722", 0, param="mslp", region="north_america"),
+        banked("gfs", "20260722", 0, param="mslp", region="wecc"),
+        banked("gfs", "20260721", 18),
+        banked("gfs", "20260721", 12),
+        banked("ifs", "20260722", 12),   # another model — never in gfs's answer
+    ])
     d = client.get("/api/model-room/cycles?model=gfs&days=7").json()
     # Platform envelope: {"cycles": [...]} (no bare array).
     assert d == {"cycles": [
@@ -182,27 +290,24 @@ def test_cycles_lists_published_cycles_newest_first(client, monkeypatch):
 
 def test_cycles_live_payload_pin_manifest_era(client, monkeypatch):
     """PINNED LIVE PAYLOAD (D-07-23, verified against production web-production-
-    497cb 2026-07-23): with the manifest-presence seam live, /cycles?model=gfs&
-    days=7 returns exactly the one machine-made render cycle gfs/20260723/00 —
-    whose manifest d2/renders/gfs/20260723/00Z/manifest.json is served live
-    (etag b7ab5acd268fde7267cebe6d912372ea, WECC 41/41, NA 33/41).
+    497cb 2026-07-23), now served from the LEDGER: /cycles?model=gfs&days=7
+    returns exactly the one render cycle gfs/20260723/00.
 
-    The seed-era loose cycles gfs/20260721/18Z and /12Z live under the DIFFERENT
-    d2/synoptic/ prefix with NO manifest under d2/renders/, so the manifest-
-    presence seam drops them off — ruled-expected, and asserted here by seeding
-    them alongside and proving they do NOT appear. This store reproduces the live
-    R2 layout under a fake client and pins the byte-for-byte /cycles envelope the
-    deployed service returns.
+    THE POINT OF THIS TEST AFTER THE RE-BASE: the payload did not move when the
+    store did. The seed-era loose cycles gfs/20260721/18Z and /12Z live under
+    d2/synoptic/ with no manifest and no ledger row, so they are absent for the
+    same reason as before — asserted here by seeding them into the R2 store
+    alongside and proving they do NOT appear.
     """
     # Freeze to the live server date so days=7 spans 20260723 (and 20260721).
     freeze_now(monkeypatch, _dt(2026, 7, 23, 15, 0))
-    keys = (
-        _render_cycle_keys("gfs", "20260723", "00")   # the live manifested cycle
-        + _seed_cycle_keys("gfs", "20260721", "18")   # d2/synoptic seeds — no manifest
-        + _seed_cycle_keys("gfs", "20260721", "12")
-    )
-    fake = FakeR2(keys=keys)
+    fake = FakeR2(keys=(_seed_cycle_keys("gfs", "20260721", "18")
+                        + _seed_cycle_keys("gfs", "20260721", "12")))
     configure(monkeypatch, fake)
+    use_ledger(monkeypatch, [
+        banked("gfs", "20260723", 0,
+               manifest_sha="b7ab5acd268fde7267cebe6d912372ea"),
+    ])
     r = client.get("/api/model-room/cycles?model=gfs&days=7")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/json; charset=utf-8"
@@ -213,34 +318,79 @@ def test_cycles_live_payload_pin_manifest_era(client, monkeypatch):
     print("ok cycles_live_payload_pin_manifest_era")
 
 
-def test_cycles_excludes_incomplete_cycle_seam(client, monkeypatch):
-    """The availability seam: manifest-presence. 18Z has a manifest (published);
-    06Z has frames landing but NO manifest yet (render in flight) -> excluded.
-    A seed-era d2/synoptic cycle (no manifest under d2/renders) is likewise out.
+def test_cycles_makes_zero_r2_calls(client, monkeypatch):
+    """THE FALSIFIER, and the whole reason this lane exists. The defect class was
+    "the cycle index is rebuilt per request by walking list_objects_v2" — cost
+    scaling with the archive, measured at 14,061-15,938 ms and four parallel
+    499s on 2026-09-06.
+
+    So: stand a FULLY PROVISIONED FakeR2 in the path, stocked with exactly the
+    render keys the old walk would have found, and assert the handler makes ZERO
+    R2 calls. Not "fewer" — zero. A regression that reintroduces any listing,
+    even a single MaxKeys=1 probe per cycle, fails here rather than in a Railway
+    log a week later.
     """
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
-    keys = (
-        _render_cycle_keys("gfs", "20260721", "18", manifest=True)
-        + _render_cycle_keys("gfs", "20260721", "06", manifest=False)  # in flight
-        + _seed_cycle_keys("gfs", "20260721", "00")                    # synoptic only
-    )
-    fake = FakeR2(keys=keys)
-    configure(monkeypatch, fake)
+    fake = FakeR2(keys=(_render_cycle_keys("gfs", "20260722", "00")
+                        + _render_cycle_keys("gfs", "20260721", "18")))
+    configure(monkeypatch, fake)          # R2 provisioned and reachable...
+    use_ledger(monkeypatch, [banked("gfs", "20260722", 0)])
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 200
+    assert r.json() == {"cycles": [
+        {"model": "gfs", "date": "20260722", "cycle": "00"}]}
+    assert fake.calls == []               # ...and never touched. Zero. Any verb.
+    print("ok cycles_makes_zero_r2_calls")
+
+
+def test_cycles_served_with_r2_entirely_unprovisioned(client, monkeypatch):
+    """THE DECOUPLING RECEIPT. Before the re-base this was a 503: no R2 token, no
+    cycle index. The route no longer reads R2 at all, so an R2 outage — or a
+    never-provisioned token — can no longer dark the Viewer's cycle index. The
+    R2 config gate went with the R2 dependency; keeping it would have been a
+    guard that cannot fire, wired to a store this route does not use."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    monkeypatch.setattr(main, "R2_ARCHIVE_BUCKET", "")
+    monkeypatch.setattr(main, "R2_ACCESS_KEY_ID", "")
+    monkeypatch.setattr(main, "R2_SECRET_ACCESS_KEY", "")
+    monkeypatch.setattr(main, "R2_ENDPOINT", "")
+    assert not main._model_room_configured()
+    use_ledger(monkeypatch, [banked("gfs", "20260722", 6)])
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 200
+    assert r.json() == {"cycles": [
+        {"model": "gfs", "date": "20260722", "cycle": "06"}]}
+    print("ok cycles_served_with_r2_entirely_unprovisioned")
+
+
+def test_cycles_excludes_unmanifested_row_seam(client, monkeypatch):
+    """THE AVAILABILITY SEAM, carried across the store change. D-07-23-01 made
+    manifest-presence the publication signal; in the ledger's vocabulary that is
+    manifest_sha. A row banked without one is NOT published and does not list.
+
+    The live column is NOT NULL and the 2026-09-06 census measured 0 nulls and 0
+    empty strings across all 1,079 rows — so this guard is a no-op against
+    today's table, and it is tested anyway: the seam is what the SQL asserts, and
+    a schema that later admits a null must not silently widen the answer.
+    """
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    use_ledger(monkeypatch, [
+        banked("gfs", "20260721", 18),
+        banked("gfs", "20260721", 6, manifest_sha=None),   # banked, unmanifested
+    ])
     d = client.get("/api/model-room/cycles?model=gfs&days=7").json()
     assert d == {"cycles": [{"model": "gfs", "date": "20260721", "cycle": "18"}]}
-    print("ok cycles_excludes_incomplete_cycle_seam")
+    print("ok cycles_excludes_unmanifested_row_seam")
 
 
 def test_cycles_respects_days_window(client, monkeypatch):
     """`days` is an inclusive UTC-date window ending today. With today=07-22 and
     days=7 the cutoff is 07-16, so a 07-10 cycle is out of window."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
-    keys = (
-        _render_cycle_keys("gfs", "20260721", "18")
-        + _render_cycle_keys("gfs", "20260710", "00")   # older than the 7-day window
-    )
-    fake = FakeR2(keys=keys)
-    configure(monkeypatch, fake)
+    use_ledger(monkeypatch, [
+        banked("gfs", "20260721", 18),
+        banked("gfs", "20260710", 0),     # older than the 7-day window
+    ])
     d = client.get("/api/model-room/cycles?model=gfs&days=7").json()
     assert d == {"cycles": [{"model": "gfs", "date": "20260721", "cycle": "18"}]}
     # Widen the window and the older cycle reappears.
@@ -250,27 +400,103 @@ def test_cycles_respects_days_window(client, monkeypatch):
     print("ok cycles_respects_days_window")
 
 
-def test_cycles_invalid_model_rejected_before_r2(client, monkeypatch):
-    """A hostile model slug is a 400 and never reaches R2 (no listing call)."""
+def test_cycles_cutoff_param_is_inclusive_window(client, monkeypatch):
+    """THE OFF-BY-ONE GUARD, at the source of truth. The window is `days` dates
+    INCLUDING today, so the cutoff is today-(days-1) — not today-days, which the
+    obvious `current_date - days` in SQL would have made a 15-date window at
+    days=14 and a silent parity failure at the boundary. The cutoff is also a
+    real date OBJECT, bound as a parameter: the window rides the app's frozen
+    _utcnow clock, never the database session's."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
-    fake = FakeR2(keys=[])
-    configure(monkeypatch, fake)
-    r = client.get("/api/model-room/cycles?model=../etc")
-    assert r.status_code == 400
-    assert fake.listed() == []
-    print("ok cycles_invalid_model_rejected_before_r2")
+    db = use_ledger(monkeypatch, [])
+    client.get("/api/model-room/cycles?model=gfs&days=14")
+    assert db.sink["params"]["cutoff"] == datetime.date(2026, 7, 9)   # 22 - 13
+    assert db.sink["params"]["model"] == "gfs"
+    # days=1 is today alone.
+    client.get("/api/model-room/cycles?model=gfs&days=1")
+    assert db.sink["params"]["cutoff"] == datetime.date(2026, 7, 22)
+    print("ok cycles_cutoff_param_is_inclusive_window")
 
 
-def test_cycles_503_when_unprovisioned(client, monkeypatch):
-    """No token yet -> 503, the STOP-GATE's honest answer."""
+def test_cycles_sql_shape(client, monkeypatch):
+    """The structural rails, asserted against the SQL the handler actually ran:
+    ONE query, over the ledger, DISTINCT to cycle granularity, carrying the
+    availability seam, ordered newest-first in the database rather than in
+    Python."""
     freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
-    monkeypatch.setattr(main, "R2_ARCHIVE_BUCKET", "")
-    monkeypatch.setattr(main, "R2_ACCESS_KEY_ID", "")
-    monkeypatch.setattr(main, "R2_SECRET_ACCESS_KEY", "")
-    monkeypatch.setattr(main, "R2_ENDPOINT", "")
+    db = use_ledger(monkeypatch, [banked("gfs", "20260722", 0)])
+    client.get("/api/model-room/cycles?model=gfs&days=7")
+    q = " ".join(db.sink["query"].split())
+    assert "FROM d2_render_runs" in q
+    assert "SELECT DISTINCT run_date, cycle" in q
+    assert "manifest_sha IS NOT NULL" in q
+    assert "ORDER BY run_date DESC, cycle DESC" in q
+    assert db.sink["calls"] == 1          # O(1): one read, whatever the bank size
+    print("ok cycles_sql_shape")
+
+
+def test_cycles_cache_headers_on_200(client, monkeypatch):
+    """Repeat loads should never pay origin at all — secondary to the O(1)
+    origin, but the shared cache is what absorbs the dashboard's parallel fan-out
+    until it learns to single-flight."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    use_ledger(monkeypatch, [banked("gfs", "20260722", 0)])
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == (
+        "public, s-maxage=60, stale-while-revalidate=300")
+    print("ok cycles_cache_headers_on_200")
+
+
+def test_cycles_no_cache_header_on_error(client, monkeypatch):
+    """A failure is never cached — the directive is set on the 200 path only, so
+    an outage cannot be pinned into a CDN for five minutes."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    use_ledger(monkeypatch, [], fail=psycopg.OperationalError("connection closed"))
     r = client.get("/api/model-room/cycles?model=gfs&days=7")
     assert r.status_code == 503
-    print("ok cycles_503_when_unprovisioned")
+    assert "cache-control" not in {k.lower() for k in r.headers}
+    print("ok cycles_no_cache_header_on_error")
+
+
+def test_cycles_invalid_model_rejected_before_db(client, monkeypatch):
+    """A hostile model slug is a 400 and never reaches the database (no query),
+    exactly as it never reached R2 before."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    db = use_ledger(monkeypatch, [])
+    r = client.get("/api/model-room/cycles?model=../etc")
+    assert r.status_code == 400
+    assert db.sink == {}
+    print("ok cycles_invalid_model_rejected_before_db")
+
+
+def test_cycles_503_when_db_unavailable(client, monkeypatch):
+    """DB unavailable -> 503, the platform's standard posture. NO silent fallback
+    to the R2 walk: a fallback that restores the 15-second path on a Neon blip is
+    a guard that cannot fire. The R2 client is provisioned and stocked here
+    precisely so the absence of that fallback is visible — the handler could have
+    walked, and does not."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    fake = FakeR2(keys=_render_cycle_keys("gfs", "20260722", "00"))
+    configure(monkeypatch, fake)
+    use_ledger(monkeypatch, [],
+               fail=psycopg.OperationalError("SSL connection has been closed"))
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 503
+    assert "db unavailable" in r.json()["detail"]
+    assert fake.calls == []
+    print("ok cycles_503_when_db_unavailable")
+
+
+def test_cycles_empty_ledger_is_empty_envelope(client, monkeypatch):
+    """Nothing banked in the window is an empty list, not an error — the Viewer
+    renders honest absence, and the STILL LOADING banner never fires."""
+    freeze_now(monkeypatch, _dt(2026, 7, 22, 15))
+    use_ledger(monkeypatch, [])
+    r = client.get("/api/model-room/cycles?model=gfs&days=7")
+    assert r.status_code == 200
+    assert r.json() == {"cycles": []}
+    print("ok cycles_empty_ledger_is_empty_envelope")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
