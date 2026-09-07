@@ -206,13 +206,16 @@ from a server component or route handler and render the first chart
   `window_label` + per-row `sample_count` carried through. DB unavailable -> 503
 
 - `GET /api/model-room/cycles?model=gfs&days=7`
-  -> the published D2 synoptic cycles for `model` over the last `days` UTC dates,
-  newest first, wrapped in the platform envelope:
+  -> the published D2 synoptic cycles for `model` over the last `days` UTC dates
+  (inclusive of today), newest first, wrapped in the platform envelope:
   `{"cycles": [{model, date, cycle}]}` (date = `YYYYMMDD`, cycle = two-digit
-  UTC hour). A cycle is "published" when its seed artifacts are present under
-  `d2/synoptic/{model}/{date}/{cycle}Z/` in the R2 archive (v0: asserted by
-  object count; manifest-presence is a marked seam). Bad model slug -> 400;
-  R2 token unprovisioned -> 503
+  UTC hour). A cycle is "published" when it carries a `manifest_sha` in the
+  render ledger `d2_render_runs` — the ledger translation of D-07-23-01's
+  manifest-presence signal. Served in ONE indexed query; this route does not
+  read R2 at all (re-based 2026-09-06 off a per-request `list_objects_v2` walk
+  that had grown to 14-16 s with the archive). `Cache-Control: public,
+  s-maxage=60, stale-while-revalidate=300` on the 200 path.
+  Bad model slug -> 400; DB unavailable -> 503
 
 - `GET /api/model-room/frame/{key}`
   -> streams one archived frame object (PNG or JSON) straight from R2 with a

@@ -50,7 +50,7 @@ Endpoints:
     GET /api/nodes/search                  Cockpit node search: up to 50 snapshot-distinct nodes by pnode_id OR plant-name (Atlas crosswalk) substring (+area/node_type), from the latest instant (D-07-21)
     GET /api/nodes/facets                  Cockpit facets: distinct area / node_type categories with node counts over the same latest-instant universe as /nodes/search, cached (D-07-21)
     POST /api/watchboard                   Cockpit/Watchboard v0: polymorphic per-tile board read (tile_type=pnode; views lmp|components|dart|basis), per-tile-isolated (D-07-21)
-    GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the R2 archive (D-07-22)
+    GET /api/model-room/cycles             Model Room: published D2 synoptic cycles for a model over the last N UTC dates, from the d2_render_runs ledger (D-07-22, re-based 2026-09-06)
     GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame or Atlas tile (PNG/JSON) from R2, d2/ + weather/tiles/-allowlisted, long immutable cache (D-07-22)
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
@@ -8582,9 +8582,10 @@ async def watchboard(request: Request):
 # off the /cycles listing — ruled-expected).
 #
 #   GET /api/model-room/cycles?model=gfs&days=7
-#       → [{model, date, cycle}] for the cycles whose render manifest is present
-#         under d2/renders/{model}/ within the last `days` UTC dates, newest
-#         first. Availability = manifest-presence — see _cycle_is_available.
+#       → [{model, date, cycle}] for the cycles banked in the render ledger
+#         within the last `days` UTC dates, newest first. THE STORE THAT ANSWERS
+#         THIS CHANGED 2026-09-06 (R2 walk → Postgres d2_render_runs); the
+#         ANSWER did not. See THE O(1) RE-BASE below.
 #   GET /api/model-room/frame/{key}
 #       → streams the R2 object (PNG or JSON) with a long immutable cache. The
 #         key is VALIDATED against the d2/ + weather/tiles/ prefix allowlist
@@ -8770,8 +8771,139 @@ def _cycle_is_available(client, bucket: str, manifest_key: str) -> bool:
     return any(obj.get("Key") == manifest_key for obj in resp.get("Contents", []))
 
 
+def _cycles_from_r2_walk(model: str, days: int) -> list[tuple[str, str]]:
+    """THE PARITY ARBITER — the pinned pre-2026-09-06 /cycles implementation.
+
+    Lifted VERBATIM out of the request path (it was the body of
+    `model_room_cycles`, main.py, at the branch point) when the endpoint was
+    re-based onto d2_render_runs. It is the arbiter of what "published" meant
+    before the store changed, and it survives for exactly one reason: the
+    blocking parity gate in scripts/parity_model_room_cycles.py runs it against
+    the live archive and diffs it against the ledger read.
+
+    IT IS NOT A FALLBACK, and nothing in the serving path calls it — grep it:
+    the only caller is the parity script. A fallback here would mask the very
+    regression this lane removes. When the gate has passed against production
+    R2 + Postgres, this function and its three R2 helpers
+    (_r2_common_prefixes, _cycle_manifest_key, _cycle_is_available) are DELETED
+    — that deletion is the gate's receipt, not a follow-on.
+
+    Returns (date_token, cycle) pairs, unordered, exactly as the old handler
+    collected them before its `found.sort(reverse=True)`. Synchronous and
+    blocking by design: it is called from a script, not a request.
+    """
+    client = _get_r2_client()
+    bucket = R2_ARCHIVE_BUCKET
+    model_root = f"{_MODEL_ROOM_RENDERS_ROOT}{model}/"
+
+    # UTC date cutoff (inclusive). date tokens are YYYYMMDD, so a lexicographic
+    # compare against the cutoff token is identical to a chronological one.
+    cutoff_token = _model_room_cutoff(days).strftime("%Y%m%d")
+
+    date_dirs = _r2_common_prefixes(client, bucket, model_root)
+    keep_dates = sorted(
+        d for d in date_dirs
+        if _MODEL_ROOM_DATE_RE.match(d) and d >= cutoff_token
+    )
+    found: list[tuple[str, str]] = []
+    for date_token in keep_dates:
+        date_root = f"{model_root}{date_token}/"
+        # The cycle 'directories' under this date; a cycle is AVAILABLE only
+        # when its manifest.json leaf exists (a render mid-flight has frames
+        # but no manifest yet, so it is correctly excluded).
+        for cyc_dir in _r2_common_prefixes(client, bucket, date_root):
+            m = _MODEL_ROOM_CYCLE_DIR_RE.match(cyc_dir)
+            if not m:
+                continue
+            cycle = m.group(1)
+            if _cycle_is_available(
+                    client, bucket,
+                    _cycle_manifest_key(model, date_token, cycle)):
+                found.append((date_token, cycle))
+    return found
+
+
+def _model_room_cutoff(days: int) -> _date:
+    """The inclusive UTC-date floor of the `days` window, ending TODAY.
+
+    days=1 is today alone; days=7 is today and the six dates before it. THE ONE
+    definition of the window, shared by the live ledger read and the R2-walk
+    parity arbiter, so the two can never drift by a day — the off-by-one this
+    helper exists to prevent (`current_date - days` is a FIFTEEN-date window at
+    days=14, not fourteen).
+    """
+    return _utcnow().date() - _timedelta(days=days - 1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE O(1) RE-BASE (2026-09-06) — /cycles moved off the R2 walk
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# THE DEFECT, measured. GET /api/model-room/cycles answered 499 at 14,061-15,938
+# ms (client abandoned, ×4 in parallel) at 23:51:39Z on 2026-09-06, with a p95
+# bucket of 30,000 ms — the live "LOADING — the cycle index" defect on the
+# Viewer. Healthy neighbours the same hour: /api/atlas/constraints 5-8 ms,
+# /api/market-clock ~210 ms. The platform is not slow; this endpoint was.
+#
+# THE MECHANISM. The walk below rebuilds the cycle index PER REQUEST out of
+# list_objects_v2: one list per model root, one per date, and one MaxKeys=1
+# probe per cycle. Cost scales with the ARCHIVE, and the archive tripled in a
+# week (11 params × display tiles + naked frames + value sidecars × global tile
+# sets). Nothing regressed — the bank grew under a linear read.
+#
+# THE RULING. d2_render_runs is the render bank's OWN ledger, written at bank
+# time by the same pantry CLI that writes the R2 manifest. It answers the same
+# question in one indexed query: 0.3 ms measured (EXPLAIN ANALYZE, 2026-09-06).
+#
+# WHAT DID NOT CHANGE. The ANSWER. This is a change of STORE, not of semantics —
+# D-07-23-01 made manifest-presence the publication signal and that ruling still
+# stands; `manifest_sha IS NOT NULL` is its translation into the ledger's
+# vocabulary (see the SQL). The response envelope, the date/cycle token shapes,
+# the ordering, and the `days` window are all preserved byte-for-byte; the
+# client changes nothing.
+#
+# NO FALLBACK. A DB outage answers 503, the platform's standard posture. It does
+# NOT silently fall back to the R2 walk: a fallback that masks the regression is
+# a guard that cannot fire, and the 15-second path is exactly what this lane
+# exists to make unreachable. The walk survives ONLY as the parity arbiter
+# below, and NOTHING in the serving path calls it.
+
+# One indexed read. DISTINCT collapses the ledger's (param, region) fan-out —
+# a cycle banks one row per rendered param×region pair, and this endpoint
+# answers at CYCLE granularity — to the (run_date, cycle) pairs the envelope
+# carries.
+#
+# manifest_sha IS NOT NULL is THE AVAILABILITY SEAM, carried over from
+# _cycle_is_available: a banked row asserts its cycle's manifest by SHA exactly
+# as the R2 object asserted it by presence. It is a NO-OP against today's table
+# — the column is NOT NULL in the live schema and the census measured 0 nulls
+# and 0 empty strings across all 1,079 rows (2026-09-06) — and it is written
+# anyway, because the seam belongs in the SQL where a future nullable column or
+# a partial bank cannot quietly widen the answer.
+#
+# The cutoff is passed as a DATE PARAMETER rather than computed with
+# `current_date` in SQL: the window is the app's UTC clock (_utcnow), the same
+# clock the walk used and the one the tests freeze, so it must not become the
+# database session's clock.
+_MODEL_ROOM_CYCLES_SQL = """
+    SELECT DISTINCT run_date, cycle
+    FROM d2_render_runs
+    WHERE model = %(model)s
+      AND run_date >= %(cutoff)s
+      AND manifest_sha IS NOT NULL
+    ORDER BY run_date DESC, cycle DESC
+"""
+
+# The 200-path cache posture. Secondary to the O(1) origin — the origin is now
+# fast enough that this is an optimisation, not a mask — but a repeat load
+# should never pay origin at all, and a stale index for a few seconds is
+# strictly better than the 15-second wait it replaces.
+_MODEL_ROOM_CYCLES_CACHE = "public, s-maxage=60, stale-while-revalidate=300"
+
+
 @app.get("/api/model-room/cycles")
 async def model_room_cycles(
+    response: Response,
     model: str = Query(..., description="feed slug, e.g. gfs"),
     days: int = Query(
         7, ge=1, le=_MODEL_ROOM_MAX_DAYS,
@@ -8779,60 +8911,39 @@ async def model_room_cycles(
 ):
     """The published render cycles for `model` over the last `days` UTC dates,
     newest first, wrapped in the platform envelope: {"cycles": [{model, date,
-    cycle}]}. A cycle is 'published' when its render manifest object is present
-    under d2/renders/{model}/{date}/{cycle}Z/manifest.json — manifest-presence is
-    the availability assertion in _cycle_is_available.
+    cycle}]}. `date` is the YYYYMMDD run date, `cycle` the two-digit zero-padded
+    synoptic hour — the exact token shapes the archive key scheme uses, so the
+    client can address a frame with them unchanged.
 
-    R2 unprovisioned → 503. Bad model slug → 400.
+    Served from the render ledger d2_render_runs in ONE indexed query (see THE
+    O(1) RE-BASE above); this route touches R2 not at all, and answers with the
+    Model Room's R2 token entirely unprovisioned.
+
+    DB unavailable → 503. Bad model slug → 400.
     """
     if not _MODEL_ROOM_MODEL_RE.match(model):
         raise HTTPException(status_code=400, detail="invalid model slug")
-    if not _model_room_configured():
-        raise HTTPException(status_code=503, detail="model room storage not configured")
 
-    client = _get_r2_client()
-    bucket = R2_ARCHIVE_BUCKET
-    model_root = f"{_MODEL_ROOM_RENDERS_ROOT}{model}/"
-
-    # UTC date cutoff (inclusive). date tokens are YYYYMMDD, so a lexicographic
-    # compare against the cutoff token is identical to a chronological one.
-    cutoff_token = (_utcnow().date() - _timedelta(days=days - 1)).strftime("%Y%m%d")
-
-    def _list_cycles() -> list[tuple[str, str]]:
-        date_dirs = _r2_common_prefixes(client, bucket, model_root)
-        keep_dates = sorted(
-            d for d in date_dirs
-            if _MODEL_ROOM_DATE_RE.match(d) and d >= cutoff_token
-        )
-        found: list[tuple[str, str]] = []
-        for date_token in keep_dates:
-            date_root = f"{model_root}{date_token}/"
-            # The cycle 'directories' under this date; a cycle is AVAILABLE only
-            # when its manifest.json leaf exists (a render mid-flight has frames
-            # but no manifest yet, so it is correctly excluded).
-            for cyc_dir in _r2_common_prefixes(client, bucket, date_root):
-                m = _MODEL_ROOM_CYCLE_DIR_RE.match(cyc_dir)
-                if not m:
-                    continue
-                cycle = m.group(1)
-                if _cycle_is_available(
-                        client, bucket,
-                        _cycle_manifest_key(model, date_token, cycle)):
-                    found.append((date_token, cycle))
-        return found
-
+    params = {"model": model, "cutoff": _model_room_cutoff(days)}
     try:
-        found = await run_in_threadpool(_list_cycles)
-    except HTTPException:
-        raise
-    except Exception as e:  # botocore ClientError / transport
-        raise HTTPException(
-            status_code=502, detail=f"cycle listing failed: {_r2_error_code(e)}")
+        rows = await _cockpit_read(_MODEL_ROOM_CYCLES_SQL, params)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
-    # Newest first: date desc, then cycle desc. Wrapped in the {"cycles": [...]}
-    # platform envelope (the convention every other route follows — no bare array).
-    found.sort(reverse=True)
-    return {"cycles": [{"model": model, "date": d, "cycle": c} for d, c in found]}
+    # Ordered by the query (run_date DESC, cycle DESC) — newest first, no
+    # re-sort here. The tokens are formatted, never string-compared: run_date is
+    # a date and cycle a smallint, so the zero-padding is this seam's job.
+    cycles = [
+        {
+            "model": model,
+            "date": r["run_date"].strftime("%Y%m%d"),
+            "cycle": f"{int(r['cycle']):02d}",
+        }
+        for r in rows
+    ]
+    # 200 path only — an error never carries a cache directive.
+    response.headers["Cache-Control"] = _MODEL_ROOM_CYCLES_CACHE
+    return {"cycles": cycles}
 
 
 @app.get("/api/model-room/frame/{key:path}")
