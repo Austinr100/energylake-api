@@ -659,6 +659,56 @@ empty desk.
 
 ---
 
+## Sky — the GLM lightning proxy (2026-09-18)
+
+**The only route family in this service that is not a view onto Neon**, and
+the only one outside `/api/*`. It is a pass-through for NOAA GOES GLM
+lightning: NODD publishes one NetCDF-4 file per satellite every 20 s, and the
+*objects* carry no `Access-Control-Allow-Origin`, so a browser cannot read
+them cross-origin and something server-side has to.
+
+Ruling S-5 governs it: **pass-through with a rolling window, never a bank.**
+Background threads hold at most 15 minutes of flashes in memory and forget.
+Nothing is written to Neon, R2 or disk.
+
+- `GET /sky/glm?sat=goes19|goes18&minutes=1..15&bbox=w,s,e,n`
+  -> a GeoJSON `FeatureCollection`, one `Point` per **flash** (not per event),
+  thinned to ≤ 5,000 by energy. `bbox` is optional and is applied **before**
+  thinning, so the cap is spent on the area asked for; `w > e` crosses the
+  antimeridian (real for GOES-18). Out-of-contract `minutes` or `bbox` is a
+  **400 naming the fault, never a clamped or repaired value**.
+- `GET /sky/glm/health` -> per-reader ticks, resident flashes/files, the
+  newest flash's age, failed-key count.
+
+**Statuses.** `200` whenever a window exists — *including an empty one*; zero
+flashes over the Pacific at 04Z is the normal state of the sky, and
+`X-GLM-Files` is what tells "quiet" from "broken". `503` only when there is no
+reader or no completed tick (~13 s of cold fetch at boot), so the dashboard
+draws the layer **absent** with its predicate caption rather than an empty
+layer that reads as fair weather over a live storm.
+
+**Receipt headers**, all measured from the data's own stamps (ruling S-3):
+`X-GLM-Window`, `X-GLM-Newest`, `X-GLM-Files`, `X-GLM-Thinned`, `X-GLM-Sat`,
+`X-GLM-Bbox`.
+
+**CORS.** `/sky/*` is exempt from the app-wide `CORSMiddleware` via
+`SkyExemptCORSMiddleware` and answers `Access-Control-Allow-Origin: *`
+unconditionally — including to allowlisted origins, which the credentialed
+app-wide middleware would otherwise overwrite with an echoed origin. Every
+`/api/*` route keeps its existing credentialed CORS behaviour unchanged. See
+`docs/handback_2026_09_18_sky_glm_mount.md` §2.
+
+**Environment.** `SKY_GLM_ENABLED=0` stops this container starting the reader
+threads (default on); `SKY_GLM_SATELLITES` selects the birds (default both).
+Cost with both running: ~2.4 MB/min egress to NODD and ~10 MB resident,
+continuously. With the readers off the route answers a truthful 503.
+
+**`sky/` is vendored** from `energylake-pantry` — the two repos share a
+database, not a package. Provenance and the exact delta are in
+`sky/__init__.py`; diff before re-vendoring.
+
+---
+
 ## The Almanac (2026-08-07)
 
 The publication surface. Three read-only endpoints over `publications`

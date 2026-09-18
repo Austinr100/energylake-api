@@ -11,3 +11,21 @@ boto3>=1.34
 # on Railway, where every /api/weather/point* read died on ModuleNotFoundError
 # as a bare 500 (found by the 2026-09-04 proof curl). This line is the fix.
 httpx>=0.27
+
+# Sky / GLM lightning proxy (d091448a spec, mounted here by d091448m): the
+# GOES GLM L2 LCFA objects on NOAA NODD are NetCDF-4 (HDF5 magic
+# `89 48 44 46 0d 0a 1a 0a`), so `/sky/glm` needs a real NetCDF-4 reader.
+# Imported lazily inside `sky.glm.read_flashes`, so the window and thinning
+# arithmetic stays importable — and testable — without it.
+#
+# No conda and no system HDF5: netCDF4 1.7.4 resolved from a manylinux wheel
+# in seconds on this image (verified 2026-09-18, Python 3.11), the same
+# pip-only bargain the pantry's ERA5 code already relies on.
+netCDF4>=1.6.0
+# numpy is a netCDF4 dependency and would arrive anyway — it is named here
+# because `sky/glm.py` imports it DIRECTLY (`_col`, the finite-mask), and
+# this file already carries the receipt for what happens when a direct import
+# is left to ride on someone else's dependency: see the httpx note above,
+# where "already a dep of the framework" was true in tests and false on
+# Railway, and every read died as a bare 500. Declared, not assumed.
+numpy>=1.24

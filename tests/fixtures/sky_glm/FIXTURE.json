@@ -1,0 +1,81 @@
+{
+  "fifteen_minute_sample": {
+    "bytes": 11686061,
+    "files": 45,
+    "flashes_per_file": {
+      "max": 237,
+      "mean": 210,
+      "median": 211,
+      "min": 191
+    },
+    "total_flashes": 9456
+  },
+  "hour_prefix_census": {
+    "cadence_seconds": 20.0,
+    "keys": 180,
+    "listing_xml_bytes": 67768,
+    "object_bytes": {
+      "hour_total": 45065748,
+      "max": 299510,
+      "mean": 250365,
+      "min": 218503
+    },
+    "prefix": "GLM-L2-LCFA/2026/261/14/"
+  },
+  "measured_content": {
+    "dimensions": {
+      "number_of_events": 9294,
+      "number_of_flashes": 210,
+      "number_of_groups": 3926
+    },
+    "flash_lat_range": [
+      -24.94,
+      42.24
+    ],
+    "flash_time_offset_range_s": [
+      -1.488,
+      19.138
+    ],
+    "hdf5_magic": "894844460d0a1a0a",
+    "quality_flag_counts": {
+      "0": 205,
+      "3": 5
+    },
+    "quality_flag_meanings": "good_quality_qf degraded_due_to_flash_constituent_events_out_of_time_order_qf degraded_due_to_flash_constituent_event_count_exceeds_threshold_qf degraded_due_to_flash_duration_exceeds_threshold_qf",
+    "quality_flag_values": [
+      0,
+      1,
+      3,
+      5
+    ],
+    "time_coverage": [
+      "2026-09-18T14:00:00.0Z",
+      "2026-09-18T14:00:20.0Z"
+    ],
+    "time_units": "seconds since 2026-09-18 14:00:00.000"
+  },
+  "object": {
+    "bytes": 259006,
+    "md5": "85390627fb4f41e6e094c1c0e94b6013",
+    "name": "OR_GLM-L2-LCFA_G19_s20262611400000_e20262611400200_c20262611400221.nc",
+    "sha256": "2dbe5152427df26a6efa06971b5fed4157a1e32b88cc9581c5ab86651b88afab"
+  },
+  "per_file_epoch_evidence": {
+    "samples": [
+      {
+        "key": "GLM-L2-LCFA/2026/261/14/OR_GLM-L2-LCFA_G19_s20262611400000_e20262611400200_c20262611400221.nc",
+        "units": "seconds since 2026-09-18 14:00:00.000"
+      },
+      {
+        "key": "GLM-L2-LCFA/2026/261/14/OR_GLM-L2-LCFA_G19_s20262611413200_e20262611413400_c20262611413419.nc",
+        "units": "seconds since 2026-09-18 14:13:20.000"
+      },
+      {
+        "key": "GLM-L2-LCFA/2026/261/14/OR_GLM-L2-LCFA_G19_s20262611459400_e20262611500000_c20262611500018.nc",
+        "units": "seconds since 2026-09-18 14:59:40.000"
+      }
+    ],
+    "why": "The time epoch is declared PER FILE, not per hour. These three units strings were read off three real objects spanning one hour prefix. A reader that anchors offsets on the {HH}/ prefix misplaces flashes by up to 59 minutes. tests/test_sky_glm.py asserts the parser reads all three, so the property is covered without vendoring three 250 kB blobs."
+  },
+  "provenance": "A REAL, UNMODIFIED GOES-19 GLM L2 LCFA object, downloaded byte-for-byte from https://noaa-goes19.s3.amazonaws.com/GLM-L2-LCFA/2026/261/14/ on 2026-09-18. Nothing was regenerated, resampled or synthesised. Public domain (NOAA/NESDIS)."
+}
