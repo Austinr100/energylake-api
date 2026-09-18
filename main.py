@@ -107,6 +107,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import Headers as _StarletteHeaders
+from starlette.responses import PlainTextResponse as _StarlettePlainTextResponse
 from pydantic import BaseModel
 import psycopg
 from psycopg_pool import AsyncConnectionPool
@@ -114,6 +116,8 @@ from psycopg.rows import dict_row
 
 from publication_clock import compute_status as _compute_publication_status
 import market_clock as _mc
+from sky.glm_reader import GLMReader as _GLMReader
+from sky.glm_route import build_router as _build_sky_glm_router
 
 
 def _utcnow() -> _datetime:
@@ -151,11 +155,59 @@ ALLOWED_ORIGINS = [
 DD_WARM_ON_STARTUP = os.environ.get(
     "DD_WARM_ON_STARTUP", "1").strip().lower() not in ("0", "false", "no", "off")
 
+# SKY_GLM_ENABLED : "0"/"false" stops this container starting the GLM reader
+#   threads (default on). Unlike DD warming this is not a boot-latency switch —
+#   it is a cost switch, and the cost is measured, not guessed
+#   (`energylake-pantry` docs/receipts/sky-glm/price_2026_09_18.md): two reader
+#   threads, ~2.4 MB/min of egress from this service to NOAA NODD and ~10 MB
+#   resident, continuously, whether or not anyone is looking at the map.
+#   With the readers off, `/sky/glm` answers 503 and the dashboard draws the
+#   layer absent with its predicate caption — the designed degradation, not a
+#   crash.
+SKY_GLM_ENABLED = os.environ.get(
+    "SKY_GLM_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
+
+# SKY_GLM_SATELLITES : which birds to read, comma-separated. Both by default.
+#   An unknown name here is DROPPED WITH A WARNING, not raised. `GLMReader`
+#   rejects an unknown satellite in its constructor — correctly, since a typo
+#   would otherwise list a prefix under the wrong bucket — but that constructor
+#   runs at import time, so letting it raise would turn one mistyped env var
+#   into a service that cannot boot at all and takes the other 73 routes with
+#   it. A misconfigured sky costs the sky, not the service.
+_SKY_GLM_KNOWN = ("goes19", "goes18")
+SKY_GLM_SATELLITES = []
+for _s in os.environ.get("SKY_GLM_SATELLITES", "goes19,goes18").split(","):
+    _s = _s.strip().lower()
+    if not _s:
+        continue
+    if _s not in _SKY_GLM_KNOWN:
+        logging.getLogger("energylake.sky").warning(
+            "SKY_GLM_SATELLITES: ignoring unknown satellite %r (known: %s)",
+            _s, ", ".join(_SKY_GLM_KNOWN))
+        continue
+    if _s not in SKY_GLM_SATELLITES:
+        SKY_GLM_SATELLITES.append(_s)
+
 # A single shared async connection pool, opened on startup, closed on shutdown.
 # Railway hobby + Neon both have modest connection caps, so keep it small.
 _pool: AsyncConnectionPool | None = None
 
+# ── SKY / GLM lightning proxy — one rolling-window reader per satellite ─────
+# Built at import time, STARTED in `lifespan` and STOPPED there too. Building
+# them here costs nothing (the constructor opens no socket and spawns no
+# thread) and means `_SKY_GLM_READERS` is a stable object the router can close
+# over at include time, before any of them is running.
+#
+# RULING S-5 — pass-through with a rolling window, NEVER a bank. These hold at
+# most 15 minutes of flashes in memory and forget the rest on every tick.
+# Nothing in `sky/` writes to Neon, to R2 or to disk, and the pantry's own
+# suite asserts that by walking the package's AST.
+_SKY_GLM_READERS: dict[str, _GLMReader] = {
+    s: _GLMReader(s) for s in SKY_GLM_SATELLITES
+} if SKY_GLM_ENABLED else {}
+
 _pool_log = logging.getLogger("energylake.pool")
+_sky_log = logging.getLogger("energylake.sky")
 
 
 # ── STALE CONNECTION ON WAKE — validate-on-checkout ─────────────────────────
@@ -235,9 +287,41 @@ async def lifespan(app: FastAPI):
     _warm_task = None
     if DD_WARM_ON_STARTUP:
         _warm_task = asyncio.create_task(_dd_warm_cumulative())
+
+    # Sky/GLM: one background thread per satellite, on the wire's own 20-s
+    # cadence. Threads, not asyncio tasks, because the reader's transport is
+    # blocking `urllib.request` (chosen so this service needs ONE new
+    # requirement instead of three) — running that on the event loop would
+    # stall every route for the length of a 250 kB fetch.
+    #
+    # `.start()` returns immediately; boot does NOT wait for the first tick.
+    # That is deliberate and it is what the 503 is for: until a reader has
+    # completed one pass (~12 s of cold fetch, measured), `/sky/glm` answers
+    # 503 and the dashboard draws the layer ABSENT with its predicate caption,
+    # rather than drawing an empty layer that reads as fair weather over a
+    # live storm. Startup never waits on the sky and never fails because of it.
+    for _r in _SKY_GLM_READERS.values():
+        try:
+            _r.start()
+        except Exception:  # noqa: BLE001 - the sky never blocks the service
+            _sky_log.exception("sky.glm[%s]: failed to start", _r.sat)
+
     yield
+
     if _warm_task is not None and not _warm_task.done():
         _warm_task.cancel()
+    # Clean shutdown: signal every reader and join it. The threads are daemons,
+    # so the process would exit regardless — this is here so a reader stops
+    # mid-tick at a known point instead of being torn down inside a socket
+    # read, and so a container that is merely RELOADING (uvicorn --reload,
+    # which re-runs lifespan in the same process) does not leak a thread per
+    # reload, each still fetching 1.2 MB/min from NODD forever.
+    for _r in _SKY_GLM_READERS.values():
+        try:
+            _r.stop()
+        except Exception:  # noqa: BLE001 - shutdown is best-effort
+            _sky_log.exception("sky.glm[%s]: failed to stop cleanly", _r.sat)
+
     await _pool.close()
 
 
@@ -273,8 +357,113 @@ VERCEL_PREVIEW_ORIGIN_REGEX = (
     r"https://energylake-[a-z0-9-]+-austinrodriguez221-6328s-projects\.vercel\.app"
 )
 
+# ═══════════════════════════════════════════════════════════════════════════
+# THE `ACAO: *` INVERSION — measured by lane d091448a, fixed here by d091448m
+# ═══════════════════════════════════════════════════════════════════════════
+# THE FINDING. `/sky/glm` is a pass-through proxy for NOAA GOES GLM lightning,
+# which is public-domain data a browser cannot read directly only because the
+# NODD *objects* carry no `Access-Control-Allow-Origin` (the bucket *listing*
+# does; measured both ways, 2026-09-18). The route therefore sets `ACAO: *`
+# itself — that header is the entire reason the route exists.
+#
+# It did not survive. `CORSMiddleware` is mounted app-wide with
+# `allow_credentials=True`, and Starlette is specified never to emit `*` in
+# that configuration: `CORSMiddleware.send` calls `allow_explicit_origin` for
+# any origin the allowlist or the Vercel preview regex admits, which
+# OVERWRITES the response's `Access-Control-Allow-Origin` with the echoed
+# origin. So the route, mounted unchanged, answered:
+#
+#     no Origin at all                ->  ACAO: *                      (ours)
+#     Origin: https://anyone.else     ->  ACAO: *                      (ours)
+#     Origin: https://energylake.io   ->  ACAO: https://energylake.io  (echoed)
+#
+# `*` for everyone EXCEPT the origins we actually trust — an inversion of the
+# thing the header is for. The dashboard works in all three rows, which is
+# precisely why this would have been invisible in production forever.
+#
+# THE DECISION, and why this shape and not the others considered:
+#
+#   * Dropping `allow_credentials` app-wide would fix `/sky/*` and silently
+#     change the CORS contract of all 73 existing `/api/*` routes. Rejected:
+#     a lightning layer does not get to re-rule the whole surface.
+#   * A second CORSMiddleware scoped to `/sky/*` cannot work — Starlette's
+#     user middleware runs before routing, so both instances would see every
+#     request and the app-wide one would still overwrite.
+#   * Setting the header in a route_class / response hook does not help
+#     either: the middleware runs OUTSIDE the router and overwrites whatever
+#     the route set, which is the defect itself.
+#
+# So: exempt `/sky/*` from the middleware entirely. On those paths the
+# middleware does nothing, and the headers `sky/glm_route.py` sets are what
+# the wire says — `*`, unconditionally, in all three rows. Every `/api/*`
+# route keeps the exact credentialed CORS behaviour it has today; the
+# existing `tests/test_cors.py` still passes untouched, and
+# `tests/test_sky_glm_mount.py` asserts all three rows end-to-end so this
+# cannot drift back silently.
+#
+# NOTE ON CREDENTIALS, stated rather than assumed: `ACAO: *` and
+# `Allow-Credentials: true` are mutually exclusive under the CORS spec, and a
+# browser rejects the pair. Exempting `/sky/*` therefore means a cross-origin
+# request to it carries no cookies. That costs nothing — every route in this
+# service is a public, unauthenticated read and there is no cookie to send.
+SKY_CORS_EXEMPT_PREFIXES = ("/sky/",)
+
+
+class SkyExemptCORSMiddleware(CORSMiddleware):
+    """`CORSMiddleware`, minus the paths that must answer `ACAO: *`.
+
+    Everything not under `SKY_CORS_EXEMPT_PREFIXES` takes the unmodified
+    parent path — this class adds no behaviour there at all.
+    """
+
+    def __init__(self, app, *, exempt_prefixes=SKY_CORS_EXEMPT_PREFIXES, **kwargs):
+        super().__init__(app, **kwargs)
+        self._exempt_prefixes = tuple(exempt_prefixes)
+
+    def _is_exempt(self, scope) -> bool:
+        return (scope["type"] == "http"
+                and scope.get("path", "").startswith(self._exempt_prefixes))
+
+    async def __call__(self, scope, receive, send):
+        if not self._is_exempt(scope):
+            await super().__call__(scope, receive, send)
+            return
+
+        # A preflight on an exempt path is answered HERE, not passed through:
+        # with the middleware bypassed there is no OPTIONS route on `/sky/*`
+        # and FastAPI would 405, which a browser reads as "CORS forbidden".
+        # A simple `GET` from the dashboard never preflights, so this is the
+        # uncommon path — but a client that sends one custom header (a
+        # request id, a cache-buster) makes it the only path, and a proxy
+        # that is public for plain GETs and 405s the moment anyone adds a
+        # header is not usefully public.
+        request_headers = _StarletteHeaders(scope=scope)
+        if (scope["method"] == "OPTIONS"
+                and "access-control-request-method" in request_headers):
+            headers = {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Max-Age": "600",
+            }
+            # Mirror whatever was asked for. Safe precisely BECAUSE there are
+            # no credentials here: with `ACAO: *` the browser sends no cookies
+            # and no Authorization, so a mirrored header grants no authority.
+            requested = request_headers.get("access-control-request-headers")
+            if requested:
+                headers["Access-Control-Allow-Headers"] = requested
+            # Deliberately NO `Access-Control-Allow-Credentials` and NO
+            # `Vary: Origin`: the answer does not depend on the origin, which
+            # is the whole point, and a `Vary` would only fragment the cache
+            # that `Cache-Control: public, max-age=10` is asking for.
+            await _StarlettePlainTextResponse(
+                "OK", status_code=200, headers=headers)(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+
 app.add_middleware(
-    CORSMiddleware,
+    SkyExemptCORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=VERCEL_PREVIEW_ORIGIN_REGEX,
     allow_credentials=True,
@@ -294,6 +483,24 @@ app.add_middleware(
 # post-deploy. minimum_size=1000 skips tiny bodies (health, error envelopes)
 # where framing overhead would dwarf any savings.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SKY — the GLM lightning proxy (`/sky/glm`, `/sky/glm/health`)
+# ═══════════════════════════════════════════════════════════════════════════
+# The only route family in this service that is NOT a view onto Neon. It is a
+# pass-through for NOAA GOES GLM lightning: background threads read 20-second
+# NetCDF-4 files from NOAA NODD into a 15-minute in-memory window, and the
+# route serves that window as GeoJSON with `ACAO: *`. Nothing is banked —
+# ruling S-5, and the readers forget on every tick.
+#
+# It is mounted OUTSIDE `/api/*` on purpose: `/sky/*` is the path the CORS
+# exemption above keys on, and keeping the public-`*` surface a distinct,
+# obvious prefix is what makes that exemption auditable. The router is
+# included even when `SKY_GLM_ENABLED` is off — with no readers it answers a
+# truthful 503 ("no GLM reader running for goes19"), which is a far better
+# answer to the dashboard than a 404 that looks like a bad deploy.
+app.include_router(_build_sky_glm_router(_SKY_GLM_READERS))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
