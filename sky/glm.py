@@ -58,7 +58,7 @@ import re
 import threading
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, NamedTuple, Sequence
+from typing import Iterable, Mapping, NamedTuple, Sequence
 
 # ── The estate's two GOES birds, and their NODD buckets ────────────────────
 GLM_SATELLITES = {
@@ -651,6 +651,35 @@ def flashes_to_geojson(flashes: Iterable[Flash], sat: str) -> dict:
     }
 
 
+#: The prefix every receipt header shares. It is the SOURCE of the exposed
+#: list below, not a description of it — see `build_expose_headers`.
+RECEIPT_HEADER_PREFIX = "X-GLM-"
+
+
+def build_expose_headers(headers: Mapping[str, str]) -> str:
+    """`Access-Control-Expose-Headers` for `headers`, READ OFF `headers`.
+
+    Only the CORS-safelisted response headers reach a cross-origin `fetch`.
+    Everything else is on the wire and unreadable by the client at the same
+    time — lane d091448b measured it on chromium-1194 across two real
+    origins, identical bodies, the header the only difference: **0 of 6
+    readable as production sends it, 6 of 6 with it.** Both arms are
+    `res.ok` and deliver every byte, so nothing about the read notices.
+    `curl` has no CORS and cannot see this difference at all, which is why
+    the wire table taken before it was correct and useless for the question.
+
+    The value is derived from the dict being sent rather than typed out, so
+    a seventh `X-GLM-*` receipt header is exposed by the act of adding it.
+    A hand-written second list of six names would be a second contract that
+    drifts from the first while every test still passes — the same shape of
+    defect as the one this function exists to fix, one layer up.
+    """
+    return ", ".join(
+        name for name in headers
+        if name.upper().startswith(RECEIPT_HEADER_PREFIX.upper())
+    )
+
+
 def build_receipt_headers(
     *,
     sat: str,
@@ -692,6 +721,23 @@ def build_receipt_headers(
                       hand a CONUS body to a Pacific request, and without
                       this nothing downstream could tell.
 
+    Two CORS headers ride along, added by lane d091453, and neither is a
+    receipt — they are what makes the receipts above legible to a browser:
+
+      `Access-Control-Expose-Headers`
+                      the `X-GLM-*` names in this very dict, derived by
+                      `build_expose_headers`. Without it the browser hides
+                      all six from the page that asked for them.
+      `Timing-Allow-Origin: *`
+                      lets the page read its own Resource Timing entry for
+                      this response — transferred bytes and phase timings,
+                      which currently report 0. Safe HERE for a reason that
+                      does not generalise: this route is unauthenticated,
+                      public-domain NOAA data already served `ACAO: *`, so
+                      the body is world-readable and its size and timing
+                      disclose nothing the body does not. It belongs on
+                      `/sky/*` only — NOT on `/api/*`, which is credentialed.
+
     **`X-GLM-Thinned` counts AFTER the bbox**, deliberately. It reports the
     decision thinning actually made — `returned` chosen out of the
     `available` that reached it — so with a bbox that cuts 10,765 window
@@ -700,10 +746,11 @@ def build_receipt_headers(
     did not, and the caption describes the view. `X-GLM-Bbox` beside it is
     what says a filter was applied at all.
     """
-    return {
+    headers = {
         "Content-Type": "application/geo+json",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=10",
+        "Timing-Allow-Origin": "*",
         "X-GLM-Window": f"{minutes}m",
         "X-GLM-Newest": _iso_z(newest) if newest else "-",
         "X-GLM-Files": str(files),
@@ -711,6 +758,11 @@ def build_receipt_headers(
         "X-GLM-Sat": sat,
         "X-GLM-Bbox": format_bbox(bbox),
     }
+    # DERIVED FROM THE DICT ABOVE, one line after it and never a second list
+    # of names. Add a receipt header to that literal and it is exposed; there
+    # is no second place to remember.
+    headers["Access-Control-Expose-Headers"] = build_expose_headers(headers)
+    return headers
 
 
 # ───────────────────────────────────────────────────────────────────────────
