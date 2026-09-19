@@ -491,6 +491,164 @@ def test_bad_bbox_is_400_naming_the_fault(client, readers, bad, msg):
 
 
 # ───────────────────────────────────────────────────────────────────────────
+# §8 — THE RECEIPTS ARE ON THE WIRE; THESE ARE ABOUT WHETHER THEY ARE READABLE
+# ───────────────────────────────────────────────────────────────────────────
+# Lane d091453. `ACAO: *` (§2) hands the page the BODY. It does not let the
+# page read one of the six `X-GLM-*` headers: only the CORS-safelisted
+# response headers reach a cross-origin `fetch`, and the rest are dropped on
+# a response that is `res.ok` and byte-complete. Measured in chromium by
+# d091448b: 0 of 6 readable, 6 of 6 with `Access-Control-Expose-Headers`.
+#
+# WHAT THESE TESTS DO NOT PROVE. Every assertion below is a string on a
+# response. A browser's CORS filter is not in this process and cannot be —
+# the acceptance test is the dashboard receipt flipping from its `blocked`
+# shape to its `exposed` shape with no dashboard change, taken after deploy.
+# Read a green §8 as "the string is present and derived", nothing more.
+
+#: The six as they stand today. Named so the set assertions below cannot pass
+#: vacuously if the receipt headers ever stop being sent at all — but never
+#: re-typed as the exposed list, which is derived (see §8's second test).
+SIX_RECEIPT_HEADERS = {
+    "x-glm-window", "x-glm-newest", "x-glm-files",
+    "x-glm-thinned", "x-glm-sat", "x-glm-bbox",
+}
+
+
+def _exposed(resp):
+    """The `Access-Control-Expose-Headers` value as a lowercase set."""
+    raw = resp.headers.get("access-control-expose-headers", "")
+    return {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
+def _receipts_sent(resp):
+    return {k.lower() for k in resp.headers if k.lower().startswith("x-glm-")}
+
+
+def test_exposed_list_is_exactly_the_receipt_headers_actually_sent(
+        client, readers):
+    """THE GUARD THE SPEC ASKS FOR: a seventh `X-GLM-*` header that is sent
+    and not exposed fails here, because the two sets are compared rather
+    than a fixed list being spot-checked."""
+    readers["goes19"] = StubReader(flashes=[_flash(35.0, -100.0)])
+    resp = client.get("/sky/glm?sat=goes19&minutes=5")
+    assert resp.status_code == 200
+    sent = _receipts_sent(resp)
+    assert SIX_RECEIPT_HEADERS <= sent, "the receipt headers themselves are gone"
+    assert _exposed(resp) == sent
+
+
+def test_the_exposed_list_is_derived_not_typed(client, readers):
+    """A seventh receipt header is exposed BY THE ACT OF ADDING IT.
+
+    `build_expose_headers` reads the dict it is handed, so this passes a
+    dict carrying a seventh name that exists nowhere in the source. A
+    hand-typed list of six would fail this and could not be made to pass
+    without editing a second place — which is the whole point.
+    """
+    sent = glm.build_receipt_headers(
+        sat="goes19", minutes=5, newest=None, files=1,
+        returned=0, available=0, bbox=None)
+    assert glm.build_expose_headers(sent) == sent["Access-Control-Expose-Headers"]
+
+    seventh = {**sent, "X-GLM-Seventh": "whatever"}
+    assert "X-GLM-Seventh" in glm.build_expose_headers(seventh)
+    assert set(glm.build_expose_headers(seventh).split(", ")) == {
+        k for k in seventh if k.startswith("X-GLM-")}
+
+
+def test_nothing_but_the_receipt_headers_is_exposed(client, readers):
+    """`Content-Type` and `Cache-Control` are CORS-safelisted already, and
+    listing headers the page can read anyway would make the receipt look
+    like it governs more than it does.
+
+    THE CENSUS LIVES HERE AND NOWHERE ELSE. The other §8 tests compare the
+    exposed list against whatever was sent, so a seventh receipt header is
+    exposed silently and correctly; this one line is where a human has to
+    agree that there are now seven.
+    """
+    readers["goes19"] = StubReader(flashes=[_flash(35.0, -100.0)])
+    exposed = _exposed(client.get("/sky/glm?sat=goes19"))
+    assert exposed == SIX_RECEIPT_HEADERS
+    assert not {"content-type", "cache-control", "vary"} & exposed
+
+
+@pytest.mark.parametrize("origin", [None, FOREIGN_ORIGIN, PREVIEW_ORIGIN])
+def test_the_three_cors_rows_still_hold_and_now_expose(client, readers, origin):
+    """§2's three rows re-measured with the new header beside them: the
+    exemption still answers `*` for all three, and all three can read the
+    receipts. One is no use without the other."""
+    readers["goes19"] = StubReader(flashes=[_flash(35.0, -100.0)])
+    headers = {"Origin": origin} if origin else {}
+    resp = client.get("/sky/glm?sat=goes19", headers=headers)
+    assert resp.status_code == 200
+    assert _acao(resp) == "*"
+    assert "access-control-allow-credentials" not in resp.headers
+    assert _exposed(resp) == _receipts_sent(resp) >= SIX_RECEIPT_HEADERS
+
+
+def test_the_expose_header_comes_from_the_route_not_the_middleware(readers):
+    """WHERE THE CONTRACT LIVES, asserted rather than asserted-in-prose.
+
+    The router mounted in a bare app with NO CORS middleware at all still
+    sends the expose header — so it is the route's, and
+    `SkyExemptCORSMiddleware` (whose job is to keep the credentialed
+    app-wide CORS off `/sky/*`) contributes nothing to it. If someone ever
+    moves the contract into the middleware, this is the test that notices.
+    """
+    readers["goes19"] = StubReader(flashes=[_flash(35.0, -100.0)])
+    bare = FastAPI()
+    bare.include_router(main._build_sky_glm_router(readers))
+    resp = TestClient(bare).get("/sky/glm?sat=goes19",
+                                headers={"Origin": PROD_ORIGIN})
+    assert resp.status_code == 200
+    assert _exposed(resp) == _receipts_sent(resp) >= SIX_RECEIPT_HEADERS
+    assert resp.headers["timing-allow-origin"] == "*"
+
+    src = pathlib.Path(main.__file__).read_text()
+    mw = src[src.index("class SkyExemptCORSMiddleware"):
+             src.index("app.add_middleware(\n    SkyExemptCORSMiddleware")]
+    assert "Expose-Headers" not in mw
+    assert "Timing-Allow-Origin" not in mw
+
+
+# `Timing-Allow-Origin` — on /sky/* only, and the reason is specific to it.
+
+def test_timing_allow_origin_on_the_200(client, readers):
+    readers["goes19"] = StubReader(flashes=[_flash(35.0, -100.0)])
+    resp = client.get("/sky/glm?sat=goes19")
+    assert resp.headers["timing-allow-origin"] == "*"
+
+
+@pytest.mark.parametrize("path,status", [
+    ("/sky/glm?sat=goes19", 503),                 # no reader
+    ("/sky/glm?sat=goes19&minutes=99", 400),      # out of contract
+])
+def test_timing_allow_origin_on_the_error_paths(client, readers, path, status):
+    """A page weighing its own traffic has to be able to weigh the failures.
+    The 400 needs a reader present to get past the 503, so it gets one."""
+    if status == 400:
+        readers["goes19"] = StubReader()
+    resp = client.get(path)
+    assert resp.status_code == status
+    assert resp.headers["timing-allow-origin"] == "*"
+
+
+def test_api_routes_get_neither_header(client):
+    """THE LINE THAT MUST NOT MOVE. `/api/*` is credentialed; exposing
+    headers or timing there discloses things a cross-origin page has no
+    business reading. A preflight, so no handler and no pool are touched."""
+    resp = client.options(
+        "/api/tape/recent",
+        headers={"Origin": PREVIEW_ORIGIN,
+                 "Access-Control-Request-Method": "GET"},
+    )
+    assert _acao(resp) == PREVIEW_ORIGIN
+    assert "timing-allow-origin" not in resp.headers
+    assert "x-glm" not in resp.headers.get(
+        "access-control-expose-headers", "").lower()
+
+
+# ───────────────────────────────────────────────────────────────────────────
 # §7 — netCDF4 IS NOT THREAD-SAFE, AND THIS SERVICE PARSES FROM TWO THREADS
 # ───────────────────────────────────────────────────────────────────────────
 # Found on the first real boot of the mounted route (lane d091448m): one

@@ -28,8 +28,18 @@ What changed on the way in, and nothing else did:
   * The module docstrings in `glm_route.py` now record that the `ACAO: *`
     inversion the pantry lane handed back is fixed in `main.py`.
 
-Re-vendoring: diff against the pantry's `sky/` first; these two changes are
-the whole delta.
+Lane d091453 (2026-09-19) added a third, for the same reason the first two
+are here — the route runs in this repo and nowhere else:
+
+  * `Access-Control-Expose-Headers`, derived by `glm.build_expose_headers`
+    from the receipt dict itself, plus `Timing-Allow-Origin: *`, on
+    `/sky/glm` only. Without the first, a browser reads none of the six
+    `X-GLM-*` headers this package is at pains to get right.
+
+Re-vendoring: diff against the pantry's `sky/` first. These three changes
+are this repo's intended delta — but the two copies have drifted further
+than that (three of four files, measured 2026-09-18), and which one is
+canonical is not settled here.
 """
 
 from sky.glm import (  # noqa: F401
@@ -51,6 +61,8 @@ from sky.glm import (  # noqa: F401
     flashes_to_geojson,
     geojson_bytes,
     build_receipt_headers,
+    build_expose_headers,
+    RECEIPT_HEADER_PREFIX,
 )
 
 __all__ = [
@@ -72,4 +84,6 @@ __all__ = [
     "flashes_to_geojson",
     "geojson_bytes",
     "build_receipt_headers",
+    "build_expose_headers",
+    "RECEIPT_HEADER_PREFIX",
 ]

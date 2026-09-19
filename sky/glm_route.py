@@ -14,8 +14,18 @@ than imported. Two changes were made on the way in, both recorded in
     the layer less true.
   * The `ACAO: *` finding below is FIXED, in `main.py`, not worked around.
 
+A third was made by lane d091453, 2026-09-19, and is recorded in
+`docs/handback_2026_09_19_expose_receipt_headers.md`:
+
+  * `Access-Control-Expose-Headers` and `Timing-Allow-Origin: *`, both set
+    where the rest of the header contract is set — `_plain_headers()` here
+    and `build_receipt_headers` in `sky/glm.py`, never in the middleware.
+    The six `X-GLM-*` headers were on the wire and unreadable by a browser
+    at the same time; `curl` could not tell, and did not.
+
 Everything else is byte-for-byte the pantry's. When the pantry's copy moves,
-diff before re-vendoring.
+diff before re-vendoring — and note the two copies have ALREADY diverged in
+three of four files (see that handback's §4).
 
 ────────────────────────────────────────────────────────────────────────────
 WHY THIS FILE WAS WRITTEN IN THE PANTRY AND THE ROUTE IS NOT THERE.
@@ -60,6 +70,23 @@ passes `/sky/*` through untouched (and answers its preflight itself with
 rows. The header contract therefore lives in exactly one place — here — and
 `tests/test_sky_glm_mount.py` asserts all three rows end-to-end through the
 real app, so it cannot drift back silently.
+
+────────────────────────────────────────────────────────────────────────────
+AND THE SECOND HALF OF THAT SENTENCE, ADDED BY d091453.
+
+`ACAO: *` lets the browser hand the page the BODY. It does not let the page
+read a single one of the six `X-GLM-*` receipt headers: only the
+CORS-safelisted response headers reach a cross-origin `fetch`, and the rest
+are dropped silently on a response that is `res.ok` and complete. Measured
+in chromium: 0 of 6 readable, 6 of 6 with `Access-Control-Expose-Headers`.
+
+That header is set in the same two places the rest of this contract is set —
+`build_receipt_headers` for the 200s, `_plain_headers()` below for the error
+paths — and its value is DERIVED from the dict it travels in, so it cannot
+list five when six are sent. It is emphatically NOT added to
+`SkyExemptCORSMiddleware`: that middleware's whole job is to keep the
+app-wide credentialed CORS OFF `/sky/*`, and a response header set there
+would split this contract in two and falsify the paragraph above.
 """
 
 # NO `from __future__ import annotations` IN THIS FILE, AND IT IS NOT AN
@@ -207,10 +234,22 @@ def serve_glm(
 def _plain_headers() -> dict[str, str]:
     """Errors carry the CORS header too — a 503 the browser cannot read is
     indistinguishable from a network failure, and the dashboard's predicate
-    caption needs the status code to name it."""
+    caption needs the status code to name it.
+
+    `Timing-Allow-Origin` rides along here as well as on the 200s: a page
+    weighing its own traffic has to be able to weigh the failures too, and
+    an error body carries even less than the world-readable one that made
+    the header safe on this route in the first place.
+
+    No `Access-Control-Expose-Headers`: these responses set no `X-GLM-*`
+    header, and the value is derived from what is actually sent, so here it
+    would be the empty string. The status code is the whole receipt on this
+    path, and the status code was never hidden.
+    """
     return {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
+        "Timing-Allow-Origin": "*",
         "Cache-Control": "no-store",
     }
 
