@@ -299,6 +299,20 @@ the whole suite runs against a synthetic sidecar with no network.
   module import. **No new dependencies** — the R2 request signer is ~40 lines of
   stdlib `hmac`/`hashlib` rather than a boto3 import.
 
+### ENSO catalog (`GET /api/enso/catalog`)
+
+- `GET /api/enso/catalog?classifier=cpc_oni|roni` (default `cpc_oni`)
+  -> the current banked ENSO catalog, read-only from migration 240's
+  `enso_catalog_runs` / `enso_episodes` / `enso_year_bins` (written by the
+  pantry's `scripts/enso_catalog_bank.py`): `{classifier, catalog_version,
+  computed_at, source, developing, counts:{episodes, year_bins}, episodes[],
+  year_bins[]}`. Episodes and bins are scoped to the run's `catalog_version`.
+  `flavor` is `null` until PSL long Niño-3/4 is banked. `ETag: W/"<catalog_version>"`
+  with `304` on a matching `If-None-Match`, `Cache-Control: max-age=3600`, 60 s
+  in-process memo. Unknown classifier -> 400; nothing banked -> 404; DB down or
+  a bank landing mid-read -> 503. SQL and composition: `enso_catalog.py`;
+  tests: `tests/test_enso_catalog.py` (no DB).
+
 ### The Structures room (`/api/analytics/structures/*`)
 
 Room 2 of the Analytics Department: swaps, monthly-average (Asian) options and

@@ -54,6 +54,7 @@ Endpoints:
     GET /api/model-room/frame/{key}        Model Room: stream one archived D2 frame or Atlas tile (PNG/JSON) from R2, d2/ + weather/tiles/-allowlisted, long immutable cache (D-07-22)
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
+    GET /api/enso/catalog                  ENSO catalog, read-only from the bank (migration 240): current run + episodes + ENSO-year bins for ?classifier=cpc_oni|roni; weak ETag on catalog_version + 304, max-age=3600, 60 s memo (2026-09-24, d091476)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
     GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
@@ -18819,3 +18820,82 @@ async def weather_point_ladder(
         out["chain"] = _wp.chain_stub(lat, lon, param, first, units,
                                       _WEATHER_STATIONS)
     return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/enso/catalog — the ENSO catalog, read-only, from the bank (d091476)
+#
+# Three reads over migration 240's tables (SQL + composition in enso_catalog.py),
+# wired the way weather_delta_board is: one `_pool.connection()` (so the
+# pre-ping on checkout still runs), an in-process 60 s memo, headers on the way
+# out. Queries 2 and 3 are scoped to the catalog_version query 1 returned.
+#
+# The pre-ping's `SELECT 1` has already opened the connection's (READ COMMITTED)
+# transaction, so the three statements do NOT share one snapshot: a bank landing
+# between them deletes the version queries 2/3 ask for and they come back short,
+# not mixed. The run row carries its own counts, so a short read is caught and
+# answered 503 — never served, never memoised, never ETagged.
+# ═══════════════════════════════════════════════════════════════════════════
+import enso_catalog as _enso
+
+_ENSO_MEMO_TTL = 60.0
+_ENSO_CACHE_CONTROL = "max-age=3600"
+# classifier -> (monotonic, payload, catalog_version)
+_enso_catalog_cache: dict[str, tuple[float, dict, str]] = {}
+
+
+@app.get("/api/enso/catalog")
+async def enso_catalog(request: Request,
+                       classifier: str = Query(_enso.DEFAULT_CLASSIFIER)):
+    """The current banked ENSO catalog for one classifier (`cpc_oni` | `roni`):
+    run metadata, every episode, every ENSO-year bin. Weak ETag on the
+    catalog_version, 304 on a match; memoised 60 s. Unknown classifier → 400;
+    nothing banked → 404; DB unavailable → 503."""
+    if classifier not in _enso.CLASSIFIERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown classifier {classifier!r}; allowed: "
+                   + ", ".join(_enso.CLASSIFIERS))
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    cached = _enso_catalog_cache.get(classifier)
+    if cached is not None and (now_mono - cached[0]) < _ENSO_MEMO_TTL:
+        payload, version = cached[1], cached[2]
+    else:
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(_enso.RUN_SQL, {"c": classifier})
+                    run = await cur.fetchone()
+                    if run is not None:
+                        params = {"c": classifier, "v": run["catalog_version"]}
+                        await cur.execute(_enso.EPISODES_SQL, params)
+                        episodes = await cur.fetchall()
+                        await cur.execute(_enso.YEAR_BINS_SQL, params)
+                        bins = await cur.fetchall()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        if run is None:
+            raise HTTPException(status_code=404,
+                                detail=f"no catalog banked for {classifier}")
+        payload = _enso.build_payload(run, episodes, bins)
+        if (payload["counts"]["episodes"], payload["counts"]["year_bins"]) \
+                != (run["n_episodes"], run["n_year_bins"]):
+            raise HTTPException(
+                status_code=503,
+                detail=(f"catalog {run['catalog_version']} read short "
+                        f"({payload['counts']['episodes']}/{run['n_episodes']} episodes, "
+                        f"{payload['counts']['year_bins']}/{run['n_year_bins']} year bins) "
+                        "— a bank landed mid-read; retry"))
+        version = run["catalog_version"]
+        _enso_catalog_cache[classifier] = (now_mono, payload, version)
+
+    tag = _enso.etag(version)
+    headers = {"Cache-Control": _ENSO_CACHE_CONTROL, "ETag": tag}
+    if _enso.etag_matches(request.headers.get("if-none-match"), tag):
+        return Response(status_code=304, headers=headers)
+    # JSONResponse (plain json.dumps), not FastAPI's jsonable_encoder: the
+    # encoder would quietly turn a stray Decimal into a float and hide a missing
+    # ::float8 cast. enso_catalog.build_payload refuses one by name first.
+    return JSONResponse(content=payload, headers=headers)
