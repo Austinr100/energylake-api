@@ -55,6 +55,7 @@ Endpoints:
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/enso/catalog                  ENSO catalog, read-only from the bank (migration 240): current run + episodes + ENSO-year bins for ?classifier=cpc_oni|roni; weak ETag on catalog_version + 304, max-age=3600, 60 s memo (2026-09-24, d091476)
+    GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS failure falls through to the model arm with receipts.fallback (D-09-25-04); every model card labelled (D-09-24-09) (2026-09-25, d091477)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
     GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
@@ -18898,4 +18899,110 @@ async def enso_catalog(request: Request,
     # JSONResponse (plain json.dumps), not FastAPI's jsonable_encoder: the
     # encoder would quietly turn a stray Decimal into a float and hide a missing
     # ::float8 cast. enso_catalog.build_payload refuses one by name first.
+    return JSONResponse(content=payload, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/local/forecast — Local Weather lane A: two arms, one shape (d091477)
+#
+# Inside the 20 km-buffered US outline → NWS read live behind an in-process
+# memo (D-09-25-03, nws_arm.py); outside → the GFS global sidecars read
+# in-process on the newest banked run (model_arm.py). Any NWS failure falls
+# through to the model arm for that request with a first-class
+# `receipts.fallback` (D-09-25-04). The shape, arm selection and the sun are
+# local_forecast.py. The arms are memoised; this response is not.
+# ═══════════════════════════════════════════════════════════════════════════
+import math as _math
+
+import local_forecast as _lf
+import model_arm as _model_arm
+import nws_arm as _nws_arm
+
+_LOCAL_CACHE_CONTROL = {_lf.ARM_NWS: "max-age=300", _lf.ARM_MODEL: "max-age=900"}
+_local_nws_client: "Optional[_nws_arm.NwsClient]" = None
+
+
+def _get_local_nws_client() -> "_nws_arm.NwsClient":
+    global _local_nws_client
+    if _local_nws_client is None:
+        _local_nws_client = _nws_arm.NwsClient()
+    return _local_nws_client
+
+
+async def _local_gfs_run_candidates() -> list:
+    """Newest banked gfs cycles from the render ledger, newest first; the model
+    arm proves each against the global t2m f000 header before using it."""
+    rows = await _cockpit_read(_model_arm.RUNS_SQL,
+                               {"model": _model_arm.MODEL, "n": _model_arm.RUN_PROBE_DEPTH})
+    return [_datetime(r["run_date"].year, r["run_date"].month, r["run_date"].day,
+                      int(r["cycle"]), tzinfo=_timezone.utc) for r in rows]
+
+
+def _local_400(detail) -> JSONResponse:
+    # 400/503 carry no cache header (spec §2.6).
+    return JSONResponse(status_code=400, content={"detail": detail})
+
+
+@app.get("/api/local/forecast")
+async def local_forecast(request: Request,
+                         lat: Optional[str] = Query(None),
+                         lon: Optional[str] = Query(None),
+                         arm: Optional[str] = Query(None)):
+    """The Local Weather forecast for one point, in one shape whichever arm
+    answered. `?arm=model` forces the model arm anywhere; `?arm=nws` outside
+    the US outline is a 400. Bad or missing lat/lon → 400 with the bounds."""
+    bounds = {"lat": [-90, 90], "lon": [-180, 180], "lon_also_accepted": "(180, 360]"}
+    try:
+        flat = float(lat) if lat is not None else None
+        flon = float(lon) if lon is not None else None
+    except ValueError:
+        return _local_400({"error": "lat/lon must be numbers", "bounds": bounds})
+    if flat is None or flon is None:
+        return _local_400({"error": "lat and lon are required", "bounds": bounds})
+    if not (_math.isfinite(flat) and -90 <= flat <= 90):
+        return _local_400({"error": "lat out of range", "lat": flat, "bounds": bounds})
+    if not (_math.isfinite(flon) and -180 <= flon <= 360):
+        return _local_400({"error": "lon out of range", "lon": flon, "bounds": bounds})
+    notes: list[str] = []
+    if flon > 180:
+        notes.append(f"lon {flon:g} normalised to {flon - 360:g}")
+        flon -= 360
+    if arm not in (None, _lf.ARM_MODEL, _lf.ARM_NWS):
+        return _local_400({"error": "arm must be 'model' or 'nws'", "arm": arm})
+
+    in_us = _lf.in_outline(flat, flon)
+    if arm == _lf.ARM_NWS and not in_us:
+        return _local_400({"error": "arm=nws outside the US outline",
+                           "lat": flat, "lon": flon, "outline_sha": _lf.outline_sha()})
+    chosen = arm or (_lf.ARM_NWS if in_us else _lf.ARM_MODEL)
+    generated_at = _lf.utcnow()
+
+    parts = None
+    fallback = None
+    tz_hint = None
+    if chosen == _lf.ARM_NWS:
+        try:
+            bundle = await _get_local_nws_client().fetch(flat, flon)
+            parts = _nws_arm.build(bundle, flat, flon, generated_at, notes)
+        except _nws_arm.NwsError as e:
+            fallback = {"from": "nws", "reason": e.reason}
+            tz_hint = e.tz
+    if parts is None:
+        tz, tz_source = (tz_hint, "nws") if tz_hint else (_lf.nominal_tz(flon), "nominal")
+        try:
+            parts = await _model_arm.answer(
+                _get_weather_store(), _local_gfs_run_candidates, flat, flon,
+                tz=tz, tz_source=tz_source, country="US" if in_us else None,
+                generated_at=generated_at, fallback=fallback, notes=notes)
+        except _model_arm.ModelArmError as e:
+            return JSONResponse(status_code=503, content={"detail": {
+                "error": f"model arm unavailable: {e.reason}", **e.detail,
+                "fallback": fallback}})
+
+    payload = _lf.build_payload(**parts)
+    rc = payload["receipts"]
+    tag = _lf.etag(rc["arm"], rc["issued_at"], rc["run"] or rc["station"])
+    headers = {"Cache-Control": _LOCAL_CACHE_CONTROL[rc["arm"]], "ETag": tag}
+    if _enso.etag_matches(request.headers.get("if-none-match"), tag):
+        return Response(status_code=304, headers=headers)
     return JSONResponse(content=payload, headers=headers)

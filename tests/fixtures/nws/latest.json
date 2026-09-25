@@ -1,0 +1,70 @@
+{
+ "_provenance": "Hand-built to the api.weather.gov response schema for gridpoint LOX/154,44 (LAX, 33.94,-118.41), not recorded: api.weather.gov was unreachable from the build session (egress policy). Values are chosen so the tests can pin them; see tests/fixtures/nws/README.md.",
+ "id": "https://api.weather.gov/stations/KLAX/observations/2026-09-25T20:53:00+00:00",
+ "type": "Feature",
+ "properties": {
+  "station": "https://api.weather.gov/stations/KLAX",
+  "timestamp": "2026-09-25T20:53:00+00:00",
+  "textDescription": "Mostly Clear",
+  "icon": "https://api.weather.gov/icons/land/day/few?size=medium",
+  "temperature": {
+   "unitCode": "wmoUnit:degC",
+   "value": 21.1,
+   "qualityControl": "V"
+  },
+  "dewpoint": {
+   "unitCode": "wmoUnit:degC",
+   "value": 12.0,
+   "qualityControl": "V"
+  },
+  "windDirection": {
+   "unitCode": "wmoUnit:degree_(angle)",
+   "value": 270,
+   "qualityControl": "V"
+  },
+  "windSpeed": {
+   "unitCode": "wmoUnit:km_h-1",
+   "value": 14.8,
+   "qualityControl": "V"
+  },
+  "windGust": {
+   "unitCode": "wmoUnit:km_h-1",
+   "value": null,
+   "qualityControl": "Z"
+  },
+  "barometricPressure": {
+   "unitCode": "wmoUnit:Pa",
+   "value": 101290,
+   "qualityControl": "V"
+  },
+  "seaLevelPressure": {
+   "unitCode": "wmoUnit:Pa",
+   "value": 101320,
+   "qualityControl": "V"
+  },
+  "relativeHumidity": {
+   "unitCode": "wmoUnit:percent",
+   "value": 56.3,
+   "qualityControl": "V"
+  },
+  "windChill": {
+   "unitCode": "wmoUnit:degC",
+   "value": null,
+   "qualityControl": "V"
+  },
+  "heatIndex": {
+   "unitCode": "wmoUnit:degC",
+   "value": null,
+   "qualityControl": "V"
+  },
+  "cloudLayers": [
+   {
+    "base": {
+     "unitCode": "wmoUnit:m",
+     "value": 1520
+    },
+    "amount": "FEW"
+   }
+  ]
+ }
+}
