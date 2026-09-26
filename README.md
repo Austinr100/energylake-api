@@ -329,9 +329,17 @@ the whole suite runs against a synthetic sidecar with no network.
   alerts failure is stated in place — `now` nulls with `obs unavailable (…)`,
   `alerts: []` with an `alerts unavailable (…)` note (D-09-25-09). On the US arm
   days 8–10 are the model arm's daily rows, each labelled `model · GFS HHZ …`,
-  or a `days 8–10 unavailable: model arm …` note (d091485). SI
-  units (NWS itself is read in `units=us`, D-09-25-16); every null has its
-  reason in the row's `absent[]`. `max-age=300` (NWS) / `900` (model); the ETag
+  or a `days 8–10 unavailable: model arm …` note (d091485). On the model arm a
+  local date with no whole-day row gets a rest-of-today row (`hi` over its
+  daylight hours only) and a `today: fAAA–fBBB only …` note (D-09-25-30). SI
+  units (NWS itself is read in `units=us`, D-09-25-16); every null, and every
+  `unknown` condition, has its reason in the row's `absent[]` (D-09-25-31).
+  Every 200/304/503 carries `Server-Timing` (`nws_points`, `nws_forecast`,
+  `nws_obs`, `nws_alerts`, `model_run`, `model_ladders`, `build`, `total`; never
+  in the body) with `Access-Control-Expose-Headers` and, for an allowed origin,
+  `Timing-Allow-Origin` (D-09-25-27). Only `points` waits: the NWS legs, the
+  four model ladders and the US arm's model read run concurrently, and the GFS
+  run memo is refreshed in the background (D-09-25-28/-29). `max-age=300` (NWS) / `900` (model); the ETag
   is `W/"<arm>:<sha256[:32]>"` of the body minus `receipts.generated_at`/`memo`,
   so a `304` means identical content (D-09-25-15); bad lat/lon or `arm=nws` outside the
   outline -> 400; no banked run -> 503. Code: `local_forecast.py`,

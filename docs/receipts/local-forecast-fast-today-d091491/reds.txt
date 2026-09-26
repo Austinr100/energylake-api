@@ -1,0 +1,50 @@
+d091491 reds — applied to d376220, whole suite each, sha-256 restore
+
+R1 — the NWS legs awaited one after another again (nws_arm.py); must go red: T2
+  1 failed, 1930 passed, 1 warning in 13.23s
+  must-go-red T2f: RED
+    tests/test_local_forecast.py::test_T2f_nws_legs_run_together_once_points_answers
+  restored: nws_arm.py sha-256 cbcfbbfe3f9f1ee3cb66559fbba5ebdea5650fab65046f7f39edeebf242fad0b
+
+R2 — the ladders read in a dict comprehension again (model_arm.py); must go red: T4
+  1 failed, 1930 passed, 1 warning in 13.83s
+  must-go-red T4f: RED
+    tests/test_local_forecast.py::test_T4f_ladders_are_read_together
+  restored: model_arm.py sha-256 760b2ef6930ec4dde5883198566c95802436d42beda1271b42501c4fa8bde11f
+
+R3 — the route reads the model arm twice on fallback (main.py); must go red: T5
+  1 failed, 1930 passed, 1 warning in 13.25s
+  must-go-red T5f: RED
+    tests/test_local_forecast.py::test_T5f_nws_falling_through_is_still_one_read_and_todays_payload
+  restored: main.py sha-256 e4abcf75aaec51c14a7565f7e4922c4f965fdf5d184cf65ebc4534950d8c0136
+
+R4 — refresh awaited on the request path (model_arm.py); must go red: T6
+  2 failed, 1929 passed, 1 warning in 14.41s
+  must-go-red T6f: RED
+    tests/test_local_forecast.py::test_T6f_a_failed_refresh_leaves_the_memo_and_logs
+    tests/test_local_forecast.py::test_T6f_memo_at_301s_is_served_at_once_and_one_refresh_starts
+  restored: model_arm.py sha-256 760b2ef6930ec4dde5883198566c95802436d42beda1271b42501c4fa8bde11f
+
+R5 — `hi` taken over every hour of the window (model_arm.py); must go red: T7
+  2 failed, 1929 passed, 1 warning in 13.37s
+  must-go-red T7f: RED
+    tests/test_local_forecast.py::test_T7f_tokyo_at_night_rest_of_today_has_no_high
+    tests/test_local_forecast.py::test_T7f_tokyo_by_day_the_high_is_the_daylight_high_only
+  restored: model_arm.py sha-256 760b2ef6930ec4dde5883198566c95802436d42beda1271b42501c4fa8bde11f
+
+R6 — the `condition` rule dropped from `_check_reasons` (local_forecast.py); must go red: T8
+  1 failed, 1930 passed, 1 warning in 13.16s
+  must-go-red T8f: RED
+    tests/test_local_forecast.py::test_T8f_build_payload_refuses_an_unexplained_unknown_and_not_a_mapped_one
+  restored: local_forecast.py sha-256 b608c80a65576a7f39c3e69bf37bb6b5018c4b0a65a082538f5a20caa4a7d0bb
+
+R7 — a duration written into `receipts.notes` (main.py); must go red: T1
+  6 failed, 1925 passed, 1 warning in 13.81s
+  must-go-red T1f: RED
+    tests/test_local_forecast.py::test_T19_an_unchanged_body_is_an_empty_304_with_the_same_headers
+    tests/test_local_forecast.py::test_T1f_body_and_etag_are_byte_identical_with_and_without_the_recorder
+    tests/test_local_forecast.py::test_T1f_server_timing_on_200_304_and_503_in_the_ruled_order
+    tests/test_local_forecast.py::test_T5f_nws_falling_through_is_still_one_read_and_todays_payload
+    tests/test_local_forecast.py::test_T8_lon_past_180_is_normalised_and_the_receipt_says_so
+    tests/test_local_forecast.py::test_T8_matching_if_none_match_is_an_empty_304
+  restored: main.py sha-256 e4abcf75aaec51c14a7565f7e4922c4f965fdf5d184cf65ebc4534950d8c0136

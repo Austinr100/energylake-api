@@ -19,6 +19,9 @@ wrap). T2, T4 and T8 carry the amendments those rulings make to #78's pins.
 T17..T25 are d091488's (D-09-25-15 the content ETag, D-09-25-16 `units=us`,
 D-09-25-17 `pm180` read from the pantry's committed header bytes); T7 and T8
 carry its amendments.
+T1f..T9f are d091491's (`f` for fast-today: Server-Timing D-09-25-27, only
+`points` waits D-09-25-28, run discovery off the path D-09-25-29, the rest of
+today D-09-25-30, `unknown` says why D-09-25-31); T4 carries its amendment.
 """
 
 import hashlib
