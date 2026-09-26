@@ -282,6 +282,8 @@ def _hour_row(s: dict, label: str) -> dict:
                    ("mslp", s["mslp_why"]), ("sky", s["sky_why"])):
         if why:
             absent.append(f"{f}: {why}")
+    if s["sky"] is None:                        # D-09-25-31: `unknown` says why
+        absent.append(f"condition: from sky, which is null ({s['sky_why']})")
     fh = (f"f{s['fhr_lo']:03d}" if not s["interp"]
           else f"f{s['fhr_lo']:03d}–f{s['fhr_hi']:03d} interp")
     return {"valid": lf.iso_z(s["valid"]), "t": s["t"], "feels": None, "dewpoint": None,
@@ -337,6 +339,7 @@ def _day_row(d: date, hours: list[dict], tz: str, lat: float, lon: float,
     sky = round(sum(skies) / len(skies), 2) if skies else None
     if sky is None:
         absent.append("sky: no daylight window with dswrf")
+        absent.append("condition: from sky, which is null (no daylight window with dswrf)")
     sun = lf.sun_times(lat, lon, d, tz)
     absent += sun["absent"]
     return {"date": d.isoformat(), "hi": hi, "lo": lo, "pop": None, "precip_amt": None,

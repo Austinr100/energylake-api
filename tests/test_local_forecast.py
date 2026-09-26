@@ -1737,3 +1737,93 @@ def test_T6f_memo_at_seven_hours_and_a_second_blocks():
     got, calls, memo = _swr(7 * 3600 + 1, Ledger())
     assert got == RUN and memo[1] == RUN
     assert model_arm._refresh_tasks == {}
+
+
+# ── T8 (d091491) — `unknown` says why (D-09-25-31) ────────────────────────
+
+def _blocks(b):
+    yield "now", b["now"]
+    for i, h in enumerate(b["hourly"]):
+        yield f"hourly[{i}]", h
+    for i, d in enumerate(b["daily"]):
+        yield f"daily[{i}]", d
+
+
+def _unknowns(b):
+    out = []
+    for where, row in _blocks(b):
+        if row["condition"] == "unknown":
+            lines = [a for a in row["absent"] if a.split(":", 1)[0] == "condition"]
+            assert lines, f"{where} is unknown with no condition: line"
+            out.append((where, lines[0]))
+    return out
+
+
+def test_T8f_every_unknown_on_both_arms_says_why(world):
+    hourly = _fixture("forecastHourly.us.json")
+    hourly["properties"]["periods"][0]["icon"] = \
+        "https://api.weather.gov/icons/land/day/smoke?size=small"
+    hourly["properties"]["periods"][1]["icon"] = None
+    forecast = _fixture("forecast.us.json")
+    forecast["properties"]["periods"][0]["icon"] = \
+        "https://api.weather.gov/icons/land/day/haze?size=medium"
+    forecast["properties"]["periods"][2]["icon"] = None
+    world["nws"].override.update(hourly=hourly, forecast=forecast)
+    world["nws"].fail["obs"] = 503
+    world["now"] = datetime(2026, 9, 25, 14, 10, tzinfo=UTC)
+    got = dict(_unknowns(get(world, **LAX).json()))
+    assert got["now"] == "condition: obs unavailable (HTTP 503)"
+    assert got["hourly[0]"] == "condition: nws icon token 'smoke' is not in the house table"
+    assert got["hourly[1]"] == "condition: nws gave no icon"
+    assert got["daily[0]"] == "condition: nws icon token 'haze' is not in the house table"
+    assert got["daily[1]"] == "condition: nws gave no icon"
+
+    world["now"] = RUN + timedelta(minutes=10)         # f000, then the night
+    got = dict(_unknowns(get(world, **VANCOUVER).json()))
+    assert got["now"] in ("condition: from sky, which is null (night)",
+                          "condition: from sky, which is null "
+                          "(not banked at f000 (dswrf is a 6 h mean))")
+    reasons = set(got.values())
+    assert "condition: from sky, which is null (night)" in reasons
+    assert all(r.startswith("condition: from sky, which is null (") for r in reasons)
+
+
+def test_T8f_f000_by_day_names_the_six_hour_mean(world):
+    world["now"] = RUN + timedelta(minutes=10)
+    b = get(world, lat=40.0, lon=-10.0).json()          # 12Z is daylight at 10°W
+    assert b["now"]["sky"] is None
+    assert ("condition: from sky, which is null (not banked at f000 (dswrf is a 6 h mean))"
+            in b["now"]["absent"])
+
+
+def test_T8f_build_payload_refuses_an_unexplained_unknown_and_not_a_mapped_one():
+    parts = _nws_parts()
+    assert parts["hourly"][0]["condition"] != "unknown"
+    assert not any(a.startswith("condition:") for a in parts["hourly"][0]["absent"])
+    lf.build_payload(**parts)                           # a mapped word needs no line
+    for block in ("now", "hourly", "daily"):
+        parts = _nws_parts()
+        row = parts[block] if block == "now" else parts[block][0]
+        row["condition"] = "unknown"
+        with pytest.raises(ValueError, match=r"condition is unknown with no reason"):
+            lf.build_payload(**parts)
+        row["absent"].append("condition: nws gave no icon")
+        lf.build_payload(**parts)
+
+
+# ── T9 (d091491) — the contract holds ─────────────────────────────────────
+
+def test_T9f_key_sets_are_byte_identical_to_main():
+    assert lf.TOP_KEYS == ("place", "now", "hourly", "daily", "alerts", "sun", "receipts")
+    assert lf.NOW_KEYS == ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp",
+                           "condition", "condition_raw", "valid", "source", "age_min",
+                           "absent")
+    assert lf.HOURLY_KEYS == ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop",
+                              "precip_amt", "sky", "mslp", "condition", "condition_raw",
+                              "t_spread", "interp", "source", "absent")
+    assert lf.DAILY_KEYS == ("date", "hi", "lo", "pop", "precip_amt", "wind", "sky",
+                             "condition", "sunrise", "sunset", "source", "absent")
+    assert lf.SUN_KEYS == ("sunrise", "sunset", "day_length_min", "source", "absent")
+    assert lf.RECEIPT_KEYS == ("arm", "source", "issued_at", "run", "fhr_range",
+                               "station", "memo", "fallback", "outline_sha",
+                               "generated_at", "notes")

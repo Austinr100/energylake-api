@@ -517,6 +517,11 @@ def _check_reasons(row: dict, kind: str, where: str) -> None:
     for f in _REASONED[kind]:
         if row.get(f) is None and f not in named:
             raise ValueError(f"{where}.{f} is null with no reason in absent[]")
+    # D-09-25-31: `unknown` is a value that must say why — the same rule as a
+    # null (`sun` has no condition).
+    if kind in ("now", "hourly", "daily") and row.get("condition") == UNKNOWN \
+            and "condition" not in named:
+        raise ValueError(f"{where}.condition is unknown with no reason in absent[]")
     wind = row.get("wind")
     if isinstance(wind, dict):
         for f in WIND_KEYS:

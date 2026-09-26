@@ -251,11 +251,19 @@ def _temp(period: dict) -> Optional[float]:
     return lf.to_celsius(val, unit or period.get("temperatureUnit"))
 
 
-def _cond(icon: Optional[str], absent: list[str]) -> tuple[str, Optional[str]]:
+def _cond(icon: Optional[str], absent: list[str], *, raw: bool = True
+          ) -> tuple[str, Optional[str]]:
+    """The house word and the raw token. An `unknown` says why in `absent`
+    (D-09-25-31); `raw=False` for a block with no `condition_raw` (daily)."""
     token = lf.icon_token(icon)
+    condition = lf.condition_from_token(token)
     if token is None:
-        absent.append("condition_raw: nws gave no icon")
-    return lf.condition_from_token(token), token
+        if raw:
+            absent.append("condition_raw: nws gave no icon")
+        absent.append("condition: nws gave no icon")
+    elif condition == lf.UNKNOWN:
+        absent.append(f"condition: nws icon token '{token}' is not in the house table")
+    return condition, token
 
 
 def _sky(token: Optional[str], absent: list[str]) -> Optional[float]:
@@ -349,7 +357,7 @@ def _daily_row(day: Optional[dict], night: Optional[dict], zone: ZoneInfo, tz: s
     if pop is None:
         absent.append("pop: not reported")
     wind = _period_wind(lead, absent, gust_reason="not in nws forecast")
-    condition, raw = _cond(lead.get("icon"), [])
+    condition, raw = _cond(lead.get("icon"), absent, raw=False)
     sky = _sky(raw, absent)
     sun = lf.sun_times(lat, lon, d, tz)
     absent += sun["absent"]
@@ -416,7 +424,8 @@ def now_unavailable(station: Optional[str], reason: str) -> dict:
     why = f"obs unavailable ({reason})"
     absent = [f"{f}: {why}" for f in ("t", "feels", "dewpoint", "rh", "wind.dir_deg",
                                       "wind.dir_txt", "wind.speed", "wind.gust", "sky",
-                                      "mslp", "condition_raw", "valid", "age_min")]
+                                      "mslp", "condition_raw", "condition", "valid",
+                                      "age_min")]
     return {"t": None, "feels": None, "dewpoint": None, "rh": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": None, "gust": None},
             "sky": None, "mslp": None, "condition": lf.UNKNOWN, "condition_raw": None,
