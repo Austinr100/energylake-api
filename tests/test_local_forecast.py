@@ -16,6 +16,9 @@ T11..T16, T6′ (`test_T6p_…`), T7 (`test_T7_locator_…`) and T10′ are d091
 (the follow-ups: the scoped fallback D-09-25-09, hourly from now D-09-25-10,
 days 8–10 from the model arm, `weather_point.ladder()` lifted, the full-circle
 wrap). T2, T4 and T8 carry the amendments those rulings make to #78's pins.
+T17..T25 are d091488's (D-09-25-15 the content ETag, D-09-25-16 `units=us`,
+D-09-25-17 `pm180` read from the pantry's committed header bytes); T7 and T8
+carry its amendments.
 """
 
 import hashlib
@@ -39,6 +42,9 @@ import weather_point as wp
 UTC = timezone.utc
 ROOT = Path(__file__).resolve().parent.parent
 NWS_FIX = Path(__file__).parent / "fixtures" / "nws"
+PROD_HEADER_PATH = (Path(__file__).parent / "fixtures"
+                    / "weather_sidecar_header_global_2026092518_t2m_f000.json")
+PROD_HEADER_SHA = "9ff46b1a592f42a0cc01d445637a4562a791ad6e07d164e10967f6116c982818"
 RAW_OUTLINE = str(Path(__file__).parent / "fixtures" / "us_outline_raw.geojson")
 
 NOW = datetime(2026, 9, 25, 21, 10, tzinfo=UTC)
@@ -69,6 +75,9 @@ class FakeNws:
     FILES = {"points": "points.json", "hourly": "forecastHourly.json",
              "forecast": "forecast.json", "stations": "stations.json",
              "obs": "latest.json", "alerts": "alerts.json"}
+    #: D-09-25-16: a `units=us` forecast read gets the US-unit twin, as NWS would
+    #: answer it; the SI originals stay for the tests that pin SI conversion.
+    FILES_US = {"hourly": "forecastHourly.us.json", "forecast": "forecast.us.json"}
 
     def __init__(self, **fail):
         self.fail = fail
@@ -88,6 +97,8 @@ class FakeNws:
             return f, {"title": "fixture failure", "status": f}
         if kind in self.override:
             return 200, self.override[kind]
+        if (params or {}).get("units") == "us" and kind in self.FILES_US:
+            return 200, _fixture(self.FILES_US[kind])
         return 200, _fixture(self.FILES[kind])
 
 
@@ -103,11 +114,16 @@ class Clock:
 # The model arm's bank fake — the global sidecars
 # ---------------------------------------------------------------------------
 
-GLOBAL_HEADER = {"shape": [721, 1440], "lat0": -90.0, "lon0": -180.0, "dlat": 0.25,
-                 "dlon": 0.25, "lat_order": "ascending",
-                 "lon_convention": "west_negative_monotonic", "dtype": "float32",
-                 "endianness": "little", "model": "gfs", "crop": "global",
-                 "sha256": "0" * 64}
+#: D-09-25-17 — the pantry's own bytes: the t2m global header for 20260925 18Z
+#: f000, rebuilt and accepted only because its sha equals the `header_sha256`
+#: the pantry stamped in `d2_render_runs.meta.sidecar` (pantry
+#: docs/receipts/local-forecast-etag-units-d091488/fixtures/). The fake below is
+#: DERIVED from it, never typed beside it (#77: d091485's hand-typed
+#: "west_negative_monotonic" passed every test and 503'd every global point).
+PROD_HEADER = json.loads(PROD_HEADER_PATH.read_bytes())
+GEOMETRY_KEYS = ("shape", "lat0", "lon0", "dlat", "dlon", "lat_order",
+                 "lon_convention", "dtype", "byte_order")
+GLOBAL_HEADER = {k: PROD_HEADER[k] for k in GEOMETRY_KEYS + ("model", "crop")}
 UNITS = {"t2m": "K", "wind10m": "m s-1", "mslp": "Pa", "dswrf": "W m-2"}
 
 
@@ -151,7 +167,7 @@ class FakeGlobalBank:
             return 404, b""
         _, param, fhr, ext = self._parse(key)
         if ext == "json":
-            return 200, json.dumps({**GLOBAL_HEADER, "param": param,
+            return 200, json.dumps({**PROD_HEADER, "param": param,
                                     "units": UNITS[param]}).encode()
         assert byte_range is not None, "a value read with no Range header"
         start, end = (int(x) for x in byte_range.split("=")[1].split("-"))
@@ -284,6 +300,9 @@ def test_T2_48_hourly_rows_and_daily_paired_day_night(world):
 
 
 def test_T2_si_units_a_known_fahrenheit_arrives_as_celsius(world):
+    # d091488: the route now asks for units=us; this pin is conversion FROM SI,
+    # so the SI hourly original is served explicitly (§2.3).
+    world["nws"].override["hourly"] = _fixture("forecastHourly.json")
     b = get(world, **LAX).json()
     assert b["daily"][0]["hi"] == 25.0            # 77 °F
     assert b["daily"][0]["lo"] == 17.2            # 63 °F
@@ -608,11 +627,13 @@ def test_T7_memo_is_keyed_on_the_gridpoint_not_the_click(world):
     assert world["nws"].count("hourly") == 1
 
 
-def test_T7_every_nws_call_carries_units_si_on_both_forecasts(world):
+def test_T7_every_nws_call_carries_units_us_on_both_forecasts(world):
+    # d091488 amendment (D-09-25-16): units=si → units=us.
     get(world, **LAX)
-    for kind, _, params in world["nws"].calls:
-        if kind in ("hourly", "forecast"):
-            assert params == {"units": "si"}
+    seen = [params for kind, _, params in world["nws"].calls
+            if kind in ("hourly", "forecast")]
+    assert len(seen) == 2
+    assert all(params == {"units": "us"} for params in seen)
 
 
 def test_T7_the_real_transport_sends_the_required_headers():
@@ -626,12 +647,16 @@ def test_T7_the_real_transport_sends_the_required_headers():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_T8_cache_headers_and_etag_per_arm(world):
+    # d091488 amendment (D-09-25-15): the tag is W/"<arm>:<sha256[:32]>" of the
+    # content, not W/"<arm>:<issued_at>:<station|run>".
     us = get(world, **LAX)
     assert us.headers["cache-control"] == "max-age=300"
-    assert us.headers["etag"] == 'W/"nws:2026-09-25T18:31:04Z:KLAX"'
+    assert us.headers["etag"] == lf.content_etag(us.json())
+    assert re.fullmatch(r'W/"nws:[0-9a-f]{32}"', us.headers["etag"])
     m = get(world, **VANCOUVER)
     assert m.headers["cache-control"] == "max-age=900"
-    assert m.headers["etag"] == 'W/"model:2026-09-25T12:00:00Z:2026-09-25T12Z"'
+    assert m.headers["etag"] == lf.content_etag(m.json())
+    assert re.fullmatch(r'W/"model:[0-9a-f]{32}"', m.headers["etag"])
 
 
 def test_T8_matching_if_none_match_is_an_empty_304(world):
@@ -1051,3 +1076,255 @@ def test_T7_latitude_still_refuses_and_regional_crops_still_do_not_wrap():
     with pytest.raises(wp.PointError) as ei:
         wp.locate(40.0, 0.0, na3)
     assert ei.value.status == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091488 — pm180 from the pantry's bytes, the content ETag, units=us
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── T22 — D-09-25-17: the committed production header reads as pm180 ───────
+
+def test_T22_production_header_is_the_pantrys_bytes_and_reads_as_pm180():
+    raw = PROD_HEADER_PATH.read_bytes()
+    assert len(raw) == 660
+    assert hashlib.sha256(raw).hexdigest() == PROD_HEADER_SHA
+    h = wp.SidecarHeader(json.loads(raw),
+                         key="weather/values/gfs/global/20260925/18Z/t2m_f000.json")
+    assert h.lon_convention == "pm180"
+    assert h.inferred == []                    # every field read, none guessed
+    assert wp.is_full_circle(h)
+    assert h.axes()["lon_convention"] == "pm180"
+
+
+@pytest.mark.parametrize("name,lat,lon", [
+    ("Vancouver", 49.283, -123.121),
+    ("Fiji", -17.8, 178.0),
+    ("Samoa", -13.8, -172.1),
+    ("seam 179.9E", 0.0, 179.9),
+    ("seam 179.9W", 0.0, -179.9),
+])
+def test_T22_locate_on_the_production_header_matches_the_independent_cell(name, lat, lon):
+    h = wp.SidecarHeader(json.loads(PROD_HEADER_PATH.read_bytes()))
+    got = wp.locate(lat, lon, h)
+    assert (got["j"], got["i"]) == _pm180_cell(lat, lon), name
+
+
+# ── T23 — the fake is derived from the bytes, field for field ──────────────
+
+def test_T23_global_header_agrees_with_the_production_header():
+    for k in ("shape", "lat0", "lon0", "dlat", "dlon", "lat_order",
+              "lon_convention", "dtype", "byte_order"):
+        assert GLOBAL_HEADER[k] == PROD_HEADER[k], k
+    assert GLOBAL_HEADER["lon_convention"] == "pm180"
+
+
+# ── T24 — the route on the production header ───────────────────────────────
+
+def test_T24_vancouver_answers_from_the_model_arm_on_the_production_header(world):
+    r = get(world, lat=49.283, lon=-123.121)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "model"
+    assert b["now"]["source"] == "model · GFS 12Z f000"
+    headers = [k for k, _ in world["bank"].calls if k.endswith(".json")]
+    assert headers and all("/global/" in k for k in headers)
+
+
+def test_T24_lax_days_8_to_10_from_the_model_on_the_production_header(world):
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    assert len(b["daily"]) == 10
+    for d in b["daily"][7:]:
+        assert d["source"].startswith("model · GFS 12Z"), d["source"]
+    assert not any("unavailable" in n for n in b["receipts"]["notes"])
+
+
+# ── T25 — the full-circle guard, and the unchanged unknown-convention 502 ──
+
+NA3 = {"shape": [222, 583], "lat0": 14.75, "lon0": -186.75, "dlat": 0.25, "dlon": 0.25,
+       "lat_order": "ascending"}
+
+
+def test_T25_pm180_on_a_partial_window_is_a_502_naming_the_shape():
+    with pytest.raises(wp.PointError) as ei:
+        wp.SidecarHeader({**NA3, "lon_convention": "pm180"}, key="k")
+    assert ei.value.status == 502
+    body = ei.value.detail
+    assert body["error"] == "pm180 lon_convention on a partial window"
+    assert body["shape"] == [222, 583] and body["lon_convention"] == "pm180"
+    assert body["lon_span"] == 583 * 0.25
+
+
+def test_T25_an_unknown_convention_is_the_unchanged_502():
+    with pytest.raises(wp.PointError) as ei:
+        wp.SidecarHeader({**NA3, "lon_convention": "greenwich_sideways"}, key="k")
+    assert ei.value.status == 502
+    assert ei.value.detail == {"error": "unknown lon_convention", "key": "k",
+                             "lon_convention": "greenwich_sideways"}
+
+
+# ── T17 — D-09-25-15: the tag is the content ───────────────────────────────
+
+def _payload(world, **params):
+    r = get(world, **(params or LAX))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_T17_request_only_fields_do_not_move_the_tag(world):
+    base = _payload(world)
+    other = json.loads(json.dumps(base))
+    other["receipts"]["generated_at"] = "2030-01-01T00:00:00Z"
+    other["receipts"]["memo"] = {"points": "hit", "forecast": "hit",
+                                 "obs": "hit", "alerts": "hit"}
+    assert lf.content_etag(other) == lf.content_etag(base)
+    assert lf.content_etag(base).startswith('W/"nws:')
+    assert lf.content_etag(_payload(world, **VANCOUVER)).startswith('W/"model:')
+
+
+@pytest.mark.parametrize("field", ["now.valid", "now.age_min", "alerts[0]",
+                                   "hourly[0].valid", "daily[0].source"])
+def test_T17_every_weather_field_moves_the_tag(world, field):
+    base = _payload(world)
+    other = json.loads(json.dumps(base))
+    if field == "now.valid":
+        other["now"]["valid"] = "2026-09-25T21:05:00Z"
+    elif field == "now.age_min":
+        other["now"]["age_min"] += 1
+    elif field == "alerts[0]":
+        other["alerts"][0]["severity"] = "Severe"
+    elif field == "hourly[0].valid":
+        other["hourly"][0]["valid"] = "2026-09-25T22:00:00Z"
+    else:
+        other["daily"][0]["source"] = "model · GFS 12Z f024"
+    assert lf.content_etag(other) != lf.content_etag(base), field
+
+
+def test_T17_a_payload_without_an_arm_is_refused_and_the_old_tag_is_gone():
+    with pytest.raises(ValueError):
+        lf.content_etag({"receipts": {}})
+    with pytest.raises(ValueError):
+        lf.content_etag({})
+    assert not hasattr(lf, "etag")
+
+
+# ── T18 — the production incident: a new observation / alert is a 200 ─────
+
+def _latest_at(ts):
+    doc = _fixture("latest.json")
+    doc["properties"]["timestamp"] = ts
+    doc["id"] = f"https://api.weather.gov/stations/KLAX/observations/{ts}"
+    return doc
+
+
+def _six_minutes_later(world):
+    world["now"] = NOW + timedelta(minutes=6)
+    world["clock"].t += 360          # obs (5 min) and alerts (2 min) memo expire
+    world["nws"].calls.clear()
+
+
+def test_T18_a_new_observation_under_the_same_issuance_is_a_200(world):
+    r1 = get(world, **LAX)
+    tag_a = r1.headers["etag"]
+    assert r1.json()["now"]["source"] == "nws · KLAX · observed 20:53Z"
+    _six_minutes_later(world)
+    world["nws"].override["obs"] = _latest_at("2026-09-25T21:10:00+00:00")
+    r2 = world["http"].get("/api/local/forecast", params=LAX,
+                           headers={"If-None-Match": tag_a})
+    assert r2.status_code == 200, r2.status_code
+    b = r2.json()
+    assert b["receipts"]["issued_at"] == r1.json()["receipts"]["issued_at"]
+    assert world["nws"].count("hourly") == 0          # same forecast, from the memo
+    assert b["now"]["source"] == "nws · KLAX · observed 21:10Z"
+    assert r2.headers["etag"] != tag_a
+
+
+def test_T18_a_new_alert_under_the_same_issuance_is_a_200(world):
+    r1 = get(world, **LAX)
+    tag_a = r1.headers["etag"]
+    _six_minutes_later(world)
+    alerts = _fixture("alerts.json")
+    alerts["features"].append({
+        "id": "https://api.weather.gov/alerts/urn:oid:fixture.002.1",
+        "type": "Feature",
+        "properties": {"id": "urn:oid:fixture.002.1", "event": "Wind Advisory",
+                       "severity": "Moderate",
+                       "headline": "Wind Advisory issued September 25 at 2:10PM PDT",
+                       "onset": "2026-09-25T14:10:00-07:00",
+                       "ends": "2026-09-26T06:00:00-07:00"}})
+    world["nws"].override["alerts"] = alerts
+    r2 = world["http"].get("/api/local/forecast", params=LAX,
+                           headers={"If-None-Match": tag_a})
+    assert r2.status_code == 200, r2.status_code
+    b = r2.json()
+    assert b["receipts"]["issued_at"] == r1.json()["receipts"]["issued_at"]
+    assert "Wind Advisory" in [a["event"] for a in b["alerts"]]
+    assert r2.headers["etag"] != tag_a
+
+
+# ── T19 — nothing changed (same age_min) → 304 ─────────────────────────────
+
+def test_T19_an_unchanged_body_is_an_empty_304_with_the_same_headers(world):
+    r1 = get(world, **LAX)
+    assert r1.json()["receipts"]["memo"]["obs"] == "miss"
+    world["now"] = NOW + timedelta(seconds=20)   # generated_at moves, age_min does not
+    world["clock"].t += 20                       # every memo entry now a hit
+    r2 = world["http"].get("/api/local/forecast", params=LAX,
+                           headers={"If-None-Match": r1.headers["etag"]})
+    assert r2.status_code == 304
+    assert r2.content == b""
+    assert r2.headers["etag"] == r1.headers["etag"]
+    assert r2.headers["cache-control"] == r1.headers["cache-control"] == "max-age=300"
+
+
+# ── T20 — D-09-25-16: NWS in its own units ─────────────────────────────────
+
+def _c_to_f(c):
+    """The page's cToF: °C → integer °F, half away from zero."""
+    f = c * 9 / 5 + 32
+    return int(math.copysign(math.floor(abs(f) + 0.5), f))
+
+
+def test_T20_forecast_urls_carry_units_us(world):
+    get(world, **LAX)
+    fc = [(kind, params) for kind, _, params in world["nws"].calls
+          if kind in ("hourly", "forecast")]
+    assert sorted(k for k, _ in fc) == ["forecast", "hourly"]
+    assert all(params == {"units": "us"} for _, params in fc)
+
+
+def test_T20_us_twin_round_trips_to_nws_own_integer_fahrenheit(world):
+    assert lf.to_celsius(80, "F") == 26.7 and _c_to_f(26.7) == 80
+    twin = {p["startTime"]: p for p in
+            _fixture("forecastHourly.us.json")["properties"]["periods"]}
+    assert all(p["temperatureUnit"] == "F" and isinstance(p["temperature"], int)
+               for p in twin.values())
+    hourly = _payload(world)["hourly"]
+    assert len(hourly) == 48
+    by_valid = {lf.iso_z(lf.parse_iso(k)): p for k, p in twin.items()}
+    for row in hourly:
+        f = by_valid[row["valid"]]["temperature"]
+        assert row["t"] == round((f - 32) * 5 / 9, 1), row["valid"]
+        assert _c_to_f(row["t"]) == f, row["valid"]
+
+
+def test_T20_wind_in_mph_is_read_to_a_tenth_of_a_metre_per_second(world):
+    assert lf.parse_wind_speed("10 mph") == 4.5
+    hourly = _fixture("forecastHourly.us.json")
+    for p in hourly["properties"]["periods"]:
+        p["windSpeed"] = "10 mph"
+    world["nws"].override["hourly"] = hourly
+    b = _payload(world)
+    assert {h["wind"]["speed"] for h in b["hourly"]} == {4.5}
+
+
+def test_T20_twins_are_current_with_their_si_sources():
+    import subprocess
+    import sys
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "build_nws_us_fixtures.py"),
+                        "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    for name in ("forecast.us.json", "forecastHourly.us.json"):
+        assert "hand-built" in _fixture(name)["_provenance"]
