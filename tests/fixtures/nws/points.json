@@ -1,0 +1,24 @@
+{
+ "_provenance": "Hand-built to the api.weather.gov response schema for gridpoint LOX/154,44 (LAX, 33.94,-118.41), not recorded: api.weather.gov was unreachable from the build session (egress policy). Values are chosen so the tests can pin them; see tests/fixtures/nws/README.md.",
+ "type": "Feature",
+ "geometry": {
+  "type": "Point",
+  "coordinates": [
+   -118.41,
+   33.94
+  ]
+ },
+ "properties": {
+  "@id": "https://api.weather.gov/points/33.94,-118.41",
+  "cwa": "LOX",
+  "gridId": "LOX",
+  "gridX": 154,
+  "gridY": 44,
+  "forecast": "https://api.weather.gov/gridpoints/LOX/154,44/forecast",
+  "forecastHourly": "https://api.weather.gov/gridpoints/LOX/154,44/forecast/hourly",
+  "forecastGridData": "https://api.weather.gov/gridpoints/LOX/154,44",
+  "observationStations": "https://api.weather.gov/gridpoints/LOX/154,44/stations",
+  "timeZone": "America/Los_Angeles",
+  "radarStation": "KVTX"
+ }
+}

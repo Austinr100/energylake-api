@@ -313,6 +313,23 @@ the whole suite runs against a synthetic sidecar with no network.
   a bank landing mid-read -> 503. SQL and composition: `enso_catalog.py`;
   tests: `tests/test_enso_catalog.py` (no DB).
 
+### Local Weather forecast (`GET /api/local/forecast`)
+
+- `GET /api/local/forecast?lat=&lon=` (optional `arm=model`) -> one point's
+  forecast in ONE shape whichever arm answered: `{place, now, hourly[48],
+  daily[≤10], alerts[], sun, receipts}`. Inside the 20 km-buffered US outline
+  (`data/us_outline_20km.geojson`, Natural Earth 10m, built by
+  `scripts/build_us_outline.py`) it is NWS read live behind an in-process
+  gridpoint memo (10 min forecasts / 5 min obs / 2 min alerts, D-09-25-03);
+  outside, the GFS `global` value sidecars read in-process on the newest banked
+  run, every card labelled `model · GFS HHZ fNNN` (D-09-24-09). Any NWS failure
+  falls through to the model arm with `receipts.fallback` (D-09-25-04). SI
+  units; every null has its reason in the row's `absent[]`. `max-age=300` (NWS)
+  / `900` (model), weak ETag + `304`; bad lat/lon or `arm=nws` outside the
+  outline -> 400; no banked run -> 503. Code: `local_forecast.py`,
+  `nws_arm.py`, `model_arm.py`; tests: `tests/test_local_forecast.py` (no
+  network).
+
 ### The Structures room (`/api/analytics/structures/*`)
 
 Room 2 of the Analytics Department: swaps, monthly-average (Asian) options and

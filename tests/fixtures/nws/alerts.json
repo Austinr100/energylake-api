@@ -1,0 +1,19 @@
+{
+ "_provenance": "Hand-built to the api.weather.gov response schema for gridpoint LOX/154,44 (LAX, 33.94,-118.41), not recorded: api.weather.gov was unreachable from the build session (egress policy). Values are chosen so the tests can pin them; see tests/fixtures/nws/README.md.",
+ "type": "FeatureCollection",
+ "title": "Current watches, warnings, and advisories for 33.94 N, 118.41 W",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.001.1",
+   "type": "Feature",
+   "properties": {
+    "id": "urn:oid:2.49.0.1.840.0.fixture.001.1",
+    "event": "Beach Hazards Statement",
+    "severity": "Moderate",
+    "headline": "Beach Hazards Statement issued September 25 at 11:14AM PDT until September 27 at 8:00PM PDT by NWS Los Angeles/Oxnard CA",
+    "onset": "2026-09-25T11:14:00-07:00",
+    "ends": "2026-09-27T20:00:00-07:00"
+   }
+  }
+ ]
+}
