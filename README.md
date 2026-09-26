@@ -316,14 +316,20 @@ the whole suite runs against a synthetic sidecar with no network.
 ### Local Weather forecast (`GET /api/local/forecast`)
 
 - `GET /api/local/forecast?lat=&lon=` (optional `arm=model`) -> one point's
-  forecast in ONE shape whichever arm answered: `{place, now, hourly[48],
-  daily[≤10], alerts[], sun, receipts}`. Inside the 20 km-buffered US outline
+  forecast in ONE shape whichever arm answered: `{place, now, hourly[≤48],
+  daily[≤10], alerts[], sun, receipts}`; `hourly` starts at the current UTC hour
+  on both arms, with a `hourly from HHZ, n rows` note (D-09-25-10). Inside the 20 km-buffered US outline
   (`data/us_outline_20km.geojson`, Natural Earth 10m, built by
   `scripts/build_us_outline.py`) it is NWS read live behind an in-process
   gridpoint memo (10 min forecasts / 5 min obs / 2 min alerts, D-09-25-03);
   outside, the GFS `global` value sidecars read in-process on the newest banked
-  run, every card labelled `model · GFS HHZ fNNN` (D-09-24-09). Any NWS failure
-  falls through to the model arm with `receipts.fallback` (D-09-25-04). SI
+  run, every card labelled `model · GFS HHZ fNNN` (D-09-24-09). A failure of
+  NWS's forecast calls (`points`, `forecast`, `forecastHourly`) falls through
+  to the model arm with `receipts.fallback` (D-09-25-04); an observation or
+  alerts failure is stated in place — `now` nulls with `obs unavailable (…)`,
+  `alerts: []` with an `alerts unavailable (…)` note (D-09-25-09). On the US arm
+  days 8–10 are the model arm's daily rows, each labelled `model · GFS HHZ …`,
+  or a `days 8–10 unavailable: model arm …` note (d091485). SI
   units; every null has its reason in the row's `absent[]`. `max-age=300` (NWS)
   / `900` (model), weak ETag + `304`; bad lat/lon or `arm=nws` outside the
   outline -> 400; no banked run -> 503. Code: `local_forecast.py`,

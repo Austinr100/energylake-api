@@ -7,13 +7,12 @@ of the `global` value sidecars, four bytes per forecast hour, through
 `weather_point`'s own reader (`SidecarStore`, `locate`, `byte_offset`,
 `get_values`). There is no HTTP hop to `/api/weather/point/ladder`.
 
-THE LADDER IS COMPOSED HERE, NOT CALLED. The spec says `weather_point.ladder(...)`
-in-process; no such function exists — the ladder is the body of main.py's
-`/api/weather/point/ladder` route, over `weather_point`'s primitives.
-`weather_point.py` is fenced, so `read_ladder` below composes the SAME
-primitives in the same order (header from the first of three rungs that has
-one, one `locate`, one offset, the bounded fan-out). The handback proposes
-lifting it into `weather_point.ladder` so the route and this arm share one body.
+THE LADDER IS `weather_point.ladder`. The body of `/api/weather/point/ladder`
+was lifted into the module (d091485, #78 handback item 2) and `read_ladder`
+below calls it — header from the first of three rungs that has one, one
+`locate`, one offset, the bounded fan-out — so the route and this arm share one
+reader. On a `pm180` global header the locator wraps (a full-circle axis has no
+outside in longitude), so Fiji and Samoa read their own cells.
 
 THE CADENCE IS THE BANK'S. f000..f240 every 6 h — 41 rungs (`wp.ladder_fhrs()`,
 the pantry's D2_LADDER). Not 3-hourly to f120: the bank never wrote those.
@@ -118,44 +117,35 @@ async def discover_run(store: wp.SidecarStore,
 
 async def read_ladder(store: wp.SidecarStore, run_dt: datetime, param: str,
                       lat: float, lon: float) -> dict:
-    """One cell across f000..f240 for one param. `values[fhr]` is a float, or
+    """One cell across f000..f240 for one param, through `wp.ladder` — the
+    same body `/api/weather/point/ladder` serves. `values[fhr]` is a float, or
     None with `reasons[fhr]` saying why; `missing_header` names the key when the
     param has no sidecar on the run at all (STOP-B)."""
-    fhrs = wp.ladder_fhrs()
-    hdr = None
-    hkey = wp.header_key(MODEL, CROP, run_dt, param, fhrs[0])
-    for f in fhrs[:3]:
-        k = wp.header_key(MODEL, CROP, run_dt, param, f)
-        try:
-            hdr = await store.get_header(k)
-            hkey = k
-            break
-        except wp.PointError as e:
-            if e.status != 404:
-                raise ModelArmError("sidecar storage error", e.detail)
-    if hdr is None:
-        return {"param": param, "units": None, "values": {}, "reasons": {},
-                "missing_header": hkey}
     try:
-        cell = wp.locate(lat, lon, hdr, crop=CROP)
+        lad = await wp.ladder(store, MODEL, CROP, run_dt, param, lat, lon,
+                              wp.ladder_fhrs())
     except wp.PointError as e:
-        raise ModelArmError("point outside the global crop", e.detail)
-    offset = wp.byte_offset(cell["j"], cell["i"], hdr)
-    keys = [wp.value_key(MODEL, CROP, run_dt, param, f) for f in fhrs]
-    results = await store.get_values([(k, offset) for k in keys])
+        err = e.detail.get("error") if isinstance(e.detail, dict) else None
+        if e.status == 404 and err == "sidecar not found":
+            return {"param": param, "units": None, "values": {}, "reasons": {},
+                    "missing_header": e.detail["expected"]["header"]}
+        if e.status == 404 and err == "point is outside the crop":
+            raise ModelArmError("point outside the global crop", e.detail)
+        raise ModelArmError("sidecar storage error", e.detail)
     values: dict[int, Optional[float]] = {}
     reasons: dict[int, str] = {}
-    for f, res in zip(fhrs, results):
-        if isinstance(res, wp.PointError):
+    for row in lad["values"]:
+        f = row["fhr"]
+        if not row["available"]:
             values[f] = None
             reasons[f] = "not banked on run"
-        elif res is None:
+        elif row["value"] is None:
             values[f] = None
             reasons[f] = "nodata"
         else:
-            values[f] = _si(param, res, hdr.units)
-    return {"param": param, "units": hdr.units, "values": values, "reasons": reasons,
-            "missing_header": None, "cell": cell}
+            values[f] = _si(param, row["value"], lad["units"])
+    return {"param": param, "units": lad["units"], "values": values,
+            "reasons": reasons, "missing_header": None, "cell": lad["cell"]}
 
 
 def _si(param: str, v: float, units: Optional[str]) -> float:
@@ -311,7 +301,6 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
     label = run_label(run_dt)
     span = range(0, wp.LADDER_FHR_MAX + 1)
     series = _series(ladders, run_dt, lat, lon, span)
-    hourly = [_hour_row(s, label) for s in series[:HOURLY_ROWS]]
     daily = _daily(series, run_dt, tz, lat, lon, label)
 
     for p, lad in ladders.items():
@@ -319,6 +308,15 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
             notes.append(f"not banked on run: {lad['missing_header']}")
     t_fhrs = [f for f, v in ladders["t2m"]["values"].items() if v is not None]
     fhr_range = [0, max(t_fhrs)] if t_fhrs else None
+
+    # D-09-25-10: from the hour containing `generated_at`, and nothing past the
+    # last f-hour that banked a temperature — the arm invents no hour it has
+    # no rung for.
+    last = fhr_range[1] if fhr_range else -1
+    hourly, hourly_note = lf.trim_to_now(
+        [_hour_row(s, label) for s in series if s["h"] <= last], generated_at,
+        HOURLY_ROWS)
+    notes.append(hourly_note)
 
     s0 = series[0]
     now_row = _hour_row(s0, label)
