@@ -18851,7 +18851,7 @@ _LOCAL_DAILY_ROWS = 10
 
 
 async def _local_extend_days(parts: dict, lat: float, lon: float,
-                             generated_at) -> None:
+                             generated_at, timings=None) -> None:
     """Days 8–10 on the US arm (d091485 §2.3). NWS's forecast stops at 7 local
     days; the model arm is asked for the SAME place (in NWS's tz, so the local
     dates line up) and its daily rows for the dates NWS does not cover are
@@ -18866,7 +18866,7 @@ async def _local_extend_days(parts: dict, lat: float, lon: float,
         model = await _model_arm.answer(
             _get_weather_store(), _local_gfs_run_candidates, lat, lon,
             tz=parts["place"]["tz"], tz_source="nws", country="US",
-            generated_at=generated_at, fallback=None, notes=[])
+            generated_at=generated_at, fallback=None, notes=[], timings=timings)
     except _model_arm.ModelArmError:
         notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm 503")
         return
@@ -18884,6 +18884,21 @@ async def _local_extend_days(parts: dict, lat: float, lon: float,
     daily.extend(extra)
     label = _model_arm.run_label(_wp.parse_run(model["receipts"]["run"]))
     notes.append(f"days {a}–{len(daily)} from model · {label}")
+
+
+def _local_timing_headers(request: Request, timings: "_lf.Timings") -> dict:
+    """D-09-25-27 — the route states its own timing in a header, never in the
+    body (the body is content-hashed for the ETag, D-09-25-15). A browser only
+    shows a cross-origin `Server-Timing` to a page named by
+    `Timing-Allow-Origin`, so that is the request's Origin when it passes the
+    same allow-list and preview regex CORS uses, and absent otherwise."""
+    headers = {"Server-Timing": timings.header(),
+               "Access-Control-Expose-Headers": "Server-Timing, ETag"}
+    origin = request.headers.get("origin")
+    if origin and (origin in ALLOWED_ORIGINS
+                   or re.fullmatch(VERCEL_PREVIEW_ORIGIN_REGEX, origin)):
+        headers["Timing-Allow-Origin"] = origin
+    return headers
 
 
 def _local_400(detail) -> JSONResponse:
@@ -18924,37 +18939,42 @@ async def local_forecast(request: Request,
                            "lat": flat, "lon": flon, "outline_sha": _lf.outline_sha()})
     chosen = arm or (_lf.ARM_NWS if in_us else _lf.ARM_MODEL)
     generated_at = _lf.utcnow()
+    timings = _lf.Timings()
 
     parts = None
     fallback = None
     tz_hint = None
     if chosen == _lf.ARM_NWS:
         try:
-            bundle = await _get_local_nws_client().fetch(flat, flon)
-            parts = _nws_arm.build(bundle, flat, flon, generated_at, notes)
+            bundle = await _get_local_nws_client().fetch(flat, flon, timings)
+            with timings.mark("build"):
+                parts = _nws_arm.build(bundle, flat, flon, generated_at, notes)
         except _nws_arm.NwsError as e:
             fallback = {"from": "nws", "reason": e.reason}
             tz_hint = e.tz
         if parts is not None and len(parts["daily"]) < _LOCAL_DAILY_ROWS:
-            await _local_extend_days(parts, flat, flon, generated_at)
+            await _local_extend_days(parts, flat, flon, generated_at, timings)
     if parts is None:
         tz, tz_source = (tz_hint, "nws") if tz_hint else (_lf.nominal_tz(flon), "nominal")
         try:
             parts = await _model_arm.answer(
                 _get_weather_store(), _local_gfs_run_candidates, flat, flon,
                 tz=tz, tz_source=tz_source, country="US" if in_us else None,
-                generated_at=generated_at, fallback=fallback, notes=notes)
+                generated_at=generated_at, fallback=fallback, notes=notes,
+                timings=timings)
         except _model_arm.ModelArmError as e:
             return JSONResponse(status_code=503, content={"detail": {
                 "error": f"model arm unavailable: {e.reason}", **e.detail,
-                "fallback": fallback}})
+                "fallback": fallback}}, headers=_local_timing_headers(request, timings))
 
-    payload = _lf.build_payload(**parts)
+    with timings.mark("build"):
+        payload = _lf.build_payload(**parts)
+        # D-09-25-15: the tag is the content (minus generated_at/memo), so a new
+        # observation, alert, hourly trim or model run is a 200, never a 304.
+        tag = _lf.content_etag(payload)
     rc = payload["receipts"]
-    # D-09-25-15: the tag is the content (minus generated_at/memo), so a new
-    # observation, alert, hourly trim or model run is a 200, never a 304.
-    tag = _lf.content_etag(payload)
-    headers = {"Cache-Control": _LOCAL_CACHE_CONTROL[rc["arm"]], "ETag": tag}
+    headers = {"Cache-Control": _LOCAL_CACHE_CONTROL[rc["arm"]], "ETag": tag,
+               **_local_timing_headers(request, timings)}
     if _enso.etag_matches(request.headers.get("if-none-match"), tag):
         return Response(status_code=304, headers=headers)
     return JSONResponse(content=payload, headers=headers)

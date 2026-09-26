@@ -32,11 +32,13 @@ import hashlib
 import json
 import logging
 import math
+import time
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
@@ -52,6 +54,52 @@ ARM_MODEL = "model"
 def utcnow() -> datetime:
     """The lane's clock seam (tests monkeypatch it)."""
     return datetime.now(UTC)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Timings — the route's `Server-Timing` (D-09-25-27)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: The ruled names, in the ruled order. A name whose leg did not run is omitted.
+TIMING_NAMES = ("nws_points", "nws_forecast", "nws_obs", "nws_alerts",
+                "model_run", "model_ladders", "build", "total")
+
+
+class Timings:
+    """Per-request leg durations for the `Server-Timing` header, NEVER the body.
+
+    The body is content-hashed for the ETag (D-09-25-15): a duration in
+    `receipts.notes` would make every body unique and end 304s. So this object
+    is handed down the arms and read back only by the route's headers.
+    A name marked twice accumulates (`build` covers both arms' builds and
+    `build_payload`). Legs that run concurrently are each timed on their own
+    wall clock, so the durations can sum to more than `total`."""
+
+    def __init__(self, clock: Callable[[], float] = time.perf_counter):
+        self._clock = clock
+        self._t0 = clock()
+        self._ms: dict[str, float] = {}
+
+    def add(self, name: str, ms: float) -> None:
+        if name not in TIMING_NAMES:
+            raise ValueError(f"unknown Server-Timing name {name!r}")
+        self._ms[name] = self._ms.get(name, 0.0) + ms
+
+    @contextmanager
+    def mark(self, name: str):
+        start = self._clock()
+        try:
+            yield
+        finally:
+            self.add(name, (self._clock() - start) * 1000.0)
+
+    def durations(self) -> dict[str, float]:
+        out = dict(self._ms)
+        out.setdefault("total", (self._clock() - self._t0) * 1000.0)
+        return {k: out[k] for k in TIMING_NAMES if k in out}
+
+    def header(self) -> str:
+        return ", ".join(f"{k};dur={v:.1f}" for k, v in self.durations().items())
 
 
 def iso_z(dt: Optional[datetime]) -> Optional[str]:

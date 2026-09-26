@@ -1328,3 +1328,80 @@ def test_T20_twins_are_current_with_their_si_sources():
     assert r.returncode == 0, r.stdout + r.stderr
     for name in ("forecast.us.json", "forecastHourly.us.json"):
         assert "hand-built" in _fixture(name)["_provenance"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091491 — a cold read under two seconds, the rest of today, `unknown` says why
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── T1 (d091491) — Server-Timing, never the body (D-09-25-27) ──────────────
+
+PREVIEW_ORIGIN = "https://energylake-git-lane-austinrodriguez221-6328s-projects.vercel.app"
+STRANGER_ORIGIN = "https://energylake.example.com"
+
+
+def _timing_names(r):
+    return [p.strip().split(";")[0] for p in r.headers["server-timing"].split(",")]
+
+
+def _timing_ok(r):
+    for p in r.headers["server-timing"].split(","):
+        assert re.fullmatch(r"[a-z_]+;dur=\d+\.\d", p.strip()), p
+    names = _timing_names(r)
+    assert names == [n for n in lf.TIMING_NAMES if n in names], names
+    assert names[-1] == "total"
+    return names
+
+
+def test_T1f_server_timing_on_200_304_and_503_in_the_ruled_order(world):
+    r = get(world, **LAX)
+    assert r.status_code == 200
+    assert _timing_ok(r) == list(lf.TIMING_NAMES)
+    r304 = world["http"].get("/api/local/forecast", params=LAX,
+                             headers={"If-None-Match": r.headers["etag"]})
+    assert r304.status_code == 304
+    assert _timing_ok(r304)[-1] == "total"
+    m = get(world, **VANCOUVER)
+    assert m.status_code == 200
+    assert _timing_ok(m) == ["model_run", "model_ladders", "build", "total"]
+    world["runs"] = []
+    model_arm._run_memo.clear()
+    r503 = get(world, lat=10.0, lon=10.0)
+    assert r503.status_code == 503
+    names = _timing_ok(r503)
+    assert not any(n.startswith("nws_") for n in names) and "build" not in names
+
+
+@pytest.mark.parametrize("origin,tao", [
+    ("allowed", True), (PREVIEW_ORIGIN, True), (STRANGER_ORIGIN, False), (None, False)])
+def test_T1f_expose_headers_and_timing_allow_origin(world, origin, tao):
+    if origin == "allowed":
+        origin = main.ALLOWED_ORIGINS[0]
+    headers = {"Origin": origin} if origin else {}
+    r = world["http"].get("/api/local/forecast", params=VANCOUVER, headers=headers)
+    assert r.status_code == 200
+    assert r.headers["access-control-expose-headers"] == "Server-Timing, ETag"
+    assert r.headers.get("timing-allow-origin") == (origin if tao else None)
+
+
+def test_T1f_body_and_etag_are_byte_identical_with_and_without_the_recorder(world, monkeypatch):
+    real = lf.Timings
+    ticks = iter(range(10 ** 6))
+
+    def slow():                                   # every read of the clock is 0.25 s later
+        return next(ticks) * 0.25
+
+    out = []
+    for clock in (lambda: 0.0, slow):
+        monkeypatch.setattr(lf, "Timings", lambda clock=clock: real(clock=clock))
+        world["install"]()                        # cold both times: the memo is in the body
+        model_arm._run_memo.clear()
+        for where in (LAX, VANCOUVER):
+            r = get(world, **where)
+            assert r.status_code == 200
+            out.append((where["lat"], r.content, r.headers["etag"],
+                        r.headers["server-timing"]))
+    for a, b in zip(out[:2], out[2:]):
+        assert a[0] == b[0]
+        assert a[1] == b[1] and a[2] == b[2]      # D-09-25-15 unharmed
+        assert a[3] != b[3]                       # while the header did move

@@ -359,11 +359,15 @@ async def answer(store: wp.SidecarStore,
                  candidates: Callable[[], Awaitable[list[datetime]]],
                  lat: float, lon: float, *, tz: str, tz_source: str,
                  country: Optional[str], generated_at: datetime,
-                 fallback: Optional[dict], notes: list[str]) -> dict:
+                 fallback: Optional[dict], notes: list[str],
+                 timings: Optional[lf.Timings] = None) -> dict:
+    timings = timings if timings is not None else lf.Timings()
     if not store.configured():
         raise ModelArmError("weather value sidecar storage not configured")
-    run_dt = await discover_run(store, candidates)
-    ladders = {p: await read_ladder(store, run_dt, p, lat, lon) for p in PARAMS}
+    with timings.mark("model_run"):
+        run_dt = await discover_run(store, candidates)
+    with timings.mark("model_ladders"):
+        ladders = {p: await read_ladder(store, run_dt, p, lat, lon) for p in PARAMS}
     return build(ladders, run_dt, lat, lon, tz=tz, tz_source=tz_source,
                  country=country, generated_at=generated_at, fallback=fallback,
                  notes=notes)

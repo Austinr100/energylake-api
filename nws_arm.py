@@ -136,7 +136,8 @@ class NwsClient:
 
     # ── the five reads ──────────────────────────────────────────────────────
 
-    async def fetch(self, lat: float, lon: float) -> dict:
+    async def fetch(self, lat: float, lon: float,
+                    timings: Optional[lf.Timings] = None) -> dict:
         """Every read the US arm needs, memoised, in two classes (D-09-25-09).
 
         FORECAST-CRITICAL — `points`, `forecastHourly`, `forecast`: any failure
@@ -148,19 +149,25 @@ class NwsClient:
         alerts: a failure is caught HERE and handed to `build` as
         `obs_error` / `alerts_error` (the NwsError's reason), which states it in
         place. A failed call is not memoised (`_memo_get` stores only a body),
-        so the next request retries it."""
+        so the next request retries it.
+
+        `timings` (D-09-25-27) records each leg for `Server-Timing`; the
+        default is a throwaway recorder nobody reads."""
+        timings = timings if timings is not None else lf.Timings()
         tz = None
         try:
             pkey = (round(lat, 4), round(lon, 4))
-            points, m_points = await self._memo_get(
-                "points", pkey, f"{self.base}/points/{pkey[0]},{pkey[1]}")
+            with timings.mark("nws_points"):
+                points, m_points = await self._memo_get(
+                    "points", pkey, f"{self.base}/points/{pkey[0]},{pkey[1]}")
             p = points["properties"]
             tz = p.get("timeZone")
             grid = f"{p['gridId']}/{p['gridX']},{p['gridY']}"
-            hourly, m_hourly = await self._memo_get(
-                "hourly", grid, p["forecastHourly"], {"units": "us"})
-            forecast, m_fc = await self._memo_get(
-                "forecast", grid, p["forecast"], {"units": "us"})
+            with timings.mark("nws_forecast"):
+                hourly, m_hourly = await self._memo_get(
+                    "hourly", grid, p["forecastHourly"], {"units": "us"})
+                forecast, m_fc = await self._memo_get(
+                    "forecast", grid, p["forecast"], {"units": "us"})
             stations_url = p["observationStations"]
         except NwsError as e:
             e.tz = e.tz or tz
@@ -171,10 +178,11 @@ class NwsClient:
         station = obs = obs_error = None
         m_obs = "miss"
         try:
-            stations, _ = await self._memo_get("stations", grid, stations_url)
-            station = stations["features"][0]["properties"]["stationIdentifier"]
-            obs, m_obs = await self._memo_get(
-                "obs", grid, f"{self.base}/stations/{station}/observations/latest")
+            with timings.mark("nws_obs"):
+                stations, _ = await self._memo_get("stations", grid, stations_url)
+                station = stations["features"][0]["properties"]["stationIdentifier"]
+                obs, m_obs = await self._memo_get(
+                    "obs", grid, f"{self.base}/stations/{station}/observations/latest")
         except NwsError as e:
             obs_error = e.reason
         except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
@@ -183,9 +191,10 @@ class NwsClient:
         alerts = alerts_error = None
         m_alerts = "miss"
         try:
-            alerts, m_alerts = await self._memo_get(
-                "alerts", grid, f"{self.base}/alerts/active",
-                {"point": f"{pkey[0]},{pkey[1]}"})
+            with timings.mark("nws_alerts"):
+                alerts, m_alerts = await self._memo_get(
+                    "alerts", grid, f"{self.base}/alerts/active",
+                    {"point": f"{pkey[0]},{pkey[1]}"})
         except NwsError as e:
             alerts_error = e.reason
 
