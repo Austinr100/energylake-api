@@ -18850,23 +18850,28 @@ async def _local_gfs_run_candidates() -> list:
 _LOCAL_DAILY_ROWS = 10
 
 
-async def _local_extend_days(parts: dict, lat: float, lon: float,
-                             generated_at, timings=None) -> None:
+async def _local_extend_days(parts: dict, lat: float, lon: float, generated_at,
+                             model_read, timings: "_lf.Timings") -> None:
     """Days 8–10 on the US arm (d091485 §2.3). NWS's forecast stops at 7 local
-    days; the model arm is asked for the SAME place (in NWS's tz, so the local
-    dates line up) and its daily rows for the dates NWS does not cover are
-    appended, up to 10 in all. Each keeps its own `source: model · GFS <HH>Z …`
-    (D-09-24-09 per row) and `receipts.notes[]` names the range. If the model
-    arm cannot answer, the NWS rows stand alone and the note says why — the US
-    page never fails because of the model arm."""
+    days; the model arm's rows for the SAME place (built in NWS's tz, so the
+    local dates line up) for the dates NWS does not cover are appended, up to
+    10 in all. Each keeps its own `source: model · GFS <HH>Z …` (D-09-24-09
+    per row) and `receipts.notes[]` names the range. If the model arm cannot
+    answer, the NWS rows stand alone and the note says why — the US page never
+    fails because of the model arm.
+
+    `model_read` is the `model_arm.read` task the route started alongside NWS
+    (D-09-25-28): the ladders were being read while NWS answered, and only the
+    build waits for NWS's tz."""
     daily = parts["daily"]
     notes = parts["receipts"]["notes"]
     a = len(daily) + 1
     try:
-        model = await _model_arm.answer(
-            _get_weather_store(), _local_gfs_run_candidates, lat, lon,
-            tz=parts["place"]["tz"], tz_source="nws", country="US",
-            generated_at=generated_at, fallback=None, notes=[], timings=timings)
+        run_dt, ladders = await model_read
+        with timings.mark("build"):
+            model = _model_arm.build(
+                ladders, run_dt, lat, lon, tz=parts["place"]["tz"], tz_source="nws",
+                country="US", generated_at=generated_at, fallback=None, notes=[])
     except _model_arm.ModelArmError:
         notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm 503")
         return
@@ -18882,8 +18887,15 @@ async def _local_extend_days(parts: dict, lat: float, lon: float,
                      f"covers no date after {last}")
         return
     daily.extend(extra)
-    label = _model_arm.run_label(_wp.parse_run(model["receipts"]["run"]))
+    label = _model_arm.run_label(run_dt)
     notes.append(f"days {a}–{len(daily)} from model · {label}")
+
+
+def _local_discard(task) -> None:
+    """Cancel a model read nobody will await, and retrieve its outcome so an
+    exception it already raised is never logged as 'never retrieved'."""
+    task.cancel()
+    task.add_done_callback(lambda t: t.cancelled() or t.exception())
 
 
 def _local_timing_headers(request: Request, timings: "_lf.Timings") -> dict:
@@ -18944,24 +18956,42 @@ async def local_forecast(request: Request,
     parts = None
     fallback = None
     tz_hint = None
+    model_task = None
     if chosen == _lf.ARM_NWS:
+        # D-09-25-28: the model read (days 8–10, or the whole answer if NWS
+        # falls through) starts with the request, alongside NWS. ONE read.
+        model_task = asyncio.create_task(_model_arm.read(
+            _get_weather_store(), _local_gfs_run_candidates, flat, flon, timings))
         try:
-            bundle = await _get_local_nws_client().fetch(flat, flon, timings)
-            with timings.mark("build"):
-                parts = _nws_arm.build(bundle, flat, flon, generated_at, notes)
-        except _nws_arm.NwsError as e:
-            fallback = {"from": "nws", "reason": e.reason}
-            tz_hint = e.tz
-        if parts is not None and len(parts["daily"]) < _LOCAL_DAILY_ROWS:
-            await _local_extend_days(parts, flat, flon, generated_at, timings)
+            try:
+                bundle = await _get_local_nws_client().fetch(flat, flon, timings)
+                with timings.mark("build"):
+                    parts = _nws_arm.build(bundle, flat, flon, generated_at, notes)
+            except _nws_arm.NwsError as e:
+                fallback = {"from": "nws", "reason": e.reason}
+                tz_hint = e.tz
+            if parts is not None:
+                if len(parts["daily"]) < _LOCAL_DAILY_ROWS:
+                    await _local_extend_days(parts, flat, flon, generated_at,
+                                             model_task, timings)
+                else:
+                    _local_discard(model_task)
+        except BaseException:
+            _local_discard(model_task)
+            raise
     if parts is None:
         tz, tz_source = (tz_hint, "nws") if tz_hint else (_lf.nominal_tz(flon), "nominal")
         try:
-            parts = await _model_arm.answer(
-                _get_weather_store(), _local_gfs_run_candidates, flat, flon,
-                tz=tz, tz_source=tz_source, country="US" if in_us else None,
-                generated_at=generated_at, fallback=fallback, notes=notes,
-                timings=timings)
+            if model_task is not None:
+                run_dt, ladders = await model_task
+            else:
+                run_dt, ladders = await _model_arm.read(
+                    _get_weather_store(), _local_gfs_run_candidates, flat, flon, timings)
+            with timings.mark("build"):
+                parts = _model_arm.build(
+                    ladders, run_dt, flat, flon, tz=tz, tz_source=tz_source,
+                    country="US" if in_us else None, generated_at=generated_at,
+                    fallback=fallback, notes=notes)
         except _model_arm.ModelArmError as e:
             return JSONResponse(status_code=503, content={"detail": {
                 "error": f"model arm unavailable: {e.reason}", **e.detail,

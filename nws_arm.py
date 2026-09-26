@@ -35,6 +35,7 @@ unit that was asked for: the payload is °C / m/s / hPa whatever NWS sent.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import datetime
@@ -151,6 +152,12 @@ class NwsClient:
         place. A failed call is not memoised (`_memo_get` stores only a body),
         so the next request retries it.
 
+        ONLY `points` WAITS (D-09-25-28). Every other URL comes from its
+        answer, so once it is in, the legs run at the same time: hourly ∥
+        forecast ∥ (stations → latest observation) ∥ alerts. Each leg keeps its
+        own failure class; the forecast-critical error re-raised is the first in
+        the old serial order (hourly, then forecast), with the points tz on it.
+
         `timings` (D-09-25-27) records each leg for `Server-Timing`; the
         default is a throwaway recorder nobody reads."""
         timings = timings if timings is not None else lf.Timings()
@@ -163,11 +170,7 @@ class NwsClient:
             p = points["properties"]
             tz = p.get("timeZone")
             grid = f"{p['gridId']}/{p['gridX']},{p['gridY']}"
-            with timings.mark("nws_forecast"):
-                hourly, m_hourly = await self._memo_get(
-                    "hourly", grid, p["forecastHourly"], {"units": "us"})
-                forecast, m_fc = await self._memo_get(
-                    "forecast", grid, p["forecast"], {"units": "us"})
+            hourly_url, forecast_url = p["forecastHourly"], p["forecast"]
             stations_url = p["observationStations"]
         except NwsError as e:
             e.tz = e.tz or tz
@@ -175,28 +178,52 @@ class NwsClient:
         except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             raise NwsError(type(e).__name__, tz=tz) from e
 
-        station = obs = obs_error = None
-        m_obs = "miss"
-        try:
-            with timings.mark("nws_obs"):
-                stations, _ = await self._memo_get("stations", grid, stations_url)
-                station = stations["features"][0]["properties"]["stationIdentifier"]
-                obs, m_obs = await self._memo_get(
-                    "obs", grid, f"{self.base}/stations/{station}/observations/latest")
-        except NwsError as e:
-            obs_error = e.reason
-        except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
-            obs_error = type(e).__name__
+        async def forecast_leg():
+            with timings.mark("nws_forecast"):
+                return await asyncio.gather(
+                    self._memo_get("hourly", grid, hourly_url, {"units": "us"}),
+                    self._memo_get("forecast", grid, forecast_url, {"units": "us"}),
+                    return_exceptions=True)
 
-        alerts = alerts_error = None
-        m_alerts = "miss"
-        try:
-            with timings.mark("nws_alerts"):
-                alerts, m_alerts = await self._memo_get(
-                    "alerts", grid, f"{self.base}/alerts/active",
-                    {"point": f"{pkey[0]},{pkey[1]}"})
-        except NwsError as e:
-            alerts_error = e.reason
+        async def obs_leg():
+            station = None
+            try:
+                with timings.mark("nws_obs"):
+                    stations, _ = await self._memo_get("stations", grid, stations_url)
+                    station = stations["features"][0]["properties"]["stationIdentifier"]
+                    obs, m_obs = await self._memo_get(
+                        "obs", grid, f"{self.base}/stations/{station}/observations/latest")
+            except NwsError as e:
+                return station, None, e.reason, "miss"
+            except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+                return station, None, type(e).__name__, "miss"
+            return station, obs, None, m_obs
+
+        async def alerts_leg():
+            try:
+                with timings.mark("nws_alerts"):
+                    alerts, m_alerts = await self._memo_get(
+                        "alerts", grid, f"{self.base}/alerts/active",
+                        {"point": f"{pkey[0]},{pkey[1]}"})
+            except NwsError as e:
+                return None, e.reason, "miss"
+            return alerts, None, m_alerts
+
+        legs = await asyncio.gather(forecast_leg(), obs_leg(), alerts_leg(),
+                                    return_exceptions=True)
+        for leg in legs:                    # a bug in a leg is a bug, not garnish
+            if isinstance(leg, BaseException):
+                raise leg
+        (hourly_r, forecast_r), obs_r, alerts_r = legs
+        for res in (hourly_r, forecast_r):
+            if isinstance(res, NwsError):
+                res.tz = res.tz or tz
+                raise res
+            if isinstance(res, BaseException):
+                raise res
+        (hourly, m_hourly), (forecast, m_fc) = hourly_r, forecast_r
+        station, obs, obs_error, m_obs = obs_r
+        alerts, alerts_error, m_alerts = alerts_r
 
         return {
             "points": points, "grid": grid, "tz": tz, "station": station,

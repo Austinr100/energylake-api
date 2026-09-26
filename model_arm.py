@@ -39,6 +39,8 @@ window (`sky: not banked at f000`); with the sun down at the row's valid time
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import math
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -83,18 +85,26 @@ class ModelArmError(Exception):
 # (monotonic, run_dt) — the one memo this arm keeps; the store keeps the rest
 # (headers forever, values LRU'd).
 _run_memo: dict[str, tuple[float, datetime]] = {}
+# The one background refresh in flight per model (D-09-25-29). Held here so the
+# task is not garbage-collected mid-flight.
+_refresh_tasks: dict[str, asyncio.Task] = {}
+
+#: D-09-25-29 — past this age a request waits for discovery rather than serve
+#: the memo: one missed 6-hourly cycle plus an hour, so a dead refresher cannot
+#: serve a day-old run forever.
+RUN_MEMO_MAX_AGE_S = 7 * 3600.0
+
+log = logging.getLogger("energylake.local")
 
 
 def run_label(run_dt: datetime) -> str:
     return f"GFS {run_dt:%H}Z"
 
 
-async def discover_run(store: wp.SidecarStore,
-                       candidates: Callable[[], Awaitable[list[datetime]]],
-                       clock: Callable[[], float] = time.monotonic) -> datetime:
-    hit = _run_memo.get(MODEL)
-    if hit is not None and clock() - hit[0] < RUN_MEMO_TTL_S:
-        return hit[1]
+async def _discover(store: wp.SidecarStore,
+                    candidates: Callable[[], Awaitable[list[datetime]]]) -> datetime:
+    """The ledger's candidates, newest first, each PROVEN by its global t2m
+    f000 header; the first that has one is the run."""
     try:
         runs = await candidates()
     except Exception as e:
@@ -109,10 +119,53 @@ async def discover_run(store: wp.SidecarStore,
             if e.status == 404:
                 continue
             raise ModelArmError("sidecar storage error", e.detail)
-        _run_memo[MODEL] = (clock(), run_dt)
         return run_dt
     raise ModelArmError("no banked gfs run carries a global t2m f000 sidecar",
                         {"probed": probed})
+
+
+async def _refresh(store: wp.SidecarStore,
+                   candidates: Callable[[], Awaitable[list[datetime]]],
+                   clock: Callable[[], float]) -> None:
+    try:
+        run_dt = await _discover(store, candidates)
+    except Exception as e:
+        reason = e.reason if isinstance(e, ModelArmError) else type(e).__name__
+        log.warning("[[LOCAL_RUN_REFRESH_FAILED]] %s", reason)
+        return                                  # the memo stands
+    _run_memo[MODEL] = (clock(), run_dt)
+
+
+def _start_refresh(store: wp.SidecarStore,
+                   candidates: Callable[[], Awaitable[list[datetime]]],
+                   clock: Callable[[], float]) -> None:
+    """Single-flight: at most one refresh per model. A task left behind by a
+    closed event loop can never finish, so it does not count as running."""
+    loop = asyncio.get_running_loop()
+    task = _refresh_tasks.get(MODEL)
+    if task is not None and not task.done() and task.get_loop() is loop:
+        return
+    _refresh_tasks[MODEL] = loop.create_task(_refresh(store, candidates, clock))
+
+
+async def discover_run(store: wp.SidecarStore,
+                       candidates: Callable[[], Awaitable[list[datetime]]],
+                       clock: Callable[[], float] = time.monotonic) -> datetime:
+    """D-09-25-29 — run discovery leaves the request path. A memo up to 7 h old
+    is served at once; past RUN_MEMO_TTL_S the first request that sees it
+    starts ONE background refresh and does not wait for it. A request waits
+    only when there is no memo (the first model read after a deploy) or the
+    memo is older than RUN_MEMO_MAX_AGE_S."""
+    hit = _run_memo.get(MODEL)
+    if hit is not None:
+        age = clock() - hit[0]
+        if age <= RUN_MEMO_MAX_AGE_S:
+            if age >= RUN_MEMO_TTL_S:
+                _start_refresh(store, candidates, clock)
+            return hit[1]
+    run_dt = await _discover(store, candidates)
+    _run_memo[MODEL] = (clock(), run_dt)
+    return run_dt
 
 
 async def read_ladder(store: wp.SidecarStore, run_dt: datetime, param: str,
@@ -355,19 +408,37 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
     }
 
 
-async def answer(store: wp.SidecarStore,
-                 candidates: Callable[[], Awaitable[list[datetime]]],
-                 lat: float, lon: float, *, tz: str, tz_source: str,
-                 country: Optional[str], generated_at: datetime,
-                 fallback: Optional[dict], notes: list[str],
-                 timings: Optional[lf.Timings] = None) -> dict:
+async def read(store: wp.SidecarStore,
+               candidates: Callable[[], Awaitable[list[datetime]]],
+               lat: float, lon: float,
+               timings: Optional[lf.Timings] = None) -> tuple[datetime, dict]:
+    """The model arm's I/O: the run, then the four ladders AT THE SAME TIME
+    (D-09-25-28). Each ladder keeps its own 8-in-flight bound, so at most
+    4 × LADDER_CONCURRENCY range GETs are in flight — the store's pool allows
+    that many. `{p: await read_ladder(...) for p in PARAMS}` would be serial.
+    The first failing param (in PARAMS order) raises, as the serial read did."""
     timings = timings if timings is not None else lf.Timings()
     if not store.configured():
         raise ModelArmError("weather value sidecar storage not configured")
     with timings.mark("model_run"):
         run_dt = await discover_run(store, candidates)
     with timings.mark("model_ladders"):
-        ladders = {p: await read_ladder(store, run_dt, p, lat, lon) for p in PARAMS}
+        got = await asyncio.gather(*(read_ladder(store, run_dt, p, lat, lon)
+                                     for p in PARAMS), return_exceptions=True)
+    for g in got:
+        if isinstance(g, BaseException):
+            raise g
+    return run_dt, dict(zip(PARAMS, got))
+
+
+async def answer(store: wp.SidecarStore,
+                 candidates: Callable[[], Awaitable[list[datetime]]],
+                 lat: float, lon: float, *, tz: str, tz_source: str,
+                 country: Optional[str], generated_at: datetime,
+                 fallback: Optional[dict], notes: list[str],
+                 timings: Optional[lf.Timings] = None) -> dict:
+    """`read`, then `build`: every caller outside the route is unchanged."""
+    run_dt, ladders = await read(store, candidates, lat, lon, timings)
     return build(ladders, run_dt, lat, lon, tz=tz, tz_source=tz_source,
                  country=country, generated_at=generated_at, fallback=fallback,
                  notes=notes)

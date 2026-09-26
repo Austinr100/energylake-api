@@ -927,7 +927,8 @@ def test_T15_days_8_to_10_from_the_model_arm(world):
 def test_T15_model_arm_raising_leaves_seven_rows_and_the_note(world, monkeypatch):
     async def boom(*a, **k):
         raise model_arm.ModelArmError("no banked gfs run carries a global t2m f000 sidecar")
-    monkeypatch.setattr(main._model_arm, "answer", boom)
+    # d091491: the route reads through `model_arm.read` (setup only; asserts unchanged)
+    monkeypatch.setattr(main._model_arm, "read", boom)
     r = get(world, **LAX)
     assert r.status_code == 200, r.text
     b = r.json()
@@ -1405,3 +1406,334 @@ def test_T1f_body_and_etag_are_byte_identical_with_and_without_the_recorder(worl
         assert a[0] == b[0]
         assert a[1] == b[1] and a[2] == b[2]      # D-09-25-15 unharmed
         assert a[3] != b[3]                       # while the header did move
+
+
+# ── T2 (d091491) — only `points` waits (D-09-25-28) ───────────────────────
+
+import asyncio  # noqa: E402
+import gc  # noqa: E402
+import time  # noqa: E402
+
+
+class Latent:
+    """Wraps a fake transport: every call sleeps `ms` first, and the in-flight
+    count is recorded (its peak, and the peak once `points` has answered)."""
+
+    def __init__(self, inner, ms, *, is_range=lambda *a: True):
+        self.inner, self.ms, self.is_range = inner, ms, is_range
+        self.inflight = self.peak = 0
+
+    async def __call__(self, a, b):
+        if not self.is_range(a, b):
+            return await self.inner(a, b)
+        self.inflight += 1
+        self.peak = max(self.peak, self.inflight)
+        try:
+            await asyncio.sleep(self.ms / 1000.0)
+            return await self.inner(a, b)
+        finally:
+            self.inflight -= 1
+
+
+def test_T2f_nws_legs_run_together_once_points_answers():
+    fake = FakeNws()
+    lat_t = Latent(fake, 50)
+    client = nws_arm.NwsClient(transport=lat_t, clock=Clock())
+
+    async def go():
+        t0 = time.perf_counter()
+        bundle = await client.fetch(LAX["lat"], LAX["lon"])
+        return bundle, (time.perf_counter() - t0) * 1000.0
+
+    bundle, ms = asyncio.run(go())
+    assert bundle["obs_error"] is None and bundle["alerts_error"] is None
+    assert lat_t.peak >= 4, lat_t.peak          # hourly ∥ forecast ∥ stations ∥ alerts
+    # points, then the stations → obs chain: 3 × 50 ms (serial would be 6 × 50)
+    assert ms < 3 * 50 + 50, ms
+    assert [k for k, _, _ in fake.calls][0] == "points"
+    n = len(fake.calls)
+    bundle2 = asyncio.run(client.fetch(LAX["lat"], LAX["lon"]))
+    assert len(fake.calls) == n                  # the memo is unchanged: 0 calls
+    assert bundle2["memo"] == {"points": "hit", "forecast": "hit", "obs": "hit",
+                               "alerts": "hit"}
+
+
+# ── T3 (d091491) — failure classes unchanged with the legs concurrent ─────
+
+def test_T3f_hourly_503_raises_with_the_points_tz_then_falls_back(world):
+    world["nws"].fail["hourly"] = 503
+    with pytest.raises(nws_arm.NwsError) as ei:
+        asyncio.run(nws_arm.NwsClient(transport=world["nws"], clock=Clock())
+                    .fetch(LAX["lat"], LAX["lon"]))
+    assert ei.value.reason == "HTTP 503"
+    assert ei.value.tz == _fixture("points.json")["properties"]["timeZone"]
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "model"
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "HTTP 503"}
+    assert b["place"]["tz_source"] == "nws"
+
+
+def test_T3f_forecast_malformed_is_an_nws_error_by_class_name(world):
+    world["nws"].override["forecast"] = {"properties": {}}
+    b = get(world, **LAX).json()
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "KeyError"}
+
+
+def test_T3f_garnish_failures_are_stated_in_place(world):
+    world["nws"].fail.update(stations=503, alerts=503)
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws" and b["receipts"]["fallback"] is None
+    assert b["now"]["source"].endswith("no recent observation")
+    assert "t: obs unavailable (HTTP 503)" in b["now"]["absent"]
+    assert b["alerts"] == []
+    assert "alerts unavailable (HTTP 503)" in b["receipts"]["notes"]
+
+
+def test_T3f_a_failed_leg_is_not_memoised(world):
+    world["nws"].fail["hourly"] = 503
+    assert get(world, **LAX).json()["receipts"]["arm"] == "model"
+    c = world["client"]
+    assert c.fetches["hourly"] == 1 and "hourly" not in {
+        k for k, v in c._memo.items() if v}
+    del world["nws"].fail["hourly"]
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws"
+    assert c.fetches["hourly"] == 2              # retried, not served from a memo
+    assert b["receipts"]["memo"]["forecast"] == "miss"
+
+
+# ── T4 (d091491) — the four ladders at the same time ──────────────────────
+
+def _range_only(key, byte_range):
+    return byte_range is not None
+
+
+def test_T4f_ladders_are_read_together(world):
+    bank = Latent(FakeGlobalBank(), 20, is_range=_range_only)
+    store = wp.SidecarStore(transport=bank)
+
+    async def runs():
+        return [RUN]
+
+    async def go():
+        t0 = time.perf_counter()
+        out = await model_arm.read(store, runs, VANCOUVER["lat"], VANCOUVER["lon"])
+        return out, (time.perf_counter() - t0) * 1000.0
+
+    (run_dt, ladders), ms = asyncio.run(go())
+    assert run_dt == RUN and sorted(ladders) == sorted(model_arm.PARAMS)
+    assert bank.peak >= 24, bank.peak           # 4 ladders × 8 in flight
+    assert bank.peak <= 4 * wp.LADDER_CONCURRENCY
+    assert ms < 8 * 20, ms                      # serial would be 4 × 6 waves
+
+
+def test_T4f_answer_is_build_of_read_byte_for_byte(world):
+    async def runs():
+        return [RUN]
+
+    kw = dict(tz="Etc/GMT+8", tz_source="nominal", country=None, generated_at=NOW,
+              fallback=None)
+
+    async def both():
+        model_arm._run_memo.clear()
+        a = await model_arm.answer(wp.SidecarStore(transport=FakeGlobalBank()), runs,
+                                   VANCOUVER["lat"], VANCOUVER["lon"], notes=[], **kw)
+        model_arm._run_memo.clear()
+        run_dt, lad = await model_arm.read(wp.SidecarStore(transport=FakeGlobalBank()),
+                                           runs, VANCOUVER["lat"], VANCOUVER["lon"])
+        b = model_arm.build(lad, run_dt, VANCOUVER["lat"], VANCOUVER["lon"], notes=[], **kw)
+        return a, b
+
+    a, b = asyncio.run(both())
+    assert json.dumps(a, sort_keys=False) == json.dumps(b, sort_keys=False)
+
+
+def test_T4f_the_store_pool_allows_32_and_keeps_16(world):
+    store = wp.SidecarStore()
+    pool = store._get_client()._transport._pool
+    assert wp.LADDER_CONCURRENCY == 8
+    assert (pool._max_connections, pool._max_keepalive_connections) == (32, 16)
+
+
+# ── T5 (d091491) — the US route makes one model read ──────────────────────
+
+@pytest.fixture
+def ladder_count(monkeypatch):
+    seen = []
+    real = model_arm.read_ladder
+
+    async def counting(store, run_dt, param, lat, lon):
+        seen.append(param)
+        return await real(store, run_dt, param, lat, lon)
+    monkeypatch.setattr(model_arm, "read_ladder", counting)
+    return seen
+
+
+def test_T5f_nws_seven_days_is_one_model_read(world, ladder_count):
+    b = get(world, **LAX).json()
+    assert len(b["daily"]) == 10
+    assert sorted(ladder_count) == sorted(model_arm.PARAMS)
+
+
+def test_T5f_nws_falling_through_is_still_one_read_and_todays_payload(world, ladder_count):
+    world["nws"].fail["points"] = 503
+    b = get(world, **LAX).json()
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "HTTP 503"}
+    assert sorted(ladder_count) == sorted(model_arm.PARAMS)
+
+    async def runs():
+        return [RUN]
+    model_arm._run_memo.clear()
+    want = asyncio.run(model_arm.answer(
+        wp.SidecarStore(transport=FakeGlobalBank()), runs, LAX["lat"], LAX["lon"],
+        tz=lf.nominal_tz(LAX["lon"]), tz_source="nominal", country="US",
+        generated_at=NOW, fallback={"from": "nws", "reason": "HTTP 503"}, notes=[]))
+    assert b == json.loads(json.dumps(lf.build_payload(**want)))
+
+
+def _ten_nws_days(monkeypatch):
+    real = nws_arm.build
+
+    def ten(bundle, lat, lon, generated_at, notes):
+        parts = real(bundle, lat, lon, generated_at, notes)
+        last = parts["daily"][-1]
+        d = datetime.fromisoformat(last["date"])
+        while len(parts["daily"]) < 10:
+            d += timedelta(days=1)
+            parts["daily"].append({**last, "date": d.date().isoformat()})
+        return parts
+    monkeypatch.setattr(main._nws_arm, "build", ten)
+
+
+def test_T5f_nws_ten_days_cancels_the_model_read(world, monkeypatch):
+    _ten_nws_days(monkeypatch)
+    state = {}
+
+    async def slow(*a, **k):
+        state["started"] = True
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            state["cancelled"] = True
+            raise
+    monkeypatch.setattr(main._model_arm, "read", slow)
+    t0 = time.perf_counter()
+    r = get(world, **LAX)
+    assert r.status_code == 200 and time.perf_counter() - t0 < 5
+    b = r.json()
+    assert all(d["source"].startswith("nws ·") for d in b["daily"]) and len(b["daily"]) == 10
+    assert not any(n.startswith("days ") for n in b["receipts"]["notes"])
+    assert state == {"started": True, "cancelled": True}
+
+
+def test_T5f_nws_ten_days_and_a_failed_model_read_leaks_nothing(world, monkeypatch, caplog):
+    _ten_nws_days(monkeypatch)
+
+    async def boom(*a, **k):
+        raise model_arm.ModelArmError("run ledger unavailable: OperationalError")
+    monkeypatch.setattr(main._model_arm, "read", boom)
+    with caplog.at_level(logging.ERROR, logger="asyncio"):
+        r = get(world, **LAX)
+        gc.collect()
+    assert r.status_code == 200
+    assert not any("never retrieved" in rec.getMessage() for rec in caplog.records)
+
+
+# ── T6 (d091491) — run discovery off the request path (D-09-25-29) ────────
+
+OLD_RUN = RUN - timedelta(hours=6)
+
+
+class Ledger:
+    """`candidates()` that counts calls and can be held open or made to fail."""
+
+    def __init__(self, runs=(RUN,), fail=None):
+        self.runs, self.fail, self.calls = list(runs), fail, 0
+        self.gate = None
+
+    async def __call__(self):
+        self.calls += 1
+        if self.gate is not None:
+            await self.gate.wait()
+        if self.fail:
+            raise self.fail
+        return list(self.runs)
+
+
+def _swr(age_s, ledger, *, settle=True, twice=False):
+    """Seed the memo `age_s` old, ask for the run (twice if asked), and return
+    (answer, ledger calls before the refresh settles, memo after it settles)."""
+    clock = Clock()
+    model_arm._run_memo.clear()
+    model_arm._refresh_tasks.clear()
+    model_arm._run_memo[model_arm.MODEL] = (clock.t - age_s, OLD_RUN)
+    store = wp.SidecarStore(transport=FakeGlobalBank())
+
+    async def go():
+        ledger.gate = asyncio.Event()
+        got = None
+        if age_s <= model_arm.RUN_MEMO_MAX_AGE_S:  # served: must not wait on the ledger
+            got = await asyncio.wait_for(model_arm.discover_run(store, ledger, clock), 0.5)
+        if got is None:                           # a blocking read: let the ledger answer
+            task = asyncio.ensure_future(model_arm.discover_run(store, ledger, clock))
+            await asyncio.sleep(0.01)
+            assert not task.done()                # it IS waiting on discovery
+            ledger.gate.set()
+            got = await task
+        if twice:
+            await model_arm.discover_run(store, ledger, clock)
+        await asyncio.sleep(0)
+        calls = ledger.calls
+        ledger.gate.set()
+        t = model_arm._refresh_tasks.get(model_arm.MODEL)
+        if settle and t is not None:
+            await t
+        return got, calls, model_arm._run_memo.get(model_arm.MODEL)
+
+    return asyncio.run(go())
+
+
+def test_T6f_memo_at_299s_is_served_with_no_refresh():
+    got, calls, memo = _swr(299, Ledger())
+    assert got == OLD_RUN and calls == 0 and memo[1] == OLD_RUN
+    assert model_arm._refresh_tasks == {}
+
+
+def test_T6f_memo_at_301s_is_served_at_once_and_one_refresh_starts():
+    ledger = Ledger()
+    got, calls, memo = _swr(301, ledger, twice=True)
+    assert got == OLD_RUN                         # the old run, at once
+    assert calls == 1                             # a second request did not start another
+    assert memo[1] == RUN                         # the refresh replaced the memo
+
+
+def test_T6f_a_failed_refresh_leaves_the_memo_and_logs(caplog):
+    with caplog.at_level(logging.WARNING, logger="energylake.local"):
+        got, calls, memo = _swr(301, Ledger(fail=RuntimeError("neon asleep")))
+    assert got == OLD_RUN and memo[1] == OLD_RUN
+    assert any(r.getMessage() == "[[LOCAL_RUN_REFRESH_FAILED]] run ledger unavailable: "
+               "RuntimeError" for r in caplog.records)
+
+
+def test_T6f_no_memo_blocks():
+    clock = Clock()
+    model_arm._run_memo.clear()
+    model_arm._refresh_tasks.clear()
+    ledger = Ledger()
+
+    async def go():
+        ledger.gate = asyncio.Event()
+        task = asyncio.ensure_future(model_arm.discover_run(
+            wp.SidecarStore(transport=FakeGlobalBank()), ledger, clock))
+        await asyncio.sleep(0.01)
+        assert not task.done()
+        ledger.gate.set()
+        return await task
+    assert asyncio.run(go()) == RUN
+    assert model_arm._refresh_tasks == {}
+
+
+def test_T6f_memo_at_seven_hours_and_a_second_blocks():
+    got, calls, memo = _swr(7 * 3600 + 1, Ledger())
+    assert got == RUN and memo[1] == RUN
+    assert model_arm._refresh_tasks == {}
