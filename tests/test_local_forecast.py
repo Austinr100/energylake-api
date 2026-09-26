@@ -449,7 +449,11 @@ def test_T4_daily_rows_at_most_ten_and_fhr_range_printed(world):
     assert b["receipts"]["run"] == "2026-09-25T12Z"
     assert b["receipts"]["source"] == "model · GFS 2026-09-25 12Z · global · f000–f240"
     d0 = b["daily"][0]
-    assert d0["date"] == "2026-09-26"                 # today began before the run
+    # d091491 STOP-E (named in the handback): D-09-25-30 adds the rest-of-today
+    # row wherever today began before the run — west of UTC too, not only east.
+    # Was: `d0["date"] == "2026-09-26"  # today began before the run`.
+    assert d0["date"] == "2026-09-25"
+    assert b["daily"][1]["date"] == "2026-09-26"
     assert d0["pop"] is None and "pop: not banked" in d0["absent"]
     assert d0["hi"] > d0["lo"]
     assert b["place"]["tz"] == "Etc/GMT+8" and b["place"]["tz_source"] == "nominal"
@@ -1827,3 +1831,92 @@ def test_T9f_key_sets_are_byte_identical_to_main():
     assert lf.RECEIPT_KEYS == ("arm", "source", "issued_at", "run", "fhr_range",
                                "station", "memo", "fallback", "outline_sha",
                                "generated_at", "notes")
+
+
+# ── T7 (d091491) — the model arm's rest-of-today row (D-09-25-30) ─────────
+
+TOKYO = (35.68, 139.69)
+TOKYO_RUN = datetime(2026, 9, 26, 0, tzinfo=UTC)
+SOURCE_RUN_RX = r"\s+f\d{3}(?:[–-]f\d{3})?(?:\s+interp)?$"   # the page's `sourceRun`
+
+
+def _synthetic_ladders(t_k):
+    """Four ladders on the bank's cadence. `t_k(fhr)` is t2m in kelvin."""
+    fhrs = wp.ladder_fhrs()
+
+    def lad(param, f):
+        vals = {h: f(h) for h in fhrs}
+        return {"param": param, "units": UNITS[param], "values": vals, "reasons": {},
+                "missing_header": None}
+    out = {"t2m": lad("t2m", lambda h: round(t_k(h) - 273.15, 1)),
+           "wind10m": lad("wind10m", lambda h: 3.0 + h / 100.0),
+           "mslp": lad("mslp", lambda h: 1013.0),
+           "dswrf": lad("dswrf", lambda h: 150.0)}
+    out["dswrf"]["values"][0] = None
+    out["dswrf"]["reasons"][0] = "not banked on run"
+    return out
+
+
+def _tokyo(generated_at, t_k=lambda h: 290.0 + h / 10.0):
+    notes = []
+    parts = model_arm.build(_synthetic_ladders(t_k), TOKYO_RUN, *TOKYO, tz="Etc/GMT-9",
+                            tz_source="nominal", country=None, generated_at=generated_at,
+                            fallback=None, notes=notes)
+    lf.build_payload(**parts)                           # every null/unknown explained
+    return parts
+
+
+def test_T7f_tokyo_at_night_rest_of_today_has_no_high():
+    t_k = lambda h: 290.0 + h / 10.0
+    parts = _tokyo(datetime(2026, 9, 26, 13, 57, tzinfo=UTC), t_k)
+    d0 = parts["daily"][0]
+    assert d0["date"] == "2026-09-26"                   # local 22:57, the local date
+    assert d0["source"] == "model · GFS 00Z f013–f014"
+    assert d0["hi"] is None and "hi: day period elapsed" in d0["absent"]
+    ser = {h: round(t_k(h) - 273.15, 1) for h in (12, 18)}
+    at = lambda h: round(ser[12] + (ser[18] - ser[12]) * (h - 12) / 6, 1)
+    assert d0["lo"] == min(at(13), at(14))
+    assert d0["sky"] is None and "sky: night" in d0["absent"]
+    assert "condition: from sky, which is null (night)" in d0["absent"]
+    assert ("today: f013–f014 only — the rest of the local day "
+            "(the run began after the day did)") in parts["receipts"]["notes"]
+    assert parts["daily"][1]["date"] == "2026-09-27"
+    assert len(parts["daily"]) <= 10
+
+
+def test_T7f_tokyo_by_day_the_high_is_the_daylight_high_only():
+    # night warmer than day: hours after sunset (~08:33Z) are the window's peak
+    t_k = lambda h: 290.0 if h <= 6 else 300.0
+    parts = _tokyo(datetime(2026, 9, 26, 2, 0, tzinfo=UTC), t_k)
+    d0 = parts["daily"][0]
+    assert d0["date"] == "2026-09-26"
+    assert d0["source"] == "model · GFS 00Z f002–f014"
+    assert lf.solar_elevation(*TOKYO, TOKYO_RUN + timedelta(hours=8)) > 0
+    assert lf.solar_elevation(*TOKYO, TOKYO_RUN + timedelta(hours=9)) < 0
+    series = {r["valid"]: r["t"] for r in parts["hourly"]}
+    day = [series[lf.iso_z(TOKYO_RUN + timedelta(hours=h))] for h in range(2, 9)]
+    window = [series[lf.iso_z(TOKYO_RUN + timedelta(hours=h))] for h in range(2, 15)]
+    assert d0["hi"] == max(day) and d0["hi"] < max(window)   # the night spike is not the high
+    assert d0["lo"] == min(window)
+    assert d0["sky"] is not None and d0["condition"] != "unknown"
+
+
+def test_T7f_no_hours_left_is_a_note_not_a_row():
+    parts = _tokyo(TOKYO_RUN + timedelta(hours=250))      # past f240
+    assert not any(d["date"] == "2026-10-06" for d in parts["daily"])
+    assert "today: no hours left in the run for the local date" in parts["receipts"]["notes"]
+
+
+def test_T7f_the_us_arm_extra_days_carry_no_today_row(world):
+    b = get(world, **LAX).json()
+    model_rows = [d for d in b["daily"] if d["source"].startswith("model ·")]
+    nws_last = max(d["date"] for d in b["daily"] if d["source"].startswith("nws ·"))
+    assert [d["date"] for d in model_rows] == ["2026-10-02", "2026-10-03", "2026-10-04"]
+    assert all(d["date"] > nws_last for d in model_rows)
+    assert not any(n.startswith("today:") for n in b["receipts"]["notes"])
+
+
+def test_T7f_the_run_divider_keeps_today_with_the_next_day():
+    d = _tokyo(datetime(2026, 9, 26, 13, 57, tzinfo=UTC))["daily"]
+    assert (re.sub(SOURCE_RUN_RX, "", d[0]["source"])
+            == re.sub(SOURCE_RUN_RX, "", d[1]["source"]) == "model · GFS 00Z")

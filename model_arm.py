@@ -350,6 +350,63 @@ def _day_row(d: date, hours: list[dict], tz: str, lat: float, lon: float,
             "absent": absent}
 
 
+def _today_row(series: list[dict], run_dt: datetime, generated_at: datetime, tz: str,
+               lat: float, lon: float, label: str) -> Optional[dict]:
+    """D-09-25-30 — the rest of today, when today has no whole-day row.
+
+    The window is the hours from max(the current UTC hour, run_dt) up to local
+    midnight; None when none of them is in the series. It is NWS's own
+    semantics ("This Afternoon" is the rest of the day): `lo` is the minimum
+    over the window, `hi` the maximum over the window's DAYLIGHT hours only
+    (`solar_elevation > 0` at the valid time) — with none left, `hi` is null
+    with `day period elapsed`, NWS's phrase for the same state."""
+    zone = ZoneInfo(tz)
+    today = generated_at.astimezone(zone).date()
+    nxt = today + timedelta(days=1)
+    end = datetime(nxt.year, nxt.month, nxt.day, tzinfo=zone).astimezone(UTC)
+    start = max(generated_at.astimezone(UTC).replace(minute=0, second=0, microsecond=0),
+                run_dt)
+    by_valid = {s["valid"]: s for s in series}
+    hours = [by_valid[v] for v in (start + timedelta(hours=k)
+                                   for k in range(int((end - start).total_seconds() // 3600)))
+             if v in by_valid]
+    if not hours:
+        return None
+    absent = ["pop: not banked", "precip_amt: not banked",
+              "wind.dir_deg: not banked (wind10m is a speed)",
+              "wind.dir_txt: not banked (wind10m is a speed)", "wind.gust: not banked"]
+    ts = [h["t"] for h in hours]
+    lo = min(ts) if None not in ts else None
+    if lo is None:
+        absent.append(f"lo: {next(h['t_why'] for h in hours if h['t'] is None)} inside the day")
+    day = [h for h in hours if lf.solar_elevation(lat, lon, h["valid"]) > 0]
+    day_ts = [h["t"] for h in day]
+    hi = max(day_ts) if day and None not in day_ts else None
+    if not day:
+        absent.append("hi: day period elapsed")
+    elif hi is None:
+        absent.append(f"hi: {next(h['t_why'] for h in day if h['t'] is None)} inside the day")
+    ws = [h["wind"] for h in hours]
+    wind = max(ws) if None not in ws else None
+    if wind is None:
+        absent.append("wind.speed: not banked on run inside the day")
+    skies = [h["sky"] for h in hours if h["sky"] is not None]
+    sky = round(sum(skies) / len(skies), 2) if skies else None
+    if sky is None:
+        why = "night" if not day else "no daylight window with dswrf"
+        absent += [f"sky: {why}", f"condition: from sky, which is null ({why})"]
+    sun = lf.sun_times(lat, lon, today, tz)
+    absent += sun["absent"]
+    return {"date": today.isoformat(), "hi": hi, "lo": lo, "pop": None, "precip_amt": None,
+            "wind": {"dir_deg": None, "dir_txt": None, "speed": wind, "gust": None},
+            "sky": sky, "condition": lf.condition_from_sky(sky),
+            "sunrise": sun["sunrise"], "sunset": sun["sunset"],
+            # the plain form, so the page's run divider (D-09-25-22) keeps it
+            # with the days after it
+            "source": f"model · {label} f{hours[0]['h']:03d}–f{hours[-1]['h']:03d}",
+            "absent": absent}
+
+
 def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
           tz_source: str, country: Optional[str], generated_at: datetime,
           fallback: Optional[dict], notes: list[str]) -> dict:
@@ -358,6 +415,15 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
     span = range(0, wp.LADDER_FHR_MAX + 1)
     series = _series(ladders, run_dt, lat, lon, span)
     daily = _daily(series, run_dt, tz, lat, lon, label)
+    today = generated_at.astimezone(ZoneInfo(tz)).date().isoformat()
+    if not any(d["date"] == today for d in daily):
+        row = _today_row(series, run_dt, generated_at, tz, lat, lon, label)
+        if row is None:
+            notes.append("today: no hours left in the run for the local date")
+        else:
+            daily = [row] + daily[:DAILY_ROWS - 1]
+            notes.append(f"today: {row['source'].rsplit(' ', 1)[1]} only — the rest of "
+                         "the local day (the run began after the day did)")
 
     for p, lad in ladders.items():
         if lad["missing_header"]:
