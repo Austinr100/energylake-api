@@ -1,0 +1,31 @@
+{
+  "byte_order": "little",
+  "crop": "global",
+  "cycle": 18,
+  "display_offset": -273.15,
+  "display_scale": 1.0,
+  "dlat": 0.25,
+  "dlon": 0.25,
+  "dtype": "float32",
+  "fhr": 0,
+  "lat0": -90.0,
+  "lat_order": "ascending",
+  "lon0": -180.0,
+  "lon_convention": "pm180",
+  "model": "gfs",
+  "n_nodata": 0,
+  "nodata": "nan",
+  "param": "t2m",
+  "quantity": "field",
+  "run_date": "20260925",
+  "schema": "d2.value_sidecar.v0",
+  "sha256": "fada2029bd50b52bd36c2268f4b84d0c340b8cae069420e54e5595ca863aaf8c",
+  "shape": [
+    721,
+    1440
+  ],
+  "treatment": "raw_field",
+  "units": "K",
+  "units_source": "registry",
+  "valid": "2026-09-25T18:00:00+00:00"
+}

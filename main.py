@@ -18951,7 +18951,9 @@ async def local_forecast(request: Request,
 
     payload = _lf.build_payload(**parts)
     rc = payload["receipts"]
-    tag = _lf.etag(rc["arm"], rc["issued_at"], rc["run"] or rc["station"])
+    # D-09-25-15: the tag is the content (minus generated_at/memo), so a new
+    # observation, alert, hourly trim or model run is a 200, never a 304.
+    tag = _lf.content_etag(payload)
     headers = {"Cache-Control": _LOCAL_CACHE_CONTROL[rc["arm"]], "ETag": tag}
     if _enso.etag_matches(request.headers.get("if-none-match"), tag):
         return Response(status_code=304, headers=headers)

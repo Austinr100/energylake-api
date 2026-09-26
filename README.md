@@ -330,8 +330,10 @@ the whole suite runs against a synthetic sidecar with no network.
   `alerts: []` with an `alerts unavailable (…)` note (D-09-25-09). On the US arm
   days 8–10 are the model arm's daily rows, each labelled `model · GFS HHZ …`,
   or a `days 8–10 unavailable: model arm …` note (d091485). SI
-  units; every null has its reason in the row's `absent[]`. `max-age=300` (NWS)
-  / `900` (model), weak ETag + `304`; bad lat/lon or `arm=nws` outside the
+  units (NWS itself is read in `units=us`, D-09-25-16); every null has its
+  reason in the row's `absent[]`. `max-age=300` (NWS) / `900` (model); the ETag
+  is `W/"<arm>:<sha256[:32]>"` of the body minus `receipts.generated_at`/`memo`,
+  so a `304` means identical content (D-09-25-15); bad lat/lon or `arm=nws` outside the
   outline -> 400; no banked run -> 503. Code: `local_forecast.py`,
   `nws_arm.py`, `model_arm.py`; tests: `tests/test_local_forecast.py` (no
   network).

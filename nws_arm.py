@@ -26,7 +26,9 @@ is `[]` with an `alerts unavailable (<status>)` note — and never falls through
 logged `[[LOCAL_NWS_BLOCKED]]` with NWS's body verbatim — that is STOP-N's
 evidence, and nothing here tries to route around it.
 
-UNITS. `units=si` is requested on both forecast calls, and every value is still
+UNITS (D-09-25-16). `units=us` is requested on both forecast calls: NWS
+publishes integer °F, and asking for SI makes it round to integer °C first, so
+the page's °F could land a degree off weather.gov. Every value is still
 converted by the unit it CARRIES (`temperatureUnit`, `unitCode`), not by the
 unit that was asked for: the payload is °C / m/s / hPa whatever NWS sent.
 """
@@ -156,9 +158,9 @@ class NwsClient:
             tz = p.get("timeZone")
             grid = f"{p['gridId']}/{p['gridX']},{p['gridY']}"
             hourly, m_hourly = await self._memo_get(
-                "hourly", grid, p["forecastHourly"], {"units": "si"})
+                "hourly", grid, p["forecastHourly"], {"units": "us"})
             forecast, m_fc = await self._memo_get(
-                "forecast", grid, p["forecast"], {"units": "si"})
+                "forecast", grid, p["forecast"], {"units": "us"})
             stations_url = p["observationStations"]
         except NwsError as e:
             e.tz = e.tz or tz

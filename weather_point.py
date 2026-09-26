@@ -351,9 +351,19 @@ class SidecarHeader:
                         else "east_0_360")
             self.inferred.append("lon_convention")
         lon_conv = str(lon_conv).lower()
-        if lon_conv not in ("west_negative_monotonic", "east_0_360"):
+        if lon_conv not in ("west_negative_monotonic", "east_0_360", "pm180"):
             raise PointError(502, {"error": "unknown lon_convention",
                                    "key": key, "lon_convention": lon_conv})
+        # D-09-25-17: the pantry writes `pm180` only for a full-circle window
+        # (`d2/values.build_sidecar` raises otherwise), so a `pm180` header on a
+        # partial window is a shape the writer refuses — refused here too.
+        if lon_conv == "pm180" and abs(self.nx * abs(self.dlon) - 360.0) >= 1e-6:
+            raise PointError(502, {
+                "error": "pm180 lon_convention on a partial window",
+                "key": key, "lon_convention": lon_conv,
+                "shape": [self.ny, self.nx], "dlon": self.dlon,
+                "lon_span": self.nx * abs(self.dlon),
+            })
         self.lon_convention = lon_conv
 
         dtype = str(_first(doc, ("dtype", "data_type")) or DTYPE).lower()

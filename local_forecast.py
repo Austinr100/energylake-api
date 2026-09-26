@@ -542,5 +542,23 @@ def trim_to_now(rows: list[dict], now: datetime, limit: int = HOURLY_ROWS
     return kept, f"hourly from {hour:%H}Z, {len(kept)} rows"
 
 
-def etag(arm: str, issued_at: Optional[str], anchor: Optional[str]) -> str:
-    return f'W/"{arm}:{issued_at}:{anchor}"'
+#: The only receipts fields that describe the REQUEST rather than the weather
+#: (D-09-25-15): when it was built, and which memo entries it hit.
+ETAG_EXCLUDED_RECEIPTS = ("generated_at", "memo")
+
+
+def content_etag(payload: dict) -> str:
+    """D-09-25-15 — the ETag is the content. `W/"<arm>:<sha256 hex[:32]>"` over
+    the canonical JSON of the payload minus `receipts.generated_at` and
+    `receipts.memo`. Everything else — `now` (age_min included), every hourly
+    and daily row, every alert, the run — is in the hash, so a 304 means the
+    weather in the body is byte-identical. Pure: no clock, no I/O."""
+    receipts = payload.get("receipts")
+    if not isinstance(receipts, dict) or "arm" not in receipts:
+        raise ValueError("content_etag: payload.receipts has no arm")
+    body = dict(payload)
+    body["receipts"] = {k: v for k, v in receipts.items()
+                        if k not in ETAG_EXCLUDED_RECEIPTS}
+    canon = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(canon.encode("utf-8")).hexdigest()[:32]
+    return f'W/"{receipts["arm"]}:{digest}"'
