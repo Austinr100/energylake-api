@@ -526,5 +526,21 @@ def build_payload(*, place: dict, now: dict, hourly: list[dict], daily: list[dic
     return out
 
 
+HOURLY_ROWS = 48
+
+
+def trim_to_now(rows: list[dict], now: datetime, limit: int = HOURLY_ROWS
+                ) -> tuple[list[dict], str]:
+    """D-09-25-10 — hourly starts at the current hour, on both arms. Drops every
+    row before the hour containing `now` (UTC, floored), keeps at most `limit`
+    from there, and returns the `receipts.notes[]` line saying where it started
+    and how many rows it kept. Fewer than `limit` is correct: nothing is
+    invented past what the arm had. `now` is injected — the arms' own clock,
+    never read here."""
+    hour = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    kept = [r for r in rows if parse_iso(r["valid"]) >= hour][:limit]
+    return kept, f"hourly from {hour:%H}Z, {len(kept)} rows"
+
+
 def etag(arm: str, issued_at: Optional[str], anchor: Optional[str]) -> str:
     return f'W/"{arm}:{issued_at}:{anchor}"'

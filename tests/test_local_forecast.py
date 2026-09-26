@@ -12,6 +12,10 @@ on the 721 x 1440 global grid and with weather-shaped values, because the
 na3/mslp synthetic array there cannot stand in for a temperature.
 
 T1..T10 are the spec's §3 table; each test's name carries its number.
+T11..T16, T6′ (`test_T6p_…`), T7 (`test_T7_locator_…`) and T10′ are d091485's
+(the follow-ups: the scoped fallback D-09-25-09, hourly from now D-09-25-10,
+days 8–10 from the model arm, `weather_point.ladder()` lifted, the full-circle
+wrap). T2, T4 and T8 carry the amendments those rulings make to #78's pins.
 """
 
 import hashlib
@@ -114,10 +118,14 @@ def bank_value(param, fhr):
 
 
 class FakeGlobalBank:
-    def __init__(self, run=RUN, absent_params=(), absent_keys=()):
+    """`placed[(j, i)]` adds a delta to every param's value at that cell, so a
+    test can prove WHICH cell a point read (d091485 T16)."""
+
+    def __init__(self, run=RUN, absent_params=(), absent_keys=(), placed=None):
         self.run = run
         self.absent_params = set(absent_params)
         self.absent_keys = set(absent_keys)
+        self.placed = dict(placed or {})
         self.calls = []
         self.range_widths = []
 
@@ -148,7 +156,8 @@ class FakeGlobalBank:
         assert byte_range is not None, "a value read with no Range header"
         start, end = (int(x) for x in byte_range.split("=")[1].split("-"))
         self.range_widths.append(end - start + 1)
-        return 206, struct.pack("<f", bank_value(param, fhr))
+        cell = divmod(start // 4, GLOBAL_HEADER["shape"][1])
+        return 206, struct.pack("<f", bank_value(param, fhr) + self.placed.get(cell, 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -259,8 +268,11 @@ def test_T2_48_hourly_rows_and_daily_paired_day_night(world):
     b = get(world, **LAX).json()
     assert len(b["hourly"]) == 48
     assert b["hourly"][0]["valid"] == "2026-09-25T21:00:00Z"
-    # 14 NWS periods starting on a day → 7 paired rows (NOT 10: see handback).
-    assert len(b["daily"]) == 7 <= 10
+    # 14 NWS periods starting on a day → 7 paired rows; d091485 appends days
+    # 8–10 from the model arm (T15), so the NWS rows are the first seven.
+    nws_rows = [d for d in b["daily"] if d["source"].startswith("nws ·")]
+    assert len(nws_rows) == 7 and b["daily"][:7] == nws_rows
+    assert len(b["daily"]) == 10
     his_f = [77, 79, 81, 84, 80, 75, 73]
     los_f = [63, 64, 66, 65, 62, 61, 60]
     for row, hf, lf_ in zip(b["daily"], his_f, los_f):
@@ -389,6 +401,8 @@ def test_T3_unknown_token_is_unknown_kept_and_logged(world, caplog):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_T4_model_arm_48_rows_interp_flags_and_absent(world):
+    # D-09-25-10 trims to the current hour; at the run's own hour, row h is f00h.
+    world["now"] = RUN + timedelta(minutes=10)
     r = get(world, **VANCOUVER)
     assert r.status_code == 200, r.text
     b = r.json()
@@ -432,6 +446,8 @@ def test_T4_reads_are_four_bytes_and_only_the_global_crop(world):
 
 
 def test_T4_sky_from_dswrf_against_clearsky_and_night_is_null(world):
+    # D-09-25-10 trims to the current hour; at the run's own hour, row h is f00h.
+    world["now"] = RUN + timedelta(minutes=10)
     b = get(world, **VANCOUVER).json()
     for h, row in enumerate(b["hourly"]):
         valid = RUN + timedelta(hours=h)
@@ -647,7 +663,9 @@ def test_T8_lon_past_180_is_normalised_and_the_receipt_says_so(world):
     b = get(world, lat=33.94, lon=241.59).json()
     assert b["place"]["lon"] == pytest.approx(-118.41)
     assert b["receipts"]["arm"] == "nws"
-    assert b["receipts"]["notes"] == ["lon 241.59 normalised to -118.41"]
+    assert b["receipts"]["notes"] == ["lon 241.59 normalised to -118.41",
+                                      "hourly from 21Z, 48 rows",       # D-09-25-10
+                                      "days 8–10 from model · GFS 12Z"]  # d091485 §2.3
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -711,3 +729,325 @@ def test_T10_readme_row_present():
 def test_T10_route_registered_once():
     paths = [r.path for r in main.app.routes if getattr(r, "path", None) == "/api/local/forecast"]
     assert paths == ["/api/local/forecast"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091485 — the follow-ups
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── T11 — D-09-25-09: an observation failure is stated in place ─────────────
+
+def test_T11_observation_404_stays_on_the_nws_arm(world):
+    world["nws"] = FakeNws(obs=404)
+    world["install"]()
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    assert b["receipts"]["fallback"] is None
+    now = b["now"]
+    assert now["t"] is None and "t: obs unavailable (HTTP 404)" in now["absent"]
+    for f in ("feels", "dewpoint", "rh", "sky", "mslp", "age_min"):
+        assert now[f] is None and f"{f}: obs unavailable (HTTP 404)" in now["absent"]
+    assert "KLAX" in now["source"] and "no recent observation" in now["source"]
+    assert now["source"] == "nws · KLAX · no recent observation"
+    assert "observed" not in now["source"]
+    assert len(b["hourly"]) == 48 and len(b["daily"]) >= 7
+    assert b["hourly"][0]["source"].startswith("nws · gridpoint")
+    assert b["alerts"] and b["receipts"]["station"] == "KLAX"
+
+
+def test_T11_a_failed_observation_is_not_memoised(world):
+    world["nws"] = FakeNws(obs=404)
+    world["install"]()
+    get(world, **LAX)
+    world["clock"].t += 1
+    b = get(world, **LAX).json()
+    assert world["nws"].count("obs") == 2                 # retried, not memoised
+    assert world["nws"].count("hourly") == 1              # the forecast was
+    assert b["receipts"]["memo"]["forecast"] == "hit"
+
+
+def test_T11_station_list_failure_and_malformed_obs_are_garnish_too(world):
+    world["nws"] = FakeNws(stations=500)
+    world["install"]()
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws" and b["receipts"]["fallback"] is None
+    assert b["now"]["source"] == "nws · station unknown · no recent observation"
+    assert "t: obs unavailable (HTTP 500)" in b["now"]["absent"]
+
+    world["nws"] = FakeNws()
+    world["nws"].override["obs"] = {"no": "properties"}
+    world["install"]()
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws"
+    assert "t: obs unavailable (KeyError)" in b["now"]["absent"]
+
+
+# ── T12 — D-09-25-09: an alerts failure is [] WITH its note ─────────────────
+
+def test_T12_alerts_503_is_an_empty_list_with_the_note(world):
+    world["nws"] = FakeNws(alerts=503)
+    world["install"]()
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws" and b["receipts"]["fallback"] is None
+    assert b["alerts"] == []
+    assert "alerts unavailable (HTTP 503)" in b["receipts"]["notes"]
+    assert b["now"]["source"].startswith("nws · KLAX · observed")
+
+
+def test_T12_a_real_no_alerts_answer_carries_no_note(world):
+    world["nws"].override["alerts"] = {"features": []}
+    b = get(world, **LAX).json()
+    assert b["alerts"] == []
+    assert not any(n.startswith("alerts unavailable") for n in b["receipts"]["notes"])
+
+
+# ── T13 — the forecast calls still fall back exactly as #78's T6 ───────────
+
+@pytest.mark.parametrize("kind", ["points", "forecast", "hourly"])
+@pytest.mark.parametrize("failure,reason", [
+    (503, "HTTP 503"),
+    (404, "HTTP 404"),
+    (TimeoutError("read timed out"), "TimeoutError"),
+])
+def test_T13_forecast_critical_failure_falls_back(world, kind, failure, reason):
+    world["nws"] = FakeNws(**{kind: failure})
+    world["install"]()
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "model"
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": reason}
+    assert b["now"]["source"].startswith("model ·")
+    assert r.headers["cache-control"] == "max-age=900"
+
+
+# ── T14 — D-09-25-10: hourly from the current hour ─────────────────────────
+
+def test_T14_trim_to_now_floors_the_hour_and_names_it():
+    rows = [{"valid": lf.iso_z(RUN + timedelta(hours=h))} for h in range(60)]
+    now = datetime(2026, 9, 25, 14, 37, tzinfo=UTC)
+    kept, note = lf.trim_to_now(rows, now)
+    assert kept[0]["valid"] == "2026-09-25T14:00:00Z"
+    assert all(lf.parse_iso(r["valid"]) >= datetime(2026, 9, 25, 14, tzinfo=UTC)
+               for r in kept)
+    assert len(kept) == 48
+    assert note == "hourly from 14Z, 48 rows"
+    kept, note = lf.trim_to_now(rows, RUN + timedelta(hours=50, minutes=5))
+    assert len(kept) == 10 and note == "hourly from 14Z, 10 rows"   # fewer is correct
+
+
+def test_T14_nws_hourly_starts_this_hour(world):
+    world["now"] = datetime(2026, 9, 26, 14, 37, tzinfo=UTC)
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws"
+    hourly = b["hourly"]
+    assert hourly[0]["valid"] == "2026-09-26T14:00:00Z"
+    assert not any(h["valid"] < "2026-09-26T14:00:00Z" for h in hourly)
+    # the fixture's 60 periods run to 2026-09-28T08:00Z → 43 rows from 14Z
+    assert len(hourly) == 43
+    assert "hourly from 14Z, 43 rows" in b["receipts"]["notes"]
+
+
+def test_T14_model_hourly_starts_this_hour(world):
+    world["now"] = datetime(2026, 9, 25, 14, 37, tzinfo=UTC)
+    b = get(world, **VANCOUVER).json()
+    hourly = b["hourly"]
+    assert hourly[0]["valid"] == "2026-09-25T14:00:00Z"
+    assert hourly[0]["source"] == "model · GFS 12Z f000–f006 interp"
+    assert len(hourly) == 48
+    assert "hourly from 14Z, 48 rows" in b["receipts"]["notes"]
+    assert b["now"]["source"] == "model · GFS 12Z f000"          # now stays f000
+
+
+def test_T14_model_arm_invents_nothing_past_its_last_f_hour(world):
+    world["now"] = datetime(2026, 9, 25, 14, 37, tzinfo=UTC)
+    world["bank"].absent_keys = {
+        wp.value_key("gfs", "global", RUN, "t2m", f) for f in wp.ladder_fhrs() if f > 24}
+    b = get(world, **VANCOUVER).json()
+    hourly = b["hourly"]
+    assert b["receipts"]["fhr_range"] == [0, 24]
+    assert hourly[-1]["valid"] == lf.iso_z(RUN + timedelta(hours=24))
+    assert len(hourly) == 23                                      # 14Z..12Z+24h
+    assert "hourly from 14Z, 23 rows" in b["receipts"]["notes"]
+    world["bank"].absent_keys = set()
+    model_arm._run_memo.clear()
+    world["now"] = RUN + timedelta(hours=230, minutes=37)
+    hourly = get(world, **VANCOUVER).json()["hourly"]
+    assert len(hourly) == 11
+    assert hourly[-1]["valid"] == lf.iso_z(RUN + timedelta(hours=240))
+
+
+# ── T15 — days 8–10 from the model arm, each row labelled ──────────────────
+
+def test_T15_days_8_to_10_from_the_model_arm(world):
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    daily = b["daily"]
+    assert len(daily) == 10
+    assert [d["date"] for d in daily[7:]] == ["2026-10-02", "2026-10-03", "2026-10-04"]
+    assert all(d["source"].startswith("nws ·") for d in daily[:7])
+    for d in daily[7:]:
+        assert d["source"].startswith("model · GFS"), d["source"]
+        assert d["source"].startswith("model · GFS 12Z f")
+    assert "days 8–10 from model · GFS 12Z" in b["receipts"]["notes"]
+    assert "observed" not in json.dumps(daily[7:])
+
+
+def test_T15_model_arm_raising_leaves_seven_rows_and_the_note(world, monkeypatch):
+    async def boom(*a, **k):
+        raise model_arm.ModelArmError("no banked gfs run carries a global t2m f000 sidecar")
+    monkeypatch.setattr(main._model_arm, "answer", boom)
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    assert len(b["daily"]) == 7
+    assert "days 8–10 unavailable: model arm 503" in b["receipts"]["notes"]
+
+
+def test_T15_production_today_no_global_sidecar_still_200(world):
+    world["runs"] = []                       # the 503 production answers today
+    r = get(world, **LAX)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert len(b["daily"]) == 7
+    assert "days 8–10 unavailable: model arm 503" in b["receipts"]["notes"]
+
+
+# ── T16 — the model arm on a pm180 global header ───────────────────────────
+
+def _pm180_cell(lat, lon):
+    """Independent of weather_point: nearest centre on the pm180 grid, the
+    longitude index taken modulo nx (pantry d2/values.locate_cell)."""
+    j = int(math.floor((lat + 90.0) / 0.25 + 0.5))
+    i = int(math.floor((lon + 180.0) / 0.25 + 0.5)) % 1440
+    return j, i
+
+
+@pytest.mark.parametrize("name,lat,lon", [
+    ("Vancouver", 49.28, -123.12),
+    ("Fiji", -17.8, 178.0),
+    ("Samoa", -13.8, -172.1),
+    ("equator 179.9E", 0.0, 179.9),
+    ("equator 179.9W", 0.0, -179.9),
+])
+def test_T16_model_arm_reads_the_placed_cell_on_pm180(world, name, lat, lon):
+    assert (GLOBAL_HEADER["lon0"], GLOBAL_HEADER["dlon"], GLOBAL_HEADER["shape"]) \
+        == (-180.0, 0.25, [721, 1440])
+    j, i = _pm180_cell(lat, lon)
+    # The placed cell reads +7 K; its seam-side neighbours read -20 K, so a
+    # point that lands one column off (a clamp at the seam) is caught.
+    world["bank"].placed = {(j, i): 7.0, (j, (i - 1) % 1440): -20.0,
+                            (j, (i + 1) % 1440): -20.0}
+    r = get(world, lat=lat, lon=lon, arm="model")
+    assert r.status_code == 200, (name, r.text)
+    b = r.json()
+    assert b["receipts"]["arm"] == "model"
+    assert b["now"]["t"] == round(283.15 + 7.0 - 273.15, 1), name
+    off = 4 * (j * 1440 + i)
+    assert all(rng == f"bytes={off}-{off + 3}"
+               for k, rng in world["bank"].calls if k.endswith(".f32")), name
+
+
+def test_T16_both_sides_of_the_seam_are_one_cell():
+    assert _pm180_cell(0.0, 179.9) == _pm180_cell(0.0, -179.9) == (360, 0)
+
+
+# ── T6′ — /api/weather/point/ladder byte-identical to main ─────────────────
+
+#: sha-256 of each response body on origin/main 7a4e7c6 (before the lift),
+#: with `time.perf_counter` pinned so `elapsed_ms` is 0.0.
+LADDER_SHA_MAIN = {
+    "default": (200, "1fba61038d2cba75eb14b990e186dce237da228910ca827c6ce535fcc26df016"),
+    "step24": (200, "743cdfd3a9438a531b50ed336b30f2da05a82ee4cc70d2158089182b546f57c5"),
+    "chain": (200, "a45652fad15e16601246dc8b4ca9f950c110655827716ddf46086584dbd1236c"),
+    "no_f000": (200, "b8939b17b5f6d2c1024e9f080d82645e5c4b77c0df8e41dffb86f3841a8b3823"),
+    "outside": (404, "346ca6bc36a4b1ad632a876696477054be296f07dc7a0bbfe8c96c2c8f8f70b7"),
+    "no_run": (404, "66aeb325d1d88614b6395ab08611dde1b4b76274656f0f364f54fe63cc77cfba"),
+}
+LADDER_CASES = {
+    "default": ({}, ()),
+    "step24": ({"fhr_step": 24, "fhr_max": 240}, ()),
+    "chain": ({"chain": 1}, ()),
+    "no_f000": ({}, ("weather/values/gfs/na3/20260903/06Z/mslp_f000",)),
+    "outside": ({"lat": 5.0}, ()),
+    "no_run": ({"run": "20260904T00Z"}, ()),
+}
+
+
+@pytest.mark.parametrize("case", sorted(LADDER_CASES))
+def test_T6p_ladder_route_is_byte_identical_to_main(monkeypatch, case):
+    import test_weather_point as twp     # its FakeSidecar is the ladder_fake's
+
+    over, drop = LADDER_CASES[case]
+    keys = ["weather/values/gfs/na3/20260903/06Z/mslp_f%03d.f32" % f
+            for f in wp.ladder_fhrs()]
+    keys += [k.replace(".f32", ".json") for k in keys]
+    keys = [k for k in keys if not any(k.startswith(d) for d in drop)]
+    store = wp.SidecarStore(transport=twp.FakeSidecar(present=keys))
+    monkeypatch.setattr(main, "_get_weather_store", lambda: store)
+    monkeypatch.setattr(main.time, "perf_counter", lambda: 0.0)
+    params = {"lat": 36.74, "lon": -119.79, "param": twp.PARAM, "run": twp.RUN, **over}
+    r = TestClient(main.app).get("/api/weather/point/ladder", params=params)
+    assert (r.status_code, hashlib.sha256(r.content).hexdigest()) == LADDER_SHA_MAIN[case]
+
+
+def test_T6p_model_arm_reads_through_weather_point_ladder(world, monkeypatch):
+    seen = []
+    real = wp.ladder
+
+    async def spy(store, model, crop, run_dt, param, lat, lon, fhrs):
+        seen.append((model, crop, param))
+        return await real(store, model, crop, run_dt, param, lat, lon, fhrs)
+    monkeypatch.setattr(wp, "ladder", spy)
+    assert get(world, **VANCOUVER).status_code == 200
+    assert sorted(seen) == sorted(("gfs", "global", p) for p in model_arm.PARAMS)
+    src = (ROOT / "model_arm.py").read_text()
+    assert "wp.locate(" not in src and "get_values(" not in src   # the copy is gone
+
+
+# ── T7 — weather_point's locator wraps a full-circle header ────────────────
+
+def _hdr(lon0):
+    return wp.SidecarHeader({**GLOBAL_HEADER, "lon0": lon0})
+
+
+def test_T7_locator_wraps_a_full_circle_header():
+    h = _hdr(-180.0)
+    assert wp.is_full_circle(h)
+    east, west = wp.locate(0.0, 179.9, h), wp.locate(0.0, -179.9, h)
+    assert east["i"] == west["i"] == 0                       # both inside: the 180° column
+    last = wp.locate(0.0, 179.8, h)["i"]
+    assert last == 1439 and (last + 1) % 1440 == east["i"]   # adjacent across the seam
+    assert wp.locate(0.0, -179.8, h)["i"] == 1               # and on the other side
+    assert wp.locate(0.0, 179.875, h)["i"] == 0              # the seam midpoint: no 404
+    assert wp.locate(0.0, 180.0, h)["i"] == 0
+    assert wp.locate(0.0, 539.9, h)["i"] == 0                # any wrapping
+
+
+def test_T7_locator_matches_pantry_locate_cell_on_both_axis_origins():
+    for lon0 in (-180.0, 0.0):
+        h = _hdr(lon0)
+        for k in range(-3600, 3601):
+            lon = k * 0.05
+            fi = (wp.wrap180(lon) - lon0) / 0.25
+            want = int(math.floor(fi + 0.5)) % 1440
+            assert wp.locate(10.0, lon, h)["i"] == want, (lon0, lon)
+
+
+def test_T7_latitude_still_refuses_and_regional_crops_still_do_not_wrap():
+    with pytest.raises(wp.PointError) as ei:
+        wp.locate(95.0, 0.0, _hdr(-180.0))
+    assert ei.value.status == 400
+    na3 = wp.SidecarHeader({"shape": [222, 583], "lat0": 14.75, "lon0": -186.75,
+                            "dlat": 0.25, "dlon": 0.25})
+    assert not wp.is_full_circle(na3)
+    with pytest.raises(wp.PointError) as ei:
+        wp.locate(40.0, 0.0, na3)
+    assert ei.value.status == 404

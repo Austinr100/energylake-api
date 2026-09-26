@@ -55,7 +55,7 @@ Endpoints:
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/enso/catalog                  ENSO catalog, read-only from the bank (migration 240): current run + episodes + ENSO-year bins for ?classifier=cpc_oni|roni; weak ETag on catalog_version + 304, max-age=3600, 60 s memo (2026-09-24, d091476)
-    GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS failure falls through to the model arm with receipts.fallback (D-09-25-04); every model card labelled (D-09-24-09) (2026-09-25, d091477)
+    GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS forecast failure falls through to the model arm with receipts.fallback (D-09-25-04), obs/alerts failures stated in place (D-09-25-09); hourly from the current hour (D-09-25-10); US days 8–10 from the model arm; every model card labelled (D-09-24-09) (2026-09-25, d091477; 2026-09-26, d091485)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
     GET /api/analytics/structures/screener Structures room: one structure swept across legs, ranked by realized payoff, bounded + runtime-stamped (2026-07-30)
@@ -18561,30 +18561,15 @@ def _wp_raise(e: "_wp.PointError"):
 
 
 async def _wp_header(store, hkey: str, vkey: str, pngkey: str):
-    """Fetch the frame header, or raise the fail-loud 404.
-
-    THE 404 THAT TEACHES. An absent sidecar has two causes and they need
-    different people: "not written" (Spec A's writer never ran for this frame)
-    and "not rendered" (nothing at all exists for it). So the body names BOTH
-    sidecar keys AND states the result of a one-byte presence probe against the
-    sibling PNG — with the probed key spelled out, so a reader who finds this
-    render-key scheme wrong can see that instead of inferring it from a false
-    negative.
-    """
+    """Fetch the frame header, or raise the fail-loud 404 — the teaching body
+    (both sidecar keys and the sibling-PNG probe) is `_wp.sidecar_not_found`,
+    shared with `_wp.ladder`."""
     try:
         return await store.get_header(hkey)
     except _wp.PointError as e:
         if e.status != 404:
             _wp_raise(e)
-        rendered = await store.exists(pngkey)
-        _wp_raise(_wp.PointError(404, {
-            "error": "sidecar not found",
-            "expected": {"header": hkey, "values": vkey},
-            "png": {"key": pngkey, "exists": rendered, "probed": True},
-            "diagnosis": ("frame rendered but the value sidecar was not written"
-                          if rendered else
-                          "no frame for this (model, crop, run, param, fhr)"),
-        }))
+        _wp_raise(await _wp.sidecar_not_found(store, hkey, vkey, pngkey))
 
 
 def _wp_common(model: str, crop: str, param: str, run: str):
@@ -18598,17 +18583,8 @@ def _wp_common(model: str, crop: str, param: str, run: str):
 
 
 def _wp_header_block(hdr, hkey: str) -> dict:
-    """The header echo. `verified` is false and says why: a range read cannot
-    check a whole-object digest, and claiming otherwise would be the exact lie
-    the field exists to prevent."""
-    block = {"key": hkey, "sha256": hdr.sha256, "units": hdr.units}
-    block.update(hdr.axes())
-    block["verified"] = False
-    block["verified_reason"] = (
-        "sha256 is over the whole object; a 4-byte range read cannot check it "
-        "— the chain is proven in Spec A's write-time manifest"
-    )
-    return block
+    """The header echo, `verified: false` and why — `_wp.header_block`."""
+    return _wp.header_block(hdr, hkey)
 
 
 @app.get("/api/weather/point")
@@ -18731,91 +18707,21 @@ async def weather_point_ladder(
         _wp_raise(e)
     started = time.perf_counter()
 
-    # THE HEADER, ONCE. Read from the first rung whose header exists — a run
-    # missing f000 is a real state (the writer works forward) and must not cost
-    # the whole ladder. Bounded at three attempts so a wholly-absent run fails
-    # fast, naming the first key it looked for.
-    hdr = None
-    hkey = _wp.header_key(model, crop, run_dt, param, fhrs[0])
-    header_requests = 0
-    for probe_fhr in fhrs[:3]:
-        probe_key = _wp.header_key(model, crop, run_dt, param, probe_fhr)
-        header_requests += 1
-        try:
-            hdr = await store.get_header(probe_key)
-            hkey = probe_key
-            break
-        except _wp.PointError as e:
-            if e.status != 404:
-                _wp_raise(e)
-    if hdr is None:
-        await _wp_header(
-            store, hkey,
-            _wp.value_key(model, crop, run_dt, param, fhrs[0]),
-            _wp.render_key(model, crop, run_dt, param, fhrs[0]))
-
+    # The reader is `_wp.ladder` (d091485) — the Local Weather model arm calls
+    # the same body. This route adds its query echo, the timing and the chain.
     try:
-        cell = _wp.locate(lat, lon, hdr, crop=crop)
+        body = await _wp.ladder(store, model, crop, run_dt, param, lat, lon, fhrs)
     except _wp.PointError as e:
         _wp_raise(e)
-    offset = _wp.byte_offset(cell["j"], cell["i"], hdr)
 
-    keys = [_wp.value_key(model, crop, run_dt, param, f) for f in fhrs]
-    results = await store.get_values([(k, offset) for k in keys],
-                                     concurrency=_wp.LADDER_CONCURRENCY)
-
-    units = hdr.units
-    values = []
-    read = 0
-    for f, key, res in zip(fhrs, keys, results):
-        row = {
-            "fhr": f,
-            "valid": _wp.format_valid(_wp.valid_time(run_dt, f)),
-            "key": key,
-        }
-        if isinstance(res, _wp.PointError):
-            row.update({"available": False, "value": None,
-                        "error": res.detail, "bytes_read": 0})
-        else:
-            read += _wp.BYTES_PER_POINT
-            row.update({
-                "available": True,
-                "value": res,
-                "display": _wp.display_value(res, units, param),
-                "bytes_read": _wp.BYTES_PER_POINT,
-            })
-            if res is None:
-                row["reason"] = "nodata"
-        values.append(row)
-
-    out = {
-        "param": param,
-        "model": model,
-        "crop": crop,
-        "run": _wp.format_run(run_dt),
-        "fhr_step": fhr_step,
-        "fhr_max": fhr_max,
-        "count": len(values),
-        "point": {"lat": lat, "lon": _wp.wrap180(lon)},
-        "cell": cell,
-        "units": units,
-        "values": values,
-        "source": {
-            "prefix": _wp.VALUES_ROOT,
-            "offset": offset,
-            "range": _wp.range_header(offset),
-            "bytes_per_point": _wp.BYTES_PER_POINT,
-            "bytes_read": read,
-            "requests": len(values),
-            "header_requests": header_requests,
-            "concurrency": _wp.LADDER_CONCURRENCY,
-            "mode": store.mode(),
-            "full_object_reads": 0,
-        },
-        "header": _wp_header_block(hdr, hkey),
-        "verified": False,
-        "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
-    }
+    out = {k: body[k] for k in ("param", "model", "crop", "run")}
+    out["fhr_step"] = fhr_step
+    out["fhr_max"] = fhr_max
+    for k in ("count", "point", "cell", "units", "values", "source", "header",
+              "verified"):
+        out[k] = body[k]
+    out["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    values, units = out["values"], out["units"]
     if chain:
         first = next((r["value"] for r in values if r.get("available")), None)
         out["chain"] = _wp.chain_stub(lat, lon, param, first, units,
@@ -18907,10 +18813,13 @@ async def enso_catalog(request: Request,
 #
 # Inside the 20 km-buffered US outline → NWS read live behind an in-process
 # memo (D-09-25-03, nws_arm.py); outside → the GFS global sidecars read
-# in-process on the newest banked run (model_arm.py). Any NWS failure falls
-# through to the model arm for that request with a first-class
-# `receipts.fallback` (D-09-25-04). The shape, arm selection and the sun are
-# local_forecast.py. The arms are memoised; this response is not.
+# in-process on the newest banked run (model_arm.py). A failure of NWS's
+# forecast calls falls through to the model arm for that request with a
+# first-class `receipts.fallback` (D-09-25-04); observation/alerts failures are
+# stated in place by the NWS arm (D-09-25-09). When NWS has fewer than 10 daily
+# rows the model arm fills days 8–10, each row labelled (d091485 §2.3). The
+# shape, arm selection, the hourly trim and the sun are local_forecast.py. The
+# arms are memoised; this response is not.
 # ═══════════════════════════════════════════════════════════════════════════
 import math as _math
 
@@ -18936,6 +18845,45 @@ async def _local_gfs_run_candidates() -> list:
                                {"model": _model_arm.MODEL, "n": _model_arm.RUN_PROBE_DEPTH})
     return [_datetime(r["run_date"].year, r["run_date"].month, r["run_date"].day,
                       int(r["cycle"]), tzinfo=_timezone.utc) for r in rows]
+
+
+_LOCAL_DAILY_ROWS = 10
+
+
+async def _local_extend_days(parts: dict, lat: float, lon: float,
+                             generated_at) -> None:
+    """Days 8–10 on the US arm (d091485 §2.3). NWS's forecast stops at 7 local
+    days; the model arm is asked for the SAME place (in NWS's tz, so the local
+    dates line up) and its daily rows for the dates NWS does not cover are
+    appended, up to 10 in all. Each keeps its own `source: model · GFS <HH>Z …`
+    (D-09-24-09 per row) and `receipts.notes[]` names the range. If the model
+    arm cannot answer, the NWS rows stand alone and the note says why — the US
+    page never fails because of the model arm."""
+    daily = parts["daily"]
+    notes = parts["receipts"]["notes"]
+    a = len(daily) + 1
+    try:
+        model = await _model_arm.answer(
+            _get_weather_store(), _local_gfs_run_candidates, lat, lon,
+            tz=parts["place"]["tz"], tz_source="nws", country="US",
+            generated_at=generated_at, fallback=None, notes=[])
+    except _model_arm.ModelArmError:
+        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm 503")
+        return
+    except Exception as e:                      # the US page never fails on this
+        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm "
+                     f"{type(e).__name__}")
+        return
+    last = max((d["date"] for d in daily), default="")
+    extra = [d for d in model["daily"] if d["date"] > last]
+    extra = extra[:_LOCAL_DAILY_ROWS - len(daily)]
+    if not extra:
+        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm "
+                     f"covers no date after {last}")
+        return
+    daily.extend(extra)
+    label = _model_arm.run_label(_wp.parse_run(model["receipts"]["run"]))
+    notes.append(f"days {a}–{len(daily)} from model · {label}")
 
 
 def _local_400(detail) -> JSONResponse:
@@ -18987,6 +18935,8 @@ async def local_forecast(request: Request,
         except _nws_arm.NwsError as e:
             fallback = {"from": "nws", "reason": e.reason}
             tz_hint = e.tz
+        if parts is not None and len(parts["daily"]) < _LOCAL_DAILY_ROWS:
+            await _local_extend_days(parts, flat, flon, generated_at)
     if parts is None:
         tz, tz_source = (tz_hint, "nws") if tz_hint else (_lf.nominal_tz(flon), "nominal")
         try:

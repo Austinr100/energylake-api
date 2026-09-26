@@ -16,8 +16,12 @@ per kind, the `_delta_board_cache` shape. Keys and TTLs:
 No table, no cron, no row in `datasets`. Every memo hit/miss rides in
 `receipts.memo` (`forecast` is a hit only when BOTH forecast kinds hit).
 
-D-09-25-04 — ANY FAILURE HERE RAISES `NwsError`, and the route falls through to
-the model arm for that request with `receipts.fallback`. Timeouts 4 s connect /
+D-09-25-04, AS AMENDED BY D-09-25-09 — A FORECAST FAILURE RAISES `NwsError`
+(`points`, `forecast`, `forecastHourly`, or a malformed forecast body), and the
+route falls through to the model arm for that request with `receipts.fallback`.
+The observation and the alerts are garnish: their failure is stated in place —
+`now` keeps its NWS nulls with `obs unavailable (<status>)` reasons, `alerts`
+is `[]` with an `alerts unavailable (<status>)` note — and never falls through. Timeouts 4 s connect /
 8 s read; one immediate retry on a 5xx and no other retry. A 403/429 is also
 logged `[[LOCAL_NWS_BLOCKED]]` with NWS's body verbatim — that is STOP-N's
 evidence, and nothing here tries to route around it.
@@ -131,9 +135,18 @@ class NwsClient:
     # ── the five reads ──────────────────────────────────────────────────────
 
     async def fetch(self, lat: float, lon: float) -> dict:
-        """Every read the US arm needs, memoised. Raises NwsError on any
-        failure (D-09-25-04); a points answer's timeZone rides on the error so
-        the fallback can still name the place's real tz."""
+        """Every read the US arm needs, memoised, in two classes (D-09-25-09).
+
+        FORECAST-CRITICAL — `points`, `forecastHourly`, `forecast`: any failure
+        raises NwsError and the route falls through to the model arm; a points
+        answer's timeZone rides on the error so the fallback can still name the
+        place's real tz.
+
+        GARNISH — the observation (the station list, then its latest) and the
+        alerts: a failure is caught HERE and handed to `build` as
+        `obs_error` / `alerts_error` (the NwsError's reason), which states it in
+        place. A failed call is not memoised (`_memo_get` stores only a body),
+        so the next request retries it."""
         tz = None
         try:
             pkey = (round(lat, 4), round(lon, 4))
@@ -146,22 +159,38 @@ class NwsClient:
                 "hourly", grid, p["forecastHourly"], {"units": "si"})
             forecast, m_fc = await self._memo_get(
                 "forecast", grid, p["forecast"], {"units": "si"})
-            stations, _ = await self._memo_get(
-                "stations", grid, p["observationStations"])
-            station = stations["features"][0]["properties"]["stationIdentifier"]
-            obs, m_obs = await self._memo_get(
-                "obs", grid, f"{self.base}/stations/{station}/observations/latest")
-            alerts, m_alerts = await self._memo_get(
-                "alerts", grid, f"{self.base}/alerts/active",
-                {"point": f"{pkey[0]},{pkey[1]}"})
+            stations_url = p["observationStations"]
         except NwsError as e:
             e.tz = e.tz or tz
             raise
         except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             raise NwsError(type(e).__name__, tz=tz) from e
+
+        station = obs = obs_error = None
+        m_obs = "miss"
+        try:
+            stations, _ = await self._memo_get("stations", grid, stations_url)
+            station = stations["features"][0]["properties"]["stationIdentifier"]
+            obs, m_obs = await self._memo_get(
+                "obs", grid, f"{self.base}/stations/{station}/observations/latest")
+        except NwsError as e:
+            obs_error = e.reason
+        except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            obs_error = type(e).__name__
+
+        alerts = alerts_error = None
+        m_alerts = "miss"
+        try:
+            alerts, m_alerts = await self._memo_get(
+                "alerts", grid, f"{self.base}/alerts/active",
+                {"point": f"{pkey[0]},{pkey[1]}"})
+        except NwsError as e:
+            alerts_error = e.reason
+
         return {
             "points": points, "grid": grid, "tz": tz, "station": station,
             "hourly": hourly, "forecast": forecast, "obs": obs, "alerts": alerts,
+            "obs_error": obs_error, "alerts_error": alerts_error,
             "memo": {"points": m_points,
                      "forecast": "hit" if (m_hourly, m_fc) == ("hit", "hit") else "miss",
                      "obs": m_obs, "alerts": m_alerts},
@@ -341,6 +370,23 @@ def now_block(obs: dict, station: str, generated_at: datetime) -> dict:
             "age_min": age, "absent": absent}
 
 
+def now_unavailable(station: Optional[str], reason: str) -> dict:
+    """D-09-25-09 — the observation call failed: `now` keeps the NWS arm and
+    carries its nulls, each with `"<field>: obs unavailable (<reason>)"`, and
+    its source says there is no recent observation. Never a model value, never
+    the word "observed"."""
+    why = f"obs unavailable ({reason})"
+    absent = [f"{f}: {why}" for f in ("t", "feels", "dewpoint", "rh", "wind.dir_deg",
+                                      "wind.dir_txt", "wind.speed", "wind.gust", "sky",
+                                      "mslp", "condition_raw", "valid", "age_min")]
+    return {"t": None, "feels": None, "dewpoint": None, "rh": None,
+            "wind": {"dir_deg": None, "dir_txt": None, "speed": None, "gust": None},
+            "sky": None, "mslp": None, "condition": lf.UNKNOWN, "condition_raw": None,
+            "valid": None,
+            "source": f"nws · {station or 'station unknown'} · no recent observation",
+            "age_min": None, "absent": absent}
+
+
 def alert_rows(alerts: dict) -> list[dict]:
     out = []
     for f in alerts.get("features") or []:
@@ -361,13 +407,34 @@ def build(bundle: dict, lat: float, lon: float, generated_at: datetime,
     issued = lf.parse_iso(hp.get("updateTime") or hp.get("generatedAt"))
     source = f"nws · gridpoint {grid}"
     try:
-        hourly = [hourly_row(p, source) for p in hp["periods"][:HOURLY_ROWS]]
+        hourly = [hourly_row(p, source) for p in hp["periods"]]
         daily = daily_rows(bundle["forecast"]["properties"]["periods"], tz, lat, lon, source)
-        now = now_block(bundle["obs"], bundle["station"], generated_at)
-        alerts = alert_rows(bundle["alerts"])
     except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
-        # A malformed body is an NWS failure too (D-09-25-04), found late.
+        # A malformed forecast body is an NWS failure too (D-09-25-04), found late.
         raise NwsError(type(e).__name__, tz=tz) from e
+    # D-09-25-10: from the hour containing `generated_at`, at most 48 rows.
+    hourly, hourly_note = lf.trim_to_now(hourly, generated_at, HOURLY_ROWS)
+    notes.append(hourly_note)
+
+    # D-09-25-09: the garnish is stated in place, never a fallback. A malformed
+    # observation or alerts body is the same garnish failure, found late.
+    obs_error = bundle.get("obs_error")
+    if obs_error is None:
+        try:
+            now = now_block(bundle["obs"], bundle["station"], generated_at)
+        except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            obs_error = type(e).__name__
+    if obs_error is not None:
+        now = now_unavailable(bundle.get("station"), obs_error)
+    alerts_error = bundle.get("alerts_error")
+    if alerts_error is None:
+        try:
+            alerts = alert_rows(bundle["alerts"])
+        except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            alerts_error = type(e).__name__
+    if alerts_error is not None:
+        alerts = []
+        notes.append(f"alerts unavailable ({alerts_error})")
     local_today = generated_at.astimezone(ZoneInfo(tz)).date()
     return {
         "place": {"lat": lat, "lon": lon, "tz": tz, "tz_source": "nws", "country": "US"},

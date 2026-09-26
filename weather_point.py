@@ -473,6 +473,12 @@ def normalize_lon(lon: float, hdr: SidecarHeader) -> float:
         base + 360.0 if base < 0 else base)
 
 
+def is_full_circle(hdr: SidecarHeader) -> bool:
+    """True when `nx` cells of `dlon` make the whole circle — asked of the
+    declared grid, never of a crop name (pantry `d2/values.is_full_circle`)."""
+    return abs(hdr.nx * hdr.lon_step - 360.0) < 1e-6
+
+
 def _nearest_index(value: float, origin: float, step: float,
                    n: int) -> Optional[int]:
     """Nearest index along one axis, or None when the point falls outside the
@@ -513,10 +519,19 @@ def locate(lat: float, lon: float, hdr: SidecarHeader,
     if not math.isfinite(lat) or not -90.0 <= lat <= 90.0:
         raise PointError(400, {"error": "lat out of range", "lat": lat,
                                "range": [-90, 90]})
-    nlon = normalize_lon(lon, hdr)
-
     j = _nearest_index(lat, hdr.lat0, hdr.lat_step, hdr.ny)
-    i = _nearest_index(nlon, hdr.lon0, hdr.lon_step, hdr.nx)
+    if is_full_circle(hdr):
+        # A FULL-CIRCLE AXIS HAS NO OUTSIDE IN LONGITUDE. The last column's east
+        # neighbour is column 0, so the index is taken modulo nx and only
+        # latitude can miss — mirroring pantry `d2/values.locate_cell`. Without
+        # it the half cell either side of the seam hangs on `normalize_lon`'s
+        # ±360 retry, and the seam midpoint itself (179.875 on a -180 axis) is
+        # a 404.
+        nlon = wrap180(lon)
+        i = int(math.floor((nlon - hdr.lon0) / hdr.lon_step + 0.5)) % hdr.nx
+    else:
+        nlon = normalize_lon(lon, hdr)
+        i = _nearest_index(nlon, hdr.lon0, hdr.lon_step, hdr.nx)
     if j is None or i is None:
         lat_min, lat_max = hdr.lat_bounds
         lon_min, lon_max = hdr.lon_bounds
@@ -967,3 +982,138 @@ class SidecarStore:
                     return e
 
         return await asyncio.gather(*(one(k, o) for k, o in keys_offsets))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# The ladder — one cell across the forecast hours (lifted from main.py, d091485)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def header_block(hdr: SidecarHeader, hkey: str) -> dict[str, Any]:
+    """The header echo. `verified` is false and says why: a range read cannot
+    check a whole-object digest, and claiming otherwise would be the exact lie
+    the field exists to prevent."""
+    block = {"key": hkey, "sha256": hdr.sha256, "units": hdr.units}
+    block.update(hdr.axes())
+    block["verified"] = False
+    block["verified_reason"] = (
+        "sha256 is over the whole object; a 4-byte range read cannot check it "
+        "— the chain is proven in Spec A's write-time manifest"
+    )
+    return block
+
+
+async def sidecar_not_found(store: "SidecarStore", hkey: str, vkey: str,
+                            pngkey: str) -> PointError:
+    """THE 404 THAT TEACHES. An absent sidecar has two causes and they need
+    different people: "not written" (Spec A's writer never ran for this frame)
+    and "not rendered" (nothing at all exists for it). So the body names BOTH
+    sidecar keys AND states the result of a one-byte presence probe against the
+    sibling PNG — with the probed key spelled out, so a reader who finds this
+    render-key scheme wrong can see that instead of inferring it from a false
+    negative."""
+    rendered = await store.exists(pngkey)
+    return PointError(404, {
+        "error": "sidecar not found",
+        "expected": {"header": hkey, "values": vkey},
+        "png": {"key": pngkey, "exists": rendered, "probed": True},
+        "diagnosis": ("frame rendered but the value sidecar was not written"
+                      if rendered else
+                      "no frame for this (model, crop, run, param, fhr)"),
+    })
+
+
+async def ladder(store: "SidecarStore", model: str, crop: str, run_dt: datetime,
+                 param: str, lat: float, lon: float, fhrs: list[int]) -> dict:
+    """The same click across the forecast ladder: ONE header read (from the
+    first of three rungs that has one), one `locate`, one offset, and a
+    four-byte range GET per rung, at most `LADDER_CONCURRENCY` in flight.
+
+    The body of `/api/weather/point/ladder`, lifted so the route and the Local
+    Weather model arm share one reader. Slugs and `fhrs` are the caller's to
+    have validated. Returns the route's body minus the route's own keys
+    (`fhr_step`, `fhr_max`, `elapsed_ms`, `chain`), in the route's key order.
+    Raises `PointError`: the teaching 404 when no probed rung has a header,
+    the bounds 404 when the point is outside the crop.
+
+    A ladder is not all-or-nothing: an unwritten frame answers with its own
+    `error` on its own row (and `available: false`) while the others carry
+    values."""
+    # THE HEADER, ONCE. Read from the first rung whose header exists — a run
+    # missing f000 is a real state (the writer works forward) and must not cost
+    # the whole ladder. Bounded at three attempts so a wholly-absent run fails
+    # fast, naming the first key it looked for.
+    hdr = None
+    hkey = header_key(model, crop, run_dt, param, fhrs[0])
+    header_requests = 0
+    for probe_fhr in fhrs[:3]:
+        probe_key = header_key(model, crop, run_dt, param, probe_fhr)
+        header_requests += 1
+        try:
+            hdr = await store.get_header(probe_key)
+            hkey = probe_key
+            break
+        except PointError as e:
+            if e.status != 404:
+                raise
+    if hdr is None:
+        raise await sidecar_not_found(
+            store, hkey,
+            value_key(model, crop, run_dt, param, fhrs[0]),
+            render_key(model, crop, run_dt, param, fhrs[0]))
+
+    cell = locate(lat, lon, hdr, crop=crop)
+    offset = byte_offset(cell["j"], cell["i"], hdr)
+
+    keys = [value_key(model, crop, run_dt, param, f) for f in fhrs]
+    results = await store.get_values([(k, offset) for k in keys],
+                                     concurrency=LADDER_CONCURRENCY)
+
+    units = hdr.units
+    values = []
+    read = 0
+    for f, key, res in zip(fhrs, keys, results):
+        row = {
+            "fhr": f,
+            "valid": format_valid(valid_time(run_dt, f)),
+            "key": key,
+        }
+        if isinstance(res, PointError):
+            row.update({"available": False, "value": None,
+                        "error": res.detail, "bytes_read": 0})
+        else:
+            read += BYTES_PER_POINT
+            row.update({
+                "available": True,
+                "value": res,
+                "display": display_value(res, units, param),
+                "bytes_read": BYTES_PER_POINT,
+            })
+            if res is None:
+                row["reason"] = "nodata"
+        values.append(row)
+
+    return {
+        "param": param,
+        "model": model,
+        "crop": crop,
+        "run": format_run(run_dt),
+        "count": len(values),
+        "point": {"lat": lat, "lon": wrap180(lon)},
+        "cell": cell,
+        "units": units,
+        "values": values,
+        "source": {
+            "prefix": VALUES_ROOT,
+            "offset": offset,
+            "range": range_header(offset),
+            "bytes_per_point": BYTES_PER_POINT,
+            "bytes_read": read,
+            "requests": len(values),
+            "header_requests": header_requests,
+            "concurrency": LADDER_CONCURRENCY,
+            "mode": store.mode(),
+            "full_object_reads": 0,
+        },
+        "header": header_block(hdr, hkey),
+        "verified": False,
+    }
