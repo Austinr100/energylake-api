@@ -19,6 +19,9 @@ wrap). T2, T4 and T8 carry the amendments those rulings make to #78's pins.
 T17..T25 are d091488's (D-09-25-15 the content ETag, D-09-25-16 `units=us`,
 D-09-25-17 `pm180` read from the pantry's committed header bytes); T7 and T8
 carry its amendments.
+T1f..T9f are d091491's (`f` for fast-today: Server-Timing D-09-25-27, only
+`points` waits D-09-25-28, run discovery off the path D-09-25-29, the rest of
+today D-09-25-30, `unknown` says why D-09-25-31); T4 carries its amendment.
 """
 
 import hashlib
@@ -449,7 +452,11 @@ def test_T4_daily_rows_at_most_ten_and_fhr_range_printed(world):
     assert b["receipts"]["run"] == "2026-09-25T12Z"
     assert b["receipts"]["source"] == "model · GFS 2026-09-25 12Z · global · f000–f240"
     d0 = b["daily"][0]
-    assert d0["date"] == "2026-09-26"                 # today began before the run
+    # d091491 STOP-E (named in the handback): D-09-25-30 adds the rest-of-today
+    # row wherever today began before the run — west of UTC too, not only east.
+    # Was: `d0["date"] == "2026-09-26"  # today began before the run`.
+    assert d0["date"] == "2026-09-25"
+    assert b["daily"][1]["date"] == "2026-09-26"
     assert d0["pop"] is None and "pop: not banked" in d0["absent"]
     assert d0["hi"] > d0["lo"]
     assert b["place"]["tz"] == "Etc/GMT+8" and b["place"]["tz_source"] == "nominal"
@@ -927,7 +934,8 @@ def test_T15_days_8_to_10_from_the_model_arm(world):
 def test_T15_model_arm_raising_leaves_seven_rows_and_the_note(world, monkeypatch):
     async def boom(*a, **k):
         raise model_arm.ModelArmError("no banked gfs run carries a global t2m f000 sidecar")
-    monkeypatch.setattr(main._model_arm, "answer", boom)
+    # d091491: the route reads through `model_arm.read` (setup only; asserts unchanged)
+    monkeypatch.setattr(main._model_arm, "read", boom)
     r = get(world, **LAX)
     assert r.status_code == 200, r.text
     b = r.json()
@@ -1328,3 +1336,590 @@ def test_T20_twins_are_current_with_their_si_sources():
     assert r.returncode == 0, r.stdout + r.stderr
     for name in ("forecast.us.json", "forecastHourly.us.json"):
         assert "hand-built" in _fixture(name)["_provenance"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091491 — a cold read under two seconds, the rest of today, `unknown` says why
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── T1 (d091491) — Server-Timing, never the body (D-09-25-27) ──────────────
+
+PREVIEW_ORIGIN = "https://energylake-git-lane-austinrodriguez221-6328s-projects.vercel.app"
+STRANGER_ORIGIN = "https://energylake.example.com"
+
+
+def _timing_names(r):
+    return [p.strip().split(";")[0] for p in r.headers["server-timing"].split(",")]
+
+
+def _timing_ok(r):
+    for p in r.headers["server-timing"].split(","):
+        assert re.fullmatch(r"[a-z_]+;dur=\d+\.\d", p.strip()), p
+    names = _timing_names(r)
+    assert names == [n for n in lf.TIMING_NAMES if n in names], names
+    assert names[-1] == "total"
+    return names
+
+
+def test_T1f_server_timing_on_200_304_and_503_in_the_ruled_order(world):
+    r = get(world, **LAX)
+    assert r.status_code == 200
+    assert _timing_ok(r) == list(lf.TIMING_NAMES)
+    r304 = world["http"].get("/api/local/forecast", params=LAX,
+                             headers={"If-None-Match": r.headers["etag"]})
+    assert r304.status_code == 304
+    assert _timing_ok(r304)[-1] == "total"
+    m = get(world, **VANCOUVER)
+    assert m.status_code == 200
+    assert _timing_ok(m) == ["model_run", "model_ladders", "build", "total"]
+    world["runs"] = []
+    model_arm._run_memo.clear()
+    r503 = get(world, lat=10.0, lon=10.0)
+    assert r503.status_code == 503
+    names = _timing_ok(r503)
+    assert not any(n.startswith("nws_") for n in names) and "build" not in names
+
+
+@pytest.mark.parametrize("origin,tao", [
+    ("allowed", True), (PREVIEW_ORIGIN, True), (STRANGER_ORIGIN, False), (None, False)])
+def test_T1f_expose_headers_and_timing_allow_origin(world, origin, tao):
+    if origin == "allowed":
+        origin = main.ALLOWED_ORIGINS[0]
+    headers = {"Origin": origin} if origin else {}
+    r = world["http"].get("/api/local/forecast", params=VANCOUVER, headers=headers)
+    assert r.status_code == 200
+    assert r.headers["access-control-expose-headers"] == "Server-Timing, ETag"
+    assert r.headers.get("timing-allow-origin") == (origin if tao else None)
+
+
+def test_T1f_body_and_etag_are_byte_identical_with_and_without_the_recorder(world, monkeypatch):
+    real = lf.Timings
+    ticks = iter(range(10 ** 6))
+
+    def slow():                                   # every read of the clock is 0.25 s later
+        return next(ticks) * 0.25
+
+    out = []
+    for clock in (lambda: 0.0, slow):
+        monkeypatch.setattr(lf, "Timings", lambda clock=clock: real(clock=clock))
+        world["install"]()                        # cold both times: the memo is in the body
+        model_arm._run_memo.clear()
+        for where in (LAX, VANCOUVER):
+            r = get(world, **where)
+            assert r.status_code == 200
+            out.append((where["lat"], r.content, r.headers["etag"],
+                        r.headers["server-timing"]))
+    for a, b in zip(out[:2], out[2:]):
+        assert a[0] == b[0]
+        assert a[1] == b[1] and a[2] == b[2]      # D-09-25-15 unharmed
+        assert a[3] != b[3]                       # while the header did move
+
+
+# ── T2 (d091491) — only `points` waits (D-09-25-28) ───────────────────────
+
+import asyncio  # noqa: E402
+import gc  # noqa: E402
+import time  # noqa: E402
+
+
+class Latent:
+    """Wraps a fake transport: every call sleeps `ms` first, and the in-flight
+    count is recorded (its peak, and the peak once `points` has answered)."""
+
+    def __init__(self, inner, ms, *, is_range=lambda *a: True):
+        self.inner, self.ms, self.is_range = inner, ms, is_range
+        self.inflight = self.peak = 0
+
+    async def __call__(self, a, b):
+        if not self.is_range(a, b):
+            return await self.inner(a, b)
+        self.inflight += 1
+        self.peak = max(self.peak, self.inflight)
+        try:
+            await asyncio.sleep(self.ms / 1000.0)
+            return await self.inner(a, b)
+        finally:
+            self.inflight -= 1
+
+
+def test_T2f_nws_legs_run_together_once_points_answers():
+    fake = FakeNws()
+    lat_t = Latent(fake, 50)
+    client = nws_arm.NwsClient(transport=lat_t, clock=Clock())
+
+    async def go():
+        t0 = time.perf_counter()
+        bundle = await client.fetch(LAX["lat"], LAX["lon"])
+        return bundle, (time.perf_counter() - t0) * 1000.0
+
+    bundle, ms = asyncio.run(go())
+    assert bundle["obs_error"] is None and bundle["alerts_error"] is None
+    assert lat_t.peak >= 4, lat_t.peak          # hourly ∥ forecast ∥ stations ∥ alerts
+    # points, then the stations → obs chain: 3 × 50 ms (serial would be 6 × 50)
+    assert ms < 3 * 50 + 50, ms
+    assert [k for k, _, _ in fake.calls][0] == "points"
+    n = len(fake.calls)
+    bundle2 = asyncio.run(client.fetch(LAX["lat"], LAX["lon"]))
+    assert len(fake.calls) == n                  # the memo is unchanged: 0 calls
+    assert bundle2["memo"] == {"points": "hit", "forecast": "hit", "obs": "hit",
+                               "alerts": "hit"}
+
+
+# ── T3 (d091491) — failure classes unchanged with the legs concurrent ─────
+
+def test_T3f_hourly_503_raises_with_the_points_tz_then_falls_back(world):
+    world["nws"].fail["hourly"] = 503
+    with pytest.raises(nws_arm.NwsError) as ei:
+        asyncio.run(nws_arm.NwsClient(transport=world["nws"], clock=Clock())
+                    .fetch(LAX["lat"], LAX["lon"]))
+    assert ei.value.reason == "HTTP 503"
+    assert ei.value.tz == _fixture("points.json")["properties"]["timeZone"]
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "model"
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "HTTP 503"}
+    assert b["place"]["tz_source"] == "nws"
+
+
+def test_T3f_forecast_malformed_is_an_nws_error_by_class_name(world):
+    world["nws"].override["forecast"] = {"properties": {}}
+    b = get(world, **LAX).json()
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "KeyError"}
+
+
+def test_T3f_garnish_failures_are_stated_in_place(world):
+    world["nws"].fail.update(stations=503, alerts=503)
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws" and b["receipts"]["fallback"] is None
+    assert b["now"]["source"].endswith("no recent observation")
+    assert "t: obs unavailable (HTTP 503)" in b["now"]["absent"]
+    assert b["alerts"] == []
+    assert "alerts unavailable (HTTP 503)" in b["receipts"]["notes"]
+
+
+def test_T3f_a_failed_leg_is_not_memoised(world):
+    world["nws"].fail["hourly"] = 503
+    assert get(world, **LAX).json()["receipts"]["arm"] == "model"
+    c = world["client"]
+    assert c.fetches["hourly"] == 1 and "hourly" not in {
+        k for k, v in c._memo.items() if v}
+    del world["nws"].fail["hourly"]
+    b = get(world, **LAX).json()
+    assert b["receipts"]["arm"] == "nws"
+    assert c.fetches["hourly"] == 2              # retried, not served from a memo
+    assert b["receipts"]["memo"]["forecast"] == "miss"
+
+
+# ── T4 (d091491) — the four ladders at the same time ──────────────────────
+
+def _range_only(key, byte_range):
+    return byte_range is not None
+
+
+def test_T4f_ladders_are_read_together(world):
+    bank = Latent(FakeGlobalBank(), 20, is_range=_range_only)
+    store = wp.SidecarStore(transport=bank)
+
+    async def runs():
+        return [RUN]
+
+    async def go():
+        t0 = time.perf_counter()
+        out = await model_arm.read(store, runs, VANCOUVER["lat"], VANCOUVER["lon"])
+        return out, (time.perf_counter() - t0) * 1000.0
+
+    (run_dt, ladders), ms = asyncio.run(go())
+    assert run_dt == RUN and sorted(ladders) == sorted(model_arm.PARAMS)
+    assert bank.peak >= 24, bank.peak           # 4 ladders × 8 in flight
+    assert bank.peak <= 4 * wp.LADDER_CONCURRENCY
+    assert ms < 8 * 20, ms                      # serial would be 4 × 6 waves
+
+
+def test_T4f_answer_is_build_of_read_byte_for_byte(world):
+    async def runs():
+        return [RUN]
+
+    kw = dict(tz="Etc/GMT+8", tz_source="nominal", country=None, generated_at=NOW,
+              fallback=None)
+
+    async def both():
+        model_arm._run_memo.clear()
+        a = await model_arm.answer(wp.SidecarStore(transport=FakeGlobalBank()), runs,
+                                   VANCOUVER["lat"], VANCOUVER["lon"], notes=[], **kw)
+        model_arm._run_memo.clear()
+        run_dt, lad = await model_arm.read(wp.SidecarStore(transport=FakeGlobalBank()),
+                                           runs, VANCOUVER["lat"], VANCOUVER["lon"])
+        b = model_arm.build(lad, run_dt, VANCOUVER["lat"], VANCOUVER["lon"], notes=[], **kw)
+        return a, b
+
+    a, b = asyncio.run(both())
+    assert json.dumps(a, sort_keys=False) == json.dumps(b, sort_keys=False)
+
+
+def test_T4f_the_store_pool_allows_32_and_keeps_16(world):
+    store = wp.SidecarStore()
+    pool = store._get_client()._transport._pool
+    assert wp.LADDER_CONCURRENCY == 8
+    assert (pool._max_connections, pool._max_keepalive_connections) == (32, 16)
+
+
+# ── T5 (d091491) — the US route makes one model read ──────────────────────
+
+@pytest.fixture
+def ladder_count(monkeypatch):
+    seen = []
+    real = model_arm.read_ladder
+
+    async def counting(store, run_dt, param, lat, lon):
+        seen.append(param)
+        return await real(store, run_dt, param, lat, lon)
+    monkeypatch.setattr(model_arm, "read_ladder", counting)
+    return seen
+
+
+def test_T5f_nws_seven_days_is_one_model_read(world, ladder_count):
+    b = get(world, **LAX).json()
+    assert len(b["daily"]) == 10
+    assert sorted(ladder_count) == sorted(model_arm.PARAMS)
+
+
+def test_T5f_nws_falling_through_is_still_one_read_and_todays_payload(world, ladder_count):
+    world["nws"].fail["points"] = 503
+    b = get(world, **LAX).json()
+    assert b["receipts"]["fallback"] == {"from": "nws", "reason": "HTTP 503"}
+    assert sorted(ladder_count) == sorted(model_arm.PARAMS)
+
+    async def runs():
+        return [RUN]
+    model_arm._run_memo.clear()
+    want = asyncio.run(model_arm.answer(
+        wp.SidecarStore(transport=FakeGlobalBank()), runs, LAX["lat"], LAX["lon"],
+        tz=lf.nominal_tz(LAX["lon"]), tz_source="nominal", country="US",
+        generated_at=NOW, fallback={"from": "nws", "reason": "HTTP 503"}, notes=[]))
+    assert b == json.loads(json.dumps(lf.build_payload(**want)))
+
+
+def _ten_nws_days(monkeypatch):
+    real = nws_arm.build
+
+    def ten(bundle, lat, lon, generated_at, notes):
+        parts = real(bundle, lat, lon, generated_at, notes)
+        last = parts["daily"][-1]
+        d = datetime.fromisoformat(last["date"])
+        while len(parts["daily"]) < 10:
+            d += timedelta(days=1)
+            parts["daily"].append({**last, "date": d.date().isoformat()})
+        return parts
+    monkeypatch.setattr(main._nws_arm, "build", ten)
+
+
+def test_T5f_nws_ten_days_cancels_the_model_read(world, monkeypatch):
+    _ten_nws_days(monkeypatch)
+    state = {}
+
+    async def slow(*a, **k):
+        state["started"] = True
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            state["cancelled"] = True
+            raise
+    monkeypatch.setattr(main._model_arm, "read", slow)
+    t0 = time.perf_counter()
+    r = get(world, **LAX)
+    assert r.status_code == 200 and time.perf_counter() - t0 < 5
+    b = r.json()
+    assert all(d["source"].startswith("nws ·") for d in b["daily"]) and len(b["daily"]) == 10
+    assert not any(n.startswith("days ") for n in b["receipts"]["notes"])
+    assert state == {"started": True, "cancelled": True}
+
+
+def test_T5f_nws_ten_days_and_a_failed_model_read_leaks_nothing(world, monkeypatch, caplog):
+    _ten_nws_days(monkeypatch)
+
+    async def boom(*a, **k):
+        raise model_arm.ModelArmError("run ledger unavailable: OperationalError")
+    monkeypatch.setattr(main._model_arm, "read", boom)
+    with caplog.at_level(logging.ERROR, logger="asyncio"):
+        r = get(world, **LAX)
+        gc.collect()
+    assert r.status_code == 200
+    assert not any("never retrieved" in rec.getMessage() for rec in caplog.records)
+
+
+# ── T6 (d091491) — run discovery off the request path (D-09-25-29) ────────
+
+OLD_RUN = RUN - timedelta(hours=6)
+
+
+class Ledger:
+    """`candidates()` that counts calls and can be held open or made to fail."""
+
+    def __init__(self, runs=(RUN,), fail=None):
+        self.runs, self.fail, self.calls = list(runs), fail, 0
+        self.gate = None
+
+    async def __call__(self):
+        self.calls += 1
+        if self.gate is not None:
+            await self.gate.wait()
+        if self.fail:
+            raise self.fail
+        return list(self.runs)
+
+
+def _swr(age_s, ledger, *, settle=True, twice=False):
+    """Seed the memo `age_s` old, ask for the run (twice if asked), and return
+    (answer, ledger calls before the refresh settles, memo after it settles)."""
+    clock = Clock()
+    model_arm._run_memo.clear()
+    model_arm._refresh_tasks.clear()
+    model_arm._run_memo[model_arm.MODEL] = (clock.t - age_s, OLD_RUN)
+    store = wp.SidecarStore(transport=FakeGlobalBank())
+
+    async def go():
+        ledger.gate = asyncio.Event()
+        got = None
+        if age_s <= model_arm.RUN_MEMO_MAX_AGE_S:  # served: must not wait on the ledger
+            got = await asyncio.wait_for(model_arm.discover_run(store, ledger, clock), 0.5)
+        if got is None:                           # a blocking read: let the ledger answer
+            task = asyncio.ensure_future(model_arm.discover_run(store, ledger, clock))
+            await asyncio.sleep(0.01)
+            assert not task.done()                # it IS waiting on discovery
+            ledger.gate.set()
+            got = await task
+        if twice:
+            await model_arm.discover_run(store, ledger, clock)
+        await asyncio.sleep(0)
+        calls = ledger.calls
+        ledger.gate.set()
+        t = model_arm._refresh_tasks.get(model_arm.MODEL)
+        if settle and t is not None:
+            await t
+        return got, calls, model_arm._run_memo.get(model_arm.MODEL)
+
+    return asyncio.run(go())
+
+
+def test_T6f_memo_at_299s_is_served_with_no_refresh():
+    got, calls, memo = _swr(299, Ledger())
+    assert got == OLD_RUN and calls == 0 and memo[1] == OLD_RUN
+    assert model_arm._refresh_tasks == {}
+
+
+def test_T6f_memo_at_301s_is_served_at_once_and_one_refresh_starts():
+    ledger = Ledger()
+    got, calls, memo = _swr(301, ledger, twice=True)
+    assert got == OLD_RUN                         # the old run, at once
+    assert calls == 1                             # a second request did not start another
+    assert memo[1] == RUN                         # the refresh replaced the memo
+
+
+def test_T6f_a_failed_refresh_leaves_the_memo_and_logs(caplog):
+    with caplog.at_level(logging.WARNING, logger="energylake.local"):
+        got, calls, memo = _swr(301, Ledger(fail=RuntimeError("neon asleep")))
+    assert got == OLD_RUN and memo[1] == OLD_RUN
+    assert any(r.getMessage() == "[[LOCAL_RUN_REFRESH_FAILED]] run ledger unavailable: "
+               "RuntimeError" for r in caplog.records)
+
+
+def test_T6f_no_memo_blocks():
+    clock = Clock()
+    model_arm._run_memo.clear()
+    model_arm._refresh_tasks.clear()
+    ledger = Ledger()
+
+    async def go():
+        ledger.gate = asyncio.Event()
+        task = asyncio.ensure_future(model_arm.discover_run(
+            wp.SidecarStore(transport=FakeGlobalBank()), ledger, clock))
+        await asyncio.sleep(0.01)
+        assert not task.done()
+        ledger.gate.set()
+        return await task
+    assert asyncio.run(go()) == RUN
+    assert model_arm._refresh_tasks == {}
+
+
+def test_T6f_memo_at_seven_hours_and_a_second_blocks():
+    got, calls, memo = _swr(7 * 3600 + 1, Ledger())
+    assert got == RUN and memo[1] == RUN
+    assert model_arm._refresh_tasks == {}
+
+
+# ── T8 (d091491) — `unknown` says why (D-09-25-31) ────────────────────────
+
+def _blocks(b):
+    yield "now", b["now"]
+    for i, h in enumerate(b["hourly"]):
+        yield f"hourly[{i}]", h
+    for i, d in enumerate(b["daily"]):
+        yield f"daily[{i}]", d
+
+
+def _unknowns(b):
+    out = []
+    for where, row in _blocks(b):
+        if row["condition"] == "unknown":
+            lines = [a for a in row["absent"] if a.split(":", 1)[0] == "condition"]
+            assert lines, f"{where} is unknown with no condition: line"
+            out.append((where, lines[0]))
+    return out
+
+
+def test_T8f_every_unknown_on_both_arms_says_why(world):
+    hourly = _fixture("forecastHourly.us.json")
+    hourly["properties"]["periods"][0]["icon"] = \
+        "https://api.weather.gov/icons/land/day/smoke?size=small"
+    hourly["properties"]["periods"][1]["icon"] = None
+    forecast = _fixture("forecast.us.json")
+    forecast["properties"]["periods"][0]["icon"] = \
+        "https://api.weather.gov/icons/land/day/haze?size=medium"
+    forecast["properties"]["periods"][2]["icon"] = None
+    world["nws"].override.update(hourly=hourly, forecast=forecast)
+    world["nws"].fail["obs"] = 503
+    world["now"] = datetime(2026, 9, 25, 14, 10, tzinfo=UTC)
+    got = dict(_unknowns(get(world, **LAX).json()))
+    assert got["now"] == "condition: obs unavailable (HTTP 503)"
+    assert got["hourly[0]"] == "condition: nws icon token 'smoke' is not in the house table"
+    assert got["hourly[1]"] == "condition: nws gave no icon"
+    assert got["daily[0]"] == "condition: nws icon token 'haze' is not in the house table"
+    assert got["daily[1]"] == "condition: nws gave no icon"
+
+    world["now"] = RUN + timedelta(minutes=10)         # f000, then the night
+    got = dict(_unknowns(get(world, **VANCOUVER).json()))
+    assert got["now"] in ("condition: from sky, which is null (night)",
+                          "condition: from sky, which is null "
+                          "(not banked at f000 (dswrf is a 6 h mean))")
+    reasons = set(got.values())
+    assert "condition: from sky, which is null (night)" in reasons
+    assert all(r.startswith("condition: from sky, which is null (") for r in reasons)
+
+
+def test_T8f_f000_by_day_names_the_six_hour_mean(world):
+    world["now"] = RUN + timedelta(minutes=10)
+    b = get(world, lat=40.0, lon=-10.0).json()          # 12Z is daylight at 10°W
+    assert b["now"]["sky"] is None
+    assert ("condition: from sky, which is null (not banked at f000 (dswrf is a 6 h mean))"
+            in b["now"]["absent"])
+
+
+def test_T8f_build_payload_refuses_an_unexplained_unknown_and_not_a_mapped_one():
+    parts = _nws_parts()
+    assert parts["hourly"][0]["condition"] != "unknown"
+    assert not any(a.startswith("condition:") for a in parts["hourly"][0]["absent"])
+    lf.build_payload(**parts)                           # a mapped word needs no line
+    for block in ("now", "hourly", "daily"):
+        parts = _nws_parts()
+        row = parts[block] if block == "now" else parts[block][0]
+        row["condition"] = "unknown"
+        with pytest.raises(ValueError, match=r"condition is unknown with no reason"):
+            lf.build_payload(**parts)
+        row["absent"].append("condition: nws gave no icon")
+        lf.build_payload(**parts)
+
+
+# ── T9 (d091491) — the contract holds ─────────────────────────────────────
+
+def test_T9f_key_sets_are_byte_identical_to_main():
+    assert lf.TOP_KEYS == ("place", "now", "hourly", "daily", "alerts", "sun", "receipts")
+    assert lf.NOW_KEYS == ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp",
+                           "condition", "condition_raw", "valid", "source", "age_min",
+                           "absent")
+    assert lf.HOURLY_KEYS == ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop",
+                              "precip_amt", "sky", "mslp", "condition", "condition_raw",
+                              "t_spread", "interp", "source", "absent")
+    assert lf.DAILY_KEYS == ("date", "hi", "lo", "pop", "precip_amt", "wind", "sky",
+                             "condition", "sunrise", "sunset", "source", "absent")
+    assert lf.SUN_KEYS == ("sunrise", "sunset", "day_length_min", "source", "absent")
+    assert lf.RECEIPT_KEYS == ("arm", "source", "issued_at", "run", "fhr_range",
+                               "station", "memo", "fallback", "outline_sha",
+                               "generated_at", "notes")
+
+
+# ── T7 (d091491) — the model arm's rest-of-today row (D-09-25-30) ─────────
+
+TOKYO = (35.68, 139.69)
+TOKYO_RUN = datetime(2026, 9, 26, 0, tzinfo=UTC)
+SOURCE_RUN_RX = r"\s+f\d{3}(?:[–-]f\d{3})?(?:\s+interp)?$"   # the page's `sourceRun`
+
+
+def _synthetic_ladders(t_k):
+    """Four ladders on the bank's cadence. `t_k(fhr)` is t2m in kelvin."""
+    fhrs = wp.ladder_fhrs()
+
+    def lad(param, f):
+        vals = {h: f(h) for h in fhrs}
+        return {"param": param, "units": UNITS[param], "values": vals, "reasons": {},
+                "missing_header": None}
+    out = {"t2m": lad("t2m", lambda h: round(t_k(h) - 273.15, 1)),
+           "wind10m": lad("wind10m", lambda h: 3.0 + h / 100.0),
+           "mslp": lad("mslp", lambda h: 1013.0),
+           "dswrf": lad("dswrf", lambda h: 150.0)}
+    out["dswrf"]["values"][0] = None
+    out["dswrf"]["reasons"][0] = "not banked on run"
+    return out
+
+
+def _tokyo(generated_at, t_k=lambda h: 290.0 + h / 10.0):
+    notes = []
+    parts = model_arm.build(_synthetic_ladders(t_k), TOKYO_RUN, *TOKYO, tz="Etc/GMT-9",
+                            tz_source="nominal", country=None, generated_at=generated_at,
+                            fallback=None, notes=notes)
+    lf.build_payload(**parts)                           # every null/unknown explained
+    return parts
+
+
+def test_T7f_tokyo_at_night_rest_of_today_has_no_high():
+    t_k = lambda h: 290.0 + h / 10.0
+    parts = _tokyo(datetime(2026, 9, 26, 13, 57, tzinfo=UTC), t_k)
+    d0 = parts["daily"][0]
+    assert d0["date"] == "2026-09-26"                   # local 22:57, the local date
+    assert d0["source"] == "model · GFS 00Z f013–f014"
+    assert d0["hi"] is None and "hi: day period elapsed" in d0["absent"]
+    ser = {h: round(t_k(h) - 273.15, 1) for h in (12, 18)}
+    at = lambda h: round(ser[12] + (ser[18] - ser[12]) * (h - 12) / 6, 1)
+    assert d0["lo"] == min(at(13), at(14))
+    assert d0["sky"] is None and "sky: night" in d0["absent"]
+    assert "condition: from sky, which is null (night)" in d0["absent"]
+    assert ("today: f013–f014 only — the rest of the local day "
+            "(the run began after the day did)") in parts["receipts"]["notes"]
+    assert parts["daily"][1]["date"] == "2026-09-27"
+    assert len(parts["daily"]) <= 10
+
+
+def test_T7f_tokyo_by_day_the_high_is_the_daylight_high_only():
+    # night warmer than day: hours after sunset (~08:33Z) are the window's peak
+    t_k = lambda h: 290.0 if h <= 6 else 300.0
+    parts = _tokyo(datetime(2026, 9, 26, 2, 0, tzinfo=UTC), t_k)
+    d0 = parts["daily"][0]
+    assert d0["date"] == "2026-09-26"
+    assert d0["source"] == "model · GFS 00Z f002–f014"
+    assert lf.solar_elevation(*TOKYO, TOKYO_RUN + timedelta(hours=8)) > 0
+    assert lf.solar_elevation(*TOKYO, TOKYO_RUN + timedelta(hours=9)) < 0
+    series = {r["valid"]: r["t"] for r in parts["hourly"]}
+    day = [series[lf.iso_z(TOKYO_RUN + timedelta(hours=h))] for h in range(2, 9)]
+    window = [series[lf.iso_z(TOKYO_RUN + timedelta(hours=h))] for h in range(2, 15)]
+    assert d0["hi"] == max(day) and d0["hi"] < max(window)   # the night spike is not the high
+    assert d0["lo"] == min(window)
+    assert d0["sky"] is not None and d0["condition"] != "unknown"
+
+
+def test_T7f_no_hours_left_is_a_note_not_a_row():
+    parts = _tokyo(TOKYO_RUN + timedelta(hours=250))      # past f240
+    assert not any(d["date"] == "2026-10-06" for d in parts["daily"])
+    assert "today: no hours left in the run for the local date" in parts["receipts"]["notes"]
+
+
+def test_T7f_the_us_arm_extra_days_carry_no_today_row(world):
+    b = get(world, **LAX).json()
+    model_rows = [d for d in b["daily"] if d["source"].startswith("model ·")]
+    nws_last = max(d["date"] for d in b["daily"] if d["source"].startswith("nws ·"))
+    assert [d["date"] for d in model_rows] == ["2026-10-02", "2026-10-03", "2026-10-04"]
+    assert all(d["date"] > nws_last for d in model_rows)
+    assert not any(n.startswith("today:") for n in b["receipts"]["notes"])
+
+
+def test_T7f_the_run_divider_keeps_today_with_the_next_day():
+    d = _tokyo(datetime(2026, 9, 26, 13, 57, tzinfo=UTC))["daily"]
+    assert (re.sub(SOURCE_RUN_RX, "", d[0]["source"])
+            == re.sub(SOURCE_RUN_RX, "", d[1]["source"]) == "model · GFS 00Z")

@@ -844,9 +844,11 @@ class SidecarStore:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
+                # d091491 D-09-25-28: the model arm reads its four ladders at
+                # once, each 8 in flight — 32 range GETs, 16 kept alive.
                 limits=httpx.Limits(
-                    max_connections=LADDER_CONCURRENCY * 2,
-                    max_keepalive_connections=LADDER_CONCURRENCY,
+                    max_connections=LADDER_CONCURRENCY * 4,
+                    max_keepalive_connections=LADDER_CONCURRENCY * 2,
                 ),
             )
         return self._client
