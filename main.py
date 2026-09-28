@@ -55,6 +55,7 @@ Endpoints:
     GET /api/weather/point                 Weather Atlas B: the click — one grid cell out of Spec A's value sidecar by HTTP Range, exactly 4 bytes read, NaN is `nodata` not an error, outside the crop is a 404 that states the bounds (2026-09-03)
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/enso/catalog                  ENSO catalog, read-only from the bank (migration 240): current run + episodes + ENSO-year bins for ?classifier=cpc_oni|roni; weak ETag on catalog_version + 304, max-age=3600, 60 s memo (2026-09-24, d091476)
+    GET /api/enso/indices                  ENSO indices, read-only from timeseries_values: ONI and RONI monthly for ?index=oni,roni (default both), [["YYYY-MM", float], ...] ascending by season-centre month, nulls dropped and counted; weak content ETag (sha256 of the values) + 304, max-age=3600, 60 s memo; zero rows -> 503 (2026-09-27, d091493)
     GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS forecast failure falls through to the model arm with receipts.fallback (D-09-25-04), obs/alerts failures stated in place (D-09-25-09); hourly from the current hour (D-09-25-10); US days 8–10 from the model arm; every model card labelled (D-09-24-09) (2026-09-25, d091477; 2026-09-26, d091485)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
@@ -18805,6 +18806,66 @@ async def enso_catalog(request: Request,
     # JSONResponse (plain json.dumps), not FastAPI's jsonable_encoder: the
     # encoder would quietly turn a stray Decimal into a float and hide a missing
     # ::float8 cast. enso_catalog.build_payload refuses one by name first.
+    return JSONResponse(content=payload, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/enso/indices — ONI and RONI monthly, read-only, from the bank (d091493)
+#
+# One `_pool.connection()` (pre-ping still runs), one read per requested index
+# over timeseries_values (SQL + composition + ETag in enso_indices.py), a 60 s
+# in-process memo keyed on the index set. The ETag is the content, not a clock.
+# A requested index with zero rows is a 503 naming it — never served, never
+# memoised, never ETagged.
+# ═══════════════════════════════════════════════════════════════════════════
+import enso_indices as _enso_idx
+
+# index set -> (monotonic, payload, etag)
+_enso_indices_cache: dict[tuple[str, ...], tuple[float, dict, str]] = {}
+
+
+@app.get("/api/enso/indices")
+async def enso_indices(request: Request, index: Optional[str] = Query(None)):
+    """ONI / RONI monthly values (`?index=oni,roni`, default both), ascending by
+    season-centre month. Weak content ETag + 304; memoised 60 s. Unknown index →
+    400 naming the allowed set; a requested index with no rows → 503."""
+    try:
+        wanted = _enso_idx.parse_indices(index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    assert _pool is not None
+
+    now_mono = time.monotonic()
+    cached = _enso_indices_cache.get(wanted)
+    if cached is not None and (now_mono - cached[0]) < _ENSO_MEMO_TTL:
+        payload, tag = cached[1], cached[2]
+    else:
+        rows_by_index: dict[str, list] = {}
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    for name in wanted:
+                        d, s = _enso_idx.INDICES[name]
+                        await cur.execute(_enso_idx.SERIES_SQL, {"d": d, "s": s})
+                        rows_by_index[name] = await cur.fetchall()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        empty = [n for n in wanted if not rows_by_index[n]]
+        if empty:
+            raise HTTPException(
+                status_code=503,
+                detail="no rows banked for " + ", ".join(
+                    f"{n} ({_enso_idx.INDICES[n][0]}/{_enso_idx.INDICES[n][1]})"
+                    for n in empty))
+        payload = _enso_idx.build_payload(rows_by_index)
+        tag = _enso_idx.etag(payload)
+        _enso_indices_cache[wanted] = (now_mono, payload, tag)
+
+    headers = {"Cache-Control": _ENSO_CACHE_CONTROL, "ETag": tag}
+    if _enso_idx.etag_matches(request.headers.get("if-none-match"), tag):
+        return Response(status_code=304, headers=headers)
+    # JSONResponse (plain json.dumps), not jsonable_encoder: a Decimal that
+    # slipped past enso_indices.build_payload must raise, not be coerced.
     return JSONResponse(content=payload, headers=headers)
 
 
