@@ -313,6 +313,20 @@ the whole suite runs against a synthetic sidecar with no network.
   a bank landing mid-read -> 503. SQL and composition: `enso_catalog.py`;
   tests: `tests/test_enso_catalog.py` (no DB).
 
+### ENSO indices (`GET /api/enso/indices`)
+
+- `GET /api/enso/indices?index=oni,roni` (default both) -> ONI
+  (`cpc_oni_monthly`/`oni`) and RONI (`cpc_roni_monthly`/`roni`) monthly from
+  `timeseries_values`: `{indices: {oni: {dataset, series, n, n_null, first,
+  last, last_ingested, values: [["YYYY-MM", float], ...]}, roni: {...}}}`.
+  The month is the season's centre (JJA -> YYYY-07); values ascend; a null
+  value is dropped and counted in `n_null`. `ETag: W/"<16 hex of sha256 of the
+  values>"` (content, never a clock) with `304` on a matching `If-None-Match`,
+  `Cache-Control: max-age=3600`, 60 s in-process memo per index set. Anything
+  but `oni`/`roni` -> 400 naming both; a requested index with no rows -> 503
+  naming it (not memoised); DB down -> 503. Module: `enso_indices.py`; tests:
+  `tests/test_enso_indices.py` (no DB).
+
 ### Local Weather forecast (`GET /api/local/forecast`)
 
 - `GET /api/local/forecast?lat=&lon=` (optional `arm=model`) -> one point's
