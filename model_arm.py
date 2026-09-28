@@ -17,9 +17,18 @@ outside in longitude), so Fiji and Samoa read their own cells.
 THE CADENCE IS THE BANK'S. f000..f240 every 6 h — 41 rungs (`wp.ladder_fhrs()`,
 the pantry's D2_LADDER). Not 3-hourly to f120: the bank never wrote those.
 
-D-09-24-09 — THE MODEL ARM IS ALWAYS LABELLED. `now.source` is
-`model · GFS {HH}Z f000`, every row carries its f-hour(s) in `source`, and the
-word "observed" is never written on this arm.
+D-09-24-09 — THE MODEL ARM IS ALWAYS LABELLED. Every row carries its
+f-hour(s) in `source`, and the word "observed" is never written on this arm.
+
+D-09-25-47 — THE MODEL ARM'S NOW IS THE HOUR IT IS. `now` is the run read at
+the hour that holds `generated_at` (h = floor((generated_at − run_dt) / 1 h),
+clamped at 0): the same row the hourly strip labels "Now", so the two cannot
+disagree. `now.source` is that row's own string (`model · GFS 00Z f006–f012
+interp`, `model · GFS 00Z f012` on a rung), and `now.valid` its hour. On this
+arm `now.age_min` is the RUN's age (minutes since run_dt); on the NWS arm it
+is the observation's. Past the last f-hour that banked a t2m, `now`'s value
+fields are null with `run ends before now (last t2m fNNN)` and the source is
+`model · GFS {HH}Z (run ends fNNN)`; no row is invented.
 
 ABSENCE IS STATED. The bank has no sidecar for precipitation, dewpoint/RH,
 gusts, cloud cover or wind direction (`wind10m` is hypot(u, v), a speed); those
@@ -295,6 +304,18 @@ def _hour_row(s: dict, label: str) -> dict:
             "absent": absent}
 
 
+def _past_end_row(label: str, last: int) -> tuple[dict, str]:
+    """D-09-25-47 §6 — `now` past the run's last t2m f-hour: every value null,
+    each saying so. No row is invented."""
+    fh = f"f{last:03d}" if last >= 0 else "none"
+    why = f"run ends before now (last t2m {fh})"
+    s = {"valid": None, "t": None, "t_why": why, "wind": None, "wind_why": why,
+         "mslp": None, "mslp_why": why, "sky": None, "sky_why": why,
+         "interp": False, "fhr_lo": 0, "fhr_hi": 0}
+    row = _hour_row(s, label)
+    return row, f"model · {label} (run ends {fh})"
+
+
 def _daily(series: list[dict], run_dt: datetime, tz: str, lat: float, lon: float,
            label: str) -> list[dict]:
     """Local-day windows wholly inside the banked span. A day the run does not
@@ -440,15 +461,24 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
         HOURLY_ROWS)
     notes.append(hourly_note)
 
-    s0 = series[0]
-    now_row = _hour_row(s0, label)
+    # D-09-25-47: the hour that holds `generated_at`, the hourly strip's "Now".
+    h_now = max(0, int((generated_at - run_dt).total_seconds() // 3600))
+    end = last if last >= 0 else wp.LADDER_FHR_MAX
+    if h_now <= end:
+        now_row = _hour_row(series[h_now], label)
+        now_valid, now_source = now_row["valid"], now_row["source"]
+    else:
+        now_row, now_source = _past_end_row(label, last)
+        now_valid = lf.iso_z(generated_at.astimezone(UTC).replace(
+            minute=0, second=0, microsecond=0))
     now = {k: now_row[k] for k in ("t", "feels", "dewpoint", "rh", "wind", "sky",
                                    "mslp", "condition", "condition_raw")}
     now["absent"] = [a for a in now_row["absent"]
                      if not a.startswith(("pop:", "precip_amt:", "t_spread:"))]
-    now["valid"] = lf.iso_z(run_dt)
-    # D-09-24-09: the label, never "observed".
-    now["source"] = f"model · {label} f000"
+    now["valid"] = now_valid
+    # D-09-24-09: the label, never "observed" — the hourly row's own string.
+    now["source"] = now_source
+    # the RUN's age on this arm (D-09-25-47), not the hour's
     now["age_min"] = int((generated_at - run_dt).total_seconds() // 60)
 
     local_today = generated_at.astimezone(ZoneInfo(tz)).date()
