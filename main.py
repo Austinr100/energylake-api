@@ -56,6 +56,8 @@ Endpoints:
     GET /api/weather/point/ladder          Weather Atlas B: the same click across the forecast ladder — 41 four-byte range GETs (f000..f240/6h), one header, bounded at 8 in flight; never a full-object read (2026-09-03)
     GET /api/enso/catalog                  ENSO catalog, read-only from the bank (migration 240): current run + episodes + ENSO-year bins for ?classifier=cpc_oni|roni; weak ETag on catalog_version + 304, max-age=3600, 60 s memo (2026-09-24, d091476)
     GET /api/enso/indices                  ENSO indices, read-only from timeseries_values: ONI and RONI monthly for ?index=oni,roni (default both), [["YYYY-MM", float], ...] ascending by season-centre month, nulls dropped and counted; weak content ETag (sha256 of the values) + 304, max-age=3600, 60 s memo; zero rows -> 503 (2026-09-27, d091493)
+    GET /api/weather/season/areas         Season to date: the 38 areas (21 GHCNd stations N→S, the 4 absent from station_metadata.json labelled by id, then 17 LWT load regions) with each var's first season and complete-season count; 1 h memo (2026-09-28, d091503)
+    GET /api/weather/season               Season to date for ?area=station:{id}|lwt:{BA}&var=precip|hdd|cdd&classifier=cpc_oni|roni: calendar-walk cumulatives (a missing day stops the line, never a zero), full-record cone (n>=30), 1991-2020 normal, five-year band, this/last season, ENSO-category medians (open year = null), readout; pure arithmetic in season.py; 15 min memo (2026-09-28, d091503)
     GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS forecast failure falls through to the model arm with receipts.fallback (D-09-25-04), obs/alerts failures stated in place (D-09-25-09); hourly from the current hour (D-09-25-10); US days 8–10 from the model arm; every model card labelled (D-09-24-09) (2026-09-25, d091477; 2026-09-26, d091485)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
     POST /api/analytics/structures/evaluate Structures room: structure definition in, payoff diagram + month-by-month historical replay out, stateless (2026-07-30)
@@ -19069,3 +19071,130 @@ async def local_forecast(request: Request,
     if _enso.etag_matches(request.headers.get("if-none-match"), tag):
         return Response(status_code=304, headers=headers)
     return JSONResponse(content=payload, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)
+#
+# Two reads, wired the way /api/enso/catalog is: one `_pool.connection()` (the
+# pre-ping on checkout still runs), an in-process memo, headers on the way out.
+# The arithmetic — the calendar walk, the leap fold, the base, the cone, the
+# normal, the five-year band, ENSO membership and the readout — is season.py,
+# pure. This block only fetches rows and hands them over.
+#
+# /areas is three GROUP BYs over every row of the three sources (~1.2 s on
+# production, EXPLAIN ANALYZE 2026-09-28), so it is memoised an hour: depth
+# moves one day a day. /season reads one area's full history (Spokane precip is
+# ~46k rows) plus the ENSO run and bins, memoised 15 min per (area, var,
+# classifier). GHCNd lags ~4 days; neither memo is chasing a feed.
+# ═══════════════════════════════════════════════════════════════════════════
+import season as _season
+
+_SEASON_MEMO_TTL = 900.0
+_SEASON_AREAS_MEMO_TTL = 3600.0
+_SEASON_MEMO_MAX = 128
+_season_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
+_season_areas_cache: dict[str, tuple[float, dict]] = {}
+# classifier -> the enso_indices series whose newest centre month feeds the
+# pantry's open-year rule.
+_SEASON_ONI_SERIES = {"cpc_oni": "oni", "roni": "roni"}
+
+
+@app.get("/api/weather/season/areas")
+async def weather_season_areas():
+    """Every area the season API serves — 21 GHCNd stations (N→S by
+    station_metadata.json, then the four it does not carry, labelled by id) and
+    17 LWT load regions — with each var's season, first season and count of
+    complete seasons. Memoised 1 h; DB unavailable → 503."""
+    assert _pool is not None
+    now_mono = time.monotonic()
+    cached = _season_areas_cache.get("areas")
+    if cached is not None and (now_mono - cached[0]) < _SEASON_AREAS_MEMO_TTL:
+        payload = cached[1]
+    else:
+        counts: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(_season.AREAS_PRECIP_SQL)
+                    for r in await cur.fetchall():
+                        counts[(f"station:{r['id']}", "precip")][int(r["s"])] = int(r["n"])
+                    await cur.execute(_season.AREAS_STATION_DD_SQL)
+                    for r in await cur.fetchall():
+                        counts[(f"station:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
+                    await cur.execute(_season.AREAS_LWT_SQL, {"d": _season.LWT_DATASET})
+                    for r in await cur.fetchall():
+                        counts[(f"lwt:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        payload = _season.build_areas(_WEATHER_STATIONS, counts)
+        _season_areas_cache["areas"] = (now_mono, payload)
+    return JSONResponse(content=payload,
+                        headers={"Cache-Control": f"max-age={int(_SEASON_AREAS_MEMO_TTL)}"})
+
+
+@app.get("/api/weather/season")
+async def weather_season(area: Optional[str] = Query(None),
+                         var: Optional[str] = Query(None),
+                         classifier: Optional[str] = Query(None)):
+    """Season to date for one area × var (`precip` = water year, stations only;
+    `hdd` = Nov–Mar; `cdd` = May–Sep): the full-record cone, the 1991–2020
+    normal, the five-year band, this and last season, ENSO-category medians and
+    the readout. Every number the page draws is here. Unknown area / var /
+    classifier, or precip on an lwt: area → 400 naming the vocabulary; no ENSO
+    catalog banked → 503; DB unavailable → 503. Memoised 15 min."""
+    try:
+        area, var, classifier = _season.parse_request(area, var, classifier,
+                                                      _WEATHER_STATIONS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    assert _pool is not None
+
+    key = (area, var, classifier)
+    now_mono = time.monotonic()
+    cached = _season_cache.get(key)
+    if cached is not None and (now_mono - cached[0]) < _SEASON_MEMO_TTL:
+        payload = cached[1]
+    else:
+        kind, ident = area.split(":", 1)
+        oni_d, oni_s = _enso_idx.INDICES[_SEASON_ONI_SERIES[classifier]]
+        try:
+            async with _pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    if kind == "lwt":
+                        await cur.execute(_season.LWT_SQL, {"d": _season.LWT_DATASET,
+                                                            "s": f"{ident}.{var.upper()}"})
+                        daily = _season.daily_from_rows(var, await cur.fetchall())
+                    elif var == "precip":
+                        await cur.execute(_season.PRECIP_SQL, {"sid": ident})
+                        daily = _season.daily_from_rows(var, await cur.fetchall())
+                    else:
+                        await cur.execute(_season.STATION_DD_SQL, {"sid": ident})
+                        daily = _season.daily_from_rows(var, await cur.fetchall(),
+                                                        station_dd=True)
+                    await cur.execute(_enso.RUN_SQL, {"c": classifier})
+                    run = await cur.fetchone()
+                    bins = []
+                    if run is not None:
+                        await cur.execute(_enso.YEAR_BINS_SQL,
+                                          {"c": classifier, "v": run["catalog_version"]})
+                        bins = await cur.fetchall()
+                    await cur.execute(_season.ONI_LAST_SQL, {"d": oni_d, "s": oni_s})
+                    oni_row = await cur.fetchone()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        if run is None or not bins:
+            raise HTTPException(status_code=503,
+                                detail=f"no ENSO catalog banked for {classifier}")
+        oni_ts = oni_row["ts"] if oni_row else None
+        payload = _season.build_season(
+            area, var, daily, classifier=classifier,
+            catalog_version=run["catalog_version"], developing=run["developing"],
+            bins=bins,
+            oni_last_centre=(oni_ts.year, oni_ts.month) if oni_ts is not None else None)
+        _season_cache[key] = (now_mono, payload)
+        while len(_season_cache) > _SEASON_MEMO_MAX:
+            del _season_cache[min(_season_cache, key=lambda k: _season_cache[k][0])]
+    # JSONResponse (plain json.dumps): a stray Decimal must raise, not be coerced.
+    return JSONResponse(content=payload,
+                        headers={"Cache-Control": f"max-age={int(_SEASON_MEMO_TTL)}"})
