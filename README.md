@@ -337,7 +337,10 @@ the whole suite runs against a synthetic sidecar with no network.
   `scripts/build_us_outline.py`) it is NWS read live behind an in-process
   gridpoint memo (10 min forecasts / 5 min obs / 2 min alerts, D-09-25-03);
   outside, the GFS `global` value sidecars read in-process on the newest banked
-  run, every card labelled `model · GFS HHZ fNNN` (D-09-24-09). A failure of
+  run, every card labelled `model · GFS HHZ fNNN` (D-09-24-09). The model
+  arm's `now` is the run read at the hour that holds `generated_at` — the
+  hourly strip's first row, same `source` (`… f006–f012 interp`) — and its
+  `age_min` is the run's age (D-09-25-47). A failure of
   NWS's forecast calls (`points`, `forecast`, `forecastHourly`) falls through
   to the model arm with `receipts.fallback` (D-09-25-04); an observation or
   alerts failure is stated in place — `now` nulls with `obs unavailable (…)`,

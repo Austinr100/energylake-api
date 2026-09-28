@@ -528,9 +528,12 @@ def test_T5_model_now_source_is_labelled_and_observed_appears_nowhere(world):
     b = r.json()
     src = b["now"]["source"]
     assert src.startswith("model ·")
-    assert "12Z" in src and "f000" in src
-    assert src == "model · GFS 12Z f000"
-    assert b["now"]["valid"] == "2026-09-25T12:00:00Z"
+    # d091497 (D-09-25-47): now is the hour that holds generated_at (21:10Z →
+    # h9). Was: `"f000" in src`, `src == "model · GFS 12Z f000"`,
+    # `now.valid == "2026-09-25T12:00:00Z"`.
+    assert "12Z" in src and "f006–f012 interp" in src
+    assert src == "model · GFS 12Z f006–f012 interp"
+    assert b["now"]["valid"] == "2026-09-25T21:00:00Z"
     assert b["now"]["age_min"] == 9 * 60 + 10
     assert "observed" not in r.text.lower()
     assert all(row["source"].startswith("model · ") for row in b["hourly"] + b["daily"])
@@ -892,7 +895,9 @@ def test_T14_model_hourly_starts_this_hour(world):
     assert hourly[0]["source"] == "model · GFS 12Z f000–f006 interp"
     assert len(hourly) == 48
     assert "hourly from 14Z, 48 rows" in b["receipts"]["notes"]
-    assert b["now"]["source"] == "model · GFS 12Z f000"          # now stays f000
+    # d091497 (D-09-25-47): now is the strip's "Now" row. Was:
+    # `== "model · GFS 12Z f000"          # now stays f000`.
+    assert b["now"]["source"] == hourly[0]["source"] == "model · GFS 12Z f000–f006 interp"
 
 
 def test_T14_model_arm_invents_nothing_past_its_last_f_hour(world):
@@ -982,7 +987,9 @@ def test_T16_model_arm_reads_the_placed_cell_on_pm180(world, name, lat, lon):
     assert r.status_code == 200, (name, r.text)
     b = r.json()
     assert b["receipts"]["arm"] == "model"
-    assert b["now"]["t"] == round(283.15 + 7.0 - 273.15, 1), name
+    # d091497 (D-09-25-47): now is h9 (21:10Z), f006–f012 interp. Was:
+    # `round(283.15 + 7.0 - 273.15, 1)` (f000).
+    assert b["now"]["t"] == round(283.15 + 0.9 + 7.0 - 273.15, 1), name
     off = 4 * (j * 1440 + i)
     assert all(rng == f"bytes={off}-{off + 3}"
                for k, rng in world["bank"].calls if k.endswith(".f32")), name
@@ -1133,7 +1140,8 @@ def test_T24_vancouver_answers_from_the_model_arm_on_the_production_header(world
     assert r.status_code == 200, r.text
     b = r.json()
     assert b["receipts"]["arm"] == "model"
-    assert b["now"]["source"] == "model · GFS 12Z f000"
+    # d091497 (D-09-25-47). Was: `== "model · GFS 12Z f000"`.
+    assert b["now"]["source"] == "model · GFS 12Z f006–f012 interp"
     headers = [k for k, _ in world["bank"].calls if k.endswith(".json")]
     assert headers and all("/global/" in k for k in headers)
 
@@ -1923,3 +1931,75 @@ def test_T7f_the_run_divider_keeps_today_with_the_next_day():
     d = _tokyo(datetime(2026, 9, 26, 13, 57, tzinfo=UTC))["daily"]
     assert (re.sub(SOURCE_RUN_RX, "", d[0]["source"])
             == re.sub(SOURCE_RUN_RX, "", d[1]["source"]) == "model · GFS 00Z")
+
+
+# ── N (d091497) — D-09-25-47: the model arm's NOW is the hour it is ───────
+
+MOSCOW = (55.756, 37.617)
+MOSCOW_RUN = datetime(2026, 9, 28, 0, tzinfo=UTC)
+#: sha-256 of the LAX NWS body on main 85adf67, recorded before the edit.
+LAX_NWS_SHA_MAIN = "acc9de1b2f276dff57497fef95352df88d0a041d3ca339853db8c083fe34fb51"
+
+
+def _moscow(after, **kw):
+    """The Moscow-shaped build: GFS 00Z, the read_ladder-shaped fake."""
+    lat, lon = kw.pop("at", MOSCOW)
+    return model_arm.build(
+        _synthetic_ladders(lambda h: 283.15 + 0.1 * h), MOSCOW_RUN, lat, lon,
+        tz="Europe/Moscow", tz_source="nominal", country=None,
+        generated_at=MOSCOW_RUN + after, fallback=None, notes=[])
+
+
+def test_N1_now_is_the_hourly_now_row():
+    b = _moscow(timedelta(hours=10, minutes=40))
+    now, h0 = b["now"], b["hourly"][0]
+    assert now["t"] == h0["t"]
+    assert now["source"] == h0["source"] == "model · GFS 00Z f006–f012 interp"
+    assert now["valid"] == h0["valid"] == "2026-09-28T10:00:00Z"
+
+
+def test_N2_on_a_rung_the_source_is_the_rung():
+    src = _moscow(timedelta(hours=12))["now"]["source"]
+    assert src.endswith("f012") and "interp" not in src
+    assert src == "model · GFS 00Z f012"
+
+
+def test_N3_age_min_is_the_runs_age():
+    after = timedelta(hours=10, minutes=40, seconds=59)
+    assert _moscow(after)["now"]["age_min"] == 10 * 60 + 40
+
+
+def test_N4_by_day_the_now_card_has_a_sky():
+    now = _moscow(timedelta(hours=10, minutes=40))["now"]    # 13:40 MSK
+    assert now["sky"] is not None
+    assert now["condition"] != "unknown"
+    assert not any(a.startswith(("sky:", "condition:")) for a in now["absent"])
+
+
+def test_N5_by_night_unknown_says_night():
+    now = _moscow(timedelta(hours=20, minutes=40))["now"]    # 23:40 MSK
+    assert now["condition"] == "unknown"
+    assert "condition: from sky, which is null (night)" in now["absent"]
+
+
+def test_N6_nws_arm_body_is_byte_identical_to_main(world):
+    r = get(world, **LAX)
+    assert r.json()["receipts"]["arm"] == "nws"
+    assert hashlib.sha256(r.content).hexdigest() == LAX_NWS_SHA_MAIN
+
+
+def test_N7_past_the_runs_end_now_is_null_and_says_so():
+    b = _moscow(timedelta(hours=250))
+    now = b["now"]
+    why = "run ends before now (last t2m f240)"
+    assert now["t"] is None and now["mslp"] is None and now["sky"] is None
+    assert now["wind"]["speed"] is None
+    for f in ("t", "wind.speed", "mslp", "sky"):
+        assert f"{f}: {why}" in now["absent"], f
+    assert now["condition"] == "unknown"
+    assert f"condition: from sky, which is null ({why})" in now["absent"]
+    assert now["source"] == "model · GFS 00Z (run ends f240)"
+    assert now["valid"] == "2026-10-08T10:00:00Z"
+    assert now["age_min"] == 250 * 60
+    assert b["hourly"] == []                                 # no row invented
+    lf.build_payload(**b)                                    # the contract holds

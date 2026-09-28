@@ -1,0 +1,37 @@
+d091497 reds — applied to 2d6cc74, whole suite each, sha-256 restore
+
+R1 — `s_now = series[0]` (model_arm.py); must go red: N1
+  11 failed, 1957 passed, 1 warning in 17.01s
+  must-go-red N1: RED
+    tests/test_local_forecast.py::test_N1_now_is_the_hourly_now_row
+    tests/test_local_forecast.py::test_N2_on_a_rung_the_source_is_the_rung
+    tests/test_local_forecast.py::test_N4_by_day_the_now_card_has_a_sky
+    tests/test_local_forecast.py::test_T14_model_hourly_starts_this_hour
+    tests/test_local_forecast.py::test_T16_model_arm_reads_the_placed_cell_on_pm180[Fiji--17.8-178.0]
+    tests/test_local_forecast.py::test_T16_model_arm_reads_the_placed_cell_on_pm180[Samoa--13.8--172.1]
+    tests/test_local_forecast.py::test_T16_model_arm_reads_the_placed_cell_on_pm180[Vancouver-49.28--123.12]
+    tests/test_local_forecast.py::test_T16_model_arm_reads_the_placed_cell_on_pm180[equator 179.9E-0.0-179.9]
+    tests/test_local_forecast.py::test_T16_model_arm_reads_the_placed_cell_on_pm180[equator 179.9W-0.0--179.9]
+    tests/test_local_forecast.py::test_T24_vancouver_answers_from_the_model_arm_on_the_production_header
+    tests/test_local_forecast.py::test_T5_model_now_source_is_labelled_and_observed_appears_nowhere
+  restored: model_arm.py sha-256 f7ab8fd733f7d1d6f53b431eaeeccb4d34c1f98b76a0ea02e20bdc4c32a2301b
+
+R2 — `now.source` hard-coded to f000 (model_arm.py); must go red: N1 N2
+  6 failed, 1962 passed, 1 warning in 16.47s
+  must-go-red N1: RED
+  must-go-red N2: RED
+    tests/test_local_forecast.py::test_N1_now_is_the_hourly_now_row
+    tests/test_local_forecast.py::test_N2_on_a_rung_the_source_is_the_rung
+    tests/test_local_forecast.py::test_N7_past_the_runs_end_now_is_null_and_says_so
+    tests/test_local_forecast.py::test_T14_model_hourly_starts_this_hour
+    tests/test_local_forecast.py::test_T24_vancouver_answers_from_the_model_arm_on_the_production_header
+    tests/test_local_forecast.py::test_T5_model_now_source_is_labelled_and_observed_appears_nowhere
+  restored: model_arm.py sha-256 f7ab8fd733f7d1d6f53b431eaeeccb4d34c1f98b76a0ea02e20bdc4c32a2301b
+
+R3 — `age_min` counted from `s_now.valid` (model_arm.py); must go red: N3
+  3 failed, 1965 passed, 1 warning in 15.90s
+  must-go-red N3: RED
+    tests/test_local_forecast.py::test_N3_age_min_is_the_runs_age
+    tests/test_local_forecast.py::test_N7_past_the_runs_end_now_is_null_and_says_so
+    tests/test_local_forecast.py::test_T5_model_now_source_is_labelled_and_observed_appears_nowhere
+  restored: model_arm.py sha-256 f7ab8fd733f7d1d6f53b431eaeeccb4d34c1f98b76a0ea02e20bdc4c32a2301b
