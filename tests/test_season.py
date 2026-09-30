@@ -395,6 +395,8 @@ class _SeasonPool:
                      "n": season.days_in_window("hdd", s)} for s in range(1948, 2026)]
         if q == season.AREAS_LWT_SQL:
             return [{"id": "BPAT", "var": "hdd", "s": 2011, "n": 151}]
+        if q == season.AREAS_SNOW_SQL:
+            return []
         raise AssertionError(f"unexpected statement: {q}")
 
 
@@ -427,7 +429,7 @@ def test_s11_route_key_order_and_areas(client, pool):
     assert tuple(body) == season.RESPONSE_KEYS
     table = ("area", "var", "units", "season", "frontier", "axis", "base", "percentiles",
              "normal", "five_year", "this_season", "last_season", "enso", "years",
-             "curves", "readout")
+             "curves", "readout", "peak", "source")
     assert tuple(k for k in body if not k.endswith("_absence")) == table
     assert body["units"] == "mm" and body["frontier"] == "2026-09-24"
     assert body["base"]["n"] == 35 and body["percentiles"] is not None
@@ -435,18 +437,18 @@ def test_s11_route_key_order_and_areas(client, pool):
 
     r = client.get("/api/weather/season/areas")
     areas = r.json()["areas"]
-    assert len(areas) == 38
+    assert len(areas) == 44
     assert [a["kind"] for a in areas].count("station") == 21
     assert [a["kind"] for a in areas].count("lwt") == 17
     assert areas[0]["area"] == "station:USW00024157" and areas[0]["label"] == "Spokane"
     assert [a["label"] for a in areas[17:21]] == list(season.UNLABELLED_STATIONS)
     assert "state" not in areas[17]
-    assert [a["label"] for a in areas[21:]] == sorted(season.LWT_BAS)
+    assert [a["label"] for a in areas[21:38]] == sorted(season.LWT_BAS)
     sac = next(a for a in areas if a["area"] == "station:USW00023232")
     pv = next(v for v in sac["vars"] if v["var"] == "precip")
     assert pv == {"var": "precip", "season": "water_year", "units": "mm",
                   "first_season": "WY1942", "complete_seasons": 85}
-    assert [v["var"] for v in areas[-1]["vars"]] == ["hdd", "cdd"]
+    assert [v["var"] for v in areas[37]["vars"]] == ["hdd", "cdd"]
 
 
 def test_s11_lwt_short_record_with_five_year(client):
