@@ -2056,7 +2056,9 @@ def _asgi(world, gate, requests, *, between=None):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app),
                                      base_url="http://t") as c:
             for i, params in enumerate(requests):
-                out.append(await c.get("/api/local/forecast", params=params))
+                # bounded: a route with no deadline fails the cell, not the suite
+                out.append(await asyncio.wait_for(
+                    c.get("/api/local/forecast", params=params), 5.0))
                 if between:
                     await between(i, gate)
         return out
