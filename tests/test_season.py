@@ -395,7 +395,7 @@ class _SeasonPool:
                      "n": season.days_in_window("hdd", s)} for s in range(1948, 2026)]
         if q == season.AREAS_LWT_SQL:
             return [{"id": "BPAT", "var": "hdd", "s": 2011, "n": 151}]
-        if q == season.AREAS_SNOW_SQL:
+        if q in (season.AREAS_SNOW_SQL, season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL):
             return []
         raise AssertionError(f"unexpected statement: {q}")
 
@@ -437,7 +437,7 @@ def test_s11_route_key_order_and_areas(client, pool):
 
     r = client.get("/api/weather/season/areas")
     areas = r.json()["areas"]
-    assert len(areas) == 44
+    assert len(areas) == 57          # d091522: + 4 California snow areas + 9 reservoir areas
     assert [a["kind"] for a in areas].count("station") == 21
     assert [a["kind"] for a in areas].count("lwt") == 17
     assert areas[0]["area"] == "station:USW00024157" and areas[0]["label"] == "Spokane"

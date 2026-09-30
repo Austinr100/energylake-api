@@ -346,7 +346,8 @@ class _SnowPool:
             return _bins()
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
-        if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL):
+        if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
+                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL):
             return []
         if q == season.AREAS_SNOW_SQL:
             assert p["d"] == "snow_basin_index_daily"
@@ -420,9 +421,9 @@ OLD_KEYS = ("area", "var", "units", "season", "frontier", "axis", "base",
 
 def test_n9_areas_and_swe_key_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 44
-    snow = [a for a in areas if a["kind"] == "snow"]
-    assert areas[38:] == snow
+    assert len(areas) == 57          # d091522 appended 4 California snow + 9 reservoir areas
+    snow = [a for a in areas if a["kind"] == "snow"][:6]
+    assert areas[38:44] == snow
     assert [(a["area"], a["label"]) for a in snow] == LABELS
     assert snow[0]["vars"] == [{"var": "swe", "season": "water_year",
                                 "units": "% of normal peak", "first_season": "WY1983",
@@ -433,7 +434,9 @@ def test_n9_areas_and_swe_key_order(client, pool):
     assert r.status_code == 200 and r.headers["cache-control"] == "max-age=900"
     body = r.json()
     assert season.RESPONSE_KEYS == OLD_KEYS + ("peak", "peak_absence", "source")
-    assert tuple(body) == season.RESPONSE_KEYS
+    # d091522 §2.4: a level carries `range` after five_year_absence; nothing else moved.
+    assert tuple(k for k in body if k not in ("range", "range_absence")) == season.RESPONSE_KEYS
+    assert tuple(body) == season.LEVEL_RESPONSE_KEYS
     assert body["units"] == "% of normal peak" and body["season"]["mode"] == "level"
     assert body["source"] == {"dataset": "snow_basin_index_daily",
                               "method": season.METHODS[("snow", "swe")],
