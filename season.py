@@ -70,12 +70,27 @@ values: min / median / max, never a percentile), and every payload `enso.now`
 (the category the catalog run's `developing` reads today; a label, not a
 forecast).
 
+LOAD (d091525, spec cc_spec_2026_09_30_season_load_api.md). `peak_load` on
+`ba:{code}` (the 28 balancing areas of EIA-930's `wecc_load_hourly`) is a
+level on the water year: the day's maximum hourly load, MW. Two rules of its
+own, the rest is the hydro arithmetic above (0.90 floor over every day of the
+season, null-aware statistics, `range`, `outlook`, `enso.now`):
+
+  * THE DAY IS A FIXED UTC−8 DAY for every area, no daylight-saving shift:
+    day D runs D 08:00Z → D+1 07:59Z (`season.day_rule`). The West's daily
+    peak falls in the afternoon or evening, far from that boundary.
+  * A day qualifies with >= 20 of its 24 hours reporting; otherwise it is null
+    (a peak read from a morning-only day is not a peak).
+
+`peak_load_7d` is the trailing 7-day mean of the daily peak (D−6 … D), null
+unless all seven days qualify: the daily line is weekday noise.
+
 Rounding happens once, at the edge (`_r`): everything is float64 until then.
 """
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -84,7 +99,7 @@ import numpy as np
 # Vocabulary
 # ---------------------------------------------------------------------------
 
-VARS = ("precip", "hdd", "cdd", "swe", "storage", "swe_in")
+VARS = ("precip", "hdd", "cdd", "swe", "storage", "swe_in", "peak_load", "peak_load_7d")
 CUMULATIVE, LEVEL = "cumulative", "level"
 CLASSIFIERS = ("cpc_oni", "roni")
 DEFAULT_CLASSIFIER = "cpc_oni"
@@ -154,6 +169,25 @@ CA_SNOW_LABELS = {"ca_state": "California statewide",
                   "ca_south": "Southern Sierra"}
 
 
+# Load (d091525). The 28 balancing areas of EIA-930's `wecc_load_hourly` (MW,
+# hourly, interval-start UTC), measured 2026-09-30 and pinned here, never
+# discovered from the database. Labelled by code; /areas lists them A→Z after
+# the reservoirs.
+LOAD_DATASET = "wecc_load_hourly"
+BAS = ("AVA", "AZPS", "BANC", "BPAT", "CHPD", "CISO", "DOPD", "EPE", "GCPD", "IID",
+       "IPCO", "LDWP", "NEVP", "NWMT", "PACE", "PACW", "PGE", "PNM", "PSCO", "PSEI",
+       "SCL", "SRP", "TEPC", "TIDC", "TPWR", "WACM", "WALC", "WAUW")
+LOAD_DAY_OFFSET = timedelta(hours=8)      # the day is UTC−8, fixed: no DST
+LOAD_MIN_HOURS = 20                       # of 24, for a day to carry its peak
+LOAD_WINDOW = 7                           # peak_load_7d: D−6 … D
+LOAD_VARS = ("peak_load", "peak_load_7d")
+DAY_RULE = ("a fixed UTC−8 day for every area, no daylight-saving shift: day D runs "
+            "D 08:00Z → D+1 07:59Z; it carries the maximum hourly load when >= 20 of "
+            "its 24 hours report, and is null otherwise")
+DAY_RULE_7D = (DAY_RULE + "; peak_load_7d on day D is the mean of the daily peaks "
+               "D−6 … D, null unless all seven carry one")
+
+
 def reservoir_series(area: str) -> str:
     """`reservoir:{id}` -> `{id}` (the series name)."""
     return area.split(":", 1)[1]
@@ -179,10 +213,12 @@ _SEASONS = {
     "swe": ("water_year", (10, 1), (9, 30), "% of normal peak"),
     "storage": ("water_year", (10, 1), (9, 30), "TAF"),
     "swe_in": ("water_year", (10, 1), (9, 30), "in"),
+    "peak_load": ("water_year", (10, 1), (9, 30), "MW"),
+    "peak_load_7d": ("water_year", (10, 1), (9, 30), "MW"),
 }
 
 _MODES = {"precip": CUMULATIVE, "hdd": CUMULATIVE, "cdd": CUMULATIVE, "swe": LEVEL,
-          "storage": LEVEL, "swe_in": LEVEL}
+          "storage": LEVEL, "swe_in": LEVEL, "peak_load": LEVEL, "peak_load_7d": LEVEL}
 
 # §2 (d091522): the per-variable floor. var -> (min_days_frac, count window as
 # ((m, d), (m, d)) or None for the whole season). A var not here is strict:
@@ -190,6 +226,8 @@ _MODES = {"precip": CUMULATIVE, "hdd": CUMULATIVE, "cdd": CUMULATIVE, "swe": LEV
 FLOORS = {
     "storage": (0.90, None),
     "swe_in": (0.90, ((12, 1), (5, 31))),
+    "peak_load": (0.90, None),            # d091525: d091522's rule, every day counts
+    "peak_load_7d": (0.90, None),
 }
 STAT_MIN_DAY_N = 3          # fewer contributing seasons on a day -> null that day
 RANGE_MIN_N = 5
@@ -208,6 +246,8 @@ MAPPING = {
     "swe": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
     "storage": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
     "swe_in": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
+    "peak_load": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
+    "peak_load_7d": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
 }
 
 # `source.method`, one sentence per (area kind, var).
@@ -234,6 +274,11 @@ METHODS = {
                             "(never renormalised)."),
     ("snow", "swe_in"): ("CDEC's regional average snow water content, in inches; the feed "
                          "reports the snow season only, so a summer day has no row."),
+    ("ba", "peak_load"): ("The balancing area's maximum hourly load (EIA-930) on each UTC−8 "
+                          "day, in MW; a day with fewer than 20 of its 24 hours is null."),
+    ("ba", "peak_load_7d"): ("The mean of the balancing area's daily peak load over the "
+                             "trailing seven UTC−8 days, in MW; null unless all seven "
+                             "days carry a peak."),
 }
 _DATASETS = {("station", "precip"): "ghcnd_weather_daily",
              ("station", "hdd"): "station_degree_days_daily",
@@ -242,7 +287,8 @@ _DATASETS = {("station", "precip"): "ghcnd_weather_daily",
              ("snow", "swe"): SNOW_DATASET,
              ("reservoir", "storage"): RESERVOIR_DATASET,
              ("major8", "storage"): RESERVOIR_DATASET,
-             ("snow", "swe_in"): CA_SNOW_DATASET}
+             ("snow", "swe_in"): CA_SNOW_DATASET,
+             ("ba", "peak_load"): LOAD_DATASET, ("ba", "peak_load_7d"): LOAD_DATASET}
 # The frontier row's meta keys `source` carries for a snow area.
 SNOW_SOURCE_META = ("n_index", "n_reporting", "normals_version")
 
@@ -315,10 +361,13 @@ def _slot_index(var: str) -> dict[str, int]:
 
 def season_meta(var: str) -> dict:
     kind, (sm, sd), (em, ed), _ = _SEASONS[var]
-    return {"kind": kind, "start_md": f"{sm:02d}-{sd:02d}",
-            "end_md": f"{em:02d}-{ed:02d}", "days": len(axis(var)),
-            "leap_rule": LEAP_RULE_LEVEL if mode(var) == LEVEL else LEAP_RULE,
-            "mode": mode(var)}
+    out = {"kind": kind, "start_md": f"{sm:02d}-{sd:02d}",
+           "end_md": f"{em:02d}-{ed:02d}", "days": len(axis(var)),
+           "leap_rule": LEAP_RULE_LEVEL if mode(var) == LEVEL else LEAP_RULE,
+           "mode": mode(var)}
+    if var in LOAD_VARS:            # d091525: what a load day is, on the load vars only
+        out["day_rule"] = DAY_RULE_7D if var == "peak_load_7d" else DAY_RULE
+    return out
 
 
 def units(var: str) -> str:
@@ -363,19 +412,22 @@ def station_order(metadata_stations: Sequence[Mapping]) -> list[tuple[str, Optio
 
 def area_vocabulary(metadata_stations: Sequence[Mapping]) -> list[str]:
     """/areas order (§1): stations, LWT, the Columbia snow basins, California's
-    four snow areas, the eight reservoirs' sum, the eight north to south."""
+    four snow areas, the eight reservoirs' sum, the eight north to south, then
+    the 28 balancing areas A→Z (d091525)."""
     return ([f"station:{sid}" for sid, _ in station_order(metadata_stations)]
             + [f"lwt:{ba}" for ba in LWT_BAS]
             + [f"snow:{b}" for b in SNOW_BASINS]
             + [f"snow:{r}" for r in CA_SNOW]
-            + [f"reservoir:{r}" for r in RESERVOIR_AREAS])
+            + [f"reservoir:{r}" for r in RESERVOIR_AREAS]
+            + [f"ba:{b}" for b in BAS])
 
 
 _KIND_VARS = {"station": ("precip", "hdd", "cdd"), "lwt": ("hdd", "cdd"), "snow": ("swe",),
-              "reservoir": ("storage",)}
+              "reservoir": ("storage",), "ba": LOAD_VARS}
 _VARS_SERVED = ("station: areas carry precip, hdd, cdd; lwt: areas carry hdd, cdd; "
                 "snow: areas carry swe on the Columbia basins and swe_in on California's "
-                "(snow:ca_*); reservoir: areas carry storage")
+                "(snow:ca_*); reservoir: areas carry storage; ba: areas carry "
+                "peak_load, peak_load_7d")
 
 
 def vars_for(area: str) -> tuple[str, ...]:
@@ -401,7 +453,8 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
                          + "; lwt:{BA} for " + ", ".join(LWT_BAS)
                          + "; snow:{basin} for " + ", ".join(SNOW_BASINS)
                          + "; snow:{California region} for " + ", ".join(CA_SNOW)
-                         + "; reservoir:{id} for " + ", ".join(RESERVOIR_AREAS))
+                         + "; reservoir:{id} for " + ", ".join(RESERVOIR_AREAS)
+                         + "; ba:{code} for " + ", ".join(BAS))
     if var not in VARS:
         raise ValueError(f"unknown var {var!r}; allowed: " + ", ".join(VARS))
     if var not in vars_for(area):
@@ -414,11 +467,14 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
 
 
 def build_areas(metadata_stations: Sequence[Mapping],
-                counts: Mapping[tuple[str, str], Mapping[int, int]]) -> dict:
+                counts: Mapping[tuple[str, str], Mapping[int, int]],
+                frontiers: Optional[Mapping[str, Optional[str]]] = None) -> dict:
     """`counts[(area, var)][season start year] = days carrying a value` (inside
     the var's count window: swe_in counts Dec 1 -> May 31 only), over every
     season with at least one row. A season is complete iff that count equals
-    its window's days; a floored var (§2) also says how many qualify."""
+    its window's days; a floored var (§2) also says how many qualify.
+    `frontiers[area]` is a balancing area's newest qualifying day (d091525), so
+    a series that stopped early says where."""
     areas = []
 
     def _vars(area: str) -> list[dict]:
@@ -461,6 +517,10 @@ def build_areas(metadata_stations: Sequence[Mapping],
         area = f"reservoir:{r}"
         areas.append({"area": area, "kind": "reservoir", "label": RESERVOIR_LABELS[r],
                       "capacity_taf": CAPACITY_AF[r] / 1000.0, "vars": _vars(area)})
+    for b in BAS:
+        area = f"ba:{b}"
+        areas.append({"area": area, "kind": "ba", "label": b,
+                      "frontier": (frontiers or {}).get(area), "vars": _vars(area)})
     return {"areas": areas}
 
 
@@ -1118,6 +1178,9 @@ def source(area: str, var: str, meta: Optional[Mapping] = None) -> dict:
         m = meta or {}
         for k in SNOW_SOURCE_META:
             out[k] = m.get(k)
+    elif kind == "ba":
+        out["series"] = reservoir_series(area)
+        out["min_hours"] = LOAD_MIN_HOURS
     elif kind in ("reservoir", "major8"):
         out["capacity_taf"] = CAPACITY_AF[reservoir_series(area)] / 1000.0
         if kind == "major8":
@@ -1382,3 +1445,84 @@ def major8_daily(rows: Iterable[Mapping]) -> tuple[dict[date, Optional[float]], 
                if all(i in v for i in RESERVOIR_IDS) else None)
            for d, v in by_day.items()}
     return out, {i: (d.isoformat() if d else None) for i, d in last.items()}
+
+
+# ---------------------------------------------------------------------------
+# Load (d091525): SQL and the pure row maps
+# ---------------------------------------------------------------------------
+
+# One grouped read per balancing area: each UTC−8 day's maximum hourly load and
+# how many hours carried a value (the primary key (ts, dataset, series) makes an
+# hour one row, so count(value) is the hour count). `ts AT TIME ZONE 'UTC'` first, so
+# the day is UTC−8 whatever the session's TimeZone (the spec's
+# `date_trunc('day', ts - interval '8 hours')` truncates in the session zone).
+LOAD_PEAK_SQL = """
+    SELECT ((ts AT TIME ZONE 'UTC') - interval '8 hours')::date AS obs_date,
+           max(value)::float8 AS peak,
+           count(value)::int AS hours
+    FROM timeseries_values WHERE dataset = %(d)s AND series = %(s)s
+    GROUP BY 1 ORDER BY 1
+"""
+
+# /areas: per (balancing area, water year) the qualifying days (`n`, >= h
+# hours), the days whose trailing seven all qualify (`n7`, peak_load_7d's
+# count) and the newest qualifying day. The 7-day window is by calendar date
+# (RANGE), so a day with no rows breaks it, as it does in peak_load_7d.
+AREAS_LOAD_SQL = """
+    WITH h AS (
+        SELECT series AS id, ((ts AT TIME ZONE 'UTC') - interval '8 hours')::date AS d,
+               count(value) >= %(h)s AS ok
+        FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
+        GROUP BY 1, 2
+    ), w AS (
+        SELECT id, d, ok,
+               count(*) FILTER (WHERE ok) OVER (PARTITION BY id ORDER BY d
+                   RANGE BETWEEN interval '6 days' PRECEDING AND CURRENT ROW) AS k
+        FROM h
+    )
+    SELECT id, extract(year FROM d - interval '9 months')::int AS s,
+           count(*) FILTER (WHERE ok)::int AS n,
+           count(*) FILTER (WHERE k = 7)::int AS n7,
+           max(d) FILTER (WHERE ok) AS last
+    FROM w GROUP BY 1, 2
+"""
+
+
+def load_day(ts: datetime) -> date:
+    """The UTC−8 day an hour belongs to (an aware timestamp): 07:59Z is the
+    previous day, 08:00Z the next. A fixed offset, never daylight time."""
+    return (ts.astimezone(timezone.utc) - LOAD_DAY_OFFSET).date()
+
+
+def load_days_from_hours(hours: Iterable[Mapping]) -> list[dict]:
+    """Hourly rows {ts, value} (one per hour, as the primary key holds them) ->
+    LOAD_PEAK_SQL's rows {obs_date, peak, hours} by the same rules: the SQL's
+    reference, in Python. A NULL hour is a row but not an hour."""
+    by_day: dict[date, list[float]] = {}
+    for r in hours:
+        day = by_day.setdefault(load_day(r["ts"]), [])
+        if r["value"] is not None:
+            day.append(float(r["value"]))
+    return [{"obs_date": d, "peak": max(v) if v else None, "hours": len(v)}
+            for d, v in sorted(by_day.items())]
+
+
+def peak_load_daily(rows: Iterable[Mapping]) -> dict[date, Optional[float]]:
+    """LOAD_PEAK_SQL rows -> {date: MW or None}: the day's maximum when >= 20
+    hours report, else None (a row, but not a peak). Never a partial-day max."""
+    return {r["obs_date"]: (float(r["peak"])
+                            if r["peak"] is not None and r["hours"] >= LOAD_MIN_HOURS
+                            else None)
+            for r in rows}
+
+
+def peak_load_7d(daily: Mapping[date, Optional[float]]) -> dict[date, Optional[float]]:
+    """The trailing 7-day mean of the daily peak, on every date `daily` holds:
+    the mean of D−6 … D when all seven carry a peak, else None (the record's
+    first six days, or any window touching a null or absent day)."""
+    out: dict[date, Optional[float]] = {}
+    for d in daily:
+        xs = [daily.get(d - timedelta(days=k)) for k in range(LOAD_WINDOW)]
+        out[d] = (float(np.mean(np.array(xs, dtype=np.float64)))
+                  if all(x is not None for x in xs) else None)
+    return out

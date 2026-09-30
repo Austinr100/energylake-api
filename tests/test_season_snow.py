@@ -347,7 +347,7 @@ class _SnowPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL):
+                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_LOAD_SQL):
             return []
         if q == season.AREAS_SNOW_SQL:
             assert p["d"] == "snow_basin_index_daily"
@@ -421,7 +421,7 @@ OLD_KEYS = ("area", "var", "units", "season", "frontier", "axis", "base",
 
 def test_n9_areas_and_swe_key_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 57          # d091522 appended 4 California snow + 9 reservoir areas
+    assert len(areas) == 85          # d091522 appended 4 California snow + 9 reservoir; d091525 28 ba
     snow = [a for a in areas if a["kind"] == "snow"][:6]
     assert areas[38:44] == snow
     assert [(a["area"], a["label"]) for a in snow] == LABELS

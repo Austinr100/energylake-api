@@ -461,7 +461,7 @@ class _HydroPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_SNOW_SQL):
+                 season.AREAS_SNOW_SQL, season.AREAS_LOAD_SQL):
             return []
         if q == season.AREAS_CA_SNOW_SQL:
             assert p == {"d": "cdec_snowpack_swe_daily", "s": list(season.CA_SNOW_SERIES)}
@@ -529,14 +529,14 @@ def test_h9_refusals(client):
 
 def test_h10_areas_count_and_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 44 + 4 + 9 == 57
+    assert len(areas) == 44 + 4 + 9 + 28 == 85        # d091525: + 28 ba
     assert [a["area"] for a in areas[38:44]] == [f"snow:{b}" for b in season.SNOW_BASINS]
     assert [(a["area"], a["label"], a["kind"]) for a in areas[44:48]] == [
         ("snow:ca_state", "California statewide", "snow"),
         ("snow:ca_north", "Northern Sierra / Trinity", "snow"),
         ("snow:ca_central", "Central Sierra", "snow"),
         ("snow:ca_south", "Southern Sierra", "snow")]
-    assert [(a["area"], a["label"]) for a in areas[48:]] == [
+    assert [(a["area"], a["label"]) for a in areas[48:57]] == [
         ("reservoir:ca_major8", "California, eight major reservoirs"),
         ("reservoir:trinity", "Trinity Lake"), ("reservoir:shasta", "Shasta Lake"),
         ("reservoir:oroville", "Lake Oroville"), ("reservoir:folsom", "Folsom Lake"),
