@@ -2132,7 +2132,8 @@ def test_L1_the_note_names_the_real_deadline(monkeypatch):
 
     async def go():
         task = asyncio.ensure_future(asyncio.get_running_loop().create_future())
-        got = await main._local_extend_days(parts, 33.94, -118.41, NOW, task, lf.Timings())
+        got = await real_wait_for(main._local_extend_days(
+            parts, 33.94, -118.41, NOW, task, lf.Timings()), 5.0)
         assert not task.done()                    # shielded: still reading
         task.cancel()
         return got
