@@ -15,3 +15,8 @@ alerts/active); values are chosen so tests can pin them:
 
 Replace with recorded bodies when a session can reach `api.weather.gov`; the
 tests pin behaviour, and the pins that are fixture values are named in them.
+
+`daily_rows_daytime.main.json` (d091513 L9) is not an NWS body: it is
+`nws_arm.daily_rows(forecast.us.json periods, "America/Los_Angeles", 33.94,
+-118.41, "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z")` as main
+(3fb18a2) computed it, the pin a daytime read's rows are compared against.

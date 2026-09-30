@@ -62,7 +62,7 @@ def utcnow() -> datetime:
 
 #: The ruled names, in the ruled order. A name whose leg did not run is omitted.
 TIMING_NAMES = ("nws_points", "nws_forecast", "nws_obs", "nws_alerts",
-                "model_run", "model_ladders", "build", "total")
+                "model_run", "model_ladders", "model_wait", "build", "total")
 
 
 class Timings:
@@ -468,8 +468,8 @@ NOW_KEYS = ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp", "condition",
 HOURLY_KEYS = ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop", "precip_amt",
                "sky", "mslp", "condition", "condition_raw", "t_spread", "interp",
                "source", "absent")
-DAILY_KEYS = ("date", "hi", "lo", "pop", "precip_amt", "wind", "sky", "condition",
-              "sunrise", "sunset", "source", "absent")
+DAILY_KEYS = ("date", "hi", "lo", "lo_period", "pop", "precip_amt", "wind", "sky",
+              "condition", "sunrise", "sunset", "source", "absent")
 ALERT_KEYS = ("id", "event", "severity", "headline", "onset", "ends")
 SUN_KEYS = ("sunrise", "sunset", "day_length_min", "source", "absent")
 MEMO_KEYS = ("points", "forecast", "obs", "alerts")
@@ -483,7 +483,7 @@ _REASONED = {
     "now": ("t", "feels", "dewpoint", "rh", "sky", "mslp", "condition_raw", "age_min"),
     "hourly": ("t", "feels", "dewpoint", "rh", "pop", "precip_amt", "sky", "mslp",
                "condition_raw", "t_spread"),
-    "daily": ("hi", "lo", "pop", "precip_amt", "sky", "sunrise", "sunset"),
+    "daily": ("hi", "lo", "lo_period", "pop", "precip_amt", "sky", "sunrise", "sunset"),
     "sun": ("sunrise", "sunset"),
 }
 

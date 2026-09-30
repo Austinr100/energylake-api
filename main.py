@@ -292,6 +292,10 @@ async def lifespan(app: FastAPI):
     _warm_task = None
     if DD_WARM_ON_STARTUP:
         _warm_task = asyncio.create_task(_dd_warm_cumulative())
+    # Local Weather (d091513 §2): discover the model run once at boot so the
+    # first model read after a deploy does not pay the ledger read and header
+    # probes. Detached and fail-soft, like the warm above.
+    _run_warm_task = asyncio.create_task(_local_warm_run())
 
     # Sky/GLM: one background thread per satellite, on the wire's own 20-s
     # cadence. Threads, not asyncio tasks, because the reader's transport is
@@ -315,6 +319,8 @@ async def lifespan(app: FastAPI):
 
     if _warm_task is not None and not _warm_task.done():
         _warm_task.cancel()
+    if not _run_warm_task.done():
+        _run_warm_task.cancel()
     # Clean shutdown: signal every reader and join it. The threads are daemons,
     # so the process would exit regardless — this is here so a reader stops
     # mid-tick at a known point instead of being torn down inside a socket
@@ -18910,11 +18916,47 @@ async def _local_gfs_run_candidates() -> list:
                       int(r["cycle"]), tzinfo=_timezone.utc) for r in rows]
 
 
+async def _local_warm_run() -> None:
+    """d091513 §2 — warm the model arm's run memo off the request path. Never
+    raises: a boot that cannot reach the ledger or the store serves exactly as
+    it did before (the first model read discovers the run)."""
+    store = _get_weather_store()
+    if not store.configured():
+        return
+    try:
+        await _model_arm.discover_run(store, _local_gfs_run_candidates)
+    except Exception as e:                      # noqa: BLE001 - boot never fails on this
+        reason = e.reason if isinstance(e, _model_arm.ModelArmError) else type(e).__name__
+        _model_arm.log.warning("[[LOCAL_RUN_WARM_FAILED]] %s", reason)
+
+
 _LOCAL_DAILY_ROWS = 10
+
+#: d091513 §1.1 — how long a US answer waits on the model arm for days 8–10,
+#: counted from the moment NWS's answer is in hand. Warm, the ladders are in
+#: by then (~1 s total, measured 2026-09-30); cold, they were not, and the page
+#: sat for the store's 10 s timeout. Past it the NWS rows go out alone and the
+#: read carries on in the background (`_local_background`).
+MODEL_EXTEND_DEADLINE_S = 2.5
+
+#: Model reads the route stopped waiting for, held so the event loop's weak
+#: reference is not the only one while they finish (d091513 §1.3).
+_local_background: set = set()
+
+
+def _local_keep(task) -> None:
+    """Let a read nobody is waiting for any more finish in the background, and
+    retrieve its outcome so a failure is never logged as 'never retrieved'."""
+    _local_background.add(task)
+
+    def done(t):
+        _local_background.discard(t)
+        t.cancelled() or t.exception()
+    task.add_done_callback(done)
 
 
 async def _local_extend_days(parts: dict, lat: float, lon: float, generated_at,
-                             model_read, timings: "_lf.Timings") -> None:
+                             model_read, timings: "_lf.Timings") -> Optional[dict]:
     """Days 8–10 on the US arm (d091485 §2.3). NWS's forecast stops at 7 local
     days; the model arm's rows for the SAME place (built in NWS's tz, so the
     local dates line up) for the dates NWS does not cover are appended, up to
@@ -18925,33 +18967,52 @@ async def _local_extend_days(parts: dict, lat: float, lon: float, generated_at,
 
     `model_read` is the `model_arm.read` task the route started alongside NWS
     (D-09-25-28): the ladders were being read while NWS answered, and only the
-    build waits for NWS's tz."""
+    build waits for NWS's tz.
+
+    d091513: the wait is bounded by MODEL_EXTEND_DEADLINE_S and recorded as
+    `model_wait`. On the deadline the task is NOT cancelled (the shield): it
+    finishes in the background and leaves its ladders in the model arm's cell
+    memo for the next read. Returns the absence it stated — `{"days": [a, 10],
+    "reason": ...}` — or None when days were appended. The reason is what the
+    note says in words; `receipts` has no field for it (D-09-25-15 pins the
+    keys), so it is the route's and the tests' to read, not the body's."""
     daily = parts["daily"]
     notes = parts["receipts"]["notes"]
     a = len(daily) + 1
+
+    def absent(reason: str, note: str) -> dict:
+        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} {note}")
+        return {"days": [a, _LOCAL_DAILY_ROWS], "reason": reason}
+
     try:
-        run_dt, ladders = await model_read
+        try:
+            with timings.mark("model_wait"):
+                run_dt, ladders = await asyncio.wait_for(
+                    asyncio.shield(model_read), MODEL_EXTEND_DEADLINE_S)
+        except asyncio.TimeoutError:
+            _local_keep(model_read)
+            return absent("deadline", "pending: model arm still reading "
+                                      f"(deadline {MODEL_EXTEND_DEADLINE_S:g} s)")
         with timings.mark("build"):
             model = _model_arm.build(
                 ladders, run_dt, lat, lon, tz=parts["place"]["tz"], tz_source="nws",
                 country="US", generated_at=generated_at, fallback=None, notes=[])
-    except _model_arm.ModelArmError:
-        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm 503")
-        return
+    except _model_arm.ModelArmError as e:
+        if e.reason in (_model_arm.STORE_TIMEOUT, _model_arm.STORE_UNREACHABLE):
+            return absent(e.reason, "unavailable: model arm "
+                                    + e.reason.replace("_", " "))
+        return absent("model_arm", "unavailable: model arm 503")
     except Exception as e:                      # the US page never fails on this
-        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm "
-                     f"{type(e).__name__}")
-        return
+        return absent("error", f"unavailable: model arm {type(e).__name__}")
     last = max((d["date"] for d in daily), default="")
     extra = [d for d in model["daily"] if d["date"] > last]
     extra = extra[:_LOCAL_DAILY_ROWS - len(daily)]
     if not extra:
-        notes.append(f"days {a}–{_LOCAL_DAILY_ROWS} unavailable: model arm "
-                     f"covers no date after {last}")
-        return
+        return absent("no_dates", f"unavailable: model arm covers no date after {last}")
     daily.extend(extra)
     label = _model_arm.run_label(run_dt)
     notes.append(f"days {a}–{len(daily)} from model · {label}")
+    return None
 
 
 def _local_discard(task) -> None:

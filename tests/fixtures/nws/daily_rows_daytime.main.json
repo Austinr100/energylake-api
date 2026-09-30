@@ -1,0 +1,160 @@
+[
+ {
+  "date": "2026-09-25",
+  "hi": 25.0,
+  "lo": 17.2,
+  "pop": null,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": 0.1875,
+  "condition": "mostly-clear",
+  "sunrise": "2026-09-25T13:43:58Z",
+  "sunset": "2026-09-26T01:45:55Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "pop: not reported",
+   "wind.gust: not in nws forecast",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-09-26",
+  "hi": 26.1,
+  "lo": 17.8,
+  "pop": 10,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": 0.4375,
+  "condition": "partly-cloudy",
+  "sunrise": "2026-09-26T13:44:40Z",
+  "sunset": "2026-09-27T01:44:32Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-09-27",
+  "hi": 27.2,
+  "lo": 18.9,
+  "pop": 0,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": 0.0,
+  "condition": "clear",
+  "sunrise": "2026-09-27T13:45:23Z",
+  "sunset": "2026-09-28T01:43:09Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-09-28",
+  "hi": 28.9,
+  "lo": 18.3,
+  "pop": 5,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": null,
+  "condition": "wind",
+  "sunrise": "2026-09-28T13:46:05Z",
+  "sunset": "2026-09-29T01:41:46Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "sky: icon carries no cover class",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-09-29",
+  "hi": 26.7,
+  "lo": 16.7,
+  "pop": 30,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": null,
+  "condition": "rain",
+  "sunrise": "2026-09-29T13:46:48Z",
+  "sunset": "2026-09-30T01:40:23Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "sky: icon carries no cover class",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-09-30",
+  "hi": 23.9,
+  "lo": 16.1,
+  "pop": 40,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": null,
+  "condition": "thunderstorm",
+  "sunrise": "2026-09-30T13:47:31Z",
+  "sunset": "2026-10-01T01:39:01Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "sky: icon carries no cover class",
+   "precip_amt: not in nws forecast"
+  ]
+ },
+ {
+  "date": "2026-10-01",
+  "hi": 22.8,
+  "lo": 15.6,
+  "pop": 20,
+  "precip_amt": null,
+  "wind": {
+   "dir_deg": 247.5,
+   "dir_txt": "WSW",
+   "speed": 4.5,
+   "gust": null
+  },
+  "sky": 0.75,
+  "condition": "cloudy",
+  "sunrise": "2026-10-01T13:48:14Z",
+  "sunset": "2026-10-02T01:37:39Z",
+  "source": "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z",
+  "absent": [
+   "wind.gust: not in nws forecast",
+   "precip_amt: not in nws forecast"
+  ]
+ }
+]
