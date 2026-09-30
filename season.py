@@ -48,6 +48,28 @@ rules and nothing else:
 Base, cone, normal, five-year band, ENSO medians and their gates are the same
 rules on the new values.
 
+HYDRO (d091522, spec cc_spec_2026_09_30_season_hydro_api.md). Two more levels
+on the water year: `storage` (TAF) on `reservoir:{id}` and `reservoir:ca_major8`
+(the eight summed, a day valued only when all eight report, never
+renormalised), and `swe_in` (inches of snow water, CDEC's regional average) on
+`snow:ca_{region}`. Their records are short and holed, so for these two only:
+
+  * A FLOOR, not strict completeness: a season qualifies when >= 0.90 of the
+    days in its count window carry a value (storage: every calendar day of the
+    season; swe_in: Dec 1 -> May 31, outside which a missing day is the feed's
+    off-season and is not counted anywhere, gap or absence).
+  * PER-DAY STATISTICS IGNORE NULLS: each day's cone / normal / five-year band /
+    category median / range is over the qualifying seasons valued that day; a
+    day with fewer than 3 is null in every statistic. Blocks carry `n` and
+    `n_by_day_min`. Nothing is ever read as 0.
+  * `curves` carries every qualifying season.
+
+Every level (swe too) gains `range` (per-day min / median / max over the base,
+n >= 5), each ENSO category's `outlook` (its members' peaks and Apr 1 / Jul 1
+values: min / median / max, never a percentile), and every payload `enso.now`
+(the category the catalog run's `developing` reads today; a label, not a
+forecast).
+
 Rounding happens once, at the edge (`_r`): everything is float64 until then.
 """
 
@@ -62,7 +84,7 @@ import numpy as np
 # Vocabulary
 # ---------------------------------------------------------------------------
 
-VARS = ("precip", "hdd", "cdd", "swe")
+VARS = ("precip", "hdd", "cdd", "swe", "storage", "swe_in")
 CUMULATIVE, LEVEL = "cumulative", "level"
 CLASSIFIERS = ("cpc_oni", "roni")
 DEFAULT_CLASSIFIER = "cpc_oni"
@@ -100,6 +122,48 @@ SNOW_LABELS = {
 SNOW_DATASET = "snow_basin_index_daily"
 SNOW_SERIES_SUFFIX = ".SWE_PCT"
 
+# California (d091522). The eight reservoirs of `cdec_reservoir_storage_daily`,
+# north to south, with the dashboard's names and capacities (energylake-dashboard
+# src/app/almanac/california-water-storage/page.tsx, `RESERVOIRS`, capacityAF),
+# copied, not discovered. Storage is served in TAF (acre-feet / 1000).
+RESERVOIR_DATASET = "cdec_reservoir_storage_daily"
+RESERVOIRS = (  # (id, label, capacity in acre-feet)
+    ("trinity", "Trinity Lake", 2447650),
+    ("shasta", "Shasta Lake", 4552000),
+    ("oroville", "Lake Oroville", 3537577),
+    ("folsom", "Folsom Lake", 977000),
+    ("new_melones", "New Melones Lake", 2400000),
+    ("don_pedro", "Don Pedro Reservoir", 2030000),
+    ("millerton", "Millerton Lake", 520500),
+    ("san_luis", "San Luis Reservoir", 2041000),
+)
+RESERVOIR_IDS = tuple(r[0] for r in RESERVOIRS)
+MAJOR8 = "ca_major8"
+MAJOR8_LABEL = "California, eight major reservoirs"
+RESERVOIR_AREAS = (MAJOR8,) + RESERVOIR_IDS          # /areas order
+RESERVOIR_LABELS = {MAJOR8: MAJOR8_LABEL, **{i: lab for i, lab, _ in RESERVOIRS}}
+CAPACITY_AF = {i: af for i, _, af in RESERVOIRS}
+CAPACITY_AF[MAJOR8] = sum(af for _, _, af in RESERVOIRS)
+
+# California's snow: CDEC's four regional averages (`{region}_avg_swc`, inches).
+CA_SNOW_DATASET = "cdec_snowpack_swe_daily"
+CA_SNOW = ("ca_state", "ca_north", "ca_central", "ca_south")
+CA_SNOW_LABELS = {"ca_state": "California statewide",
+                  "ca_north": "Northern Sierra / Trinity",
+                  "ca_central": "Central Sierra",
+                  "ca_south": "Southern Sierra"}
+
+
+def reservoir_series(area: str) -> str:
+    """`reservoir:{id}` -> `{id}` (the series name)."""
+    return area.split(":", 1)[1]
+
+
+def ca_snow_series(area: str) -> str:
+    """`snow:ca_{region}` -> `{region}_avg_swc`."""
+    return area.split(":", 1)[1].removeprefix("ca_") + "_avg_swc"
+
+
 CONE_MIN_N = 30
 NORMAL_MIN_N = 24
 NORMAL_WINDOW = (1991, 2020)
@@ -113,9 +177,23 @@ _SEASONS = {
     "hdd": ("heating", (11, 1), (3, 31), "°F·day"),
     "cdd": ("cooling", (5, 1), (9, 30), "°F·day"),
     "swe": ("water_year", (10, 1), (9, 30), "% of normal peak"),
+    "storage": ("water_year", (10, 1), (9, 30), "TAF"),
+    "swe_in": ("water_year", (10, 1), (9, 30), "in"),
 }
 
-_MODES = {"precip": CUMULATIVE, "hdd": CUMULATIVE, "cdd": CUMULATIVE, "swe": LEVEL}
+_MODES = {"precip": CUMULATIVE, "hdd": CUMULATIVE, "cdd": CUMULATIVE, "swe": LEVEL,
+          "storage": LEVEL, "swe_in": LEVEL}
+
+# §2 (d091522): the per-variable floor. var -> (min_days_frac, count window as
+# ((m, d), (m, d)) or None for the whole season). A var not here is strict:
+# every calendar day of the season valued.
+FLOORS = {
+    "storage": (0.90, None),
+    "swe_in": (0.90, ((12, 1), (5, 31))),
+}
+STAT_MIN_DAY_N = 3          # fewer contributing seasons on a day -> null that day
+RANGE_MIN_N = 5
+OUTLOOK_DAYS = ("04-01", "07-01")
 
 LEAP_RULE = ("the axis has no Feb 29; in a leap year Feb 29's value is added into "
              "the Feb 28 day, so a season's final is the sum of all its calendar days")
@@ -128,6 +206,8 @@ MAPPING = {
     "hdd": "heating season E-(E+1) (Nov 1 E → Mar 31 E+1) → ENSO year E",
     "cdd": "cooling season Y (May 1 → Sep 30 Y) → ENSO year Y (the ENSO room's JJA rule, band_year - 0)",
     "swe": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
+    "storage": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
+    "swe_in": "water year N (Oct 1 N-1 → Sep 30 N) → ENSO year N-1",
 }
 
 # `source.method`, one sentence per (area kind, var).
@@ -147,12 +227,22 @@ METHODS = {
     ("snow", "swe"): ("Snow water equivalent at the basin's index stations, summed and "
                       "divided by the sum of their 1991–2020 median peaks; a day needs 80 % "
                       "of the index stations reporting."),
+    ("reservoir", "storage"): ("The reservoir's daily storage as CDEC reports it, in thousand "
+                               "acre-feet; a missing day is a gap in the line on that day only."),
+    ("major8", "storage"): ("The sum of the eight reservoirs' daily storage, in thousand "
+                            "acre-feet; a day carries a value only when all eight report "
+                            "(never renormalised)."),
+    ("snow", "swe_in"): ("CDEC's regional average snow water content, in inches; the feed "
+                         "reports the snow season only, so a summer day has no row."),
 }
 _DATASETS = {("station", "precip"): "ghcnd_weather_daily",
              ("station", "hdd"): "station_degree_days_daily",
              ("station", "cdd"): "station_degree_days_daily",
              ("lwt", "hdd"): LWT_DATASET, ("lwt", "cdd"): LWT_DATASET,
-             ("snow", "swe"): SNOW_DATASET}
+             ("snow", "swe"): SNOW_DATASET,
+             ("reservoir", "storage"): RESERVOIR_DATASET,
+             ("major8", "storage"): RESERVOIR_DATASET,
+             ("snow", "swe_in"): CA_SNOW_DATASET}
 # The frontier row's meta keys `source` carries for a snow area.
 SNOW_SOURCE_META = ("n_index", "n_reporting", "normals_version")
 
@@ -240,6 +330,24 @@ def days_in_window(var: str, s: int) -> int:
     return (b - a).days + 1
 
 
+def count_window(var: str, s: int) -> tuple[date, date]:
+    """(first, last) day of the days that count toward a season's completeness:
+    the whole season, or a floored var's own window (swe_in: Dec 1 -> May 31)."""
+    win = FLOORS.get(var, (None, None))[1]
+    if win is None:
+        return bounds(var, s)
+    start, end = bounds(var, s)
+    (am, ad), (bm, bd) = win
+    a = date(s, am, ad) if date(s, am, ad) >= start else date(s + 1, am, ad)
+    b = date(a.year if (bm, bd) >= (am, ad) else a.year + 1, bm, bd)
+    return a, b
+
+
+def window_days(var: str, s: int) -> int:
+    a, b = count_window(var, s)
+    return (b - a).days + 1
+
+
 # ---------------------------------------------------------------------------
 # Areas
 # ---------------------------------------------------------------------------
@@ -254,18 +362,33 @@ def station_order(metadata_stations: Sequence[Mapping]) -> list[tuple[str, Optio
 
 
 def area_vocabulary(metadata_stations: Sequence[Mapping]) -> list[str]:
+    """/areas order (§1): stations, LWT, the Columbia snow basins, California's
+    four snow areas, the eight reservoirs' sum, the eight north to south."""
     return ([f"station:{sid}" for sid, _ in station_order(metadata_stations)]
             + [f"lwt:{ba}" for ba in LWT_BAS]
-            + [f"snow:{b}" for b in SNOW_BASINS])
+            + [f"snow:{b}" for b in SNOW_BASINS]
+            + [f"snow:{r}" for r in CA_SNOW]
+            + [f"reservoir:{r}" for r in RESERVOIR_AREAS])
 
 
-_KIND_VARS = {"station": ("precip", "hdd", "cdd"), "lwt": ("hdd", "cdd"), "snow": ("swe",)}
+_KIND_VARS = {"station": ("precip", "hdd", "cdd"), "lwt": ("hdd", "cdd"), "snow": ("swe",),
+              "reservoir": ("storage",)}
 _VARS_SERVED = ("station: areas carry precip, hdd, cdd; lwt: areas carry hdd, cdd; "
-                "snow: areas carry swe")
+                "snow: areas carry swe on the Columbia basins and swe_in on California's "
+                "(snow:ca_*); reservoir: areas carry storage")
 
 
 def vars_for(area: str) -> tuple[str, ...]:
-    return _KIND_VARS[area.split(":", 1)[0]]
+    kind, ident = area.split(":", 1)
+    if kind == "snow" and ident in CA_SNOW:
+        return ("swe_in",)
+    return _KIND_VARS[kind]
+
+
+def area_kind(area: str) -> str:
+    """The (kind) key of METHODS / _DATASETS: the eight's sum is its own kind."""
+    kind, ident = area.split(":", 1)
+    return "major8" if (kind, ident) == ("reservoir", MAJOR8) else kind
 
 
 def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[str],
@@ -276,7 +399,9 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
         raise ValueError(f"unknown area {area!r}; allowed: station:{{GHCN id}} for "
                          + ", ".join(sid for sid, _ in station_order(metadata_stations))
                          + "; lwt:{BA} for " + ", ".join(LWT_BAS)
-                         + "; snow:{basin} for " + ", ".join(SNOW_BASINS))
+                         + "; snow:{basin} for " + ", ".join(SNOW_BASINS)
+                         + "; snow:{California region} for " + ", ".join(CA_SNOW)
+                         + "; reservoir:{id} for " + ", ".join(RESERVOIR_AREAS))
     if var not in VARS:
         raise ValueError(f"unknown var {var!r}; allowed: " + ", ".join(VARS))
     if var not in vars_for(area):
@@ -290,9 +415,10 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
 
 def build_areas(metadata_stations: Sequence[Mapping],
                 counts: Mapping[tuple[str, str], Mapping[int, int]]) -> dict:
-    """`counts[(area, var)][season start year] = days carrying a value`, over
-    every season with at least one row. A season is complete iff that count
-    equals its calendar `days_in_window`."""
+    """`counts[(area, var)][season start year] = days carrying a value` (inside
+    the var's count window: swe_in counts Dec 1 -> May 31 only), over every
+    season with at least one row. A season is complete iff that count equals
+    its window's days; a floored var (§2) also says how many qualify."""
     areas = []
 
     def _vars(area: str) -> list[dict]:
@@ -300,12 +426,16 @@ def build_areas(metadata_stations: Sequence[Mapping],
         for v in vars_for(area):
             per = counts.get((area, v), {})
             first = min(per) if per else None
-            out.append({
+            row = {
                 "var": v, "season": _SEASONS[v][0], "units": units(v),
                 "first_season": label(v, first) if first is not None else None,
                 "complete_seasons": sum(1 for s, n in per.items()
-                                        if n == days_in_window(v, s)),
-            })
+                                        if n == window_days(v, s)),
+            }
+            if v in FLOORS:
+                row["qualifying_seasons"] = sum(1 for s, n in per.items()
+                                                if n >= FLOORS[v][0] * window_days(v, s))
+            out.append(row)
         return out
 
     for sid, meta in station_order(metadata_stations):
@@ -323,6 +453,14 @@ def build_areas(metadata_stations: Sequence[Mapping],
         area = f"snow:{b}"
         areas.append({"area": area, "kind": "snow", "label": SNOW_LABELS[b],
                       "vars": _vars(area)})
+    for r in CA_SNOW:
+        area = f"snow:{r}"
+        areas.append({"area": area, "kind": "snow", "label": CA_SNOW_LABELS[r],
+                      "vars": _vars(area)})
+    for r in RESERVOIR_AREAS:
+        area = f"reservoir:{r}"
+        areas.append({"area": area, "kind": "reservoir", "label": RESERVOIR_LABELS[r],
+                      "capacity_taf": CAPACITY_AF[r] / 1000.0, "vars": _vars(area)})
     return {"areas": areas}
 
 
@@ -335,7 +473,8 @@ _NO_ROW = object()
 
 class _Walk:
     __slots__ = ("s", "values", "days_complete", "days_in_window", "first_missing",
-                 "mode", "through", "days_missing", "peak", "peak_date")
+                 "mode", "through", "days_missing", "peak", "peak_date",
+                 "window", "window_complete", "window_days")
 
     @property
     def gap(self) -> bool:
@@ -359,6 +498,9 @@ def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
     w.days_in_window = (end - start).days + 1
     w.first_missing, w.mode, w.through = None, None, None
     w.days_missing, w.peak, w.peak_date = 0, None, None
+    w.window = count_window(var, s)
+    w.window_days = (w.window[1] - w.window[0]).days + 1
+    w.window_complete = 0
     if mode(var) == LEVEL:
         return _walk_level(w, start, daily, limit, slots)
     total = 0.0
@@ -390,11 +532,20 @@ def _walk_level(w: _Walk, start: date, daily: Mapping[date, Optional[float]],
     is not added into Feb 28) but counts: valued, it is a complete day; missing,
     it is a missing day. `through` is the newest valued day; `peak` the
     season's maximum over every valued calendar day (Feb 29 included), first
-    occurrence on a tie."""
+    occurrence on a tie.
+
+    d091522: only a day inside the count window (`w.window`; the whole season
+    but for swe_in's Dec 1 -> May 31) can be missing. Outside it an absent day
+    is the feed's off-season: it is not a gap and is counted nowhere."""
+    a, b = w.window
     d = start
     while d <= limit:
         v = daily.get(d, _NO_ROW)
+        inside = a <= d <= b
         if v is _NO_ROW or v is None:
+            if not inside:
+                d += timedelta(days=1)
+                continue
             w.days_missing += 1
             if w.first_missing is None:
                 w.first_missing = d
@@ -402,6 +553,7 @@ def _walk_level(w: _Walk, start: date, daily: Mapping[date, Optional[float]],
         else:
             v = float(v)
             w.days_complete += 1
+            w.window_complete += inside
             w.through = d
             if (d.month, d.day) != (2, 29):
                 w.values[slots[f"{d.month:02d}-{d.day:02d}"]] = v
@@ -413,6 +565,14 @@ def _walk_level(w: _Walk, start: date, daily: Mapping[date, Optional[float]],
 
 def _complete(w: _Walk) -> bool:
     return w.first_missing is None and w.days_complete == w.days_in_window
+
+
+def _qualifies(var: str, w: _Walk) -> bool:
+    """§2: a floored var's season qualifies when >= min_days_frac of its count
+    window's days carry a value; every other var is strict (`_complete`)."""
+    if var not in FLOORS:
+        return _complete(w)
+    return w.window_complete >= FLOORS[var][0] * w.window_days
 
 
 # ---------------------------------------------------------------------------
@@ -467,8 +627,12 @@ def classify(e: int, bins: Mapping[int, Mapping], opened: set[int]) -> tuple[Opt
 # ---------------------------------------------------------------------------
 
 def _r(x: Optional[float]) -> Optional[float]:
-    """The one rounding, at the edge: 0.1 (mm for precip, °F·day for HDD/CDD)."""
-    return None if x is None else round(float(x), 1)
+    """The one rounding, at the edge: 0.1 (mm for precip, °F·day for HDD/CDD,
+    TAF, inches). NaN — a null-aware statistic's empty day — is null."""
+    if x is None:
+        return None
+    x = float(x)
+    return None if np.isnan(x) else round(x, 1)
 
 
 def _rv(xs: Iterable[Optional[float]]) -> list[Optional[float]]:
@@ -484,7 +648,7 @@ def _season_block(var: str, w: _Walk, *, current: bool) -> dict:
     if current:
         out["complete_to_date"] = not w.gap
     else:
-        out["complete"] = _complete(w)
+        out["complete"] = _qualifies(var, w)
     out["absence"] = _gap_absence(w, level) if w.gap else None
     return out
 
@@ -510,6 +674,33 @@ def mid_rank(value: float, sample: Sequence[float]) -> float:
     return 100.0 * (below + 0.5 * equal) / len(sample)
 
 
+def _nan_stats(B: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """(per-day contributing count, mask of days with >= STAT_MIN_DAY_N)."""
+    cnt = (~np.isnan(B)).sum(axis=0) if B.size else np.zeros(B.shape[1], dtype=int)
+    return cnt, cnt >= STAT_MIN_DAY_N
+
+
+def _masked(fn, B: np.ndarray, ok: np.ndarray, **kw) -> np.ndarray:
+    """fn (a NumPy nan-function) per day where `ok`, NaN elsewhere. The empty
+    days are never handed to NumPy, so no all-NaN warning and no 0."""
+    out = np.full(B.shape[1], np.nan)
+    if ok.any():
+        out[ok] = fn(B[:, ok], axis=0, **kw)
+    return out
+
+
+def _n_by_day_min(cnt: np.ndarray, ok: np.ndarray) -> Optional[int]:
+    """The fewest seasons contributing on any drawn day (a day with a value)."""
+    return int(cnt[ok].min()) if ok.any() else None
+
+
+def _at(arr: Optional[np.ndarray], i: int) -> Optional[float]:
+    if arr is None:
+        return None
+    x = float(arr[i])
+    return None if np.isnan(x) else x
+
+
 def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                  classifier: str, catalog_version: Optional[str],
                  developing: Optional[Mapping], bins: Sequence[Mapping],
@@ -520,9 +711,11 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     `daily` maps each calendar date that HAS A ROW to its value, None where the
     row carries no usable value (NULL, or basis_complete false). A date with no
     row is simply not a key. `bins` are enso_year_bins rows for `classifier`.
-    `source_meta` is the frontier row's `meta` (snow areas only).
+    `source_meta` is the frontier row's `meta` (Columbia snow areas), or for
+    `reservoir:ca_major8` {"series_frontiers": {...}}.
     """
     level = mode(var) == LEVEL
+    floored = var in FLOORS          # §2: null-aware per-day statistics
     slots = _slot_index(var)
     ax = axis(var)
     ndays = len(ax)
@@ -547,18 +740,33 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     past = [s for s in seasons if s != cur]
 
     # ── base ────────────────────────────────────────────────────────────────
-    base = [s for s in past if _complete(walks[s])]
-    excluded = [{"season": label(var, s), "days_complete": walks[s].days_complete,
-                 "days_in_window": walks[s].days_in_window,
-                 "first_missing": walks[s].first_missing.isoformat()
-                 if walks[s].first_missing else None}
-                for s in past if not _complete(walks[s])]
+    base = [s for s in past if _qualifies(var, walks[s])]
+    if floored:
+        excluded = [{"season": label(var, s), "days_complete": walks[s].window_complete,
+                     "days_in_window": walks[s].window_days,
+                     "first_missing": walks[s].first_missing.isoformat()
+                     if walks[s].first_missing else None}
+                    for s in past if not _qualifies(var, walks[s])]
+    else:
+        excluded = [{"season": label(var, s), "days_complete": walks[s].days_complete,
+                     "days_in_window": walks[s].days_in_window,
+                     "first_missing": walks[s].first_missing.isoformat()
+                     if walks[s].first_missing else None}
+                    for s in past if not _complete(walks[s])]
     B = np.array([walks[s].values for s in base], dtype=np.float64).reshape(len(base), ndays)
     n = len(base)
+    cnt, ok = _nan_stats(B) if floored else (None, None)
 
     if n >= CONE_MIN_N:
-        pct = cone(B)
-        percentiles = {"method": "linear (type 7)", **{k: _rv(v) for k, v in pct.items()}}
+        if floored:
+            pct = {f"p{q}": _masked(np.nanpercentile, B, ok, q=q, method="linear")
+                   for q in PERCENTILES}
+            percentiles = {"method": "linear (type 7)", "n": n,
+                           "n_by_day_min": _n_by_day_min(cnt, ok),
+                           **{k: _rv(v) for k, v in pct.items()}}
+        else:
+            pct = cone(B)
+            percentiles = {"method": "linear (type 7)", **{k: _rv(v) for k, v in pct.items()}}
         percentiles_absence = None
         p50 = pct["p50"]
     else:
@@ -569,8 +777,15 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     lo, hi = NORMAL_WINDOW
     normal_idx = [i for i, s in enumerate(base) if lo <= label_year(var, s) <= hi]
     if len(normal_idx) >= NORMAL_MIN_N:
-        normal = {"window": f"{lo}-{hi}", "n": len(normal_idx),
-                  "values": _rv(B[normal_idx].mean(axis=0))}
+        if floored:
+            Bn = B[normal_idx]
+            ncnt, nok = _nan_stats(Bn)
+            normal = {"window": f"{lo}-{hi}", "n": len(normal_idx),
+                      "n_by_day_min": _n_by_day_min(ncnt, nok),
+                      "values": _rv(_masked(np.nanmean, Bn, nok))}
+        else:
+            normal = {"window": f"{lo}-{hi}", "n": len(normal_idx),
+                      "values": _rv(B[normal_idx].mean(axis=0))}
         normal_absence = None
     else:
         normal = None
@@ -580,13 +795,27 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     five = sorted(base)[-FIVE_YEAR_N:]
     if len(five) == FIVE_YEAR_N:
         F = np.array([walks[s].values for s in five], dtype=np.float64)
-        five_mean = F.mean(axis=0)
-        five_year = {"seasons": [label(var, s) for s in five], "mean": _rv(five_mean),
-                     "min": _rv(F.min(axis=0)), "max": _rv(F.max(axis=0))}
+        if floored:
+            fcnt, fok = _nan_stats(F)
+            five_mean = _masked(np.nanmean, F, fok)
+            five_year = {"seasons": [label(var, s) for s in five], "n": FIVE_YEAR_N,
+                         "n_by_day_min": _n_by_day_min(fcnt, fok), "mean": _rv(five_mean),
+                         "min": _rv(_masked(np.nanmin, F, fok)),
+                         "max": _rv(_masked(np.nanmax, F, fok))}
+        else:
+            five_mean = F.mean(axis=0)
+            five_year = {"seasons": [label(var, s) for s in five], "mean": _rv(five_mean),
+                         "min": _rv(F.min(axis=0)), "max": _rv(F.max(axis=0))}
         five_year_absence = None
     else:
         five_mean, five_year = None, None
         five_year_absence = {"reason": "fewer_than_five", "n": len(five)}
+
+    # ── range (a level only): what happened, not a percentile ───────────────
+    if level:
+        range_, range_absence = range_block(var, B, [label(var, s) for s in base])
+    else:
+        range_, range_absence = None, None
 
     # ── this season / last season ───────────────────────────────────────────
     if cur is not None:
@@ -616,16 +845,27 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         idx = [i for i, s in enumerate(base) if klass[s][0] and c in klass[s][0]]
         block = {"seasons": [label(var, base[i]) for i in idx], "n": len(idx)}
         if len(idx) >= CATEGORY_MIN_N:
-            med = np.median(B[idx], axis=0)
+            if floored:
+                ccnt, cok = _nan_stats(B[idx])
+                med = _masked(np.nanmedian, B[idx], cok)
+                block["n_by_day_min"] = _n_by_day_min(ccnt, cok)
+            else:
+                med = np.median(B[idx], axis=0)
             cat_medians[c] = med
             block["median"] = _rv(med)
         else:
             cat_medians[c] = None
             block["median"] = None
             block["absence"] = {"reason": "small_n", "n": len(idx)}
+        if level:
+            ol = outlook([walks[base[i]] for i in idx], var, slots)
+            block["outlook"] = ol
+            if ol is None:
+                block["outlook_absence"] = {"reason": "small_n", "n": len(idx)}
         categories[c] = block
     enso = {"classifier": classifier, "catalog_version": catalog_version,
-            "mapping": MAPPING[var], "developing": developing, "categories": categories}
+            "mapping": MAPPING[var], "developing": developing, "categories": categories,
+            "now": enso_now(developing, classifier)}
 
     # ── readout ─────────────────────────────────────────────────────────────
     day: Optional[int] = None          # the like-for-like day for years[].to_date
@@ -663,9 +903,11 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         readout_absence = {"reason": "no_data"}
 
     if value is not None:
-        median = float(p50[day]) if p50 is not None else None
-        vs_cat = {c: (_r(value - float(cat_medians[c][day]))
-                      if cat_medians[c] is not None else None) for c in CATEGORIES}
+        median = _at(p50, day)
+        five_at = _at(five_mean, day)
+        sample = [x for x in B[:, day].tolist() if not np.isnan(x)]
+        vs_cat = {c: (_r(value - m) if (m := _at(cat_medians[c], day)) is not None
+                      else None) for c in CATEGORIES}
         readout = {
             "day": day,
             "value": _r(value),
@@ -673,8 +915,9 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             "pct_of_median": (_r(100.0 * value / median)
                               if median is not None and median != 0 else None),
             # The same n >= 30 gate as the cone: no rank against a short record.
-            "percentile": _r(mid_rank(value, B[:, day].tolist())) if p50 is not None else None,
-            "vs_five_year": _r(value - float(five_mean[day])) if five_mean is not None else None,
+            "percentile": (_r(mid_rank(value, sample))
+                           if median is not None and sample else None),
+            "vs_five_year": _r(value - five_at) if five_at is not None else None,
             "vs_category": vs_cat,
         }
 
@@ -683,7 +926,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     for s in seasons:
         w = walks[s]
         cats, why = klass[s]
-        complete = s != cur and _complete(w)
+        complete = s != cur and _qualifies(var, w)
         has_peak = level and (complete or s == cur) and w.peak is not None
         years.append({
             "season": label(var, s), "enso_year": enso_year(var, s),
@@ -695,29 +938,52 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             "peak": _r(w.peak) if has_peak else None,
             "peak_md": _md(w.peak_date) if has_peak else None,
         })
-    curves = {label(var, s): _rv(walks[s].values) for s in base
-              if enso_year(var, s) in bins_by_year and enso_year(var, s) not in opened}
+    if floored:     # §2.5: every qualifying season, the member paths the page draws
+        curves = {label(var, s): _rv(walks[s].values) for s in base}
+    else:
+        curves = {label(var, s): _rv(walks[s].values) for s in base
+                  if enso_year(var, s) in bins_by_year and enso_year(var, s) not in opened}
 
     # ── peak (a level only) ─────────────────────────────────────────────────
     if level:
         peak = {"this_season": _peak_of(walks[cur]) if cur is not None else None,
                 "last_season": (_peak_of(walks[last_s])
-                                if last_s is not None and _complete(walks[last_s]) else None),
+                                if last_s is not None and _qualifies(var, walks[last_s])
+                                else None),
                 "base": peak_base([walks[s] for s in base], slots)}
         peak_absence = None
     else:
         peak, peak_absence = None, {"reason": "not_a_level"}
 
-    return {
+    if floored:
+        lo_frac, win = FLOORS[var]
+        base_block = {
+            "rule": ("every qualifying season, full record, excluding the current season: "
+                     f">= {lo_frac:.2f} of the days in the window carry a value"),
+            "min_days_frac": lo_frac,
+            "window": ({"start_md": f"{win[0][0]:02d}-{win[0][1]:02d}",
+                        "end_md": f"{win[1][0]:02d}-{win[1][1]:02d}"} if win
+                       else {"start_md": season_meta(var)["start_md"],
+                             "end_md": season_meta(var)["end_md"]}),
+            "seasons": [label(var, s) for s in base], "n": n,
+            "n_by_day_min": _n_by_day_min(cnt, ok), "excluded": excluded}
+    else:
+        base_block = {"rule": "every complete season, full record, excluding the current season",
+                      "seasons": [label(var, s) for s in base], "n": n, "excluded": excluded}
+
+    body = {
         "area": area, "var": var, "units": units(var),
         "season": season_meta(var),
         "frontier": frontier.isoformat() if frontier else None,
         "axis": ax,
-        "base": {"rule": "every complete season, full record, excluding the current season",
-                 "seasons": [label(var, s) for s in base], "n": n, "excluded": excluded},
+        "base": base_block,
         "percentiles": percentiles, "percentiles_absence": percentiles_absence,
         "normal": normal, "normal_absence": normal_absence,
         "five_year": five_year, "five_year_absence": five_year_absence,
+    }
+    if level:       # §2.4: `range` rides after five_year_absence, on a level only
+        body["range"], body["range_absence"] = range_, range_absence
+    body.update({
         "this_season": this_season, "this_season_absence": this_season_absence,
         "last_season": last_season, "last_season_absence": last_season_absence,
         "enso": enso,
@@ -726,7 +992,89 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         "readout": readout, "readout_absence": readout_absence,
         "peak": peak, "peak_absence": peak_absence,
         "source": source(area, var, source_meta),
-    }
+    })
+    return body
+
+
+def range_block(var: str, B: np.ndarray, labels: Sequence[str]) -> tuple[Optional[dict], Optional[dict]]:
+    """§2.4: per-day min / median / max over the base seasons valued that day
+    (null where fewer than 3), with n and the seasons' labels; null below
+    n = 5. A range of what happened, never called a percentile."""
+    n = len(labels)
+    if n < RANGE_MIN_N:
+        return None, {"reason": "small_n", "n": n}
+    cnt, ok = _nan_stats(B)
+    return ({"n": n, "n_by_day_min": _n_by_day_min(cnt, ok), "seasons": list(labels),
+             "min": _rv(_masked(np.nanmin, B, ok)),
+             "median": _rv(_masked(np.nanmedian, B, ok)),
+             "max": _rv(_masked(np.nanmax, B, ok))}, None)
+
+
+def _mmm(xs: Sequence[float]) -> dict:
+    """min / median / max, nulls below STAT_MIN_DAY_N values. Never a percentile."""
+    if len(xs) < STAT_MIN_DAY_N:
+        return {"min": None, "median": None, "max": None}
+    a = np.array(xs, dtype=np.float64)
+    return {"min": _r(a.min()), "median": _r(np.median(a)), "max": _r(a.max())}
+
+
+def outlook(members: Sequence[_Walk], var: str, slots: Mapping[str, int]) -> Optional[dict]:
+    """§3: a category's range — its member seasons' peaks and their values on
+    Apr 1 and Jul 1, as min / median / max (whatever n: never a percentile).
+    None when n < 3 (the caller states `small_n`)."""
+    if len(members) < CATEGORY_MIN_N:
+        return None
+    ax = {i: md for md, i in slots.items()}
+    peaked = [w for w in members if w.peak is not None]
+    pk = _mmm([w.peak for w in peaked])
+    if pk["median"] is not None:
+        idx = sorted(slots["02-28" if (w.peak_date.month, w.peak_date.day) == (2, 29)
+                           else _md(w.peak_date)] for w in peaked)
+        pk["median_md"] = ax[idx[(len(idx) - 1) // 2]]      # the lower median: a whole day
+    else:
+        pk["median_md"] = None
+    on_day = {}
+    for md in OUTLOOK_DAYS:
+        xs = [w.values[slots[md]] for w in members if w.values[slots[md]] is not None]
+        on_day[md] = {**_mmm(xs), "n": len(xs)}
+    return {"n": len(members), "seasons": [label(var, w.s) for w in members],
+            "peak": pk, "on_day": on_day,
+            "members": [{"season": label(var, w.s), "peak": _r(w.peak),
+                         "peak_md": _md(w.peak_date) if w.peak_date else None,
+                         "apr1": _r(w.values[slots["04-01"]]),
+                         "jul1": _r(w.values[slots["07-01"]])} for w in members]}
+
+
+_KIND_NAMES = {"nino": "El Niño", "nina": "La Niña"}
+_INDEX_NAMES = {"cpc_oni": "ONI", "roni": "RONI"}
+NOW_CAVEAT = ("a label for the current state, read from CPC's index as the catalog "
+              "banks it; not a forecast")
+
+
+def enso_now(developing: Optional[Mapping], classifier: str) -> dict:
+    """§3 `enso.now`: from the catalog run's `developing` and nothing else.
+    |latest_oni| >= 1.5 strong, >= 1.0 moderate, >= 0.5 weak; no `developing`
+    -> neutral. (A `developing` below 0.5, or without an ONI, is its bare kind.)"""
+    if not developing or not developing.get("kind"):
+        return {"category": "neutral",
+                "basis": f"no developing event in the catalog run; {NOW_CAVEAT}"}
+    kind = developing["kind"]
+    oni = developing.get("latest_oni")
+    cat = kind
+    if oni is not None:
+        mag = abs(float(oni))
+        for floor, strength in ((1.5, "strong"), (1.0, "moderate"), (0.5, "weak")):
+            if mag >= floor:
+                cat = f"{kind}_{strength}"
+                break
+    parts = [f"{_KIND_NAMES.get(kind, kind)} developing"]
+    if oni is not None:
+        season_ = developing.get("latest_season")
+        parts.append(f"latest {_INDEX_NAMES.get(classifier, 'ONI')} {float(oni):g}"
+                     + (f" ({season_})" if season_ else ""))
+    if developing.get("n_seasons") is not None:
+        parts.append(f"{developing['n_seasons']} seasons")
+    return {"category": cat, "basis": ", ".join(parts) + f"; {NOW_CAVEAT}"}
 
 
 def _md(d: date) -> str:
@@ -760,14 +1108,23 @@ def peak_base(ws: Sequence[_Walk], slots: Mapping[str, int]) -> dict:
 
 
 def source(area: str, var: str, meta: Optional[Mapping] = None) -> dict:
-    """{dataset, method}; a snow area adds the frontier row's n_index,
-    n_reporting and normals_version (None where the row does not carry one)."""
-    kind = area.split(":", 1)[0]
+    """{dataset, method}; a Columbia snow area adds the frontier row's n_index,
+    n_reporting and normals_version (None where the row does not carry one); a
+    reservoir area its capacity in TAF (the eight: their total, plus each
+    series' newest valued day, so a stopped feed is visible)."""
+    kind = area_kind(area)
     out = {"dataset": _DATASETS[(kind, var)], "method": METHODS[(kind, var)]}
-    if kind == "snow":
+    if kind == "snow" and var == "swe":
         m = meta or {}
         for k in SNOW_SOURCE_META:
             out[k] = m.get(k)
+    elif kind in ("reservoir", "major8"):
+        out["capacity_taf"] = CAPACITY_AF[reservoir_series(area)] / 1000.0
+        if kind == "major8":
+            out["capacity_af_by_reservoir"] = {i: CAPACITY_AF[i] for i in RESERVOIR_IDS}
+            out["series_frontiers"] = dict((meta or {}).get("series_frontiers") or {})
+        out["capacity_source"] = ("energylake-dashboard src/app/almanac/"
+                                  "california-water-storage/page.tsx RESERVOIRS (capacityAF)")
     return out
 
 
@@ -778,6 +1135,15 @@ RESPONSE_KEYS = ("area", "var", "units", "season", "frontier", "axis", "base",
                  "five_year", "five_year_absence", "this_season", "this_season_absence",
                  "last_season", "last_season_absence", "enso", "years", "curves",
                  "readout", "readout_absence", "peak", "peak_absence", "source")
+# A level's body (swe, storage, swe_in): d091522 put `range` and `range_absence`
+# after `five_year_absence` (§2.4). The cumulative body above is unchanged.
+LEVEL_RESPONSE_KEYS = (RESPONSE_KEYS[:RESPONSE_KEYS.index("five_year_absence") + 1]
+                       + ("range", "range_absence")
+                       + RESPONSE_KEYS[RESPONSE_KEYS.index("five_year_absence") + 1:])
+
+
+def response_keys(var: str) -> tuple[str, ...]:
+    return LEVEL_RESPONSE_KEYS if mode(var) == LEVEL else RESPONSE_KEYS
 
 
 # ---------------------------------------------------------------------------
@@ -947,3 +1313,72 @@ def daily_from_rows(var: str, rows: Iterable[Mapping], *, station_dd: bool = Fal
             v = r["v"]
         out[r["obs_date"]] = None if v is None else float(v)
     return out
+
+
+# ---------------------------------------------------------------------------
+# California hydro (d091522): SQL and the pure row maps
+# ---------------------------------------------------------------------------
+
+# The eight reservoirs' rows in one read (the sum needs every series).
+RESERVOIRS_SQL = """
+    SELECT (ts AT TIME ZONE 'UTC')::date AS obs_date, series, value::float8 AS v
+    FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
+    ORDER BY ts, series
+"""
+
+# /areas: valued days per (reservoir, water year), and for the eight's sum the
+# days on which all eight carry a value.
+AREAS_RESERVOIR_SQL = """
+    WITH t AS (
+        SELECT series, (ts AT TIME ZONE 'UTC')::date AS d, value
+        FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
+    )
+    SELECT series AS id, extract(year FROM d - interval '9 months')::int AS s,
+           count(value)::int AS n
+    FROM t GROUP BY 1, 2
+    UNION ALL
+    SELECT %(m)s AS id, s, count(*) FILTER (WHERE k = %(k)s)::int AS n
+    FROM (SELECT extract(year FROM d - interval '9 months')::int AS s,
+                 count(DISTINCT series) FILTER (WHERE value IS NOT NULL) AS k
+          FROM t GROUP BY d) x
+    GROUP BY 2
+"""
+
+# /areas: valued days per (California region, water year) INSIDE swe_in's
+# count window (Dec 1 -> May 31); a season with only off-season rows still
+# lists (n = 0).
+AREAS_CA_SNOW_SQL = """
+    SELECT split_part(series, '_', 1) AS id,
+           extract(year FROM (ts AT TIME ZONE 'UTC')::date - interval '9 months')::int AS s,
+           count(value) FILTER (WHERE extract(month FROM ts AT TIME ZONE 'UTC')
+                                IN (12, 1, 2, 3, 4, 5))::int AS n
+    FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
+    GROUP BY 1, 2
+"""
+
+CA_SNOW_SERIES = tuple(r.removeprefix("ca_") + "_avg_swc" for r in CA_SNOW)
+
+
+def storage_daily(rows: Iterable[Mapping]) -> dict[date, Optional[float]]:
+    """One reservoir's rows -> {date: TAF or None}: acre-feet / 1000, NULL stays None."""
+    return {r["obs_date"]: None if r["v"] is None else float(r["v"]) / 1000.0 for r in rows}
+
+
+def major8_daily(rows: Iterable[Mapping]) -> tuple[dict[date, Optional[float]], dict[str, Optional[str]]]:
+    """The eight's rows -> ({date: TAF or None}, {id: newest valued day}).
+
+    A date any row carries is a key. Its value is the sum of the eight's
+    acre-feet / 1000 when ALL EIGHT carry a value that day, and None
+    otherwise: never a partial sum, never renormalised."""
+    by_day: dict[date, dict[str, float]] = {}
+    last: dict[str, Optional[date]] = dict.fromkeys(RESERVOIR_IDS)
+    for r in rows:
+        day = by_day.setdefault(r["obs_date"], {})
+        if r["v"] is not None and r["series"] in last:
+            day[r["series"]] = float(r["v"])
+            if last[r["series"]] is None or r["obs_date"] > last[r["series"]]:
+                last[r["series"]] = r["obs_date"]
+    out = {d: (sum(v[i] for i in RESERVOIR_IDS) / 1000.0
+               if all(i in v for i in RESERVOIR_IDS) else None)
+           for d, v in by_day.items()}
+    return out, {i: (d.isoformat() if d else None) for i, d in last.items()}

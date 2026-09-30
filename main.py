@@ -59,6 +59,7 @@ Endpoints:
     GET /api/weather/season/areas         Season to date: the 44 areas (21 GHCNd stations N→S, the 4 absent from station_metadata.json labelled by id, then 17 LWT load regions, then 6 snow basins, d091520) with each var's first season and complete-season count; 1 h memo (2026-09-28, d091503)
     GET /api/weather/season               Season to date for ?area=station:{id}|lwt:{BA}|snow:{basin}&var=precip|hdd|cdd|swe&classifier=cpc_oni|roni: calendar-walk cumulatives (a missing day stops the line, never a zero), full-record cone (n>=30), 1991-2020 normal, five-year band, this/last season, ENSO-category medians (open year = null), readout; pure arithmetic in season.py; 15 min memo (2026-09-28, d091503)
                                           d091520: area=snow:{basin}&var=swe, a level (the day's own % of normal peak; a gap is null on its day only; Feb 29 on no slot); + season.mode, years[].peak/peak_md, top-level peak/peak_absence and source (2026-09-30)
+                                          d091522: area=reservoir:{trinity..san_luis}|reservoir:ca_major8&var=storage (TAF; the eight summed only when all eight report) and area=snow:ca_{state,north,central,south}&var=swe_in (CDEC inches): levels on a 0.90 floor (swe_in counted Dec 1→May 31), null-aware per-day statistics with n / n_by_day_min; every level gains `range` (min/median/max, n>=5) and enso.categories[*].outlook (peak + Apr 1 / Jul 1 min/median/max); every payload enso.now (from `developing`; a label, not a forecast); /areas lists 57 (2026-09-30)
     GET /api/weather/snow/board           The six snow basins' swe readouts on the newest frontier, last year's value that day, this season's peak, n_reporting/n_index; a basin missing that day carries absence; from the season memo, max-age=900 (2026-09-30, d091520)
     GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS forecast failure falls through to the model arm with receipts.fallback (D-09-25-04), obs/alerts failures stated in place (D-09-25-09); hourly from the current hour (D-09-25-10); US days 8–10 from the model arm; every model card labelled (D-09-24-09) (2026-09-25, d091477; 2026-09-26, d091485)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
@@ -19166,9 +19167,11 @@ _SEASON_ONI_SERIES = {"cpc_oni": "oni", "roni": "roni"}
 @app.get("/api/weather/season/areas")
 async def weather_season_areas():
     """Every area the season API serves — 21 GHCNd stations (N→S by
-    station_metadata.json, then the four it does not carry, labelled by id) and
-    17 LWT load regions — with each var's season, first season and count of
-    complete seasons. Memoised 1 h; DB unavailable → 503."""
+    station_metadata.json, then the four it does not carry, labelled by id),
+    17 LWT load regions, 6 Columbia snow basins, 4 California snow areas, the
+    eight California reservoirs' sum and the eight (d091522) — with each var's
+    season, first season and count of complete (and, for storage / swe_in,
+    qualifying) seasons. Memoised 1 h; DB unavailable → 503."""
     assert _pool is not None
     now_mono = time.monotonic()
     cached = _season_areas_cache.get("areas")
@@ -19191,6 +19194,17 @@ async def weather_season_areas():
                     await cur.execute(_season.AREAS_SNOW_SQL, {"d": _season.SNOW_DATASET})
                     for r in await cur.fetchall():
                         counts[(f"snow:{r['id']}", "swe")][int(r["s"])] = int(r["n"])
+                    await cur.execute(_season.AREAS_CA_SNOW_SQL,
+                                      {"d": _season.CA_SNOW_DATASET,
+                                       "s": list(_season.CA_SNOW_SERIES)})
+                    for r in await cur.fetchall():
+                        counts[(f"snow:ca_{r['id']}", "swe_in")][int(r["s"])] = int(r["n"])
+                    await cur.execute(_season.AREAS_RESERVOIR_SQL,
+                                      {"d": _season.RESERVOIR_DATASET,
+                                       "s": list(_season.RESERVOIR_IDS),
+                                       "m": _season.MAJOR8, "k": len(_season.RESERVOIR_IDS)})
+                    for r in await cur.fetchall():
+                        counts[(f"reservoir:{r['id']}", "storage")][int(r["s"])] = int(r["n"])
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
         payload = _season.build_areas(_WEATHER_STATIONS, counts)
@@ -19214,7 +19228,21 @@ async def _season_payload(area: str, var: str, classifier: str) -> dict:
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                if kind == "snow":
+                if area == f"reservoir:{_season.MAJOR8}":
+                    await cur.execute(_season.RESERVOIRS_SQL,
+                                      {"d": _season.RESERVOIR_DATASET,
+                                       "s": list(_season.RESERVOIR_IDS)})
+                    daily, fronts = _season.major8_daily(await cur.fetchall())
+                    source_meta = {"series_frontiers": fronts}
+                elif kind == "reservoir":
+                    await cur.execute(_season.LWT_SQL, {"d": _season.RESERVOIR_DATASET,
+                                                        "s": _season.reservoir_series(area)})
+                    daily = _season.storage_daily(await cur.fetchall())
+                elif var == "swe_in":
+                    await cur.execute(_season.LWT_SQL, {"d": _season.CA_SNOW_DATASET,
+                                                        "s": _season.ca_snow_series(area)})
+                    daily = _season.daily_from_rows(var, await cur.fetchall())
+                elif kind == "snow":
                     await cur.execute(_season.SNOW_SQL, {"d": _season.SNOW_DATASET,
                                                          "s": _season.snow_series(area)})
                     rows = await cur.fetchall()
@@ -19263,8 +19291,9 @@ async def weather_season(area: Optional[str] = Query(None),
                          var: Optional[str] = Query(None),
                          classifier: Optional[str] = Query(None)):
     """Season to date for one area × var (`precip` = water year, stations only;
-    `hdd` = Nov–Mar; `cdd` = May–Sep; `swe` = water year, snow: areas only, a
-    level): the full-record cone, the 1991–2020 normal, the five-year band,
+    `hdd` = Nov–Mar; `cdd` = May–Sep; `swe` = water year, Columbia snow: areas,
+    a level; `storage` (TAF) on reservoir: areas and `swe_in` (inches) on
+    snow:ca_* areas, levels with a 0.90 floor, d091522): the full-record cone, the 1991–2020 normal, the five-year band,
     this and last season, ENSO-category medians, the readout, the peak and the
     source. Every number the page draws is here. Unknown area / var /
     classifier, or a var its area does not serve → 400 naming the vocabulary;
