@@ -203,6 +203,7 @@ def world(monkeypatch):
     monkeypatch.setattr(main, "_local_gfs_run_candidates", runs)
     monkeypatch.setattr(lf, "utcnow", lambda: state.get("now", NOW))
     model_arm._run_memo.clear()
+    model_arm._cell_memo.clear()
     state["install"] = install
     install()
     state["http"] = TestClient(main.app)
@@ -1836,8 +1837,10 @@ def test_T9f_key_sets_are_byte_identical_to_main():
     assert lf.HOURLY_KEYS == ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop",
                               "precip_amt", "sky", "mslp", "condition", "condition_raw",
                               "t_spread", "interp", "source", "absent")
-    assert lf.DAILY_KEYS == ("date", "hi", "lo", "pop", "precip_amt", "wind", "sky",
-                             "condition", "sunrise", "sunset", "source", "absent")
+    # d091513 §3.2 amends: `lo_period` names the NWS period that gave `lo`.
+    assert lf.DAILY_KEYS == ("date", "hi", "lo", "lo_period", "pop", "precip_amt",
+                             "wind", "sky", "condition", "sunrise", "sunset", "source",
+                             "absent")
     assert lf.SUN_KEYS == ("sunrise", "sunset", "day_length_min", "source", "absent")
     assert lf.RECEIPT_KEYS == ("arm", "source", "issued_at", "run", "fhr_range",
                                "station", "memo", "fallback", "outline_sha",
@@ -1982,10 +1985,23 @@ def test_N5_by_night_unknown_says_night():
     assert "condition: from sky, which is null (night)" in now["absent"]
 
 
+def _without_lo_period(body):
+    """d091513 §3.2 adds `lo_period` to every daily row (and, where it is null,
+    its reason). Strip exactly that and the rest must be main's bytes."""
+    for d in body["daily"]:
+        del d["lo_period"]
+        d["absent"] = [a for a in d["absent"] if not a.startswith("lo_period:")]
+    return json.dumps(body, ensure_ascii=False, allow_nan=False, indent=None,
+                      separators=(",", ":")).encode("utf-8")
+
+
 def test_N6_nws_arm_body_is_byte_identical_to_main(world):
     r = get(world, **LAX)
-    assert r.json()["receipts"]["arm"] == "nws"
-    assert hashlib.sha256(r.content).hexdigest() == LAX_NWS_SHA_MAIN
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    assert [d["lo_period"] for d in b["daily"][:7]] == \
+        [p["name"] for p in _fixture("forecast.us.json")["properties"]["periods"][1::2]][:7]
+    assert hashlib.sha256(_without_lo_period(b)).hexdigest() == LAX_NWS_SHA_MAIN
 
 
 def test_N7_past_the_runs_end_now_is_null_and_says_so():
@@ -2003,3 +2019,332 @@ def test_N7_past_the_runs_end_now_is_null_and_says_so():
     assert now["age_min"] == 250 * 60
     assert b["hourly"] == []                                 # no row invented
     lf.build_payload(**b)                                    # the contract holds
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# L1..L9 are d091513's: a deadline on the model arm (§1), run discovery warmed
+# at boot (§2), one row per local date (§3). Ones that need a background task
+# to outlive a response run the app in ONE event loop (httpx over ASGI), as
+# uvicorn does — TestClient closes its loop after every request.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import httpx  # noqa: E402
+
+
+class Gate:
+    """Wraps a store transport: every call waits on `open` first. Counts calls."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+        self.open = None
+
+    async def __call__(self, key, byte_range):
+        self.calls += 1
+        await self.open.wait()
+        return await self.inner(key, byte_range)
+
+
+def _asgi(world, gate, requests, *, between=None):
+    """Run `requests` (a list of param dicts) against the app in one loop; the
+    store answers through `gate`. `between(i)` runs after response i."""
+    store = wp.SidecarStore(transport=gate)
+    main._get_weather_store = lambda: store      # restored by the world's monkeypatch
+
+    async def go():
+        gate.open = asyncio.Event()
+        out = []
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app),
+                                     base_url="http://t") as c:
+            for i, params in enumerate(requests):
+                # bounded: a route with no deadline fails the cell, not the suite
+                out.append(await asyncio.wait_for(
+                    c.get("/api/local/forecast", params=params), 5.0))
+                if between:
+                    await between(i, gate)
+        return out
+    return asyncio.run(go())
+
+
+def _ms(r, name):
+    for p in r.headers["server-timing"].split(","):
+        k, dur = p.strip().split(";dur=")
+        if k == name:
+            return float(dur)
+    return None
+
+
+@pytest.fixture
+def spy_extend(monkeypatch):
+    """Records what `_local_extend_days` returned: the absence it stated."""
+    seen = []
+    real = main._local_extend_days
+
+    async def spy(*a, **k):
+        got = await real(*a, **k)
+        seen.append(got)
+        return got
+    monkeypatch.setattr(main, "_local_extend_days", spy)
+    return seen
+
+
+# The real constant is 2.5 s; the cells shrink it so the suite does not sit
+# out 2.5 s per cell. The mechanism is the same object.
+DEADLINE = 0.2
+#: scheduler slack on top of the deadline for a measured wait (event loop wake)
+SLACK_MS = 60.0
+
+
+def test_L0_the_deadline_is_two_and_a_half_seconds():
+    assert main.MODEL_EXTEND_DEADLINE_S == 2.5
+    assert "model_wait" in lf.TIMING_NAMES
+
+
+def test_L1_a_slow_model_arm_misses_the_deadline_and_says_so(world, monkeypatch, spy_extend):
+    monkeypatch.setattr(main, "MODEL_EXTEND_DEADLINE_S", DEADLINE)
+    gate = Gate(world["bank"])
+    t0 = time.perf_counter()
+    (r,) = _asgi(world, gate, [LAX])
+    wall = time.perf_counter() - t0
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert len(b["daily"]) == 7
+    assert all(d["source"].startswith("nws ·") for d in b["daily"])
+    assert "days 8–10 pending: model arm still reading (deadline 0.2 s)" in b["receipts"]["notes"]
+    assert spy_extend == [{"days": [8, 10], "reason": "deadline"}]
+    wait = _ms(r, "model_wait")
+    assert DEADLINE * 1000 <= wait <= DEADLINE * 1000 + SLACK_MS
+    assert wall < DEADLINE + 1.0
+    assert _timing_ok(r)
+
+
+def test_L1_the_note_names_the_real_deadline(monkeypatch):
+    """The real 2.5 s, on a fake clock: `wait_for` is handed the constant and
+    elapses at once, and the task it was waiting on is left running."""
+    parts = {"daily": [{"date": "2026-09-25"}] * 7, "receipts": {"notes": []},
+             "place": {"tz": "America/Los_Angeles"}}
+    real_wait_for = asyncio.wait_for
+    asked = []
+
+    async def instant(aw, timeout):
+        asked.append(timeout)
+        return await real_wait_for(aw, 0)
+    monkeypatch.setattr(main.asyncio, "wait_for", instant)
+
+    async def go():
+        task = asyncio.ensure_future(asyncio.get_running_loop().create_future())
+        got = await real_wait_for(main._local_extend_days(
+            parts, 33.94, -118.41, NOW, task, lf.Timings()), 5.0)
+        assert not task.done()                    # shielded: still reading
+        task.cancel()
+        return got
+    assert asyncio.run(go()) == {"days": [8, 10], "reason": "deadline"}
+    assert asked == [2.5]
+    assert parts["receipts"]["notes"] == [
+        "days 8–10 pending: model arm still reading (deadline 2.5 s)"]
+
+
+def test_L2_the_read_finishes_behind_the_response_and_serves_the_next(world, monkeypatch):
+    monkeypatch.setattr(main, "MODEL_EXTEND_DEADLINE_S", DEADLINE)
+    gate = Gate(world["bank"])
+    counts = []
+
+    async def between(i, g):
+        if i == 0:
+            assert main._local_background            # held, not cancelled
+            g.open.set()
+            await asyncio.gather(*main._local_background)
+            assert not main._local_background
+        counts.append(g.calls)
+
+    first, second = _asgi(world, gate, [LAX, LAX], between=between)
+    assert len(first.json()["daily"]) == 7
+    b = second.json()
+    assert len(b["daily"]) == 10
+    assert [d["date"] for d in b["daily"][7:]] == ["2026-10-02", "2026-10-03", "2026-10-04"]
+    assert "days 8–10 from model · GFS 12Z" in b["receipts"]["notes"]
+    assert counts[0] > 0 and counts[1] == counts[0]  # the second read made NO store GET
+
+
+def _raising(exc):
+    async def t(key, byte_range):
+        raise exc
+    return t
+
+
+@pytest.mark.parametrize("exc,words,reason", [
+    (httpx.ReadTimeout("read timed out"), "store timeout", "store_timeout"),
+    (httpx.ConnectTimeout("connect timed out"), "store timeout", "store_timeout"),
+    (httpx.ConnectError("connection refused"), "store unreachable", "store_unreachable"),
+])
+@pytest.mark.parametrize("where", ["discovery", "ladders"])
+def test_L3_a_store_timeout_is_named_not_a_class(world, spy_extend, exc, words, reason, where):
+    if where == "ladders":                        # the run is known; the ladder GETs fail
+        assert get(world, **VANCOUVER).status_code == 200
+        model_arm._cell_memo.clear()
+    world["bank"] = _raising(exc)
+    world["install"]()
+    b = get(world, **LAX).json()
+    assert f"days 8–10 unavailable: model arm {words}" in b["receipts"]["notes"]
+    assert spy_extend == [{"days": [8, 10], "reason": reason}]
+    for n in b["receipts"]["notes"]:
+        assert not re.search(r"Timeout|Error|Exception", n), n
+    m = get(world, **VANCOUVER)                   # item 4 applies outside the US too
+    assert m.status_code == 503
+    assert m.json()["detail"]["error"] == f"model arm unavailable: {reason}"
+
+
+def test_L3_anything_else_still_prints_its_class(world, monkeypatch, spy_extend):
+    async def boom(*a, **k):
+        raise KeyError("x")
+    monkeypatch.setattr(main._model_arm, "read", boom)
+    b = get(world, **LAX).json()
+    assert "days 8–10 unavailable: model arm KeyError" in b["receipts"]["notes"]
+    assert spy_extend == [{"days": [8, 10], "reason": "error"}]
+
+
+def test_L4_a_model_arm_inside_the_deadline_is_todays_answer(world, spy_extend):
+    assert main.MODEL_EXTEND_DEADLINE_S == 2.5
+    world["bank"] = Latent(world["bank"], 5)
+    world["install"]()
+    r = get(world, **LAX)
+    b = r.json()
+    assert len(b["daily"]) == 10
+    assert [d["date"] for d in b["daily"][7:]] == ["2026-10-02", "2026-10-03", "2026-10-04"]
+    assert "days 8–10 from model · GFS 12Z" in b["receipts"]["notes"]
+    assert not any("pending" in n for n in b["receipts"]["notes"])
+    assert spy_extend == [None]
+    assert _ms(r, "model_wait") < 2500
+
+
+def test_L5_outside_the_us_there_is_no_deadline(world, monkeypatch, spy_extend):
+    monkeypatch.setattr(main, "MODEL_EXTEND_DEADLINE_S", 0.01)
+    world["bank"] = Latent(world["bank"], 20)     # ~6 rounds of 8 → well past 0.01 s
+    world["install"]()
+    r = get(world, **VANCOUVER)
+    assert r.status_code == 200
+    b = r.json()
+    assert b["receipts"]["arm"] == "model" and len(b["daily"]) >= 9
+    assert not any("pending" in n for n in b["receipts"]["notes"])
+    assert _ms(r, "model_ladders") > 10 and _ms(r, "model_wait") is None
+    assert spy_extend == []
+
+
+def test_L6_ten_readers_of_a_stale_memo_start_one_refresh():
+    clock = Clock()
+    model_arm._run_memo.clear()
+    model_arm._refresh_tasks.clear()
+    model_arm._run_memo[model_arm.MODEL] = (clock.t - (model_arm.RUN_MEMO_TTL_S + 1), OLD_RUN)
+    assert model_arm.RUN_MEMO_TTL_S + 1 < model_arm.RUN_MEMO_MAX_AGE_S
+    ledger = Ledger()
+    store = wp.SidecarStore(transport=FakeGlobalBank())
+
+    async def go():
+        ledger.gate = asyncio.Event()             # the refresh cannot finish yet
+        got = await asyncio.wait_for(asyncio.gather(
+            *(model_arm.discover_run(store, ledger, clock) for _ in range(10))), 0.5)
+        await asyncio.sleep(0)
+        calls = ledger.calls
+        ledger.gate.set()
+        await model_arm._refresh_tasks[model_arm.MODEL]
+        return got, calls
+    got, calls = asyncio.run(go())
+    assert got == [OLD_RUN] * 10                  # every reader at once, the memo
+    assert calls == 1                             # exactly one background refresh
+    assert model_arm._run_memo[model_arm.MODEL][1] == RUN
+
+
+def test_L6_boot_warms_the_run_and_never_fails(world, caplog):
+    model_arm._run_memo.clear()
+    asyncio.run(main._local_warm_run())
+    assert model_arm._run_memo[model_arm.MODEL][1] == RUN
+    model_arm._run_memo.clear()
+    world["bank"] = _raising(httpx.ReadTimeout("slow"))
+    world["install"]()
+    with caplog.at_level(logging.WARNING, logger="energylake.local"):
+        asyncio.run(main._local_warm_run())       # does not raise
+    assert model_arm._run_memo == {}
+    assert any(r.getMessage() == "[[LOCAL_RUN_WARM_FAILED]] store_timeout"
+               for r in caplog.records)
+
+
+def test_L6_boot_warm_is_in_the_lifespan():
+    import inspect
+    src = inspect.getsource(main.lifespan)
+    assert "asyncio.create_task(_local_warm_run())" in src
+
+
+# ── §3 — one row per local date ───────────────────────────────────────────
+
+FRESNO = (36.78, -119.79)
+FRESNO_TZ = "America/Los_Angeles"
+SRC = "nws · gridpoint LOX/154,44 · issued 2026-09-25T18:31Z"
+
+
+def _periods():
+    return _fixture("forecast.us.json")["properties"]["periods"]
+
+
+def _fresno_1052z():
+    """The 10:52Z shape: Overnight (62), Today (93), Tonight (64), then the days."""
+    p = _periods()
+    today = {**p[0], "name": "Today", "startTime": "2026-09-25T06:00:00-07:00",
+             "temperature": 93}
+    tonight = {**p[1], "temperature": 64}
+    overnight = {**p[1], "number": 0, "name": "Overnight",
+                 "startTime": "2026-09-25T03:00:00-07:00",
+                 "endTime": "2026-09-25T06:00:00-07:00", "temperature": 62,
+                 "probabilityOfPrecipitation": {"unitCode": "wmoUnit:percent", "value": 20}}
+    return [overnight, today, tonight] + p[2:]
+
+
+def _c(f):
+    return round((f - 32) * 5 / 9, 1)
+
+
+def test_L7_overnight_and_today_are_one_row():
+    rows = nws_arm.daily_rows(_fresno_1052z(), FRESNO_TZ, *FRESNO, SRC)
+    dates = [r["date"] for r in rows]
+    assert len(dates) == len(set(dates)) == 7
+    r0 = rows[0]
+    assert r0["date"] == "2026-09-25"
+    assert (r0["hi"], r0["lo"], r0["lo_period"]) == (_c(93), _c(62), "Overnight")
+    assert r0["pop"] == 20                        # the overnight period is today's too
+    assert not any(a.startswith(("hi:", "lo:", "lo_period:")) for a in r0["absent"])
+    assert rows[1]["date"] == "2026-09-26" and rows[1]["hi"] == _c(79)
+
+
+def test_L7_the_lower_night_wins_either_way():
+    p = _fresno_1052z()
+    p[0]["temperature"], p[2]["temperature"] = 66, 61
+    r0 = nws_arm.daily_rows(p, FRESNO_TZ, *FRESNO, SRC)[0]
+    assert (r0["lo"], r0["lo_period"]) == (_c(61), "Tonight")
+
+
+def test_L7_the_route_serves_one_today_and_extends_from_the_merged_length(world):
+    fc = _fixture("forecast.us.json")
+    fc["properties"]["periods"] = _fresno_1052z()
+    world["nws"].override["forecast"] = fc
+    b = get(world, **LAX).json()
+    dates = [d["date"] for d in b["daily"]]
+    assert len(dates) == len(set(dates)) == 10
+    assert b["daily"][0]["lo_period"] == "Overnight" and b["daily"][0]["hi"] == _c(93)
+    assert "days 8–10 from model · GFS 12Z" in b["receipts"]["notes"]
+
+
+def test_L8_an_evening_read_keeps_its_night_only_row():
+    p = _periods()[1:]                            # "Tonight", then "Friday"
+    rows = nws_arm.daily_rows(p, FRESNO_TZ, *FRESNO, SRC)
+    r0 = rows[0]
+    assert r0["date"] == "2026-09-25" and rows[1]["date"] == "2026-09-26"
+    assert r0["hi"] is None and "hi: day period elapsed" in r0["absent"]
+    assert (r0["lo"], r0["lo_period"]) == (_c(63), "Tonight")
+    dates = [r["date"] for r in rows]
+    assert len(dates) == len(set(dates))
+
+
+def test_L9_a_daytime_read_is_mains_rows_plus_lo_period():
+    p = _periods()                                # "This Afternoon", "Tonight", …
+    rows = nws_arm.daily_rows(p, "America/Los_Angeles", 33.94, -118.41, SRC)
+    want = json.loads((NWS_FIX / "daily_rows_daytime.main.json").read_text())
+    assert [r.pop("lo_period") for r in rows] == [x["name"] for x in p[1::2]]
+    assert json.loads(json.dumps(rows)) == want

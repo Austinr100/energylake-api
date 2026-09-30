@@ -91,6 +91,25 @@ class ModelArmError(Exception):
         super().__init__(reason)
 
 
+#: d091513 §1.4 — the store's transport failures, named. `SidecarStore` raises
+#: only `PointError` itself; an httpx timeout or transport error comes through
+#: it untouched, and printed its class name in the receipt (`ReadTimeout`).
+STORE_TIMEOUT = "store_timeout"
+STORE_UNREACHABLE = "store_unreachable"
+
+
+def _named_store_error(e: BaseException) -> Optional[ModelArmError]:
+    """An httpx timeout → `store_timeout`, any other httpx transport error →
+    `store_unreachable`; None for anything else (it stays what it is)."""
+    import httpx  # local: the rest of the API must not need it at import
+
+    if isinstance(e, httpx.TimeoutException):
+        return ModelArmError(STORE_TIMEOUT, {"transport": type(e).__name__})
+    if isinstance(e, httpx.TransportError):
+        return ModelArmError(STORE_UNREACHABLE, {"transport": type(e).__name__})
+    return None
+
+
 # (monotonic, run_dt) — the one memo this arm keeps; the store keeps the rest
 # (headers forever, values LRU'd).
 _run_memo: dict[str, tuple[float, datetime]] = {}
@@ -102,6 +121,16 @@ _refresh_tasks: dict[str, asyncio.Task] = {}
 #: the memo: one missed 6-hourly cycle plus an hour, so a dead refresher cannot
 #: serve a day-old run forever.
 RUN_MEMO_MAX_AGE_S = 7 * 3600.0
+
+#: d091513 §1.3 — the per-cell memo: `(model, run_dt, lat, lon)` → (monotonic,
+#: ladders). It is what lets a read the route stopped waiting for (the days-9–10
+#: deadline) finish in the background and serve the next request for the same
+#: point without a second ladder read. Its TTL is the run memo's, and an entry
+#: is also dead once the run memo it was read under has been replaced, so a
+#: ladder never outlives the discovery that chose its run.
+CELL_MEMO_TTL_S = RUN_MEMO_TTL_S
+CELL_MEMO_MAX = 256
+_cell_memo: dict[tuple, tuple[float, float, dict]] = {}
 
 log = logging.getLogger("energylake.local")
 
@@ -128,6 +157,11 @@ async def _discover(store: wp.SidecarStore,
             if e.status == 404:
                 continue
             raise ModelArmError("sidecar storage error", e.detail)
+        except Exception as e:
+            named = _named_store_error(e)
+            if named is None:
+                raise
+            raise named from e
         return run_dt
     raise ModelArmError("no banked gfs run carries a global t2m f000 sidecar",
                         {"probed": probed})
@@ -194,6 +228,11 @@ async def read_ladder(store: wp.SidecarStore, run_dt: datetime, param: str,
         if e.status == 404 and err == "point is outside the crop":
             raise ModelArmError("point outside the global crop", e.detail)
         raise ModelArmError("sidecar storage error", e.detail)
+    except Exception as e:
+        named = _named_store_error(e)
+        if named is None:
+            raise
+        raise named from e
     values: dict[int, Optional[float]] = {}
     reasons: dict[int, str] = {}
     for row in lad["values"]:
@@ -343,7 +382,8 @@ def _daily(series: list[dict], run_dt: datetime, tz: str, lat: float, lon: float
 
 def _day_row(d: date, hours: list[dict], tz: str, lat: float, lon: float,
              label: str) -> dict:
-    absent = ["pop: not banked", "precip_amt: not banked",
+    absent = ["lo_period: model rows are not built from NWS periods",
+              "pop: not banked", "precip_amt: not banked",
               "wind.dir_deg: not banked (wind10m is a speed)",
               "wind.dir_txt: not banked (wind10m is a speed)", "wind.gust: not banked"]
     ts = [h["t"] for h in hours]
@@ -363,7 +403,8 @@ def _day_row(d: date, hours: list[dict], tz: str, lat: float, lon: float,
         absent.append("condition: from sky, which is null (no daylight window with dswrf)")
     sun = lf.sun_times(lat, lon, d, tz)
     absent += sun["absent"]
-    return {"date": d.isoformat(), "hi": hi, "lo": lo, "pop": None, "precip_amt": None,
+    return {"date": d.isoformat(), "hi": hi, "lo": lo, "lo_period": None,
+            "pop": None, "precip_amt": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": wind, "gust": None},
             "sky": sky, "condition": lf.condition_from_sky(sky),
             "sunrise": sun["sunrise"], "sunset": sun["sunset"],
@@ -393,7 +434,8 @@ def _today_row(series: list[dict], run_dt: datetime, generated_at: datetime, tz:
              if v in by_valid]
     if not hours:
         return None
-    absent = ["pop: not banked", "precip_amt: not banked",
+    absent = ["lo_period: model rows are not built from NWS periods",
+              "pop: not banked", "precip_amt: not banked",
               "wind.dir_deg: not banked (wind10m is a speed)",
               "wind.dir_txt: not banked (wind10m is a speed)", "wind.gust: not banked"]
     ts = [h["t"] for h in hours]
@@ -418,7 +460,8 @@ def _today_row(series: list[dict], run_dt: datetime, generated_at: datetime, tz:
         absent += [f"sky: {why}", f"condition: from sky, which is null ({why})"]
     sun = lf.sun_times(lat, lon, today, tz)
     absent += sun["absent"]
-    return {"date": today.isoformat(), "hi": hi, "lo": lo, "pop": None, "precip_amt": None,
+    return {"date": today.isoformat(), "hi": hi, "lo": lo, "lo_period": None,
+            "pop": None, "precip_amt": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": wind, "gust": None},
             "sky": sky, "condition": lf.condition_from_sky(sky),
             "sunrise": sun["sunrise"], "sunset": sun["sunset"],
@@ -510,24 +553,37 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
 async def read(store: wp.SidecarStore,
                candidates: Callable[[], Awaitable[list[datetime]]],
                lat: float, lon: float,
-               timings: Optional[lf.Timings] = None) -> tuple[datetime, dict]:
+               timings: Optional[lf.Timings] = None,
+               clock: Callable[[], float] = time.monotonic) -> tuple[datetime, dict]:
     """The model arm's I/O: the run, then the four ladders AT THE SAME TIME
     (D-09-25-28). Each ladder keeps its own 8-in-flight bound, so at most
     4 × LADDER_CONCURRENCY range GETs are in flight — the store's pool allows
     that many. `{p: await read_ladder(...) for p in PARAMS}` would be serial.
-    The first failing param (in PARAMS order) raises, as the serial read did."""
+    The first failing param (in PARAMS order) raises, as the serial read did.
+    A completed read is memoised per cell (d091513 §1.3, `_cell_memo`); a
+    failed one is not."""
     timings = timings if timings is not None else lf.Timings()
     if not store.configured():
         raise ModelArmError("weather value sidecar storage not configured")
     with timings.mark("model_run"):
-        run_dt = await discover_run(store, candidates)
+        run_dt = await discover_run(store, candidates, clock)
+    run_stamp = _run_memo[MODEL][0]
+    key = (MODEL, run_dt, round(lat, 4), round(lon, 4))
     with timings.mark("model_ladders"):
+        hit = _cell_memo.get(key)
+        if (hit is not None and hit[1] == run_stamp
+                and clock() - hit[0] < CELL_MEMO_TTL_S):
+            return run_dt, hit[2]
         got = await asyncio.gather(*(read_ladder(store, run_dt, p, lat, lon)
                                      for p in PARAMS), return_exceptions=True)
     for g in got:
         if isinstance(g, BaseException):
             raise g
-    return run_dt, dict(zip(PARAMS, got))
+    ladders = dict(zip(PARAMS, got))
+    if len(_cell_memo) >= CELL_MEMO_MAX:
+        del _cell_memo[min(_cell_memo, key=lambda k: _cell_memo[k][0])]
+    _cell_memo[key] = (clock(), run_stamp, ladders)
+    return run_dt, ladders
 
 
 async def answer(store: wp.SidecarStore,

@@ -318,16 +318,33 @@ def _period_wind(period: dict, absent: list[str], *, gust_reason: str) -> dict:
     return {"dir_deg": deg, "dir_txt": txt, "speed": speed, "gust": gust}
 
 
+def _local_date(period: dict, zone: ZoneInfo):
+    return datetime.fromisoformat(period["startTime"]).astimezone(zone).date()
+
+
 def daily_rows(periods: list[dict], tz: str, lat: float, lon: float,
                source: str) -> list[dict]:
     """Day/night paired into one row: `hi` from the day period, `lo` from the
     night that follows it. A leading night-only period (the day has elapsed)
-    fills `lo` and leaves `hi` null with its reason."""
+    fills `lo` and leaves `hi` null with its reason.
+
+    d091513 §3 — one row per local date. After local midnight NWS's first
+    period is a night ("Overnight") dated TODAY, and the day period after it
+    ("Today") carries the same date: those are one row, `hi` from the day, `lo`
+    the lower of the two night lows with `lo_period` naming which. A leading
+    night whose next day period is another date (an evening read: "Tonight",
+    then tomorrow) stays a night-only row."""
     zone = ZoneInfo(tz)
     rows: list[dict] = []
     i = 0
     while i < len(periods) and len(rows) < DAILY_ROWS:
         p = periods[i]
+        early = None
+        if (not p.get("isDaytime") and i + 1 < len(periods)
+                and periods[i + 1].get("isDaytime")
+                and _local_date(periods[i + 1], zone) == _local_date(p, zone)):
+            early, i = p, i + 1                 # "Overnight" joins "Today"
+            p = periods[i]
         if p.get("isDaytime"):
             day, night = p, (periods[i + 1] if i + 1 < len(periods)
                              and not periods[i + 1].get("isDaytime") else None)
@@ -335,24 +352,31 @@ def daily_rows(periods: list[dict], tz: str, lat: float, lon: float,
         else:
             day, night = None, p
             i += 1
-        rows.append(_daily_row(day, night, zone, tz, lat, lon, source))
+        rows.append(_daily_row(day, night, zone, tz, lat, lon, source, early=early))
     return rows
 
 
 def _daily_row(day: Optional[dict], night: Optional[dict], zone: ZoneInfo, tz: str,
-               lat: float, lon: float, source: str) -> dict:
+               lat: float, lon: float, source: str,
+               early: Optional[dict] = None) -> dict:
+    """`early` is a same-date night BEFORE the day (d091513 §3): its low competes
+    with the following night's for `lo`, the lower wins, and `lo_period` names
+    the period that gave it. Neither number is averaged or adjusted."""
     absent: list[str] = []
     lead = day or night
-    d = datetime.fromisoformat(lead["startTime"]).astimezone(zone).date()
+    d = _local_date(lead, zone)
     hi = _temp(day) if day else None
     if hi is None:
         absent.append("hi: day period elapsed" if day is None else "hi: not reported")
-    lo = _temp(night) if night else None
+    lows = [(t, x.get("name")) for x in (early, night) if x is not None
+            for t in (_temp(x),) if t is not None]
+    lo, lo_period = min(lows, key=lambda tl: tl[0]) if lows else (None, None)
     if lo is None:
-        absent.append("lo: night period beyond the forecast" if night is None
-                      else "lo: not reported")
+        why = ("lo: night period beyond the forecast" if night is None and early is None
+               else "lo: not reported")
+        absent += [why, "lo_period: " + why.split(": ", 1)[1]]
     pops = [v for v in (_qv((x or {}).get("probabilityOfPrecipitation"))[0]
-                        for x in (day, night)) if v is not None]
+                        for x in (early, day, night)) if v is not None]
     pop = int(round(max(pops))) if pops else None
     if pop is None:
         absent.append("pop: not reported")
@@ -362,7 +386,8 @@ def _daily_row(day: Optional[dict], night: Optional[dict], zone: ZoneInfo, tz: s
     sun = lf.sun_times(lat, lon, d, tz)
     absent += sun["absent"]
     absent.append("precip_amt: not in nws forecast")
-    return {"date": d.isoformat(), "hi": hi, "lo": lo, "pop": pop, "precip_amt": None,
+    return {"date": d.isoformat(), "hi": hi, "lo": lo, "lo_period": lo_period,
+            "pop": pop, "precip_amt": None,
             "wind": wind, "sky": sky, "condition": condition, "sunrise": sun["sunrise"],
             "sunset": sun["sunset"], "source": source, "absent": absent}
 
