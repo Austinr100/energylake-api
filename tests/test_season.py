@@ -396,7 +396,7 @@ class _SeasonPool:
         if q == season.AREAS_LWT_SQL:
             return [{"id": "BPAT", "var": "hdd", "s": 2011, "n": 151}]
         if q in (season.AREAS_SNOW_SQL, season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL,
-                 season.AREAS_LOAD_SQL):
+                 season.AREAS_LOAD_SQL, season.AREAS_RESERVOIR_REGIONS_SQL):
             return []
         raise AssertionError(f"unexpected statement: {q}")
 
@@ -405,15 +405,18 @@ class _SeasonPool:
 def _clear_memos():
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
     yield
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
 
 
 @pytest.fixture
 def pool(monkeypatch):
     p = _SeasonPool()
     monkeypatch.setattr(main, "_pool", p)
+    monkeypatch.setattr(main, "_season_pool", p)     # d091542: the season routes' own pool
     return p
 
 
@@ -427,18 +430,19 @@ def test_s11_route_key_order_and_areas(client, pool):
                    params={"area": "station:USW00023232", "var": "precip"})
     assert r.status_code == 200
     body = r.json()
-    assert tuple(body) == season.RESPONSE_KEYS
+    assert tuple(body) == season.RESPONSE_KEYS + season.ROUTE_ADDED_KEYS     # d091542
     table = ("area", "var", "units", "season", "frontier", "axis", "base", "percentiles",
              "normal", "five_year", "this_season", "last_season", "enso", "years",
              "curves", "readout", "peak", "source")
-    assert tuple(k for k in body if not k.endswith("_absence")) == table
+    assert tuple(k for k in body if not k.endswith("_absence")
+                 and k not in season.ROUTE_ADDED_KEYS) == table
     assert body["units"] == "mm" and body["frontier"] == "2026-09-24"
     assert body["base"]["n"] == 35 and body["percentiles"] is not None
     assert r.headers["cache-control"] == "max-age=900"
 
     r = client.get("/api/weather/season/areas")
     areas = r.json()["areas"]
-    assert len(areas) == 86          # d091522: + 4 California snow + 9 reservoir; d091525: + 28 ba; d091536: + col_canada
+    assert len(areas) == 89          # d091522: + 4 California snow + 9 reservoir; d091525: + 28 ba; d091536: + col_canada; d091542: + 3 reservoir regions
     assert [a["kind"] for a in areas].count("station") == 21
     assert [a["kind"] for a in areas].count("lwt") == 17
     assert areas[0]["area"] == "station:USW00024157" and areas[0]["label"] == "Spokane"
@@ -448,7 +452,8 @@ def test_s11_route_key_order_and_areas(client, pool):
     sac = next(a for a in areas if a["area"] == "station:USW00023232")
     pv = next(v for v in sac["vars"] if v["var"] == "precip")
     assert pv == {"var": "precip", "season": "water_year", "units": "mm",
-                  "first_season": "WY1942", "complete_seasons": 85}
+                  "first_season": "WY1942", "complete_seasons": 85,
+                  "data_type": "precipitation", "measure": "water-year total, mm"}   # d091542
     assert [v["var"] for v in areas[37]["vars"]] == ["hdd", "cdd"]
 
 

@@ -1,0 +1,55 @@
+# Railway HTTP log, service `web` (production), 2026-10-01 10:35-10:42Z, every request of >= 5 s.
+# The log's timestamp is the request's END (the two market-clock 200s and five season reads all end at 10:40:11-14,
+# when the pool freed); start = end - totalDuration. Status 499 = the client went away; the handler kept running.
+# start_utc      end_utc        seconds  status  path
+10:36:42.931   10:36:57.416      14.5   499     /api/market-clock
+10:36:42.934   10:36:56.671      13.7   200     /api/weather/delta-board
+10:36:42.934   10:36:48.873       5.9   200     /api/timeseries/caiso-peak-demand
+10:36:42.935   10:37:39.793      56.9   200     /api/weather/temp-matrix
+10:36:59.758   10:40:11.858     192.1   200     /api/market-clock
+10:36:59.761   10:37:29.762      30.0   500     /api/timeseries/caiso-hub-lmp
+10:37:00.419   10:37:40.251      39.8   200     /api/almanac/daily
+10:37:24.623   10:37:40.023      15.4   200     /api/almanac/daily
+10:37:54.709   10:40:11.854     137.1   200     /api/market-clock
+10:37:54.711   10:38:55.419      60.7   503     /api/weather/dd/daily
+10:37:54.712   10:38:54.726      60.0   503     /api/weather/dd/forecast
+10:37:54.712   10:38:24.725      30.0   503     /api/weather/season
+10:37:54.714   10:38:24.725      30.0   503     /api/weather/season
+10:37:59.755   10:38:29.757      30.0   500     /api/timeseries/caiso-hub-lmp
+10:37:59.757   10:38:29.758      30.0   503     /api/market-clock
+10:38:15.966   10:38:45.968      30.0   503     /api/market-clock
+10:38:15.972   10:38:45.976      30.0   500     /api/timeseries/caiso-hub-lmp
+10:38:16.016   10:38:46.018      30.0   503     /api/market-clock
+10:38:16.019   10:38:46.022      30.0   500     /api/timeseries/caiso-hub-lmp
+10:38:49.514   10:39:19.518      30.0   503     /api/weather/season
+10:39:15.723   10:39:45.728      30.0   503     /api/market-clock
+10:39:15.727   10:39:45.729      30.0   500     /api/timeseries/caiso-hub-lmp
+10:39:15.985   10:39:45.988      30.0   503     /api/market-clock
+10:39:15.985   10:39:45.994      30.0   500     /api/timeseries/caiso-hub-lmp
+10:39:19.618   10:39:49.620      30.0   503     /api/weather/season
+10:39:40.611   10:40:13.230      32.6   200     /api/weather/dd/daily
+10:39:40.615   10:40:12.748      32.1   200     /api/weather/dd/cumulative
+10:39:40.617   10:40:12.739      32.1   200     /api/weather/dd/forecast
+10:39:42.174   10:40:12.474      30.3   200     /api/weather/season
+10:39:42.178   10:40:12.450      30.3   200     /api/weather/season
+10:39:47.270   10:40:12.510      25.2   200     /api/weather/season
+10:39:47.272   10:40:14.459      27.2   200     /api/weather/season
+10:39:49.713   10:40:14.615      24.9   200     /api/weather/season
+
+# every /api/market-clock request in the window (end, ms, status):
+10:36:01.254     2931  200
+10:36:57.416    14485  499
+10:36:57.416     2979  499
+10:36:59.751     2334  499
+10:38:29.758    30001  503
+10:38:45.968    30002  503
+10:38:46.018    30002  503
+10:39:45.728    30005  503
+10:39:45.988    30003  503
+10:40:11.854   137145  200
+10:40:11.858   192100  200
+10:40:19.464     3766  200
+10:40:19.695     3717  200
+10:40:27.384     2734  200
+10:40:45.117     2725  200
+10:41:18.700     2721  200

@@ -344,7 +344,7 @@ class _CanadaPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_LOAD_SQL):
+                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_LOAD_SQL, season.AREAS_RESERVOIR_REGIONS_SQL):
             return []
         if q == season.AREAS_SNOW_SQL:
             out = []
@@ -364,15 +364,18 @@ class _CanadaPool:
 def _clear_memos():
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
     yield
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
 
 
 @pytest.fixture
 def pool(monkeypatch):
     p = _CanadaPool()
     monkeypatch.setattr(main, "_pool", p)
+    monkeypatch.setattr(main, "_season_pool", p)     # d091542: the season routes' own pool
     return p
 
 
@@ -385,7 +388,12 @@ US_SIX = [f"snow:{b}" for b in season.SNOW_BASINS]
 
 
 def _us_six_json(areas) -> str:
-    six = [a for a in areas if a["area"] in US_SIX]
+    """The US six as main @ be703ac served them: d091542's added keys (and only
+    those) are taken back out before the comparison."""
+    six = [{k: ([{vk: vv for vk, vv in v.items() if vk not in season.VAR_ADDED_KEYS}
+                 for v in val] if k == "vars" else val)
+            for k, val in a.items() if k not in season.AREA_ADDED_KEYS}
+           for a in areas if a["area"] in US_SIX]
     return json.dumps(six, ensure_ascii=False, indent=1) + "\n"
 
 
@@ -393,7 +401,7 @@ def test_k1_areas_lists_canada_once_after_the_six_and_the_six_are_mains(client):
     r = client.get("/api/weather/season/areas")
     assert r.status_code == 200
     areas = r.json()["areas"]
-    assert len(areas) == 86
+    assert len(areas) == 89                           # d091542: + 3 reservoir regions
     ids = [a["area"] for a in areas]
     assert ids.count(CANADA) == 1
     i = ids.index(CANADA)
@@ -404,7 +412,9 @@ def test_k1_areas_lists_canada_once_after_the_six_and_the_six_are_mains(client):
     # the base's 25 plus WY2026; WY1997 (rows only from Jul 27) is the first season.
     assert ca["vars"] == [{"var": "swe", "season": "water_year", "units": "% of normal peak",
                            "first_season": "WY1997", "complete_seasons": 26,
-                           "qualifying_seasons": 26}]
+                           "qualifying_seasons": 26,
+                           "data_type": "snow_water_equivalent",          # d091542
+                           "measure": "percent of normal peak"}]
     # The US six, byte for byte, as main @ be703ac served them from these rows.
     assert _us_six_json(areas) == FIXTURE.read_text(encoding="utf-8")
 

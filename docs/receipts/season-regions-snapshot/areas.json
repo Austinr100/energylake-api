@@ -1,0 +1,2895 @@
+{
+ "areas": [
+  {
+   "area": "station:USW00024157",
+   "kind": "station",
+   "label": "Spokane",
+   "state": "WA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1900",
+     "complete_seasons": 123,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1899-00",
+     "complete_seasons": 123,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1900",
+     "complete_seasons": 126,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00024233",
+   "kind": "station",
+   "label": "Seattle",
+   "state": "WA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1948",
+     "complete_seasons": 73,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1947-48",
+     "complete_seasons": 76,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1948",
+     "complete_seasons": 78,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00024229",
+   "kind": "station",
+   "label": "Portland",
+   "state": "OR",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1938",
+     "complete_seasons": 85,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1938-39",
+     "complete_seasons": 88,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1938",
+     "complete_seasons": 88,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00024131",
+   "kind": "station",
+   "label": "Boise",
+   "state": "ID",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1940",
+     "complete_seasons": 85,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1939-40",
+     "complete_seasons": 86,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1940",
+     "complete_seasons": 86,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00024127",
+   "kind": "station",
+   "label": "Salt Lake City",
+   "state": "UT",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1948",
+     "complete_seasons": 76,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1947-48",
+     "complete_seasons": 77,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1948",
+     "complete_seasons": 77,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "rockies",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00024257",
+   "kind": "station",
+   "label": "Redding",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1986",
+     "complete_seasons": 39,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1986-87",
+     "complete_seasons": 38,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1986",
+     "complete_seasons": 39,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00003017",
+   "kind": "station",
+   "label": "Denver",
+   "state": "CO",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1994",
+     "complete_seasons": 28,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1994-95",
+     "complete_seasons": 30,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1994",
+     "complete_seasons": 30,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "rockies",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023185",
+   "kind": "station",
+   "label": "Reno",
+   "state": "NV",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1937",
+     "complete_seasons": 87,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1936-37",
+     "complete_seasons": 89,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1937",
+     "complete_seasons": 89,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023232",
+   "kind": "station",
+   "label": "Sacramento",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1942",
+     "complete_seasons": 74,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1941-42",
+     "complete_seasons": 83,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1947",
+     "complete_seasons": 78,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00093193",
+   "kind": "station",
+   "label": "Fresno",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1948",
+     "complete_seasons": 77,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1947-48",
+     "complete_seasons": 78,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1948",
+     "complete_seasons": 78,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023169",
+   "kind": "station",
+   "label": "Las Vegas",
+   "state": "NV",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1948",
+     "complete_seasons": 76,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1948-49",
+     "complete_seasons": 77,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1948",
+     "complete_seasons": 77,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023050",
+   "kind": "station",
+   "label": "Albuquerque",
+   "state": "NM",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1931",
+     "complete_seasons": 92,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1930-31",
+     "complete_seasons": 93,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1931",
+     "complete_seasons": 94,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023152",
+   "kind": "station",
+   "label": "Burbank",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1998",
+     "complete_seasons": 21,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1998-99",
+     "complete_seasons": 19,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1998",
+     "complete_seasons": 22,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00003102",
+   "kind": "station",
+   "label": "Riverside/Ontario",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1998",
+     "complete_seasons": 21,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1998-99",
+     "complete_seasons": 22,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1998",
+     "complete_seasons": 25,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023174",
+   "kind": "station",
+   "label": "Los Angeles",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1944",
+     "complete_seasons": 81,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1944-45",
+     "complete_seasons": 79,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1944",
+     "complete_seasons": 76,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023183",
+   "kind": "station",
+   "label": "Phoenix",
+   "state": "AZ",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1933",
+     "complete_seasons": 81,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1933-34",
+     "complete_seasons": 83,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1933",
+     "complete_seasons": 81,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00023188",
+   "kind": "station",
+   "label": "San Diego",
+   "state": "CA",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY1939",
+     "complete_seasons": 85,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "1939-40",
+     "complete_seasons": 86,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "1939",
+     "complete_seasons": 82,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "station"
+  },
+  {
+   "area": "station:USW00003145",
+   "kind": "station",
+   "label": "USW00003145",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY2011",
+     "complete_seasons": 5,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 5,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 9,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": null,
+   "level": "station",
+   "region_absence": "no state is banked for this area"
+  },
+  {
+   "area": "station:USW00023234",
+   "kind": "station",
+   "label": "USW00023234",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY2011",
+     "complete_seasons": 14,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 13,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": null,
+   "level": "station",
+   "region_absence": "no state is banked for this area"
+  },
+  {
+   "area": "station:USW00023293",
+   "kind": "station",
+   "label": "USW00023293",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY2011",
+     "complete_seasons": 13,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 11,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 11,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": null,
+   "level": "station",
+   "region_absence": "no state is banked for this area"
+  },
+  {
+   "area": "station:USW00093138",
+   "kind": "station",
+   "label": "USW00093138",
+   "vars": [
+    {
+     "var": "precip",
+     "season": "water_year",
+     "units": "mm",
+     "first_season": "WY2011",
+     "complete_seasons": 11,
+     "data_type": "precipitation",
+     "measure": "water-year total, mm"
+    },
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 13,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 11,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": null,
+   "level": "station",
+   "region_absence": "no state is banked for this area"
+  },
+  {
+   "area": "lwt:AZPS",
+   "kind": "lwt",
+   "label": "AZPS",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:BANC",
+   "kind": "lwt",
+   "label": "BANC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 14,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:BPAT",
+   "kind": "lwt",
+   "label": "BPAT",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "OR",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:EPE",
+   "kind": "lwt",
+   "label": "EPE",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": null,
+   "level": "balancing_area",
+   "state": "TX",
+   "region_absence": "state TX is not in the region table"
+  },
+  {
+   "area": "lwt:IPCO",
+   "kind": "lwt",
+   "label": "IPCO",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "ID",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:LADWP",
+   "kind": "lwt",
+   "label": "LADWP",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 13,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:NEVP",
+   "kind": "lwt",
+   "label": "NEVP",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "NV",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:PACE",
+   "kind": "lwt",
+   "label": "PACE",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 14,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 14,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "rockies",
+   "level": "balancing_area",
+   "state": "UT",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:PACW",
+   "kind": "lwt",
+   "label": "PACW",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "OR",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:PGE-TAC",
+   "kind": "lwt",
+   "label": "PGE-TAC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:PNM",
+   "kind": "lwt",
+   "label": "PNM",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "NM",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:PSEI",
+   "kind": "lwt",
+   "label": "PSEI",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:SCE-TAC",
+   "kind": "lwt",
+   "label": "SCE-TAC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 13,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 12,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:SDGE-TAC",
+   "kind": "lwt",
+   "label": "SDGE-TAC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 12,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:SRP",
+   "kind": "lwt",
+   "label": "SRP",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:TEPC",
+   "kind": "lwt",
+   "label": "TEPC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "lwt:VEA-TAC",
+   "kind": "lwt",
+   "label": "VEA-TAC",
+   "vars": [
+    {
+     "var": "hdd",
+     "season": "heating",
+     "units": "°F·day",
+     "first_season": "2010-11",
+     "complete_seasons": 15,
+     "data_type": "heating_degree_days",
+     "measure": "°F·day, season total"
+    },
+    {
+     "var": "cdd",
+     "season": "cooling",
+     "units": "°F·day",
+     "first_season": "2011",
+     "complete_seasons": 15,
+     "data_type": "cooling_degree_days",
+     "measure": "°F·day, season total"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "NV",
+   "region_basis": "home state"
+  },
+  {
+   "area": "snow:columbia_above_the_dalles",
+   "kind": "snow",
+   "label": "Columbia above The Dalles (US)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1983",
+     "complete_seasons": 41,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "aggregate",
+   "members": [
+    "snow:col_above_grand_coulee",
+    "snow:col_mid_tributaries",
+    "snow:snake"
+   ]
+  },
+  {
+   "area": "snow:col_above_grand_coulee",
+   "kind": "snow",
+   "label": "Columbia above Grand Coulee (US)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1983",
+     "complete_seasons": 41,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "basin"
+  },
+  {
+   "area": "snow:col_mid_tributaries",
+   "kind": "snow",
+   "label": "Mid-Columbia tributaries (Grand Coulee → The Dalles)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1983",
+     "complete_seasons": 42,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "basin"
+  },
+  {
+   "area": "snow:snake",
+   "kind": "snow",
+   "label": "Snake",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1982",
+     "complete_seasons": 41,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "basin",
+   "members": [
+    "snow:snake_upper",
+    "snow:snake_lower"
+   ]
+  },
+  {
+   "area": "snow:snake_upper",
+   "kind": "snow",
+   "label": "Upper Snake (above Hells Canyon)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1982",
+     "complete_seasons": 40,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "basin"
+  },
+  {
+   "area": "snow:snake_lower",
+   "kind": "snow",
+   "label": "Lower Snake (Salmon, Clearwater, Grande Ronde)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1983",
+     "complete_seasons": 41,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "basin"
+  },
+  {
+   "area": "snow:col_canada",
+   "kind": "snow",
+   "label": "Canadian Columbia (BC)",
+   "vars": [
+    {
+     "var": "swe",
+     "season": "water_year",
+     "units": "% of normal peak",
+     "first_season": "WY1997",
+     "complete_seasons": 25,
+     "qualifying_seasons": 25,
+     "data_type": "snow_water_equivalent",
+     "measure": "percent of normal peak"
+    }
+   ],
+   "region": "canada",
+   "level": "aggregate"
+  },
+  {
+   "area": "snow:ca_state",
+   "kind": "snow",
+   "label": "California statewide",
+   "vars": [
+    {
+     "var": "swe_in",
+     "season": "water_year",
+     "units": "in",
+     "first_season": "WY2006",
+     "complete_seasons": 17,
+     "qualifying_seasons": 19,
+     "data_type": "snow_water_equivalent",
+     "measure": "inches"
+    }
+   ],
+   "region": "california",
+   "level": "aggregate",
+   "state": "CA",
+   "members": [
+    "snow:ca_north",
+    "snow:ca_central",
+    "snow:ca_south"
+   ]
+  },
+  {
+   "area": "snow:ca_north",
+   "kind": "snow",
+   "label": "Northern Sierra / Trinity",
+   "vars": [
+    {
+     "var": "swe_in",
+     "season": "water_year",
+     "units": "in",
+     "first_season": "WY2006",
+     "complete_seasons": 18,
+     "qualifying_seasons": 19,
+     "data_type": "snow_water_equivalent",
+     "measure": "inches"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA"
+  },
+  {
+   "area": "snow:ca_central",
+   "kind": "snow",
+   "label": "Central Sierra",
+   "vars": [
+    {
+     "var": "swe_in",
+     "season": "water_year",
+     "units": "in",
+     "first_season": "WY2006",
+     "complete_seasons": 18,
+     "qualifying_seasons": 19,
+     "data_type": "snow_water_equivalent",
+     "measure": "inches"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA"
+  },
+  {
+   "area": "snow:ca_south",
+   "kind": "snow",
+   "label": "Southern Sierra",
+   "vars": [
+    {
+     "var": "swe_in",
+     "season": "water_year",
+     "units": "in",
+     "first_season": "WY2006",
+     "complete_seasons": 18,
+     "qualifying_seasons": 19,
+     "data_type": "snow_water_equivalent",
+     "measure": "inches"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:ca_major8",
+   "kind": "reservoir",
+   "label": "California, eight major reservoirs",
+   "capacity_taf": 18505.727,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 9,
+     "qualifying_seasons": 25,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "aggregate",
+   "state": "CA",
+   "members": [
+    "reservoir:trinity",
+    "reservoir:shasta",
+    "reservoir:oroville",
+    "reservoir:folsom",
+    "reservoir:new_melones",
+    "reservoir:don_pedro",
+    "reservoir:millerton",
+    "reservoir:san_luis"
+   ],
+   "members_note": "San Luis Reservoir is in the eight and in no regional composite: it is off-stream and fills by pumping, not from its own snow region"
+  },
+  {
+   "area": "reservoir:ca_north",
+   "kind": "reservoir",
+   "label": "Northern California reservoirs (Trinity, Shasta, Oroville)",
+   "capacity_taf": 10537.227,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 17,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA",
+   "members": [
+    "reservoir:trinity",
+    "reservoir:shasta",
+    "reservoir:oroville"
+   ]
+  },
+  {
+   "area": "reservoir:ca_central",
+   "kind": "reservoir",
+   "label": "Central Sierra reservoirs (Folsom, New Melones, Don Pedro)",
+   "capacity_taf": 5407.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 15,
+     "qualifying_seasons": 26,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA",
+   "members": [
+    "reservoir:folsom",
+    "reservoir:new_melones",
+    "reservoir:don_pedro"
+   ]
+  },
+  {
+   "area": "reservoir:ca_south",
+   "kind": "reservoir",
+   "label": "Southern Sierra reservoir (Millerton)",
+   "capacity_taf": 520.5,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 24,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "region",
+   "state": "CA",
+   "members": [
+    "reservoir:millerton"
+   ]
+  },
+  {
+   "area": "reservoir:trinity",
+   "kind": "reservoir",
+   "label": "Trinity Lake",
+   "capacity_taf": 2447.65,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 20,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:shasta",
+   "kind": "reservoir",
+   "label": "Shasta Lake",
+   "capacity_taf": 4552.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 27,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:oroville",
+   "kind": "reservoir",
+   "label": "Lake Oroville",
+   "capacity_taf": 3537.577,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 26,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:folsom",
+   "kind": "reservoir",
+   "label": "Folsom Lake",
+   "capacity_taf": 977.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 29,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:new_melones",
+   "kind": "reservoir",
+   "label": "New Melones Lake",
+   "capacity_taf": 2400.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 29,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:don_pedro",
+   "kind": "reservoir",
+   "label": "Don Pedro Reservoir",
+   "capacity_taf": 2030.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 15,
+     "qualifying_seasons": 26,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:millerton",
+   "kind": "reservoir",
+   "label": "Millerton Lake",
+   "capacity_taf": 520.5,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 24,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "reservoir:san_luis",
+   "kind": "reservoir",
+   "label": "San Luis Reservoir",
+   "capacity_taf": 2041.0,
+   "vars": [
+    {
+     "var": "storage",
+     "season": "water_year",
+     "units": "TAF",
+     "first_season": "WY1996",
+     "complete_seasons": 16,
+     "qualifying_seasons": 29,
+     "data_type": "reservoir_storage",
+     "measure": "thousand acre-feet"
+    }
+   ],
+   "region": "california",
+   "level": "reservoir",
+   "state": "CA"
+  },
+  {
+   "area": "ba:AVA",
+   "kind": "ba",
+   "label": "AVA",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:AZPS",
+   "kind": "ba",
+   "label": "AZPS",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:BANC",
+   "kind": "ba",
+   "label": "BANC",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:BPAT",
+   "kind": "ba",
+   "label": "BPAT",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "OR",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:CHPD",
+   "kind": "ba",
+   "label": "CHPD",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:CISO",
+   "kind": "ba",
+   "label": "CISO",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:DOPD",
+   "kind": "ba",
+   "label": "DOPD",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:EPE",
+   "kind": "ba",
+   "label": "EPE",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": null,
+   "level": "balancing_area",
+   "state": "TX",
+   "region_absence": "state TX is not in the region table"
+  },
+  {
+   "area": "ba:GCPD",
+   "kind": "ba",
+   "label": "GCPD",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:IID",
+   "kind": "ba",
+   "label": "IID",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:IPCO",
+   "kind": "ba",
+   "label": "IPCO",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "ID",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:LDWP",
+   "kind": "ba",
+   "label": "LDWP",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:NEVP",
+   "kind": "ba",
+   "label": "NEVP",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "NV",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:NWMT",
+   "kind": "ba",
+   "label": "NWMT",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "MT",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PACE",
+   "kind": "ba",
+   "label": "PACE",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "rockies",
+   "level": "balancing_area",
+   "state": "UT",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PACW",
+   "kind": "ba",
+   "label": "PACW",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "OR",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PGE",
+   "kind": "ba",
+   "label": "PGE",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "OR",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PNM",
+   "kind": "ba",
+   "label": "PNM",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "NM",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PSCO",
+   "kind": "ba",
+   "label": "PSCO",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "rockies",
+   "level": "balancing_area",
+   "state": "CO",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:PSEI",
+   "kind": "ba",
+   "label": "PSEI",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 5,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 5,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:SCL",
+   "kind": "ba",
+   "label": "SCL",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:SRP",
+   "kind": "ba",
+   "label": "SRP",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:TEPC",
+   "kind": "ba",
+   "label": "TEPC",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 4,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:TIDC",
+   "kind": "ba",
+   "label": "TIDC",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "california",
+   "level": "balancing_area",
+   "state": "CA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:TPWR",
+   "kind": "ba",
+   "label": "TPWR",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 7,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "WA",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:WACM",
+   "kind": "ba",
+   "label": "WACM",
+   "frontier": "2026-04-01",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "rockies",
+   "level": "balancing_area",
+   "state": "CO",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:WALC",
+   "kind": "ba",
+   "label": "WALC",
+   "frontier": "2026-09-30",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 5,
+     "qualifying_seasons": 7,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "southwest",
+   "level": "balancing_area",
+   "state": "AZ",
+   "region_basis": "home state"
+  },
+  {
+   "area": "ba:WAUW",
+   "kind": "ba",
+   "label": "WAUW",
+   "frontier": "2026-04-01",
+   "vars": [
+    {
+     "var": "peak_load",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, daily peak"
+    },
+    {
+     "var": "peak_load_7d",
+     "season": "water_year",
+     "units": "MW",
+     "first_season": "WY2019",
+     "complete_seasons": 6,
+     "qualifying_seasons": 6,
+     "data_type": "peak_load",
+     "measure": "MW, 7-day mean of daily peaks"
+    }
+   ],
+   "region": "pacific_northwest",
+   "level": "balancing_area",
+   "state": "MT",
+   "region_basis": "home state"
+  }
+ ],
+ "regions": {
+  "california": {
+   "label": "California",
+   "kind": "region",
+   "within": null,
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": "snow:ca_state",
+    "reservoir_storage": "reservoir:ca_major8",
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "station:USW00024257",
+    "station:USW00023232",
+    "station:USW00093193",
+    "station:USW00023152",
+    "station:USW00003102",
+    "station:USW00023174",
+    "station:USW00023188",
+    "lwt:BANC",
+    "lwt:LADWP",
+    "lwt:PGE-TAC",
+    "lwt:SCE-TAC",
+    "lwt:SDGE-TAC",
+    "snow:ca_state",
+    "snow:ca_north",
+    "snow:ca_central",
+    "snow:ca_south",
+    "reservoir:ca_major8",
+    "reservoir:ca_north",
+    "reservoir:ca_central",
+    "reservoir:ca_south",
+    "reservoir:trinity",
+    "reservoir:shasta",
+    "reservoir:oroville",
+    "reservoir:folsom",
+    "reservoir:new_melones",
+    "reservoir:don_pedro",
+    "reservoir:millerton",
+    "reservoir:san_luis",
+    "ba:BANC",
+    "ba:CISO",
+    "ba:IID",
+    "ba:LDWP",
+    "ba:TIDC"
+   ]
+  },
+  "pacific_northwest": {
+   "label": "Pacific Northwest",
+   "kind": "region",
+   "within": null,
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": "snow:columbia_above_the_dalles",
+    "reservoir_storage": null,
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "snow_water_equivalent": "the Columbia above The Dalles, US side: the Pacific Northwest's snow as banked; Oregon west of the Cascades and Washington's coast are not in it",
+    "reservoir_storage": "no Pacific Northwest reservoir storage is banked",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "station:USW00024157",
+    "station:USW00024233",
+    "station:USW00024229",
+    "station:USW00024131",
+    "lwt:BPAT",
+    "lwt:IPCO",
+    "lwt:PACW",
+    "lwt:PSEI",
+    "snow:columbia_above_the_dalles",
+    "snow:col_above_grand_coulee",
+    "snow:col_mid_tributaries",
+    "snow:snake",
+    "snow:snake_upper",
+    "snow:snake_lower",
+    "ba:AVA",
+    "ba:BPAT",
+    "ba:CHPD",
+    "ba:DOPD",
+    "ba:GCPD",
+    "ba:IPCO",
+    "ba:NWMT",
+    "ba:PACW",
+    "ba:PGE",
+    "ba:PSEI",
+    "ba:SCL",
+    "ba:TPWR",
+    "ba:WAUW"
+   ]
+  },
+  "oregon": {
+   "label": "Oregon",
+   "kind": "state",
+   "within": "pacific_northwest",
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": null,
+    "reservoir_storage": null,
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "snow_water_equivalent": "no Oregon snow index is banked (d091544)",
+    "reservoir_storage": "no Oregon reservoir storage is banked",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "station:USW00024229",
+    "lwt:BPAT",
+    "lwt:PACW",
+    "ba:BPAT",
+    "ba:PACW",
+    "ba:PGE"
+   ]
+  },
+  "canada": {
+   "label": "Canada (Columbia)",
+   "kind": "region",
+   "within": null,
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": "snow:col_canada",
+    "reservoir_storage": null,
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "reservoir_storage": "no aggregate area is served for this data type in this region",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "snow:col_canada"
+   ]
+  },
+  "southwest": {
+   "label": "Southwest",
+   "kind": "region",
+   "within": null,
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": null,
+    "reservoir_storage": null,
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "snow_water_equivalent": "no aggregate area is served for this data type in this region",
+    "reservoir_storage": "no aggregate area is served for this data type in this region",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "station:USW00023185",
+    "station:USW00023169",
+    "station:USW00023050",
+    "station:USW00023183",
+    "lwt:AZPS",
+    "lwt:NEVP",
+    "lwt:PNM",
+    "lwt:SRP",
+    "lwt:TEPC",
+    "lwt:VEA-TAC",
+    "ba:AZPS",
+    "ba:NEVP",
+    "ba:PNM",
+    "ba:SRP",
+    "ba:TEPC",
+    "ba:WALC"
+   ]
+  },
+  "rockies": {
+   "label": "Rockies",
+   "kind": "region",
+   "within": null,
+   "aggregates": {
+    "precipitation": null,
+    "snow_water_equivalent": null,
+    "reservoir_storage": null,
+    "heating_degree_days": null,
+    "cooling_degree_days": null,
+    "peak_load": null
+   },
+   "aggregate_notes": {
+    "precipitation": "no aggregate area is served for this data type in this region",
+    "snow_water_equivalent": "no aggregate area is served for this data type in this region",
+    "reservoir_storage": "no aggregate area is served for this data type in this region",
+    "heating_degree_days": "no aggregate area is served for this data type in this region",
+    "cooling_degree_days": "no aggregate area is served for this data type in this region",
+    "peak_load": "no aggregate area is served for this data type in this region"
+   },
+   "members": [
+    "station:USW00024127",
+    "station:USW00003017",
+    "lwt:PACE",
+    "ba:PACE",
+    "ba:PSCO",
+    "ba:WACM"
+   ]
+  }
+ },
+ "stale": false,
+ "built_at": "(receipt run)"
+}

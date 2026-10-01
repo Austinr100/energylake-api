@@ -62,6 +62,8 @@ Endpoints:
                                           d091522: area=reservoir:{trinity..san_luis}|reservoir:ca_major8&var=storage (TAF; the eight summed only when all eight report) and area=snow:ca_{state,north,central,south}&var=swe_in (CDEC inches): levels on a 0.90 floor (swe_in counted Dec 1→May 31), null-aware per-day statistics with n / n_by_day_min; every level gains `range` (min/median/max, n>=5) and enso.categories[*].outlook (peak + Apr 1 / Jul 1 min/median/max); every payload enso.now (from `developing`; a label, not a forecast); /areas lists 57 (2026-09-30)
                                           d091525: area=ba:{code} (28 EIA-930 balancing areas of wecc_load_hourly)&var=peak_load|peak_load_7d: the fixed UTC−8 day's maximum hourly load, MW (>= 20 of 24 hours, else null; season.day_rule) and its trailing 7-day mean (null unless all seven qualify); levels on d091522's 0.90 floor; one grouped read per area; /areas lists 85, each ba row with its frontier (2026-09-30)
                                           d091536: area=snow:col_canada&var=swe, the Canadian Columbia (BC ASWS, "Canadian Columbia (BC)"), a level like the six; a season qualifies when every day Nov 1 – May 31 is valued (summer days the source does not report are gaps, not zeros; base.rule and source.method say so); null-aware statistics; not on the board, in no union (2026-10-01)
+                                          d091542: every area gains region / level (and state, members, members_note, region_basis or region_absence), every var data_type / measure, the body `regions`; the three California reservoir composites (reservoir:ca_north|ca_central|ca_south, the eight's rule on their members), 89 areas; complete/qualifying counts leave out the season in progress; a level's readout gains pct_of_median_peak / median_peak; the season routes read on their own pool (max 3, 5 s checkout → 503 + Retry-After), the memo serves stale (`stale`, `built_at`) while one rebuild runs, and boot warms 46 keys (2026-10-01)
+    GET /api/weather/season/snapshot      One row per area carrying ?data_type= on ?date= (default each area's frontier; an earlier date answers on that season's curve) for ?classifier=&cat=: value, median, pct_of_median, percentile, pct_of_median_peak, the category's median against all years', a map point, an absence sentence; read off the /season memo, never the bank; 15 min memo, max-age=900, weak ETag + 304 (2026-10-01, d091542)
     GET /api/weather/snow/board           The six snow basins' swe readouts on the newest frontier, last year's value that day, this season's peak, n_reporting/n_index; a basin missing that day carries absence; from the season memo, max-age=900 (2026-09-30, d091520)
     GET /api/local/forecast                Local Weather lane A: one point's forecast in one shape — NWS read live behind a gridpoint memo inside the 20 km-buffered US outline (D-09-25-03), the GFS global sidecars in-process outside it; NWS forecast failure falls through to the model arm with receipts.fallback (D-09-25-04), obs/alerts failures stated in place (D-09-25-09); hourly from the current hour (D-09-25-10); US days 8–10 from the model arm; every model card labelled (D-09-24-09) (2026-09-25, d091477; 2026-09-26, d091485)
     GET /api/analytics/structures/catalog  Structures room: the banked-reality menu — legs/blocks/gas indices with measured depth, cadence + staleness, cached (2026-07-30)
@@ -95,6 +97,7 @@ Endpoints:
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -164,6 +167,12 @@ ALLOWED_ORIGINS = [
 #   come up without touching the slow 164 views can say so.
 DD_WARM_ON_STARTUP = os.environ.get(
     "DD_WARM_ON_STARTUP", "1").strip().lower() not in ("0", "false", "no", "off")
+
+# SEASON_WARM_ON_STARTUP : "0"/"false" skips warming the season memo at boot
+#   (default on; d091542). The warm is detached and sequential on the season
+#   pool, so it never holds a shared connection and never delays startup.
+SEASON_WARM_ON_STARTUP = os.environ.get(
+    "SEASON_WARM_ON_STARTUP", "1").strip().lower() not in ("0", "false", "no", "off")
 
 # SKY_GLM_ENABLED : "0"/"false" stops this container starting the GLM reader
 #   threads (default on). Unlike DD warming this is not a boot-latency switch —
@@ -275,7 +284,7 @@ async def _pool_pre_ping(conn) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _pool
+    global _pool, _season_pool
     if not DATABASE_URL:
         # Fail loud, not silent (Principle #27): if the env var is missing,
         # we want a clear error at startup, not empty query results later.
@@ -289,6 +298,13 @@ async def lifespan(app: FastAPI):
         check=_pool_pre_ping,  # validate-on-checkout; see the note above
     )
     await _pool.open()
+    # Season to date (d091542, D-09-25-73): the season routes' own connections,
+    # so no slower route can hold the one a season read needs. See the note at
+    # /api/weather/season*.
+    _season_pool = _season_make_pool()
+    await _season_pool.open()
+    _season_warm_task = (asyncio.create_task(_season_warm())
+                         if SEASON_WARM_ON_STARTUP else None)
     # Degree Day Ledger: warm the cumulative board off the request path. The 164
     # views cost ~52 s board-wide (measured; see the /api/weather/dd/* note), so
     # boot pays it instead of the first browser. Detached and fail-soft — startup
@@ -326,6 +342,8 @@ async def lifespan(app: FastAPI):
         _warm_task.cancel()
     if not _run_warm_task.done():
         _run_warm_task.cancel()
+    if _season_warm_task is not None and not _season_warm_task.done():
+        _season_warm_task.cancel()
     # Clean shutdown: signal every reader and join it. The threads are daemons,
     # so the process would exit regardless — this is here so a reader stops
     # mid-tick at a known point instead of being torn down inside a socket
@@ -338,6 +356,7 @@ async def lifespan(app: FastAPI):
         except Exception:  # noqa: BLE001 - shutdown is best-effort
             _sky_log.exception("sky.glm[%s]: failed to stop cleanly", _r.sat)
 
+    await _season_pool.close()
     await _pool.close()
 
 
@@ -19142,28 +19161,237 @@ async def local_forecast(request: Request,
 # ═══════════════════════════════════════════════════════════════════════════
 # /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)
 #
-# Two reads, wired the way /api/enso/catalog is: one `_pool.connection()` (the
-# pre-ping on checkout still runs), an in-process memo, headers on the way out.
 # The arithmetic — the calendar walk, the leap fold, the base, the cone, the
 # normal, the five-year band, ENSO membership and the readout — is season.py,
 # pure. This block only fetches rows and hands them over.
 #
-# /areas is three GROUP BYs over every row of the three sources (~1.2 s on
-# production, EXPLAIN ANALYZE 2026-09-28), so it is memoised an hour: depth
-# moves one day a day. /season reads one area's full history (Spokane precip is
-# ~46k rows) plus the ENSO run and bins, memoised 15 min per (area, var,
-# classifier). GHCNd lags ~4 days; neither memo is chasing a feed.
+# /areas is GROUP BYs over every row of its sources (~1.2 s on production,
+# EXPLAIN ANALYZE 2026-09-28), so it is memoised an hour: depth moves one day a
+# day. /season reads one area's full history (Spokane precip is ~46k rows) plus
+# the ENSO run and bins, memoised 15 min per (area, var, classifier). GHCNd
+# lags ~4 days; neither memo is chasing a feed.
+#
+# ── d091542 (D-09-25-73): A SEASON READ NEVER WAITS ON ANOTHER ROUTE ─────────
+#
+# Measured 2026-10-01 10:38Z: two cold season reads waited 30.0 s on the shared
+# pool and got 503s. The reads take ~1.3 s; the wait was the pool. Five
+# /api/market-clock requests (three whose browsers had already gone) held all
+# five shared connections from 10:36:59 to 10:40:11 (docs/receipts/
+# season-pool-d091542/gate0.md). So, in this block and nowhere else:
+#
+#   * The season routes (/season, /season/areas, /season/snapshot,
+#     /snow/board) check out of `_season_pool` (min 1, max 3, checkout timeout
+#     5 s), which no other route touches, and never out of `_pool`. The shared
+#     pool's 5 is unchanged (its comments at /api/analytics/node-history and the
+#     dd cache say why it is 5).
+#   * The memo keeps an expired payload and serves it with `stale: true` and
+#     its `built_at` while ONE rebuild per key runs behind it. A miss builds
+#     inline, single-flight per key.
+#   * Boot warms the board's six, Canada, California's four, the nine
+#     reservoirs and the three regional composites, both classifiers, and
+#     /areas: sequential, on the season pool, one connection at a time.
+#   * A checkout that waits 5 s is a 503 that says so, with Retry-After.
 # ═══════════════════════════════════════════════════════════════════════════
 import season as _season
+from psycopg_pool import PoolTimeout as _PoolTimeout
 
 _SEASON_MEMO_TTL = 900.0
 _SEASON_AREAS_MEMO_TTL = 3600.0
 _SEASON_MEMO_MAX = 128
-_season_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
-_season_areas_cache: dict[str, tuple[float, dict]] = {}
+_SEASON_SNAPSHOT_MAX = 64
+_SEASON_POOL_MIN, _SEASON_POOL_MAX, _SEASON_POOL_TIMEOUT = 1, 3, 5.0
+_SEASON_SNAPSHOT_CONCURRENCY = 3        # cold areas a snapshot builds at once
+_SEASON_WAIT_DETAIL = "season read waited 5 s for a connection"
+_SEASON_RETRY_AFTER = 5
+_SEASON_WARM_BUDGET_S = 60.0            # STOP-M: more than this is reported, not hidden
+# key -> (built_mono, payload, extras, built_at ISO); `[1]` is the payload, as before.
+_season_cache: dict[tuple, tuple] = {}
+_season_areas_cache: dict[str, tuple] = {}
+_season_snapshot_cache: dict[tuple, tuple] = {}
+_season_inflight: dict[tuple, "asyncio.Task"] = {}
+_season_tasks: set = set()              # strong refs to background rebuilds
+_season_log = logging.getLogger("energylake.season")
+_season_pool: AsyncConnectionPool | None = None
 # classifier -> the enso_indices series whose newest centre month feeds the
 # pantry's open-year rule.
 _SEASON_ONI_SERIES = {"cpc_oni": "oni", "roni": "roni"}
+
+
+def _season_make_pool() -> AsyncConnectionPool:
+    """The season routes' own connections (D-09-25-73). Neon's ceiling is
+    max_connections = 901 behind pgbouncer; three more is inside it."""
+    return AsyncConnectionPool(
+        conninfo=DATABASE_URL,
+        min_size=_SEASON_POOL_MIN,
+        max_size=_SEASON_POOL_MAX,
+        timeout=_SEASON_POOL_TIMEOUT,
+        open=False,
+        kwargs={"row_factory": dict_row},
+        check=_pool_pre_ping,            # the same validate-on-checkout
+        name="season",
+    )
+
+
+class _SeasonWait(Exception):
+    """A season checkout waited _SEASON_POOL_TIMEOUT for a connection."""
+
+
+@app.exception_handler(_SeasonWait)
+async def _season_wait_handler(request: Request, exc: _SeasonWait):
+    return JSONResponse(status_code=503,
+                        content={"detail": _SEASON_WAIT_DETAIL,
+                                 "retry_after": _SEASON_RETRY_AFTER},
+                        headers={"Retry-After": str(_SEASON_RETRY_AFTER)})
+
+
+@asynccontextmanager
+async def _season_connection():
+    """A connection from `_season_pool`, never `_pool`; a 5 s wait raises
+    _SeasonWait (the 503 above), anything else propagates."""
+    assert _season_pool is not None
+    try:
+        cm = _season_pool.connection()
+        conn = await cm.__aenter__()
+    except _PoolTimeout:
+        raise _SeasonWait() from None
+    try:
+        yield conn
+    except BaseException as e:
+        if not await cm.__aexit__(type(e), e, e.__traceback__):
+            raise
+    else:
+        await cm.__aexit__(None, None, None)
+
+
+def _season_evict(cache: dict, cap: int) -> None:
+    while len(cache) > cap:
+        del cache[min(cache, key=lambda k: cache[k][0])]
+
+
+async def _season_build_once(cache: dict, key, build, cap: int) -> tuple:
+    """Build `key` into `cache`, one build per key at a time: a second caller
+    awaits the first's build. -> the cache entry."""
+    loop = asyncio.get_running_loop()
+    ik = (id(cache), key)
+    task = _season_inflight.get(ik)
+    if task is None or task.done() or task.get_loop() is not loop:
+        async def _run():
+            try:
+                payload, extras = await build()
+                entry = (time.monotonic(), payload, extras,
+                         _utcnow().replace(microsecond=0).isoformat())
+                cache[key] = entry
+                _season_evict(cache, cap)
+                return entry
+            finally:
+                if _season_inflight.get(ik) is task_ref[0]:
+                    del _season_inflight[ik]
+        task_ref = [None]
+        task = loop.create_task(_run())
+        task_ref[0] = task
+        _season_inflight[ik] = task
+    return await asyncio.shield(task)
+
+
+def _season_spawn_rebuild(cache: dict, key, build, cap: int) -> None:
+    """Rebuild an expired key behind the stale payload; one per key."""
+    ik = (id(cache), key)
+    t = _season_inflight.get(ik)
+    if t is not None and not t.done() and t.get_loop() is asyncio.get_running_loop():
+        return
+
+    async def _bg():
+        try:
+            await _season_build_once(cache, key, build, cap)
+        except Exception as e:                      # never let a rebuild escape
+            _season_log.warning("season: background rebuild of %r failed: %s", key, e)
+    task = asyncio.get_running_loop().create_task(_bg())
+    _season_tasks.add(task)
+    task.add_done_callback(_season_tasks.discard)
+
+
+async def _season_memo(cache: dict, key, ttl: float, build, cap: int) -> tuple:
+    """-> (payload, extras, stale, built_at). Fresh: served. Expired: served
+    stale, one rebuild behind it. Miss: built inline, single-flight."""
+    hit = cache.get(key)
+    if hit is not None:
+        if (time.monotonic() - hit[0]) < ttl:
+            return hit[1], hit[2], False, hit[3]
+        _season_spawn_rebuild(cache, key, build, cap)
+        return hit[1], hit[2], True, hit[3]
+    entry = await _season_build_once(cache, key, build, cap)
+    return entry[1], entry[2], False, entry[3]
+
+
+async def _season_build_areas() -> tuple[dict, dict]:
+    counts: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
+    frontiers: dict[str, Any] = {}
+    lasts: dict[tuple[str, str], Any] = {}
+
+    def _last(area: str, var: str, d) -> None:
+        if d is not None and (lasts.get((area, var)) is None or d > lasts[(area, var)]):
+            lasts[(area, var)] = d
+
+    try:
+        async with _season_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(_season.AREAS_PRECIP_SQL)
+                for r in await cur.fetchall():
+                    counts[(f"station:{r['id']}", "precip")][int(r["s"])] = int(r["n"])
+                    _last(f"station:{r['id']}", "precip", r.get("last"))
+                await cur.execute(_season.AREAS_STATION_DD_SQL)
+                for r in await cur.fetchall():
+                    counts[(f"station:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
+                    _last(f"station:{r['id']}", r["var"], r.get("last"))
+                await cur.execute(_season.AREAS_LWT_SQL, {"d": _season.LWT_DATASET})
+                for r in await cur.fetchall():
+                    counts[(f"lwt:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
+                    _last(f"lwt:{r['id']}", r["var"], r.get("last"))
+                await cur.execute(_season.AREAS_SNOW_SQL, {"d": _season.SNOW_DATASET})
+                for r in await cur.fetchall():
+                    area = f"snow:{r['id']}"
+                    # d091536: an area with its own window counts inside it
+                    counts[(area, "swe")][int(r["s"])] = int(
+                        r["nw"] if _season.floor("swe", area) else r["n"])
+                    _last(area, "swe", r.get("last"))
+                await cur.execute(_season.AREAS_CA_SNOW_SQL,
+                                  {"d": _season.CA_SNOW_DATASET,
+                                   "s": list(_season.CA_SNOW_SERIES)})
+                for r in await cur.fetchall():
+                    counts[(f"snow:ca_{r['id']}", "swe_in")][int(r["s"])] = int(r["n"])
+                    _last(f"snow:ca_{r['id']}", "swe_in", r.get("last"))
+                await cur.execute(_season.AREAS_RESERVOIR_SQL,
+                                  {"d": _season.RESERVOIR_DATASET,
+                                   "s": list(_season.RESERVOIR_IDS),
+                                   "m": _season.MAJOR8, "k": len(_season.RESERVOIR_IDS)})
+                for r in await cur.fetchall():
+                    counts[(f"reservoir:{r['id']}", "storage")][int(r["s"])] = int(r["n"])
+                    _last(f"reservoir:{r['id']}", "storage", r.get("last"))
+                await cur.execute(_season.AREAS_RESERVOIR_REGIONS_SQL,
+                                  {"d": _season.RESERVOIR_DATASET,
+                                   **_season.reservoir_region_params()})
+                for r in await cur.fetchall():
+                    counts[(f"reservoir:{r['id']}", "storage")][int(r["s"])] = int(r["n"])
+                    _last(f"reservoir:{r['id']}", "storage", r.get("last"))
+                await cur.execute(_season.AREAS_LOAD_SQL,
+                                  {"d": _season.LOAD_DATASET, "s": list(_season.BAS),
+                                   "h": _season.LOAD_MIN_HOURS})
+                for r in await cur.fetchall():
+                    area = f"ba:{r['id']}"
+                    counts[(area, "peak_load")][int(r["s"])] = int(r["n"])
+                    counts[(area, "peak_load_7d")][int(r["s"])] = int(r["n7"])
+                    _last(area, "peak_load", r.get("last"))
+                    _last(area, "peak_load_7d", r.get("last7"))
+                    if r["last"] is not None and (area not in frontiers
+                                                  or r["last"] > frontiers[area]):
+                        frontiers[area] = r["last"]
+    except _SeasonWait:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+    payload = _season.build_areas(_WEATHER_STATIONS, counts,
+                                  {a: d.isoformat() for a, d in frontiers.items()}, lasts)
+    return payload, {}
 
 
 @app.get("/api/weather/season/areas")
@@ -19172,86 +19400,34 @@ async def weather_season_areas():
     station_metadata.json, then the four it does not carry, labelled by id),
     17 LWT load regions, 6 Columbia snow basins, the Canadian Columbia
     (d091536: Nov 1 – May 31 must be whole), 4 California snow areas, the
-    eight California reservoirs' sum and the eight (d091522), the 28 EIA-930
-    balancing areas with their frontier (d091525) — with each var's season,
-    first season and count of complete (and, for storage / swe_in / the load
-    vars, qualifying) seasons. Memoised 1 h; DB unavailable → 503."""
-    assert _pool is not None
-    now_mono = time.monotonic()
-    cached = _season_areas_cache.get("areas")
-    if cached is not None and (now_mono - cached[0]) < _SEASON_AREAS_MEMO_TTL:
-        payload = cached[1]
-    else:
-        counts: dict[tuple[str, str], dict[int, int]] = defaultdict(dict)
-        frontiers: dict[str, Any] = {}
-        try:
-            async with _pool.connection() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute(_season.AREAS_PRECIP_SQL)
-                    for r in await cur.fetchall():
-                        counts[(f"station:{r['id']}", "precip")][int(r["s"])] = int(r["n"])
-                    await cur.execute(_season.AREAS_STATION_DD_SQL)
-                    for r in await cur.fetchall():
-                        counts[(f"station:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
-                    await cur.execute(_season.AREAS_LWT_SQL, {"d": _season.LWT_DATASET})
-                    for r in await cur.fetchall():
-                        counts[(f"lwt:{r['id']}", r["var"])][int(r["s"])] = int(r["n"])
-                    await cur.execute(_season.AREAS_SNOW_SQL, {"d": _season.SNOW_DATASET})
-                    for r in await cur.fetchall():
-                        area = f"snow:{r['id']}"
-                        # d091536: an area with its own window counts inside it
-                        counts[(area, "swe")][int(r["s"])] = int(
-                            r["nw"] if _season.floor("swe", area) else r["n"])
-                    await cur.execute(_season.AREAS_CA_SNOW_SQL,
-                                      {"d": _season.CA_SNOW_DATASET,
-                                       "s": list(_season.CA_SNOW_SERIES)})
-                    for r in await cur.fetchall():
-                        counts[(f"snow:ca_{r['id']}", "swe_in")][int(r["s"])] = int(r["n"])
-                    await cur.execute(_season.AREAS_RESERVOIR_SQL,
-                                      {"d": _season.RESERVOIR_DATASET,
-                                       "s": list(_season.RESERVOIR_IDS),
-                                       "m": _season.MAJOR8, "k": len(_season.RESERVOIR_IDS)})
-                    for r in await cur.fetchall():
-                        counts[(f"reservoir:{r['id']}", "storage")][int(r["s"])] = int(r["n"])
-                    await cur.execute(_season.AREAS_LOAD_SQL,
-                                      {"d": _season.LOAD_DATASET, "s": list(_season.BAS),
-                                       "h": _season.LOAD_MIN_HOURS})
-                    for r in await cur.fetchall():
-                        area = f"ba:{r['id']}"
-                        counts[(area, "peak_load")][int(r["s"])] = int(r["n"])
-                        counts[(area, "peak_load_7d")][int(r["s"])] = int(r["n7"])
-                        if r["last"] is not None and (area not in frontiers
-                                                      or r["last"] > frontiers[area]):
-                            frontiers[area] = r["last"]
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
-        payload = _season.build_areas(_WEATHER_STATIONS, counts,
-                                      {a: d.isoformat() for a, d in frontiers.items()})
-        _season_areas_cache["areas"] = (now_mono, payload)
-    return JSONResponse(content=payload,
+    eight California reservoirs' sum, the three regional composites (d091542)
+    and the eight (d091522), the 28 EIA-930 balancing areas with their frontier
+    (d091525) — with each var's season, first season, count of complete (and,
+    for storage / swe_in / the load vars, qualifying) seasons, the season in
+    progress left out (d091542), and its data_type and measure; each area its
+    region and level; the body a `regions` block. Memoised 1 h, served stale
+    while it rebuilds; season pool; DB unavailable → 503."""
+    payload, _, stale, built_at = await _season_memo(
+        _season_areas_cache, "areas", _SEASON_AREAS_MEMO_TTL, _season_build_areas, 1)
+    return JSONResponse(content={**payload, "stale": stale, "built_at": built_at},
                         headers={"Cache-Control": f"max-age={int(_SEASON_AREAS_MEMO_TTL)}"})
 
 
-async def _season_payload(area: str, var: str, classifier: str) -> dict:
-    """The memoised season body for a parsed (area, var, classifier): the one
-    memo /season and /snow/board share. DB unavailable or no ENSO catalog → 503."""
-    assert _pool is not None
-    key = (area, var, classifier)
-    now_mono = time.monotonic()
-    cached = _season_cache.get(key)
-    if cached is not None and (now_mono - cached[0]) < _SEASON_MEMO_TTL:
-        return cached[1]
+async def _season_read(area: str, var: str, classifier: str) -> tuple[dict, dict]:
+    """One (area, var, classifier) built from the bank: (payload, extras).
+    DB unavailable or no ENSO catalog → 503; a 5 s checkout → _SeasonWait."""
     kind, ident = area.split(":", 1)
     oni_d, oni_s = _enso_idx.INDICES[_SEASON_ONI_SERIES[classifier]]
     source_meta = None
     try:
-        async with _pool.connection() as conn:
+        async with _season_connection() as conn:
             async with conn.cursor() as cur:
-                if area == f"reservoir:{_season.MAJOR8}":
+                if kind == "reservoir" and ident in _season.RESERVOIR_MEMBERS:
+                    # the eight's sum, or a regional composite (d091542)
                     await cur.execute(_season.RESERVOIRS_SQL,
                                       {"d": _season.RESERVOIR_DATASET,
-                                       "s": list(_season.RESERVOIR_IDS)})
-                    daily, fronts = _season.major8_daily(await cur.fetchall())
+                                       "s": list(_season.RESERVOIR_MEMBERS[ident])})
+                    daily, fronts = _season.composite_daily(area, await cur.fetchall())
                     source_meta = {"series_frontiers": fronts}
                 elif kind == "ba":
                     await cur.execute(_season.LOAD_PEAK_SQL, {"d": _season.LOAD_DATASET,
@@ -19293,22 +19469,34 @@ async def _season_payload(area: str, var: str, classifier: str) -> dict:
                     bins = await cur.fetchall()
                 await cur.execute(_season.ONI_LAST_SQL, {"d": oni_d, "s": oni_s})
                 oni_row = await cur.fetchone()
+    except _SeasonWait:
+        raise
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
     if run is None or not bins:
         raise HTTPException(status_code=503,
                             detail=f"no ENSO catalog banked for {classifier}")
     oni_ts = oni_row["ts"] if oni_row else None
+    extras: dict = {}
     payload = _season.build_season(
         area, var, daily, classifier=classifier,
         catalog_version=run["catalog_version"], developing=run["developing"],
         bins=bins,
         oni_last_centre=(oni_ts.year, oni_ts.month) if oni_ts is not None else None,
-        source_meta=source_meta)
-    _season_cache[key] = (now_mono, payload)
-    while len(_season_cache) > _SEASON_MEMO_MAX:
-        del _season_cache[min(_season_cache, key=lambda k: _season_cache[k][0])]
-    return payload
+        source_meta=source_meta, extras=extras)
+    return payload, extras
+
+
+async def _season_entry(area: str, var: str, classifier: str) -> tuple:
+    """-> (payload, extras, stale, built_at) from the season memo."""
+    return await _season_memo(_season_cache, (area, var, classifier), _SEASON_MEMO_TTL,
+                              lambda: _season_read(area, var, classifier), _SEASON_MEMO_MAX)
+
+
+async def _season_payload(area: str, var: str, classifier: str) -> dict:
+    """The memoised season body for a parsed (area, var, classifier): the one
+    memo /season, /snow/board and /season/snapshot share."""
+    return (await _season_entry(area, var, classifier))[0]
 
 
 @app.get("/api/weather/season")
@@ -19317,22 +19505,26 @@ async def weather_season(area: Optional[str] = Query(None),
                          classifier: Optional[str] = Query(None)):
     """Season to date for one area × var (`precip` = water year, stations only;
     `hdd` = Nov–Mar; `cdd` = May–Sep; `swe` = water year, Columbia snow: areas,
-    a level; `storage` (TAF) on reservoir: areas and `swe_in` (inches) on
+    a level; `storage` (TAF) on reservoir: areas — the eight, their sum and,
+    d091542, the three regional composites — and `swe_in` (inches) on
     snow:ca_* areas, levels with a 0.90 floor, d091522; `peak_load` / `peak_load_7d`
     (MW, the UTC−8 day's maximum hourly load and its trailing 7-day mean) on
     ba: areas, the same floor, d091525): the full-record cone, the 1991–2020 normal, the five-year band,
-    this and last season, ENSO-category medians, the readout, the peak and the
-    source. Every number the page draws is here. Unknown area / var /
-    classifier, or a var its area does not serve → 400 naming the vocabulary;
-    no ENSO catalog banked → 503; DB unavailable → 503. Memoised 15 min."""
+    this and last season, ENSO-category medians, the readout (a level's adds
+    pct_of_median_peak and median_peak, d091542), the peak and the source,
+    then `stale` and `built_at` (d091542). Every number the page draws is here.
+    Unknown area / var / classifier, or a var its area does not serve → 400
+    naming the vocabulary; no ENSO catalog banked → 503; DB unavailable → 503;
+    a 5 s wait for a season connection → 503 with Retry-After. Memoised 15
+    min, served stale while it rebuilds."""
     try:
         area, var, classifier = _season.parse_request(area, var, classifier,
                                                       _WEATHER_STATIONS)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    payload = await _season_payload(area, var, classifier)
+    payload, _, stale, built_at = await _season_entry(area, var, classifier)
     # JSONResponse (plain json.dumps): a stray Decimal must raise, not be coerced.
-    return JSONResponse(content=payload,
+    return JSONResponse(content={**payload, "stale": stale, "built_at": built_at},
                         headers={"Cache-Control": f"max-age={int(_SEASON_MEMO_TTL)}"})
 
 
@@ -19349,3 +19541,105 @@ async def weather_snow_board():
         payloads[b] = await _season_payload(f"snow:{b}", "swe", _season.DEFAULT_CLASSIFIER)
     return JSONResponse(content=_season.build_board(payloads),
                         headers={"Cache-Control": f"max-age={int(_SEASON_MEMO_TTL)}"})
+
+
+async def _season_build_snapshot(data_type: str, on, classifier: str, cat) -> tuple[dict, dict]:
+    """One row per area carrying `data_type`, each read off its /season build
+    (the memo; a cold area built on the season pool, at most three at a time)."""
+    sem = asyncio.Semaphore(_SEASON_SNAPSHOT_CONCURRENCY)
+    pairs = _season.snapshot_areas(data_type, _WEATHER_STATIONS)
+
+    async def _one(area: str, var: str):
+        async with sem:
+            return await _season_entry(area, var, classifier)
+
+    entries = await asyncio.gather(*(_one(a, v) for a, v in pairs))
+    rows = [_season.snapshot_row(
+                area, var, payload, extras, on=on, cat=cat,
+                area_label=_season.area_label(area, _WEATHER_STATIONS),
+                place=_season.area_place(area, _WEATHER_STATIONS),
+                geo=_season.area_geo(area, _WEATHER_STATIONS))
+            for (area, var), (payload, extras, _, _) in zip(pairs, entries)]
+    body = _season.build_snapshot(data_type, on, classifier, cat, rows)
+    body["areas_stale"] = [a for (a, _), e in zip(pairs, entries) if e[2]]
+    return body, {}
+
+
+def _season_etag(rows) -> str:
+    canon = json.dumps(rows, separators=(",", ":"), sort_keys=True, allow_nan=False)
+    return f'W/"{hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]}"'
+
+
+@app.get("/api/weather/season/snapshot")
+async def weather_season_snapshot(request: Request,
+                                  data_type: Optional[str] = Query(None),
+                                  date: Optional[str] = Query(None),
+                                  classifier: Optional[str] = Query(None),
+                                  cat: Optional[str] = Query(None)):
+    """One row per area carrying `data_type` on one season day (d091542,
+    D-09-25-69 / -72): the value, the median that day, percent of it, the
+    percentile, percent of the median peak, the category's median against all
+    years' (`cat`), a map point, and an absence sentence where a number is
+    missing (never a zero). `date` defaults to each area's own frontier; an
+    earlier date answers on that season's curve. Every number is read off the
+    /season build for that (area, var, classifier); nothing is read from the
+    bank here. Memoised 15 min per query, max-age=900, weak content ETag + 304.
+    Unknown data_type / classifier / cat or a malformed date → 400 naming the
+    allowed set."""
+    try:
+        data_type, on, classifier, cat = _season.parse_snapshot(data_type, date,
+                                                               classifier, cat)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    key = (data_type, on.isoformat() if on else None, classifier, cat)
+    body, _, stale, built_at = await _season_memo(
+        _season_snapshot_cache, key, _SEASON_MEMO_TTL,
+        lambda: _season_build_snapshot(data_type, on, classifier, cat),
+        _SEASON_SNAPSHOT_MAX)
+    tag = _season_etag(body["rows"])
+    headers = {"Cache-Control": f"max-age={int(_SEASON_MEMO_TTL)}", "ETag": tag}
+    if _enso_idx.etag_matches(request.headers.get("if-none-match"), tag):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(content={**body, "stale": stale, "built_at": built_at},
+                        headers=headers)
+
+
+# The keys boot warms (§2.2), both classifiers: the board's six, Canada,
+# California's four, the eight's sum, the three regional composites, the eight.
+_SEASON_WARM_KEYS = tuple(
+    [(f"snow:{b}", "swe") for b in _season.SNOW_BASINS + _season.CANADA_SNOW]
+    + [(f"snow:{r}", "swe_in") for r in _season.CA_SNOW]
+    + [(f"reservoir:{r}", "storage") for r in _season.RESERVOIR_AREAS])
+
+
+async def _season_warm() -> None:
+    """Warm the season memo off the request path, sequentially, on the season
+    pool (one connection at a time). Fail-soft: a key that cannot build is
+    logged and skipped; startup never waits on this. Logs the wall clock and
+    the memo's size (STOP-M's two numbers)."""
+    t0 = time.monotonic()
+    built, failed = 0, 0
+    try:
+        await _season_memo(_season_areas_cache, "areas", _SEASON_AREAS_MEMO_TTL,
+                           _season_build_areas, 1)
+    except Exception as e:                          # noqa: BLE001 - fail-soft
+        failed += 1
+        _season_log.warning("season warm: /areas skipped (%s)", e)
+    for classifier in _season.CLASSIFIERS:
+        for area, var in _SEASON_WARM_KEYS:
+            try:
+                await _season_entry(area, var, classifier)
+                built += 1
+            except Exception as e:                  # noqa: BLE001 - fail-soft
+                failed += 1
+                _season_log.warning("season warm: %s %s %s skipped (%s)",
+                                    area, var, classifier, getattr(e, "detail", e))
+    elapsed = time.monotonic() - t0
+    size = sum(len(json.dumps(v[1])) for v in _season_cache.values())
+    msg = ("season warm: %d keys built, %d skipped in %.1f s; memo holds %d payloads, "
+           "%.1f MB of JSON")
+    args = (built, failed, elapsed, len(_season_cache), size / 1e6)
+    if elapsed > _SEASON_WARM_BUDGET_S:
+        _season_log.warning("STOP-M " + msg, *args)
+    else:
+        _season_log.info(msg, *args)
