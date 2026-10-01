@@ -529,28 +529,28 @@ def test_h9_refusals(client):
 
 def test_h10_areas_count_and_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 44 + 4 + 9 + 28 == 85        # d091525: + 28 ba
+    assert len(areas) == 44 + 1 + 4 + 9 + 28 == 86    # d091525: + 28 ba; d091536: + col_canada at 44
     assert [a["area"] for a in areas[38:44]] == [f"snow:{b}" for b in season.SNOW_BASINS]
-    assert [(a["area"], a["label"], a["kind"]) for a in areas[44:48]] == [
+    assert [(a["area"], a["label"], a["kind"]) for a in areas[45:49]] == [
         ("snow:ca_state", "California statewide", "snow"),
         ("snow:ca_north", "Northern Sierra / Trinity", "snow"),
         ("snow:ca_central", "Central Sierra", "snow"),
         ("snow:ca_south", "Southern Sierra", "snow")]
-    assert [(a["area"], a["label"]) for a in areas[48:57]] == [
+    assert [(a["area"], a["label"]) for a in areas[49:58]] == [
         ("reservoir:ca_major8", "California, eight major reservoirs"),
         ("reservoir:trinity", "Trinity Lake"), ("reservoir:shasta", "Shasta Lake"),
         ("reservoir:oroville", "Lake Oroville"), ("reservoir:folsom", "Folsom Lake"),
         ("reservoir:new_melones", "New Melones Lake"),
         ("reservoir:don_pedro", "Don Pedro Reservoir"),
         ("reservoir:millerton", "Millerton Lake"), ("reservoir:san_luis", "San Luis Reservoir")]
-    assert areas[48]["capacity_taf"] == 18505.727 and areas[50]["capacity_taf"] == 4552.0
-    assert areas[44]["vars"] == [{"var": "swe_in", "season": "water_year", "units": "in",
+    assert areas[49]["capacity_taf"] == 18505.727 and areas[51]["capacity_taf"] == 4552.0
+    assert areas[45]["vars"] == [{"var": "swe_in", "season": "water_year", "units": "in",
                                   "first_season": "WY2006", "complete_seasons": 20,
                                   "qualifying_seasons": 20}]
-    assert areas[48]["vars"] == [{"var": "storage", "season": "water_year", "units": "TAF",
+    assert areas[49]["vars"] == [{"var": "storage", "season": "water_year", "units": "TAF",
                                   "first_season": "WY1996", "complete_seasons": 0,
                                   "qualifying_seasons": 29}]
-    assert areas[49]["vars"][0]["complete_seasons"] == 30
+    assert areas[50]["vars"][0]["complete_seasons"] == 30
 
 
 def test_h10_major8_and_ca_state_reads(client, pool):

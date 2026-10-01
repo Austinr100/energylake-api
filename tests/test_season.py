@@ -438,7 +438,7 @@ def test_s11_route_key_order_and_areas(client, pool):
 
     r = client.get("/api/weather/season/areas")
     areas = r.json()["areas"]
-    assert len(areas) == 85          # d091522: + 4 California snow + 9 reservoir; d091525: + 28 ba
+    assert len(areas) == 86          # d091522: + 4 California snow + 9 reservoir; d091525: + 28 ba; d091536: + col_canada
     assert [a["kind"] for a in areas].count("station") == 21
     assert [a["kind"] for a in areas].count("lwt") == 17
     assert areas[0]["area"] == "station:USW00024157" and areas[0]["label"] == "Spokane"

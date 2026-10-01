@@ -421,7 +421,7 @@ OLD_KEYS = ("area", "var", "units", "season", "frontier", "axis", "base",
 
 def test_n9_areas_and_swe_key_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 85          # d091522 appended 4 California snow + 9 reservoir; d091525 28 ba
+    assert len(areas) == 86          # d091522 appended 4 California snow + 9 reservoir; d091525 28 ba; d091536 col_canada
     snow = [a for a in areas if a["kind"] == "snow"][:6]
     assert areas[38:44] == snow
     assert [(a["area"], a["label"]) for a in snow] == LABELS
