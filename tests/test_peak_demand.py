@@ -70,6 +70,18 @@ class _FakeConn:
     def cursor(self):
         return _FakeCursor(self._rows, self._sink)
 
+    def transaction(self):
+        # d091551: the read runs inside conn.transaction() (SET LOCAL timeout).
+        return _FakeTx()
+
+
+class _FakeTx:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
 
 class FakePool:
     def __init__(self, rows):
@@ -85,6 +97,14 @@ class BoomPool:
 
     def connection(self):
         raise RuntimeError("connection refused")
+
+
+@pytest.fixture(autouse=True)
+def _cold_peak_demand_memo():
+    """d091551: the route is memoised; each test starts (and leaves) it cold."""
+    main._peak_demand_cache.clear()
+    yield
+    main._peak_demand_cache.clear()
 
 
 @pytest.fixture

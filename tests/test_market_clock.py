@@ -210,6 +210,17 @@ class _FakeConn:
     def cursor(self):
         return _FakeCursor(self._row, self._sink)
 
+    def transaction(self):
+        return _NullTx()
+
+
+class _NullTx:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
 
 class FakePool:
     def __init__(self, row):
@@ -218,6 +229,17 @@ class FakePool:
 
     def connection(self):
         return _FakeConn(self._row, self.sink)
+
+
+@pytest.fixture(autouse=True)
+def _cold_market_clock_memo():
+    """d091551 (§1.4.3): every test in this file starts, and leaves, the
+    market-clock memo cold — the memo is module state the tests share."""
+    main._market_clock_entry = None
+    main._market_clock_inflight = None
+    yield
+    main._market_clock_entry = None
+    main._market_clock_inflight = None
 
 
 @pytest.fixture
@@ -229,7 +251,7 @@ def client():
 def _install(row, now):
     pool = FakePool(row)
     main._pool = pool
-    # d091546: the route memoises; each test starts cold.
+    # A new install is a new lake: tests that install twice read twice.
     main._market_clock_entry = None
     main._market_clock_inflight = None
     main._utcnow = lambda: now
@@ -370,6 +392,8 @@ class _CountingPool:
     def __init__(self, row):
         self.row, self.checkouts, self.statements = row, 0, []
         self.gate, self.fail = None, None
+        # d091551: (statement, inside conn.transaction()?) and the tx events.
+        self.in_tx, self.tx_log, self.tx_events = False, [], []
 
     def connection(self):
         pool = self
@@ -383,6 +407,7 @@ class _CountingPool:
 
             async def execute(self, query, params=None):
                 pool.statements.append(query)
+                pool.tx_log.append((query, pool.in_tx))
                 if "timeseries_values" in query:
                     if pool.gate is not None:
                         await pool.gate.wait()
@@ -391,6 +416,17 @@ class _CountingPool:
 
             async def fetchone(self):
                 return dict(pool.row)
+
+        class _Tx:
+            async def __aenter__(self):
+                pool.in_tx = True
+                pool.tx_events.append("begin")
+                return self
+
+            async def __aexit__(self, exc_type, *exc):
+                pool.in_tx = False
+                pool.tx_events.append("rollback" if exc_type else "commit")
+                return False
 
         class _Conn:
             async def __aenter__(self):
@@ -402,6 +438,9 @@ class _CountingPool:
 
             def cursor(self):
                 return _Cur()
+
+            def transaction(self):
+                return _Tx()
 
         return _Conn()
 
@@ -551,3 +590,109 @@ def test_M5_first_ingest_precedes_newest_and_both_are_null_before(client):
     assert first == ingests[0] and newest == ingests[-1]
     assert body["state"] == "DA_PUBLISHED"
     assert body["label"] == "DA awards published 13:36 PT"   # the first, not the newest
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091551 (§1.4, D-09-25-75) — the market clock's hardening. M1 = §1.4.1
+# (SET LOCAL inside an explicit transaction), M2 = §1.4.3 (the cold-memo
+# fixture), M3 = §1.4.4 (a failed rebuild keeps the previous answer and is not
+# memoised), M4 = §1.4.5 (a 503 carries Retry-After). Each was rehearsed red:
+# docs/receipts/polled-routes-d091551/reds.txt.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_d091551_M1_set_local_runs_inside_an_explicit_transaction(cold):
+    pool, _ = cold
+
+    async def go():
+        async with _aclient() as c:
+            return await c.get("/api/market-clock")
+
+    assert asyncio.run(go()).status_code == 200
+    assert pool.tx_log == [("SET LOCAL statement_timeout = '3s'", True),
+                           (main.MARKET_CLOCK_SQL, True)]
+    assert pool.tx_events == ["begin", "commit"]      # it ends with the read
+
+
+def test_d091551_M1_a_timeout_rolls_the_transaction_back(cold):
+    pool, _ = cold
+    pool.fail = psycopg.errors.QueryCanceled(
+        "canceling statement due to statement timeout")
+
+    async def go():
+        async with _aclient() as c:
+            return await c.get("/api/market-clock")
+
+    assert asyncio.run(go()).status_code == 503
+    assert all(in_tx for _, in_tx in pool.tx_log)
+    assert pool.tx_events == ["begin", "rollback"]
+
+
+def test_d091551_M2a_this_test_leaves_the_memo_warm(monkeypatch):
+    # Deliberately no cleanup of the memo (and not the `cold` fixture, whose
+    # monkeypatch undo would reset it): the next test must still start cold.
+    monkeypatch.setattr(main, "_pool", _CountingPool(
+        {"da_hours": 0, "fmm_ts": _pt(2026, 7, 16, 7, 55), "fmm_val": 33.0}))
+    monkeypatch.setattr(main, "_utcnow", lambda: _pt(2026, 7, 16, 8, 0))
+
+    async def go():
+        async with _aclient() as c:
+            return await c.get("/api/market-clock")
+
+    assert asyncio.run(go()).status_code == 200
+    assert main._market_clock_entry is not None
+
+
+def test_d091551_M2b_and_this_one_starts_cold():
+    # Runs after M2a (file order). Only the autouse fixture clears the memo
+    # between them; without it this sees M2a's entry.
+    assert main._market_clock_entry is None
+    assert main._market_clock_inflight is None
+
+
+def test_d091551_M3_a_rebuild_that_raises_keeps_the_previous_answer(cold):
+    pool, mono = cold
+
+    async def go():
+        async with _aclient() as c:
+            first = await c.get("/api/market-clock")
+            entry = main._market_clock_entry
+            # 60 s on, the lake fails: the stale answer is served at once, and
+            # the one rebuild behind it raises.
+            mono.t += 60
+            main._utcnow = lambda: _pt(2026, 7, 16, 8, 1)
+            pool.fail = psycopg.errors.QueryCanceled(
+                "canceling statement due to statement timeout")
+            stale = await c.get("/api/market-clock")
+            for _ in range(5):
+                await asyncio.sleep(0)               # let the rebuild fail
+            after_fail = main._market_clock_entry
+            # Still inside 120 s: the same answer again, and another attempt
+            # (the failure was not kept).
+            mono.t += 50
+            again = await c.get("/api/market-clock")
+            for _ in range(5):
+                await asyncio.sleep(0)
+            return first, entry, stale, after_fail, again
+
+    first, entry, stale, after_fail, again = asyncio.run(go())
+    assert first.status_code == stale.status_code == again.status_code == 200
+    assert stale.json() == first.json() == again.json()
+    assert after_fail is entry                       # nothing memoised by the failure
+    assert main._market_clock_entry is entry
+    assert main._market_clock_inflight is None
+    assert pool.checkouts == 3                       # the build, then two rebuilds
+
+
+def test_d091551_M4_a_503_carries_retry_after(cold):
+    pool, _ = cold
+    pool.fail = psycopg.errors.QueryCanceled(
+        "canceling statement due to statement timeout")
+
+    async def go():
+        async with _aclient() as c:
+            return await c.get("/api/market-clock")
+
+    r = asyncio.run(go())
+    assert r.status_code == 503
+    assert r.headers["Retry-After"] == "5"
+    assert r.headers["Retry-After"] == str(main.MARKET_CLOCK_RETRY_AFTER)

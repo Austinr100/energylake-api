@@ -155,6 +155,7 @@ def compute_clock(
     target_date: _date,
     target_published: bool,
     da_published_at: Optional[_datetime] = None,
+    da_first_ingested_at: Optional[_datetime] = None,
     sp15_da_print: Optional[dict] = None,
     latest_fmm: Optional[dict] = None,
     target_is_offpeak_all_day: bool = False,
@@ -164,8 +165,12 @@ def compute_clock(
 
     target_date          the trade date the current DA cycle targets (tomorrow PT).
     target_published     do the lake rows for target_date exist? (detection)
-    da_published_at      MAX(ingested_ts) of target_date's DA rows — the honest
-                         publication time surfaced in the DA_PUBLISHED label.
+    da_published_at      MAX(ingested_ts) of target_date's DA rows — the newest
+                         ingest. The label falls back to it when the first
+                         ingest is not given.
+    da_first_ingested_at MIN(ingested_ts) of the same rows — the publication
+                         time the DA_PUBLISHED label prints (d091546). Neither
+                         stamp gates a state.
     sp15_da_print        {hub, ts, price, he} for the on-cycle SP15 DA print, or
                          None when target awards are not yet published.
     latest_fmm           {hub, market, ts, price} freshest FMM (RTPD) interval.
@@ -223,7 +228,9 @@ def compute_clock(
         }
 
     elif state == DA_PUBLISHED:
-        when = f" {_hhmm(da_published_at)} PT" if da_published_at is not None else ""
+        published = da_first_ingested_at if da_first_ingested_at is not None \
+            else da_published_at
+        when = f" {_hhmm(published)} PT" if published is not None else ""
         label = f"DA awards published{when}"
         detail = f"trade date {T} ({dow} — {peak})"
         if sp15_da_print and sp15_da_print.get("price") is not None:
