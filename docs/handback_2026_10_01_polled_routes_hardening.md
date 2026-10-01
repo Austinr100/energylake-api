@@ -79,3 +79,5 @@ The history grows by 36 × 24 rows a day, and with it the body (2,736 day cells 
 9. **Left as found:** the market-clock docstring still says "the feed re-ingests a published day", which d091546 §7.1 disproved. I changed only the comment at the call site I was editing.
 
 ## Branch
+
+`claude/polled-routes-hardening-d091551`, as the spec names it. This time the push was accepted under that name. The session's harness branch, `claude/polled-routes-hardening-d091551-lj9nz5`, carries the same commits. No PR, no merge, no deploy.
