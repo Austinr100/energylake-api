@@ -196,3 +196,21 @@ def test_D1_a_failed_read_is_a_503_and_not_memoised(client, monkeypatch):
     assert r.status_code == 503
     assert r.json()["detail"] == "db unavailable: connection refused"
     assert main._peak_demand_cache._entries == {}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# N1 — a CPC vintage with NULL valid dates is a null in the body, not a 500
+# (production 2026-10-01: three of four live vintages; the route was dark)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_N1_regime_survives_null_cpc_valid_dates(client, monkeypatch):
+    now, drivers, cpc, depth = bank.load_regime()
+    cpc = [{**r, "valid_start": None, "valid_end": None} for r in cpc]
+    monkeypatch.setattr(main, "_pool", bank.regime_pool(drivers, cpc, depth))
+    monkeypatch.setattr(main, "_utcnow", lambda: now)
+    r = client.get("/api/weather/regime")
+    assert r.status_code == 200, r.text[:300]
+    body = r.json()
+    chips = body["cpc"]["chips"]
+    held = [c for c in chips if c["issued_date"] is not None]
+    assert held and all(c["valid_start"] is None and c["valid_end"] is None for c in held)
