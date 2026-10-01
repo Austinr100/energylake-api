@@ -1,0 +1,264 @@
+-- d091546: after_plans.sql run on a THROWAWAY LOCAL Postgres 16, not Neon.
+-- Synthetic timeseries_values: 2,184,304 rows (1,500 DA node series x 60 days hourly,
+-- SP15 in caiso_lmp_da_hourly / caiso_lmp_rt_15min / caiso_lmp_rt_5min), indexes
+-- idx_tsv_series_ts (series, ts) and idx_tsv_dataset_ingested_ts (dataset, ingested_ts)
+-- as named in the spec; VACUUM ANALYZE. Planner choices depend on statistics, so this
+-- shows the statement's semantics and the shapes available, NOT Neon's plan.
+
+                                                                                                                            QUERY PLAN                                                                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=40941.47..40941.48 rows=1 width=40)
+   Output: $0, $3, $4, $5, $6
+   InitPlan 1 (returns $0)
+     ->  Aggregate  (cost=8.46..8.47 rows=1 width=8)
+           Output: count(*)
+           ->  Index Scan using idx_tsv_series_ts on public.timeseries_values  (cost=0.43..8.45 rows=1 width=0)
+                 Output: timeseries_values.dataset, timeseries_values.series, timeseries_values.ts, timeseries_values.value, timeseries_values.ingested_ts
+                 Index Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-03 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-04 07:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values.value IS NOT NULL) AND (timeseries_values.dataset = 'caiso_lmp_da_hourly'::text))
+   InitPlan 2 (returns $3)
+     ->  Aggregate  (cost=39290.32..39290.33 rows=1 width=8)
+           Output: max(timeseries_values_1.ingested_ts)
+           ->  Gather  (cost=1000.00..39290.32 rows=1 width=8)
+                 Output: timeseries_values_1.ingested_ts
+                 Workers Planned: 2
+                 ->  Parallel Seq Scan on public.timeseries_values timeseries_values_1  (cost=0.00..38290.22 rows=1 width=8)
+                       Output: timeseries_values_1.ingested_ts
+                       Filter: ((timeseries_values_1.ts >= '2026-10-03 07:00:00+00'::timestamp with time zone) AND (timeseries_values_1.ts < '2026-10-04 07:00:00+00'::timestamp with time zone) AND (timeseries_values_1.dataset = 'caiso_lmp_da_hourly'::text))
+   InitPlan 3 (returns $4)
+     ->  Limit  (cost=0.43..4.76 rows=1 width=8)
+           Output: timeseries_values_2.value
+           ->  Index Scan using idx_tsv_series_ts on public.timeseries_values timeseries_values_2  (cost=0.43..56.68 rows=13 width=8)
+                 Output: timeseries_values_2.value
+                 Index Cond: ((timeseries_values_2.series = 'SP15'::text) AND (timeseries_values_2.ts = '2026-10-03 23:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values_2.value IS NOT NULL) AND (timeseries_values_2.dataset = 'caiso_lmp_da_hourly'::text))
+   InitPlan 4 (returns $5)
+     ->  Limit  (cost=818.96..818.96 rows=1 width=8)
+           Output: timeseries_values_3.ts
+           ->  Sort  (cost=818.96..819.10 rows=58 width=8)
+                 Output: timeseries_values_3.ts
+                 Sort Key: timeseries_values_3.ts DESC
+                 ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_3  (cost=594.66..818.67 rows=58 width=8)
+                       Output: timeseries_values_3.ts
+                       Recheck Cond: ((timeseries_values_3.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_3.series = 'SP15'::text))
+                       Filter: (timeseries_values_3.value IS NOT NULL)
+                       ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0)
+                             ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0)
+                                   Index Cond: (timeseries_values_3.dataset = 'caiso_lmp_rt_15min'::text)
+                             ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0)
+                                   Index Cond: (timeseries_values_3.series = 'SP15'::text)
+   InitPlan 5 (returns $6)
+     ->  Limit  (cost=818.96..818.96 rows=1 width=16)
+           Output: timeseries_values_4.value, timeseries_values_4.ts
+           ->  Sort  (cost=818.96..819.10 rows=58 width=16)
+                 Output: timeseries_values_4.value, timeseries_values_4.ts
+                 Sort Key: timeseries_values_4.ts DESC
+                 ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_4  (cost=594.66..818.67 rows=58 width=16)
+                       Output: timeseries_values_4.value, timeseries_values_4.ts
+                       Recheck Cond: ((timeseries_values_4.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_4.series = 'SP15'::text))
+                       Filter: (timeseries_values_4.value IS NOT NULL)
+                       ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0)
+                             ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0)
+                                   Index Cond: (timeseries_values_4.dataset = 'caiso_lmp_rt_15min'::text)
+                             ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0)
+                                   Index Cond: (timeseries_values_4.series = 'SP15'::text)
+(55 rows)
+
+                                                                                                                   QUERY PLAN                                                                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=3108.26..3108.27 rows=1 width=40) (actual time=4.307..4.314 rows=1 loops=1)
+   Output: $0, $2, $3, $4, $5
+   Buffers: shared hit=284 read=85
+   InitPlan 1 (returns $0)
+     ->  Aggregate  (cost=1462.14..1462.15 rows=1 width=8) (actual time=0.161..0.162 rows=1 loops=1)
+           Output: count(*)
+           Buffers: shared hit=4 read=4
+           ->  Bitmap Heap Scan on public.timeseries_values  (cost=13.57..1461.14 rows=399 width=0) (actual time=0.132..0.156 rows=24 loops=1)
+                 Recheck Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-01 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-02 07:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values.value IS NOT NULL) AND (timeseries_values.dataset = 'caiso_lmp_da_hourly'::text))
+                 Rows Removed by Filter: 208
+                 Heap Blocks: exact=4
+                 Buffers: shared hit=4 read=4
+                 ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..13.47 rows=403 width=0) (actual time=0.107..0.107 rows=232 loops=1)
+                       Index Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-01 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-02 07:00:00+00'::timestamp with time zone))
+                       Buffers: shared read=4
+   InitPlan 3 (returns $2)
+     ->  Result  (cost=3.43..3.44 rows=1 width=8) (actual time=0.070..0.071 rows=1 loops=1)
+           Output: $1
+           Buffers: shared hit=3 read=1
+           InitPlan 2 (returns $1)
+             ->  Limit  (cost=0.43..3.43 rows=1 width=8) (actual time=0.069..0.070 rows=1 loops=1)
+                   Output: timeseries_values_1.ingested_ts
+                   Buffers: shared hit=3 read=1
+                   ->  Index Scan Backward using idx_tsv_dataset_ingested_ts on public.timeseries_values timeseries_values_1  (cost=0.43..113883.87 rows=37966 width=8) (actual time=0.068..0.068 rows=1 loops=1)
+                         Output: timeseries_values_1.ingested_ts
+                         Index Cond: ((timeseries_values_1.dataset = 'caiso_lmp_da_hourly'::text) AND (timeseries_values_1.ingested_ts IS NOT NULL))
+                         Filter: ((timeseries_values_1.ts >= '2026-10-01 07:00:00+00'::timestamp with time zone) AND (timeseries_values_1.ts < '2026-10-02 07:00:00+00'::timestamp with time zone))
+                         Buffers: shared hit=3 read=1
+   InitPlan 4 (returns $3)
+     ->  Limit  (cost=0.43..4.76 rows=1 width=8) (actual time=0.012..0.012 rows=1 loops=1)
+           Output: timeseries_values_2.value
+           Buffers: shared hit=4
+           ->  Index Scan using idx_tsv_series_ts on public.timeseries_values timeseries_values_2  (cost=0.43..56.68 rows=13 width=8) (actual time=0.011..0.011 rows=1 loops=1)
+                 Output: timeseries_values_2.value
+                 Index Cond: ((timeseries_values_2.series = 'SP15'::text) AND (timeseries_values_2.ts = '2026-10-01 23:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values_2.value IS NOT NULL) AND (timeseries_values_2.dataset = 'caiso_lmp_da_hourly'::text))
+                 Buffers: shared hit=4
+   InitPlan 5 (returns $4)
+     ->  Limit  (cost=818.96..818.96 rows=1 width=8) (actual time=2.033..2.035 rows=1 loops=1)
+           Output: timeseries_values_3.ts
+           Buffers: shared hit=98 read=80
+           ->  Sort  (cost=818.96..819.10 rows=58 width=8) (actual time=2.033..2.034 rows=1 loops=1)
+                 Output: timeseries_values_3.ts
+                 Sort Key: timeseries_values_3.ts DESC
+                 Sort Method: top-N heapsort  Memory: 25kB
+                 Buffers: shared hit=98 read=80
+                 ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_3  (cost=594.66..818.67 rows=58 width=8) (actual time=1.158..1.736 rows=5716 loops=1)
+                       Output: timeseries_values_3.ts
+                       Recheck Cond: ((timeseries_values_3.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_3.series = 'SP15'::text))
+                       Filter: (timeseries_values_3.value IS NOT NULL)
+                       Heap Blocks: exact=54
+                       Buffers: shared hit=95 read=80
+                       ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0) (actual time=1.143..1.143 rows=0 loops=1)
+                             Buffers: shared hit=41 read=80
+                             ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0) (actual time=0.170..0.170 rows=5716 loops=1)
+                                   Index Cond: (timeseries_values_3.dataset = 'caiso_lmp_rt_15min'::text)
+                                   Buffers: shared hit=38
+                             ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0) (actual time=0.968..0.968 rows=24304 loops=1)
+                                   Index Cond: (timeseries_values_3.series = 'SP15'::text)
+                                   Buffers: shared hit=3 read=80
+   InitPlan 6 (returns $5)
+     ->  Limit  (cost=818.96..818.96 rows=1 width=16) (actual time=2.024..2.025 rows=1 loops=1)
+           Output: timeseries_values_4.value, timeseries_values_4.ts
+           Buffers: shared hit=175
+           ->  Sort  (cost=818.96..819.10 rows=58 width=16) (actual time=2.023..2.024 rows=1 loops=1)
+                 Output: timeseries_values_4.value, timeseries_values_4.ts
+                 Sort Key: timeseries_values_4.ts DESC
+                 Sort Method: top-N heapsort  Memory: 25kB
+                 Buffers: shared hit=175
+                 ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_4  (cost=594.66..818.67 rows=58 width=16) (actual time=0.872..1.522 rows=5716 loops=1)
+                       Output: timeseries_values_4.value, timeseries_values_4.ts
+                       Recheck Cond: ((timeseries_values_4.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_4.series = 'SP15'::text))
+                       Filter: (timeseries_values_4.value IS NOT NULL)
+                       Heap Blocks: exact=54
+                       Buffers: shared hit=175
+                       ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0) (actual time=0.862..0.863 rows=0 loops=1)
+                             Buffers: shared hit=121
+                             ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0) (actual time=0.176..0.176 rows=5716 loops=1)
+                                   Index Cond: (timeseries_values_4.dataset = 'caiso_lmp_rt_15min'::text)
+                                   Buffers: shared hit=38
+                             ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0) (actual time=0.683..0.683 rows=24304 loops=1)
+                                   Index Cond: (timeseries_values_4.series = 'SP15'::text)
+                                   Buffers: shared hit=83
+ Planning Time: 0.248 ms
+ Execution Time: 4.386 ms
+(86 rows)
+
+                                                                                                               QUERY PLAN                                                                                                               
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=832.17..832.20 rows=1 width=48) (actual time=2.110..2.113 rows=1 loops=1)
+   Output: (count(timeseries_values.value)), (max(timeseries_values.ingested_ts)), (min(timeseries_values.ingested_ts)), $0, timeseries_values_1.ts, timeseries_values_1.value
+   Buffers: shared hit=181
+   InitPlan 1 (returns $0)
+     ->  Limit  (cost=0.43..4.76 rows=1 width=8) (actual time=0.012..0.012 rows=0 loops=1)
+           Output: timeseries_values_2.value
+           Buffers: shared hit=3
+           ->  Index Scan using idx_tsv_series_ts on public.timeseries_values timeseries_values_2  (cost=0.43..56.68 rows=13 width=8) (actual time=0.011..0.011 rows=0 loops=1)
+                 Output: timeseries_values_2.value
+                 Index Cond: ((timeseries_values_2.series = 'SP15'::text) AND (timeseries_values_2.ts = '2026-10-03 23:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values_2.value IS NOT NULL) AND (timeseries_values_2.dataset = 'caiso_lmp_da_hourly'::text))
+                 Buffers: shared hit=3
+   ->  Aggregate  (cost=8.46..8.47 rows=1 width=24) (actual time=0.009..0.010 rows=1 loops=1)
+         Output: count(timeseries_values.value), max(timeseries_values.ingested_ts), min(timeseries_values.ingested_ts)
+         Buffers: shared hit=3
+         ->  Index Scan using idx_tsv_series_ts on public.timeseries_values  (cost=0.43..8.45 rows=1 width=16) (actual time=0.008..0.008 rows=0 loops=1)
+               Output: timeseries_values.dataset, timeseries_values.series, timeseries_values.ts, timeseries_values.value, timeseries_values.ingested_ts
+               Index Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-03 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-04 07:00:00+00'::timestamp with time zone))
+               Filter: (timeseries_values.dataset = 'caiso_lmp_da_hourly'::text)
+               Buffers: shared hit=3
+   ->  Limit  (cost=818.96..818.96 rows=1 width=16) (actual time=2.085..2.086 rows=1 loops=1)
+         Output: timeseries_values_1.ts, timeseries_values_1.value
+         Buffers: shared hit=175
+         ->  Sort  (cost=818.96..819.10 rows=58 width=16) (actual time=2.084..2.085 rows=1 loops=1)
+               Output: timeseries_values_1.ts, timeseries_values_1.value
+               Sort Key: timeseries_values_1.ts DESC
+               Sort Method: top-N heapsort  Memory: 25kB
+               Buffers: shared hit=175
+               ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_1  (cost=594.66..818.67 rows=58 width=16) (actual time=0.881..1.540 rows=5716 loops=1)
+                     Output: timeseries_values_1.ts, timeseries_values_1.value
+                     Recheck Cond: ((timeseries_values_1.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_1.series = 'SP15'::text))
+                     Filter: (timeseries_values_1.value IS NOT NULL)
+                     Heap Blocks: exact=54
+                     Buffers: shared hit=175
+                     ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0) (actual time=0.868..0.869 rows=0 loops=1)
+                           Buffers: shared hit=121
+                           ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0) (actual time=0.203..0.203 rows=5716 loops=1)
+                                 Index Cond: (timeseries_values_1.dataset = 'caiso_lmp_rt_15min'::text)
+                                 Buffers: shared hit=38
+                           ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0) (actual time=0.661..0.661 rows=24304 loops=1)
+                                 Index Cond: (timeseries_values_1.series = 'SP15'::text)
+                                 Buffers: shared hit=83
+ Planning:
+   Buffers: shared hit=5 read=1
+ Planning Time: 0.194 ms
+ Execution Time: 2.147 ms
+(46 rows)
+
+                                                                                                                  QUERY PLAN                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=2287.84..2287.86 rows=1 width=48) (actual time=1.960..1.964 rows=1 loops=1)
+   Output: (count(timeseries_values.value)), (max(timeseries_values.ingested_ts)), (min(timeseries_values.ingested_ts)), $0, timeseries_values_1.ts, timeseries_values_1.value
+   Buffers: shared hit=187
+   InitPlan 1 (returns $0)
+     ->  Limit  (cost=0.43..4.76 rows=1 width=8) (actual time=0.012..0.012 rows=1 loops=1)
+           Output: timeseries_values_2.value
+           Buffers: shared hit=4
+           ->  Index Scan using idx_tsv_series_ts on public.timeseries_values timeseries_values_2  (cost=0.43..56.68 rows=13 width=8) (actual time=0.011..0.011 rows=1 loops=1)
+                 Output: timeseries_values_2.value
+                 Index Cond: ((timeseries_values_2.series = 'SP15'::text) AND (timeseries_values_2.ts = '2026-10-01 23:00:00+00'::timestamp with time zone))
+                 Filter: ((timeseries_values_2.value IS NOT NULL) AND (timeseries_values_2.dataset = 'caiso_lmp_da_hourly'::text))
+                 Buffers: shared hit=4
+   ->  Aggregate  (cost=1464.13..1464.14 rows=1 width=24) (actual time=0.047..0.048 rows=1 loops=1)
+         Output: count(timeseries_values.value), max(timeseries_values.ingested_ts), min(timeseries_values.ingested_ts)
+         Buffers: shared hit=8
+         ->  Bitmap Heap Scan on public.timeseries_values  (cost=13.57..1461.14 rows=399 width=16) (actual time=0.026..0.043 rows=24 loops=1)
+               Output: timeseries_values.dataset, timeseries_values.series, timeseries_values.ts, timeseries_values.value, timeseries_values.ingested_ts
+               Recheck Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-01 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-02 07:00:00+00'::timestamp with time zone))
+               Filter: (timeseries_values.dataset = 'caiso_lmp_da_hourly'::text)
+               Rows Removed by Filter: 208
+               Heap Blocks: exact=4
+               Buffers: shared hit=8
+               ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..13.47 rows=403 width=0) (actual time=0.021..0.021 rows=232 loops=1)
+                     Index Cond: ((timeseries_values.series = 'SP15'::text) AND (timeseries_values.ts >= '2026-10-01 07:00:00+00'::timestamp with time zone) AND (timeseries_values.ts < '2026-10-02 07:00:00+00'::timestamp with time zone))
+                     Buffers: shared hit=4
+   ->  Limit  (cost=818.96..818.96 rows=1 width=16) (actual time=1.898..1.899 rows=1 loops=1)
+         Output: timeseries_values_1.ts, timeseries_values_1.value
+         Buffers: shared hit=175
+         ->  Sort  (cost=818.96..819.10 rows=58 width=16) (actual time=1.897..1.898 rows=1 loops=1)
+               Output: timeseries_values_1.ts, timeseries_values_1.value
+               Sort Key: timeseries_values_1.ts DESC
+               Sort Method: top-N heapsort  Memory: 25kB
+               Buffers: shared hit=175
+               ->  Bitmap Heap Scan on public.timeseries_values timeseries_values_1  (cost=594.66..818.67 rows=58 width=16) (actual time=0.781..1.364 rows=5716 loops=1)
+                     Output: timeseries_values_1.ts, timeseries_values_1.value
+                     Recheck Cond: ((timeseries_values_1.dataset = 'caiso_lmp_rt_15min'::text) AND (timeseries_values_1.series = 'SP15'::text))
+                     Filter: (timeseries_values_1.value IS NOT NULL)
+                     Heap Blocks: exact=54
+                     Buffers: shared hit=175
+                     ->  BitmapAnd  (cost=594.66..594.66 rows=58 width=0) (actual time=0.772..0.773 rows=0 loops=1)
+                           Buffers: shared hit=121
+                           ->  Bitmap Index Scan on idx_tsv_dataset_ingested_ts  (cost=0.00..65.94 rows=5534 width=0) (actual time=0.156..0.156 rows=5716 loops=1)
+                                 Index Cond: (timeseries_values_1.dataset = 'caiso_lmp_rt_15min'::text)
+                                 Buffers: shared hit=38
+                           ->  Bitmap Index Scan on idx_tsv_series_ts  (cost=0.00..528.44 rows=22935 width=0) (actual time=0.613..0.613 rows=24304 loops=1)
+                                 Index Cond: (timeseries_values_1.series = 'SP15'::text)
+                                 Buffers: shared hit=83
+ Planning Time: 0.163 ms
+ Execution Time: 1.993 ms
+(49 rows)
+
+ da_hours |  da_first_ingested_at  |    da_published_at     | distinct_ingests 
+----------+------------------------+------------------------+------------------
+       24 | 2026-09-30 14:00:00+00 | 2026-10-01 14:00:00+00 |                2
+(1 row)
+

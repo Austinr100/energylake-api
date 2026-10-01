@@ -26,6 +26,7 @@ today D-09-25-30, `unknown` says why D-09-25-31); T4 carries its amendment.
 
 import hashlib
 import json
+import os
 import logging
 import math
 import re
@@ -1831,16 +1832,18 @@ def test_T8f_build_payload_refuses_an_unexplained_unknown_and_not_a_mapped_one()
 
 def test_T9f_key_sets_are_byte_identical_to_main():
     assert lf.TOP_KEYS == ("place", "now", "hourly", "daily", "alerts", "sun", "receipts")
+    # d091546 (D-09-25-76) amends: `condition_text`, the source's own phrase,
+    # travels beside `condition` in now, hourly and daily.
     assert lf.NOW_KEYS == ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp",
-                           "condition", "condition_raw", "valid", "source", "age_min",
-                           "absent")
+                           "condition", "condition_text", "condition_raw", "valid",
+                           "source", "age_min", "absent")
     assert lf.HOURLY_KEYS == ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop",
-                              "precip_amt", "sky", "mslp", "condition", "condition_raw",
-                              "t_spread", "interp", "source", "absent")
+                              "precip_amt", "sky", "mslp", "condition", "condition_text",
+                              "condition_raw", "t_spread", "interp", "source", "absent")
     # d091513 §3.2 amends: `lo_period` names the NWS period that gave `lo`.
     assert lf.DAILY_KEYS == ("date", "hi", "lo", "lo_period", "pop", "precip_amt",
-                             "wind", "sky", "condition", "sunrise", "sunset", "source",
-                             "absent")
+                             "wind", "sky", "condition", "condition_text", "sunrise",
+                             "sunset", "source", "absent")
     assert lf.SUN_KEYS == ("sunrise", "sunset", "day_length_min", "source", "absent")
     assert lf.RECEIPT_KEYS == ("arm", "source", "issued_at", "run", "fhr_range",
                                "station", "memo", "fallback", "outline_sha",
@@ -1987,10 +1990,14 @@ def test_N5_by_night_unknown_says_night():
 
 def _without_lo_period(body):
     """d091513 §3.2 adds `lo_period` to every daily row (and, where it is null,
-    its reason). Strip exactly that and the rest must be main's bytes."""
+    its reason). d091546 (D-09-25-76) adds `condition_text` to `now` and every
+    hourly and daily row, with no reason ever. Strip exactly those and the rest
+    must be main's bytes."""
     for d in body["daily"]:
         del d["lo_period"]
         d["absent"] = [a for a in d["absent"] if not a.startswith("lo_period:")]
+    for row in [body["now"], *body["hourly"], *body["daily"]]:
+        del row["condition_text"]
     return json.dumps(body, ensure_ascii=False, allow_nan=False, indent=None,
                       separators=(",", ":")).encode("utf-8")
 
@@ -2001,6 +2008,10 @@ def test_N6_nws_arm_body_is_byte_identical_to_main(world):
     assert b["receipts"]["arm"] == "nws"
     assert [d["lo_period"] for d in b["daily"][:7]] == \
         [p["name"] for p in _fixture("forecast.us.json")["properties"]["periods"][1::2]][:7]
+    # d091546: the banked bodies are hand-built with empty shortForecast, so the
+    # rows carry null; the observation's textDescription is carried verbatim.
+    assert b["now"]["condition_text"] == "Mostly Clear"
+    assert {r["condition_text"] for r in b["hourly"] + b["daily"]} == {None}
     assert hashlib.sha256(_without_lo_period(b)).hexdigest() == LAX_NWS_SHA_MAIN
 
 
@@ -2347,4 +2358,159 @@ def test_L9_a_daytime_read_is_mains_rows_plus_lo_period():
     rows = nws_arm.daily_rows(p, "America/Los_Angeles", 33.94, -118.41, SRC)
     want = json.loads((NWS_FIX / "daily_rows_daytime.main.json").read_text())
     assert [r.pop("lo_period") for r in rows] == [x["name"] for x in p[1::2]]
+    # d091546: `condition_text` is the lead period's shortForecast — empty in
+    # this hand-built body, so null; main's rows predate the key.
+    assert [r.pop("condition_text") for r in rows] == [None] * len(rows)
     assert json.loads(json.dumps(rows)) == want
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C1..C4 are d091546's (D-09-25-76): `condition_text` carries NWS's own words
+# beside the house class, verbatim; nothing is derived from it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+LA = {"lat": 34.052, "lon": -118.244}
+LA_NOW = datetime(2026, 10, 1, 20, 10, tzinfo=UTC)
+LA_HEAT = {"points": "points.la_heat.json", "stations": "stations.la_heat.json",
+           "forecast": "forecast.la_heat.us.json",
+           "hourly": "forecastHourly.la_heat.us.json",
+           "obs": "latest.la_heat.json", "alerts": "alerts.la_heat.json"}
+LA_BODY = ROOT / "docs" / "receipts" / "market-clock-d091546" / "local_la_heat.json"
+
+
+def _la_periods():
+    return _fixture(LA_HEAT["forecast"])["properties"]["periods"]
+
+
+def test_C1_a_hot_day_is_unknown_with_nws_phrase_verbatim():
+    rows = nws_arm.daily_rows(_la_periods(), "America/Los_Angeles", LA["lat"], LA["lon"],
+                              "nws · gridpoint LOX/155,45")
+    first = rows[0]
+    assert lf.icon_token(_la_periods()[0]["icon"]) == "hot"
+    assert first["condition"] == "unknown"
+    assert "condition: nws icon token 'hot' is not in the house table" in first["absent"]
+    assert first["condition_text"] == "Hot"
+    # Every row's phrase is its lead (day) period's shortForecast, as written —
+    # including the compound one whose class comes from its first token only.
+    days = [p for p in _la_periods() if p["isDaytime"]]
+    assert [r["condition_text"] for r in rows] == [p["shortForecast"] for p in days]
+    assert rows[-1]["condition"] == "clear"
+    assert rows[-1]["condition_text"] == "Sunny then Slight Chance Showers"
+    # Six of seven rows are `unknown` by class; none is without its words.
+    assert sum(r["condition"] == "unknown" for r in rows) == 6
+    assert all(r["condition_text"] for r in rows)
+
+
+def test_C1_the_phrase_is_stripped_and_an_empty_one_is_null():
+    p = dict(_la_periods()[0], shortForecast="  Hot \n")
+    q = dict(_la_periods()[1])
+    assert nws_arm.daily_rows([p, q], "America/Los_Angeles", LA["lat"], LA["lon"],
+                              "x")[0]["condition_text"] == "Hot"
+    for missing in ("", "   ", None):
+        p = dict(_la_periods()[0], shortForecast=missing)
+        assert nws_arm.daily_rows([p, q], "America/Los_Angeles", LA["lat"], LA["lon"],
+                                  "x")[0]["condition_text"] is None
+    p = {k: v for k, v in _la_periods()[0].items() if k != "shortForecast"}
+    assert nws_arm.daily_rows([p, q], "America/Los_Angeles", LA["lat"], LA["lon"],
+                              "x")[0]["condition_text"] is None
+
+
+def test_C1_a_night_only_row_carries_the_nights_words():
+    night = _la_periods()[1]                      # "Tonight", Mostly Clear
+    rows = nws_arm.daily_rows([night], "America/Los_Angeles", LA["lat"], LA["lon"], "x")
+    assert rows[0]["hi"] is None
+    assert rows[0]["condition_text"] == "Mostly Clear"
+
+
+def _la_world(world):
+    world["nws"].override = {k: _fixture(v) for k, v in LA_HEAT.items()}
+    world["now"] = LA_NOW
+    return get(world, **LA)
+
+
+def test_C2_hourly_and_now_carry_the_field(world):
+    r = _la_world(world)
+    assert r.status_code == 200
+    b = r.json()
+    assert b["receipts"]["arm"] == "nws"
+    assert b["now"]["condition"] == "unknown"               # obs icon `hot`
+    assert b["now"]["condition_text"] == "Clear"            # obs textDescription
+    hourly = _fixture(LA_HEAT["hourly"])["properties"]["periods"]
+    by_start = {lf.iso_z(lf.parse_iso(p["startTime"])): p["shortForecast"] for p in hourly}
+    assert b["hourly"]
+    for row in b["hourly"]:
+        assert row["condition_text"] == by_start[row["valid"]]
+    assert {r["condition_text"] for r in b["hourly"]} == {"Hot", "Sunny", "Mostly Clear"}
+    assert [x["event"] for x in b["alerts"]] == ["Extreme Heat Watch"]
+
+
+def test_C2_hourly_row_reads_shortforecast():
+    p = dict(_fixture("forecastHourly.us.json")["properties"]["periods"][0],
+             shortForecast="Sunny then Slight Chance Showers")
+    assert nws_arm.hourly_row(p, "x")["condition_text"] == "Sunny then Slight Chance Showers"
+
+
+def test_C2_a_model_arm_row_carries_null_and_absent_does_not_list_it(world):
+    b = get(world, **VANCOUVER).json()
+    assert b["receipts"]["arm"] == "model"
+    rows = [b["now"], *b["hourly"], *b["daily"]]
+    assert rows
+    for row in rows:
+        assert row["condition_text"] is None
+        assert not any(a.startswith("condition_text") for a in row["absent"])
+
+
+def test_C2_an_unavailable_observation_carries_null():
+    now = nws_arm.now_unavailable("KCQT", "HTTP 503")
+    assert now["condition_text"] is None
+    assert not any(a.startswith("condition_text") for a in now["absent"])
+
+
+def test_C3_the_validator_refuses_empty_and_overlong_phrases():
+    for block in ("now", "hourly", "daily"):
+        for bad in ("", "x" * 121, 7, ["Hot"]):
+            parts = _nws_parts()
+            row = parts[block] if block == "now" else parts[block][0]
+            row["condition_text"] = bad
+            with pytest.raises(ValueError, match=r"condition_text must be null or a non-empty"):
+                lf.build_payload(**parts)
+        for good in (None, "Hot", "x" * 120):
+            parts = _nws_parts()
+            row = parts[block] if block == "now" else parts[block][0]
+            row["condition_text"] = good
+            lf.build_payload(**parts)
+
+
+def test_C3_the_key_is_required_on_every_row():
+    for block in ("now", "hourly", "daily"):
+        parts = _nws_parts()
+        row = parts[block] if block == "now" else parts[block][0]
+        del row["condition_text"]
+        with pytest.raises(ValueError, match=r"keys off contract"):
+            lf.build_payload(**parts)
+
+
+def test_C4_every_banked_body_still_builds_a_valid_payload(world):
+    """The banked NWS bodies (SI and US twins, LAX and the LA heat set) and the
+    model arm's banked headers all still validate with the key added. No
+    fixture file changed; T9f, N6 and L9's pins are amended in place."""
+    lf.build_payload(**_nws_parts())                                    # SI twin
+    for params in (LAX, VANCOUVER):
+        r = get(world, **params)
+        assert r.status_code == 200, params
+        lf.build_payload(**r.json())
+    assert _la_world(world).status_code == 200
+    lf.build_payload(**_la_world(world).json())
+
+
+def test_C4_the_banked_la_body_is_the_route_on_the_banked_nws_response(world):
+    """docs/receipts/market-clock-d091546/local_la_heat.json: the Local body for
+    Los Angeles under the heat watch, from the banked NWS bodies above, minus
+    the request-only receipts (`generated_at` is pinned by LA_NOW; `memo`
+    describes the request)."""
+    b = _la_world(world).json()
+    b["receipts"]["memo"] = None
+    if os.environ.get("BANK_LA_BODY"):            # BANK_LA_BODY=1 pytest -k C4 re-banks
+        LA_BODY.write_text(json.dumps(b, indent=1, ensure_ascii=False) + "\n")
+    want = json.loads(LA_BODY.read_text())
+    assert b == want

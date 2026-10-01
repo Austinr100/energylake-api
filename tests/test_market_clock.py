@@ -12,7 +12,9 @@ Two layers, mirroring the publication-clock suite:
      deterministic and publication detection is driven by the faked row.
 """
 
+import asyncio
 import datetime
+import re
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -181,8 +183,8 @@ def test_unknown_type_never_raised_as_of_is_utc():
 # ═══════════════════════════════════════════════════════════════════════════
 
 class _FakeCursor:
-    def __init__(self, row, sink):
-        self._row, self._sink = row, sink
+    def __init__(self, pool):
+        self._pool = pool
 
     async def __aenter__(self):
         return self
@@ -191,33 +193,71 @@ class _FakeCursor:
         return False
 
     async def execute(self, query, params=None):
-        self._sink["query"], self._sink["params"] = query, params
+        self._pool.statements.append(query)
+        if query.lstrip().upper().startswith("SET LOCAL"):
+            return
+        self._pool.sink["query"], self._pool.sink["params"] = query, params
+        self._pool.queries += 1
+        if self._pool.delay:
+            await asyncio.sleep(self._pool.delay)
+        if self._pool.error is not None:
+            raise self._pool.error
 
     async def fetchone(self):
-        return self._row
+        return self._pool.row
 
 
-class _FakeConn:
-    def __init__(self, row, sink):
-        self._row, self._sink = row, sink
-
+class _FakeTx:
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, *exc):
         return False
 
+
+class _FakeConn:
+    def __init__(self, pool):
+        self._pool = pool
+
+    async def __aenter__(self):
+        self._pool.checkouts += 1
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def transaction(self):
+        return _FakeTx()
+
     def cursor(self):
-        return _FakeCursor(self._row, self._sink)
+        return _FakeCursor(self._pool)
 
 
 class FakePool:
-    def __init__(self, row):
-        self._row = row
+    """Counts checkouts and queries; `delay` holds a query open so concurrent
+    callers overlap; `error` makes the read raise."""
+
+    def __init__(self, row, *, delay=0.0, error=None):
+        self.row = row
+        self.delay = delay
+        self.error = error
         self.sink = {}
+        self.statements = []
+        self.checkouts = 0
+        self.queries = 0
 
     def connection(self):
-        return _FakeConn(self._row, self.sink)
+        return _FakeConn(self)
+
+
+@pytest.fixture(autouse=True)
+def _cold_memo():
+    """Every test starts on a cold market-clock memo."""
+    main._market_clock_memo["entry"] = None
+    main._market_clock_inflight["task"] = None
+    yield
+    main._market_clock_memo["entry"] = None
+    main._market_clock_inflight["task"] = None
 
 
 @pytest.fixture
@@ -226,8 +266,8 @@ def client():
     return TestClient(main.app)
 
 
-def _install(row, now):
-    pool = FakePool(row)
+def _install(row, now, **kw):
+    pool = FakePool(row, **kw)
     main._pool = pool
     main._utcnow = lambda: now
     return pool
@@ -301,3 +341,170 @@ def test_endpoint_partial_da_write_is_not_published(client):
     )
     body = client.get("/api/market-clock").json()
     assert body["state"] == "DA_MARKET_RUNNING"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# d091546 (D-09-25-75) — the market clock stops holding the pool
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _reads(sql):
+    """{alias: body} for every parenthesised SELECT that reads
+    timeseries_values — scalar subqueries and FROM items alike."""
+    out = {}
+    for m in re.finditer(r"\(SELECT\b", sql):
+        depth, i = 0, m.start()
+        for i in range(m.start(), len(sql)):
+            depth += {"(": 1, ")": -1}.get(sql[i], 0)
+            if depth == 0:
+                break
+        body = sql[m.start() + 1:i]
+        alias = re.match(r"\)\s+AS\s+(\w+)", sql[i:])
+        if "FROM timeseries_values" in body and alias:
+            out[alias[1]] = body
+    return out
+
+
+def _unnamed_series(sql):
+    return [a for a, body in _reads(sql).items()
+            if not re.search(r"\bseries\s*=\s*%\(hub\)s", body)]
+
+
+def test_m1_every_read_names_dataset_and_series():
+    reads = _reads(main._MARKET_CLOCK_SQL)
+    assert set(reads) == {"da", "sp15_da_val", "fmm"}
+    assert main._MARKET_CLOCK_SQL.count("FROM timeseries_values") == len(reads)
+    for alias, body in reads.items():
+        assert body.count("FROM timeseries_values") == 1, alias
+        assert re.search(r"\bdataset\s*=\s*%\((da|fmm)\)s", body), alias
+    assert _unnamed_series(main._MARKET_CLOCK_SQL) == []
+    # The check itself bites: drop the hub from the day-ahead read (the shape
+    # that held the pool on 2026-10-01) and it is caught.
+    before = main._MARKET_CLOCK_SQL.replace(
+        "WHERE dataset = %(da)s AND series = %(hub)s\n             AND ts >= %(tstart)s",
+        "WHERE dataset = %(da)s\n             AND ts >= %(tstart)s")
+    assert before != main._MARKET_CLOCK_SQL
+    assert _unnamed_series(before) == ["da"]
+
+
+def test_m1_statement_runs_under_a_3s_timeout(client):
+    pool = _install({"da_hours": 0, "da_published_at": None,
+                     "da_first_ingested_at": None, "sp15_da_val": None,
+                     "fmm_ts": _pt(2026, 7, 16, 7, 55), "fmm_val": 33.0},
+                    now=_pt(2026, 7, 16, 8, 0))
+    assert client.get("/api/market-clock").status_code == 200
+    assert pool.statements[0] == "SET LOCAL statement_timeout = '3s'"
+    assert pool.statements[1] is main._MARKET_CLOCK_SQL
+
+
+_ROW_RUNNING = {"da_hours": 0, "da_published_at": None, "da_first_ingested_at": None,
+                "sp15_da_val": None, "fmm_ts": _pt(2026, 7, 16, 10, 55), "fmm_val": 35.0}
+
+
+def test_m2_twenty_concurrent_requests_on_a_cold_memo_run_one_query():
+    pool = _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0), delay=0.05)
+
+    async def go():
+        return await asyncio.gather(*(main.market_clock() for _ in range(20)))
+
+    bodies = asyncio.run(go())
+    assert pool.checkouts == 1
+    assert pool.queries == 1
+    assert len({b["as_of"] for b in bodies}) == 1
+    assert all(b["state"] == "DA_MARKET_RUNNING" for b in bodies)
+
+
+def test_m2_a_fresh_memo_is_served_without_a_checkout(client):
+    pool = _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0))
+    first = client.get("/api/market-clock").json()
+    main._utcnow = lambda: _pt(2026, 7, 16, 11, 0) + datetime.timedelta(seconds=10)
+    second = client.get("/api/market-clock").json()
+    assert pool.checkouts == 1
+    assert second["as_of"] == first["as_of"]
+
+
+def _seed(payload, age_s):
+    main._market_clock_memo["entry"] = (main.time.monotonic() - age_s, payload)
+
+
+def test_m3_stale_answer_served_during_rebuild_with_its_own_as_of():
+    old = {"state": "DA_BIDDING", "as_of": "2026-07-16T15:59:30+00:00"}
+    pool = _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0), delay=0.05)
+    _seed(old, age_s=30)
+
+    async def go():
+        served = await asyncio.gather(*(main.market_clock() for _ in range(5)))
+        await asyncio.sleep(0.2)               # let the one rebuild land
+        return served, await main.market_clock()
+
+    served, after = asyncio.run(go())
+    assert all(s is old for s in served)       # stale, with its ORIGINAL as_of
+    assert pool.queries == 1                   # one rebuild behind five requests
+    assert after["as_of"] == _pt(2026, 7, 16, 11, 0).isoformat()
+    assert after["state"] == "DA_MARKET_RUNNING"
+
+
+def test_m3_past_120s_the_stale_answer_is_not_served(client):
+    import psycopg
+    _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0),
+             error=psycopg.errors.QueryCanceled("canceling statement due to statement timeout"))
+    _seed({"state": "DA_BIDDING", "as_of": "2026-07-16T15:57:00+00:00"}, age_s=121)
+    r = client.get("/api/market-clock")
+    assert r.status_code == 503
+    assert "as_of" not in r.json()
+
+
+def test_m3_between_20s_and_120s_a_failed_rebuild_keeps_the_stale_answer(client):
+    import psycopg
+    old = {"state": "DA_BIDDING", "as_of": "2026-07-16T15:59:00+00:00"}
+    _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0),
+             error=psycopg.errors.QueryCanceled("canceling statement due to statement timeout"))
+    _seed(old, age_s=60)
+    r = client.get("/api/market-clock")
+    assert r.status_code == 200
+    assert r.json() == old
+
+
+def test_m4_statement_timeout_is_a_503_and_not_memoised(client):
+    import psycopg
+    pool = _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0),
+                    error=psycopg.errors.QueryCanceled("canceling statement due to statement timeout"))
+    r = client.get("/api/market-clock")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "market clock read exceeded 3 s"
+    assert r.headers["Retry-After"] == "5"
+    assert main._market_clock_memo["entry"] is None
+    # The next request reads again, and a good read is then memoised.
+    pool.error = None
+    r = client.get("/api/market-clock")
+    assert r.status_code == 200
+    assert pool.queries == 2
+    assert main._market_clock_memo["entry"] is not None
+
+
+def test_m5_the_two_stamps_are_one_aggregate_over_the_same_rows():
+    da = _reads(main._MARKET_CLOCK_SQL)["da"]
+    # min and max over the same rows: first <= newest, both null together —
+    # and with count() beside them the min/max index shortcut cannot apply.
+    for agg in ("count(value)", "max(ingested_ts) AS da_published_at",
+                "min(ingested_ts) AS da_first_ingested_at"):
+        assert agg in da, agg
+
+
+def test_m5_both_stamps_null_before_publication(client):
+    _install(_ROW_RUNNING, now=_pt(2026, 7, 16, 11, 0))
+    body = client.get("/api/market-clock").json()
+    assert body["da_published_at"] is None
+    assert body["da_first_ingested_at"] is None
+
+
+def test_m5_first_ingest_is_the_published_label_newest_is_reported(client):
+    first, newest = _pt(2026, 7, 15, 13, 5), _pt(2026, 7, 15, 17, 49)
+    _install({"da_hours": 24, "da_published_at": newest, "da_first_ingested_at": first,
+              "sp15_da_val": 40.05, "fmm_ts": _pt(2026, 7, 15, 15, 55), "fmm_val": 41.2},
+             now=_pt(2026, 7, 15, 16, 0))
+    body = client.get("/api/market-clock").json()
+    assert body["state"] == "DA_PUBLISHED"
+    assert body["label"] == "DA awards published 13:05 PT"
+    assert body["da_first_ingested_at"] == first.isoformat()
+    assert body["da_published_at"] == newest.isoformat()
+    assert body["da_first_ingested_at"] <= body["da_published_at"]

@@ -1,0 +1,44 @@
+# d091546 — red → green
+
+## M1–M5 against main a7b85d2 (main.py, market_clock.py at HEAD; the new tests)
+
+FAILED tests/test_market_clock.py::test_m1_every_read_names_dataset_and_series
+FAILED tests/test_market_clock.py::test_m1_statement_runs_under_a_3s_timeout
+FAILED tests/test_market_clock.py::test_m2_twenty_concurrent_requests_on_a_cold_memo_run_one_query
+FAILED tests/test_market_clock.py::test_m2_a_fresh_memo_is_served_without_a_checkout
+FAILED tests/test_market_clock.py::test_m3_stale_answer_served_during_rebuild_with_its_own_as_of
+FAILED tests/test_market_clock.py::test_m3_past_120s_the_stale_answer_is_not_served
+FAILED tests/test_market_clock.py::test_m3_between_20s_and_120s_a_failed_rebuild_keeps_the_stale_answer
+FAILED tests/test_market_clock.py::test_m4_statement_timeout_is_a_503_and_not_memoised
+FAILED tests/test_market_clock.py::test_m5_the_two_stamps_are_one_aggregate_over_the_same_rows
+FAILED tests/test_market_clock.py::test_m5_both_stamps_null_before_publication
+FAILED tests/test_market_clock.py::test_m5_first_ingest_is_the_published_label_newest_is_reported
+11 failed, 19 passed in 0.80s
+
+## M1 rehearsal: the shipped statement with `AND series = %(hub)s` removed from the day-ahead read
+
+E       AssertionError: assert ['da'] == []
+FAILED tests/test_market_clock.py::test_m1_every_read_names_dataset_and_series
+1 failed, 29 passed in 0.79s
+
+## C1–C4 against main a7b85d2 (nws_arm.py, local_forecast.py, model_arm.py at HEAD; the new tests and fixtures)
+
+FAILED tests/test_local_forecast.py::test_C1_a_hot_day_is_unknown_with_nws_phrase_verbatim
+FAILED tests/test_local_forecast.py::test_C1_the_phrase_is_stripped_and_an_empty_one_is_null
+FAILED tests/test_local_forecast.py::test_C1_a_night_only_row_carries_the_nights_words
+FAILED tests/test_local_forecast.py::test_C2_hourly_and_now_carry_the_field
+FAILED tests/test_local_forecast.py::test_C2_hourly_row_reads_shortforecast
+FAILED tests/test_local_forecast.py::test_C2_a_model_arm_row_carries_null_and_absent_does_not_list_it
+FAILED tests/test_local_forecast.py::test_C2_an_unavailable_observation_carries_null
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_and_overlong_phrases
+FAILED tests/test_local_forecast.py::test_C3_the_key_is_required_on_every_row
+FAILED tests/test_local_forecast.py::test_C4_the_banked_la_body_is_the_route_on_the_banked_nws_response
+10 failed, 7 passed, 203 deselected in 1.55s
+
+The 7 that pass on main are not C tests' reds: six are parametrised T10/L3 tests whose ids the `-k` filter also matched, and one is C4's regression guard (`every_banked_body_still_builds_a_valid_payload`), green before and after by design. Every other C test is red on main.
+
+## Green, this branch
+
+30 passed in 0.75s
+17 passed, 203 deselected in 0.90s
+2116 passed in 34.96s

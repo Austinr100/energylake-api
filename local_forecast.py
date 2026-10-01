@@ -464,12 +464,12 @@ def sun_times(lat: float, lon: float, day: date, tz: str) -> dict[str, Any]:
 PLACE_KEYS = ("lat", "lon", "tz", "tz_source", "country")
 WIND_KEYS = ("dir_deg", "dir_txt", "speed", "gust")
 NOW_KEYS = ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp", "condition",
-            "condition_raw", "valid", "source", "age_min", "absent")
+            "condition_text", "condition_raw", "valid", "source", "age_min", "absent")
 HOURLY_KEYS = ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop", "precip_amt",
-               "sky", "mslp", "condition", "condition_raw", "t_spread", "interp",
-               "source", "absent")
+               "sky", "mslp", "condition", "condition_text", "condition_raw", "t_spread",
+               "interp", "source", "absent")
 DAILY_KEYS = ("date", "hi", "lo", "lo_period", "pop", "precip_amt", "wind", "sky",
-              "condition", "sunrise", "sunset", "source", "absent")
+              "condition", "condition_text", "sunrise", "sunset", "source", "absent")
 ALERT_KEYS = ("id", "event", "severity", "headline", "onset", "ends")
 SUN_KEYS = ("sunrise", "sunset", "day_length_min", "source", "absent")
 MEMO_KEYS = ("points", "forecast", "obs", "alerts")
@@ -479,6 +479,8 @@ TOP_KEYS = ("place", "now", "hourly", "daily", "alerts", "sun", "receipts")
 
 #: The fields whose null must be explained, per block. `interp`, `valid`,
 #: `source`, `condition`, `date` are never null by construction.
+#: `condition_text` is not here: its null means "the source wrote no words",
+#: which is the field's own meaning (D-09-25-76), not a gap to explain.
 _REASONED = {
     "now": ("t", "feels", "dewpoint", "rh", "sky", "mslp", "condition_raw", "age_min"),
     "hourly": ("t", "feels", "dewpoint", "rh", "pop", "precip_amt", "sky", "mslp",
@@ -507,6 +509,27 @@ def _check_numeric(v: Any, where: str) -> None:
     elif isinstance(v, list):
         for i, x in enumerate(v):
             _check_numeric(x, f"{where}[{i}]")
+
+
+#: D-09-25-76 — the source's own phrase, verbatim; the page decides what to print.
+CONDITION_TEXT_MAX = 120
+
+
+def condition_text(v: Any) -> Optional[str]:
+    """The source's phrase as written (stripped), or None when it sent none.
+    Nothing is derived from it."""
+    if not isinstance(v, str):
+        return None
+    return v.strip() or None
+
+
+def _check_condition_text(row: dict, where: str) -> None:
+    v = row.get("condition_text")
+    if v is None:
+        return
+    if not isinstance(v, str) or not v or len(v) > CONDITION_TEXT_MAX:
+        raise ValueError(f"{where}.condition_text must be null or a non-empty string "
+                         f"of at most {CONDITION_TEXT_MAX} characters")
 
 
 def _check_reasons(row: dict, kind: str, where: str) -> None:
@@ -541,6 +564,7 @@ def build_payload(*, place: dict, now: dict, hourly: list[dict], daily: list[dic
     now["wind"] = _wind(now["wind"], "now.wind")
     now = _ordered(now, NOW_KEYS, "now")
     _check_reasons(now, "now", "now")
+    _check_condition_text(now, "now")
 
     rows = []
     for i, r in enumerate(hourly):
@@ -548,6 +572,7 @@ def build_payload(*, place: dict, now: dict, hourly: list[dict], daily: list[dic
         r["wind"] = _wind(r["wind"], f"hourly[{i}].wind")
         r = _ordered(r, HOURLY_KEYS, f"hourly[{i}]")
         _check_reasons(r, "hourly", f"hourly[{i}]")
+        _check_condition_text(r, f"hourly[{i}]")
         rows.append(r)
 
     days = []
@@ -556,6 +581,7 @@ def build_payload(*, place: dict, now: dict, hourly: list[dict], daily: list[dic
         d["wind"] = _wind(d["wind"], f"daily[{i}].wind")
         d = _ordered(d, DAILY_KEYS, f"daily[{i}]")
         _check_reasons(d, "daily", f"daily[{i}]")
+        _check_condition_text(d, f"daily[{i}]")
         days.append(d)
 
     sun = _ordered(sun, SUN_KEYS, "sun")

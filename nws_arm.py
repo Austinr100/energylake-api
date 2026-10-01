@@ -296,7 +296,9 @@ def hourly_row(period: dict, source: str) -> dict:
                "mslp: not in nws hourly", "t_spread: gefs not banked"]
     return {"valid": lf.iso_z(lf.parse_iso(period["startTime"])), "t": t, "feels": None,
             "dewpoint": dew, "rh": rh, "wind": wind, "pop": pop, "precip_amt": None,
-            "sky": sky, "mslp": None, "condition": condition, "condition_raw": raw,
+            "sky": sky, "mslp": None, "condition": condition,
+            "condition_text": lf.condition_text(period.get("shortForecast")),
+            "condition_raw": raw,
             "t_spread": None, "interp": False, "source": source, "absent": absent}
 
 
@@ -388,7 +390,10 @@ def _daily_row(day: Optional[dict], night: Optional[dict], zone: ZoneInfo, tz: s
     absent.append("precip_amt: not in nws forecast")
     return {"date": d.isoformat(), "hi": hi, "lo": lo, "lo_period": lo_period,
             "pop": pop, "precip_amt": None,
-            "wind": wind, "sky": sky, "condition": condition, "sunrise": sun["sunrise"],
+            "wind": wind, "sky": sky, "condition": condition,
+            # D-09-25-76: the lead period's words, as `condition` is its class
+            "condition_text": lf.condition_text(lead.get("shortForecast")),
+            "sunrise": sun["sunrise"],
             "sunset": sun["sunset"], "source": source, "absent": absent}
 
 
@@ -436,7 +441,9 @@ def now_block(obs: dict, station: str, generated_at: datetime) -> dict:
         absent.append("age_min: observation carries no timestamp")
     stamp = valid.strftime("%H:%MZ") if valid else "time unknown"
     return {"t": t, "feels": feels, "dewpoint": dew, "rh": rh, "wind": wind, "sky": sky,
-            "mslp": mslp, "condition": condition, "condition_raw": raw,
+            "mslp": mslp, "condition": condition,
+            "condition_text": lf.condition_text(p.get("textDescription")),
+            "condition_raw": raw,
             "valid": lf.iso_z(valid), "source": f"nws · {station} · observed {stamp}",
             "age_min": age, "absent": absent}
 
@@ -453,8 +460,8 @@ def now_unavailable(station: Optional[str], reason: str) -> dict:
                                       "age_min")]
     return {"t": None, "feels": None, "dewpoint": None, "rh": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": None, "gust": None},
-            "sky": None, "mslp": None, "condition": lf.UNKNOWN, "condition_raw": None,
-            "valid": None,
+            "sky": None, "mslp": None, "condition": lf.UNKNOWN, "condition_text": None,
+            "condition_raw": None, "valid": None,
             "source": f"nws · {station or 'station unknown'} · no recent observation",
             "age_min": None, "absent": absent}
 

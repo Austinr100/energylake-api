@@ -133,6 +133,8 @@ class MarketClock:
     as_of: str
     degraded: bool
     degraded_feeds: list
+    da_published_at: Optional[str] = None
+    da_first_ingested_at: Optional[str] = None
 
     def as_dict(self, sources: list) -> dict:
         return {
@@ -145,6 +147,8 @@ class MarketClock:
             "as_of": self.as_of,
             "degraded": self.degraded,
             "degraded_feeds": self.degraded_feeds,
+            "da_published_at": self.da_published_at,
+            "da_first_ingested_at": self.da_first_ingested_at,
             "sources": sources,
         }
 
@@ -155,6 +159,7 @@ def compute_clock(
     target_date: _date,
     target_published: bool,
     da_published_at: Optional[_datetime] = None,
+    da_first_ingested_at: Optional[_datetime] = None,
     sp15_da_print: Optional[dict] = None,
     latest_fmm: Optional[dict] = None,
     target_is_offpeak_all_day: bool = False,
@@ -164,8 +169,13 @@ def compute_clock(
 
     target_date          the trade date the current DA cycle targets (tomorrow PT).
     target_published     do the lake rows for target_date exist? (detection)
-    da_published_at      MAX(ingested_ts) of target_date's DA rows — the honest
-                         publication time surfaced in the DA_PUBLISHED label.
+    da_published_at      MAX(ingested_ts) of the reference hub's target_date DA
+                         rows — the NEWEST ingest. The feed re-ingests the day,
+                         so this moves after publication (d091546).
+    da_first_ingested_at MIN(ingested_ts), same rows — the publication time the
+                         DA_PUBLISHED label prints; falls back to
+                         da_published_at when only that is given. Neither
+                         stamp gates a state.
     sp15_da_print        {hub, ts, price, he} for the on-cycle SP15 DA print, or
                          None when target awards are not yet published.
     latest_fmm           {hub, market, ts, price} freshest FMM (RTPD) interval.
@@ -223,7 +233,8 @@ def compute_clock(
         }
 
     elif state == DA_PUBLISHED:
-        when = f" {_hhmm(da_published_at)} PT" if da_published_at is not None else ""
+        published = da_first_ingested_at or da_published_at
+        when = f" {_hhmm(published)} PT" if published is not None else ""
         label = f"DA awards published{when}"
         detail = f"trade date {T} ({dow} — {peak})"
         if sp15_da_print and sp15_da_print.get("price") is not None:
@@ -260,4 +271,6 @@ def compute_clock(
         as_of=now_utc.astimezone(_timezone.utc).isoformat(),
         degraded=bool(degraded_feeds),
         degraded_feeds=degraded_feeds,
+        da_published_at=_iso(da_published_at),
+        da_first_ingested_at=_iso(da_first_ingested_at),
     )
