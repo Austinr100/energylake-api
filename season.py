@@ -85,6 +85,16 @@ season, null-aware statistics, `range`, `outlook`, `enso.now`):
 `peak_load_7d` is the trailing 7-day mean of the daily peak (D−6 … D), null
 unless all seven days qualify: the daily line is weekday noise.
 
+CANADA (d091536, spec cc_spec_2026_09_30_season_canada_snow_api.md).
+`snow:col_canada`, the Canadian Columbia over BC's ASWS pillows, is `swe` like
+the six US basins, with one rule of its own, carried by the same FLOORS table
+keyed (area, var): a season qualifies when every day Nov 1 -> May 31 carries a
+value. The BC stations stop reporting when the pillow is bare, so a summer day
+with no row is a gap on the chart (null, never 0, never carried forward) and
+does not disqualify the season. Its statistics are the floored, null-aware
+ones; a member with no Jul 1 value is left out of Jul 1 (its `n` says so). It
+is not on the board and is summed into nothing.
+
 Rounding happens once, at the edge (`_r`): everything is float64 until then.
 """
 
@@ -134,6 +144,13 @@ SNOW_LABELS = {
     "snake": "Snake",
     "columbia_above_the_dalles": "Columbia above The Dalles (US)",
 }
+# d091536: the Canadian Columbia, the pantry's `col_canada` leaf over BC's ASWS
+# network (six stations, its own 1991–2020 normals; label verbatim from
+# snow/basins.py). A seventh `swe` area, listed after the six, but NOT a
+# SNOW_BASINS member: the board walks the six US basins, and no union sums
+# Canada in (D-09-25-54).
+CANADA_SNOW = ("col_canada",)
+CANADA_SNOW_LABELS = {"col_canada": "Canadian Columbia (BC)"}
 SNOW_DATASET = "snow_basin_index_daily"
 SNOW_SERIES_SUFFIX = ".SWE_PCT"
 
@@ -223,12 +240,31 @@ _MODES = {"precip": CUMULATIVE, "hdd": CUMULATIVE, "cdd": CUMULATIVE, "swe": LEV
 # §2 (d091522): the per-variable floor. var -> (min_days_frac, count window as
 # ((m, d), (m, d)) or None for the whole season). A var not here is strict:
 # every calendar day of the season valued.
+# d091536: the same table may key one area's var, (area, var), which wins over
+# the var's own entry (`floor`). The Canadian Columbia's `swe` counts Nov 1 ->
+# May 31, every day of it: the BC stations report nothing while the pillow is
+# bare, so a summer day without a row is the source's off-season. The US
+# basins' `swe` stays strict (no entry).
 FLOORS = {
     "storage": (0.90, None),
     "swe_in": (0.90, ((12, 1), (5, 31))),
     "peak_load": (0.90, None),            # d091525: d091522's rule, every day counts
     "peak_load_7d": (0.90, None),
+    ("snow:col_canada", "swe"): (1.0, ((11, 1), (5, 31))),
 }
+# What the payload says, in words, about an area's own window (`base.rule`,
+# `source.method`).
+WINDOW_NOTES = {
+    ("snow:col_canada", "swe"): ("a season qualifies when every day from Nov 1 through "
+                                 "May 31 carries a value; summer days with no value are "
+                                 "not reported by the source (the snow pillows are bare) "
+                                 "and are gaps on the chart, not zeros"),
+}
+
+
+def floor(var: str, area: Optional[str] = None) -> Optional[tuple]:
+    """FLOORS' entry for (area, var), else for var, else None (strict)."""
+    return FLOORS.get((area, var)) or FLOORS.get(var)
 STAT_MIN_DAY_N = 3          # fewer contributing seasons on a day -> null that day
 RANGE_MIN_N = 5
 OUTLOOK_DAYS = ("04-01", "07-01")
@@ -379,10 +415,11 @@ def days_in_window(var: str, s: int) -> int:
     return (b - a).days + 1
 
 
-def count_window(var: str, s: int) -> tuple[date, date]:
+def count_window(var: str, s: int, area: Optional[str] = None) -> tuple[date, date]:
     """(first, last) day of the days that count toward a season's completeness:
-    the whole season, or a floored var's own window (swe_in: Dec 1 -> May 31)."""
-    win = FLOORS.get(var, (None, None))[1]
+    the whole season, or a floored var's own window (swe_in: Dec 1 -> May 31;
+    snow:col_canada's swe: Nov 1 -> May 31)."""
+    win = (floor(var, area) or (None, None))[1]
     if win is None:
         return bounds(var, s)
     start, end = bounds(var, s)
@@ -392,8 +429,8 @@ def count_window(var: str, s: int) -> tuple[date, date]:
     return a, b
 
 
-def window_days(var: str, s: int) -> int:
-    a, b = count_window(var, s)
+def window_days(var: str, s: int, area: Optional[str] = None) -> int:
+    a, b = count_window(var, s, area)
     return (b - a).days + 1
 
 
@@ -411,12 +448,13 @@ def station_order(metadata_stations: Sequence[Mapping]) -> list[tuple[str, Optio
 
 
 def area_vocabulary(metadata_stations: Sequence[Mapping]) -> list[str]:
-    """/areas order (§1): stations, LWT, the Columbia snow basins, California's
+    """/areas order (§1): stations, LWT, the Columbia snow basins, the Canadian
+    Columbia (d091536), California's
     four snow areas, the eight reservoirs' sum, the eight north to south, then
     the 28 balancing areas A→Z (d091525)."""
     return ([f"station:{sid}" for sid, _ in station_order(metadata_stations)]
             + [f"lwt:{ba}" for ba in LWT_BAS]
-            + [f"snow:{b}" for b in SNOW_BASINS]
+            + [f"snow:{b}" for b in SNOW_BASINS + CANADA_SNOW]
             + [f"snow:{r}" for r in CA_SNOW]
             + [f"reservoir:{r}" for r in RESERVOIR_AREAS]
             + [f"ba:{b}" for b in BAS])
@@ -451,7 +489,7 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
         raise ValueError(f"unknown area {area!r}; allowed: station:{{GHCN id}} for "
                          + ", ".join(sid for sid, _ in station_order(metadata_stations))
                          + "; lwt:{BA} for " + ", ".join(LWT_BAS)
-                         + "; snow:{basin} for " + ", ".join(SNOW_BASINS)
+                         + "; snow:{basin} for " + ", ".join(SNOW_BASINS + CANADA_SNOW)
                          + "; snow:{California region} for " + ", ".join(CA_SNOW)
                          + "; reservoir:{id} for " + ", ".join(RESERVOIR_AREAS)
                          + "; ba:{code} for " + ", ".join(BAS))
@@ -470,7 +508,8 @@ def build_areas(metadata_stations: Sequence[Mapping],
                 counts: Mapping[tuple[str, str], Mapping[int, int]],
                 frontiers: Optional[Mapping[str, Optional[str]]] = None) -> dict:
     """`counts[(area, var)][season start year] = days carrying a value` (inside
-    the var's count window: swe_in counts Dec 1 -> May 31 only), over every
+    the count window: swe_in counts Dec 1 -> May 31 only, snow:col_canada's
+    swe Nov 1 -> May 31), over every
     season with at least one row. A season is complete iff that count equals
     its window's days; a floored var (§2) also says how many qualify.
     `frontiers[area]` is a balancing area's newest qualifying day (d091525), so
@@ -482,15 +521,16 @@ def build_areas(metadata_stations: Sequence[Mapping],
         for v in vars_for(area):
             per = counts.get((area, v), {})
             first = min(per) if per else None
+            fl = floor(v, area)
             row = {
                 "var": v, "season": _SEASONS[v][0], "units": units(v),
                 "first_season": label(v, first) if first is not None else None,
                 "complete_seasons": sum(1 for s, n in per.items()
-                                        if n == window_days(v, s)),
+                                        if n == window_days(v, s, area)),
             }
-            if v in FLOORS:
+            if fl is not None:
                 row["qualifying_seasons"] = sum(1 for s, n in per.items()
-                                                if n >= FLOORS[v][0] * window_days(v, s))
+                                                if n >= fl[0] * window_days(v, s, area))
             out.append(row)
         return out
 
@@ -508,6 +548,10 @@ def build_areas(metadata_stations: Sequence[Mapping],
     for b in SNOW_BASINS:
         area = f"snow:{b}"
         areas.append({"area": area, "kind": "snow", "label": SNOW_LABELS[b],
+                      "vars": _vars(area)})
+    for b in CANADA_SNOW:
+        area = f"snow:{b}"
+        areas.append({"area": area, "kind": "snow", "label": CANADA_SNOW_LABELS[b],
                       "vars": _vars(area)})
     for r in CA_SNOW:
         area = f"snow:{r}"
@@ -542,14 +586,14 @@ class _Walk:
 
 
 def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
-          slots: Mapping[str, int]) -> _Walk:
+          slots: Mapping[str, int], area: Optional[str] = None) -> _Walk:
     """Walk season `s` by calendar date from its first day through `limit`.
 
     Every day is looked up; nothing is iterated by row. CUMULATIVE: the running
     sum is written to each day's slot until the first missing day, after which
     the slot stays None. Feb 29 folds into the Feb 28 slot; if Feb 29 is the
     first missing day, the Feb 28 slot it would have completed is withdrawn too.
-    LEVEL: `_walk_level`."""
+    LEVEL: `_walk_level`. `area` picks an area's own count window (`floor`)."""
     start, end = bounds(var, s)
     w = _Walk()
     w.s = s
@@ -558,7 +602,7 @@ def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
     w.days_in_window = (end - start).days + 1
     w.first_missing, w.mode, w.through = None, None, None
     w.days_missing, w.peak, w.peak_date = 0, None, None
-    w.window = count_window(var, s)
+    w.window = count_window(var, s, area)
     w.window_days = (w.window[1] - w.window[0]).days + 1
     w.window_complete = 0
     if mode(var) == LEVEL:
@@ -595,7 +639,8 @@ def _walk_level(w: _Walk, start: date, daily: Mapping[date, Optional[float]],
     occurrence on a tie.
 
     d091522: only a day inside the count window (`w.window`; the whole season
-    but for swe_in's Dec 1 -> May 31) can be missing. Outside it an absent day
+    but for swe_in's Dec 1 -> May 31 and snow:col_canada's Nov 1 -> May 31)
+    can be missing. Outside it an absent day
     is the feed's off-season: it is not a gap and is counted nowhere."""
     a, b = w.window
     d = start
@@ -627,12 +672,14 @@ def _complete(w: _Walk) -> bool:
     return w.first_missing is None and w.days_complete == w.days_in_window
 
 
-def _qualifies(var: str, w: _Walk) -> bool:
-    """§2: a floored var's season qualifies when >= min_days_frac of its count
-    window's days carry a value; every other var is strict (`_complete`)."""
-    if var not in FLOORS:
+def _qualifies(var: str, w: _Walk, area: Optional[str] = None) -> bool:
+    """§2: a floored season (`floor`: the var's entry, or its area's (area,
+    var) one) qualifies when >= min_days_frac of its count window's days carry
+    a value; every other is strict (`_complete`)."""
+    fl = floor(var, area)
+    if fl is None:
         return _complete(w)
-    return w.window_complete >= FLOORS[var][0] * w.window_days
+    return w.window_complete >= fl[0] * w.window_days
 
 
 # ---------------------------------------------------------------------------
@@ -699,7 +746,7 @@ def _rv(xs: Iterable[Optional[float]]) -> list[Optional[float]]:
     return [_r(x) for x in xs]
 
 
-def _season_block(var: str, w: _Walk, *, current: bool) -> dict:
+def _season_block(var: str, w: _Walk, *, current: bool, area: Optional[str] = None) -> dict:
     level = mode(var) == LEVEL
     start, _ = bounds(var, w.s)
     out = {"season": label(var, w.s), "start": start.isoformat(),
@@ -708,7 +755,7 @@ def _season_block(var: str, w: _Walk, *, current: bool) -> dict:
     if current:
         out["complete_to_date"] = not w.gap
     else:
-        out["complete"] = _qualifies(var, w)
+        out["complete"] = _qualifies(var, w, area)
     out["absence"] = _gap_absence(w, level) if w.gap else None
     return out
 
@@ -775,7 +822,8 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     `reservoir:ca_major8` {"series_frontiers": {...}}.
     """
     level = mode(var) == LEVEL
-    floored = var in FLOORS          # §2: null-aware per-day statistics
+    fl = floor(var, area)
+    floored = fl is not None         # §2: null-aware per-day statistics
     slots = _slot_index(var)
     ax = axis(var)
     ndays = len(ax)
@@ -796,17 +844,17 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     walks: dict[int, _Walk] = {}
     for s in seasons:
         limit = frontier if s == cur else bounds(var, s)[1]
-        walks[s] = _walk(var, s, daily, limit, slots)
+        walks[s] = _walk(var, s, daily, limit, slots, area)
     past = [s for s in seasons if s != cur]
 
     # ── base ────────────────────────────────────────────────────────────────
-    base = [s for s in past if _qualifies(var, walks[s])]
+    base = [s for s in past if _qualifies(var, walks[s], area)]
     if floored:
         excluded = [{"season": label(var, s), "days_complete": walks[s].window_complete,
                      "days_in_window": walks[s].window_days,
                      "first_missing": walks[s].first_missing.isoformat()
                      if walks[s].first_missing else None}
-                    for s in past if not _qualifies(var, walks[s])]
+                    for s in past if not _qualifies(var, walks[s], area)]
     else:
         excluded = [{"season": label(var, s), "days_complete": walks[s].days_complete,
                      "days_in_window": walks[s].days_in_window,
@@ -879,7 +927,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
 
     # ── this season / last season ───────────────────────────────────────────
     if cur is not None:
-        this_season = _season_block(var, walks[cur], current=True)
+        this_season = _season_block(var, walks[cur], current=True, area=area)
         this_season_absence = None
         last_s = max(past) if past else None
     else:
@@ -888,7 +936,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                                "frontier": frontier.isoformat() if frontier else None}
         last_s = max(past) if past else None
     if last_s is not None:
-        last_season = _season_block(var, walks[last_s], current=False)
+        last_season = _season_block(var, walks[last_s], current=False, area=area)
         last_season_absence = None
     else:
         last_season, last_season_absence = None, {"reason": "no_prior_season"}
@@ -986,7 +1034,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     for s in seasons:
         w = walks[s]
         cats, why = klass[s]
-        complete = s != cur and _qualifies(var, w)
+        complete = s != cur and _qualifies(var, w, area)
         has_peak = level and (complete or s == cur) and w.peak is not None
         years.append({
             "season": label(var, s), "enso_year": enso_year(var, s),
@@ -1008,7 +1056,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     if level:
         peak = {"this_season": _peak_of(walks[cur]) if cur is not None else None,
                 "last_season": (_peak_of(walks[last_s])
-                                if last_s is not None and _qualifies(var, walks[last_s])
+                                if last_s is not None and _qualifies(var, walks[last_s], area)
                                 else None),
                 "base": peak_base([walks[s] for s in base], slots)}
         peak_absence = None
@@ -1016,10 +1064,12 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         peak, peak_absence = None, {"reason": "not_a_level"}
 
     if floored:
-        lo_frac, win = FLOORS[var]
+        lo_frac, win = fl
+        note = WINDOW_NOTES.get((area, var))
         base_block = {
             "rule": ("every qualifying season, full record, excluding the current season: "
-                     f">= {lo_frac:.2f} of the days in the window carry a value"),
+                     f">= {lo_frac:.2f} of the days in the window carry a value"
+                     + (f"; {note}" if note else "")),
             "min_days_frac": lo_frac,
             "window": ({"start_md": f"{win[0][0]:02d}-{win[0][1]:02d}",
                         "end_md": f"{win[1][0]:02d}-{win[1][1]:02d}"} if win
@@ -1174,6 +1224,8 @@ def source(area: str, var: str, meta: Optional[Mapping] = None) -> dict:
     series' newest valued day, so a stopped feed is visible)."""
     kind = area_kind(area)
     out = {"dataset": _DATASETS[(kind, var)], "method": METHODS[(kind, var)]}
+    if (area, var) in WINDOW_NOTES:         # d091536: the area's own window, in words
+        out["method"] += f" For this area, {WINDOW_NOTES[(area, var)]}."
     if kind == "snow" and var == "swe":
         m = meta or {}
         for k in SNOW_SOURCE_META:
@@ -1339,12 +1391,15 @@ AREAS_LWT_SQL = """
 """
 
 
-# /areas: days valued per (basin, water year) for the six snow series. Water
-# year start by the same shift as precip (Oct 1 − 9 months = Jan 1).
+# /areas: days valued per (basin, water year) for the snow series. Water
+# year start by the same shift as precip (Oct 1 − 9 months = Jan 1). `nw`
+# counts only Nov 1 -> May 31, snow:col_canada's count window (d091536).
 AREAS_SNOW_SQL = """
     SELECT split_part(series, '.', 1) AS id,
            extract(year FROM (ts AT TIME ZONE 'UTC')::date - interval '9 months')::int AS s,
-           count(value)::int AS n
+           count(value)::int AS n,
+           count(value) FILTER (WHERE extract(month FROM ts AT TIME ZONE 'UTC')
+                                IN (11, 12, 1, 2, 3, 4, 5))::int AS nw
     FROM timeseries_values
     WHERE dataset = %(d)s AND series LIKE '%%.SWE_PCT'
     GROUP BY 1, 2

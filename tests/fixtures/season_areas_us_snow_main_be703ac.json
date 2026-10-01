@@ -1,0 +1,86 @@
+[
+ {
+  "area": "snow:columbia_above_the_dalles",
+  "kind": "snow",
+  "label": "Columbia above The Dalles (US)",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ },
+ {
+  "area": "snow:col_above_grand_coulee",
+  "kind": "snow",
+  "label": "Columbia above Grand Coulee (US)",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ },
+ {
+  "area": "snow:col_mid_tributaries",
+  "kind": "snow",
+  "label": "Mid-Columbia tributaries (Grand Coulee → The Dalles)",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ },
+ {
+  "area": "snow:snake",
+  "kind": "snow",
+  "label": "Snake",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ },
+ {
+  "area": "snow:snake_upper",
+  "kind": "snow",
+  "label": "Upper Snake (above Hells Canyon)",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ },
+ {
+  "area": "snow:snake_lower",
+  "kind": "snow",
+  "label": "Lower Snake (Salmon, Clearwater, Grande Ronde)",
+  "vars": [
+   {
+    "var": "swe",
+    "season": "water_year",
+    "units": "% of normal peak",
+    "first_season": "WY1984",
+    "complete_seasons": 42
+   }
+  ]
+ }
+]

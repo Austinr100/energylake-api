@@ -425,9 +425,9 @@ def test_d5_areas_lists_the_28_after_the_reservoirs(client, pool):
     r = client.get("/api/weather/season/areas")
     assert r.status_code == 200
     areas = r.json()["areas"]
-    assert len(areas) == 57 + 28 == 85
-    assert areas[56]["area"] == "reservoir:san_luis"
-    ba = areas[57:]
+    assert len(areas) == 58 + 28 == 86                # d091536: + col_canada before
+    assert areas[57]["area"] == "reservoir:san_luis"
+    ba = areas[58:]
     assert [a["area"] for a in ba] == [f"ba:{b}" for b in season.BAS]
     assert [a["label"] for a in ba] == list(season.BAS) == sorted(season.BAS)
     assert {a["kind"] for a in ba} == {"ba"}
