@@ -5676,32 +5676,70 @@ def _market_clock_offpeak_all_day(d: _date) -> bool:
     return d.isoweekday() == 7 or d.isoformat() in _NERC_HOLIDAY_SET
 
 
-@app.get("/api/market-clock")
-async def market_clock():
-    """
-    The single CAISO market state for the ticker chip and every downstream
-    surface — deterministic, publication-anchored, zero LLM.
+# ── d091546 (D-09-25-75): A POLLED ROUTE HOLDS A CONNECTION FOR MILLISECONDS ──
+#
+# Measured 2026-10-01 10:36–10:40Z (docs/receipts/season-pool-d091542/gate0.md):
+# five market-clock requests held all five shared connections for up to 192 s.
+# The `da_published_at` subquery named no `series`, so before the DAM publishes
+# (tomorrow's window empty, every morning 00:00–~13:00 PT) Neon walked
+# idx_tsv_dataset_ingested_ts backwards over all of caiso_lmp_da_hourly. With
+# `series = SP15` it is an idx_tsv_series_ts lookup: 0.078 ms, 5 buffers.
+# So, for this route:
+#
+#   * Every subquery names one (dataset, series) — the D-08-02-L companion rule.
+#     tests/test_market_clock.py M1 parses MARKET_CLOCK_SQL and holds it there.
+#   * One memo key, 20 s fresh, single-flight: a hundred open tabs are one query,
+#     and a request whose browser has gone (Railway's 499; Uvicorn does not
+#     cancel the handler) awaits the shared build instead of owning a query.
+#   * Expired, the answer is served stale while ONE rebuild runs behind it —
+#     for at most 120 s from its build. Past that the route answers 503: a market
+#     clock two minutes old is not a clock. `as_of` is always the build moment.
+#   * `SET LOCAL statement_timeout = '3s'` in the route's transaction. A timeout
+#     (or any failure) is the house 503 and is never memoised.
+MARKET_CLOCK_MEMO_TTL = 20.0
+MARKET_CLOCK_STALE_MAX = 120.0
+MARKET_CLOCK_STATEMENT_TIMEOUT = "3s"
 
-        {
-          "state": "RT_LIVE",                     # DA_BIDDING | DA_MARKET_RUNNING
-                                                  # | DA_PUBLISHED | RT_LIVE
-          "label": "Real-time market live",
-          "detail": "FMM SP15 $41.20 · as-of 19:45 PT · DA 2026-07-16 published",
-          "trade_date": "2026-07-16",             # the current DA cycle's target
-          "next_expected": {"event": "bid_close", "at": "2026-07-16T17:00:00+00:00"},
-          "prints": {
-            "sp15_da":   {"hub": "SP15", "ts": "...", "price": 40.05, "he": 17} | null,
-            "latest_fmm":{"hub": "SP15", "market": "rtpd", "ts": "...", "price": 41.2} | null
-          },
-          "as_of": "2026-07-16T02:27:30+00:00",
-          "degraded": false, "degraded_feeds": [],
-          "sources": ["caiso_lmp_da_hourly", "caiso_lmp_rt_15min"]
-        }
+# One round trip: DA detection for the target date (hours present, the newest
+# and the first ingest of the reference hub's rows), the on-cycle SP15 DA HE17
+# print, and the freshest FMM interval. Every subquery: dataset AND series.
+MARKET_CLOCK_SQL = """
+    SELECT
+      (SELECT count(*) FROM timeseries_values
+         WHERE dataset = %(da)s AND series = %(hub)s
+           AND ts >= %(tstart)s AND ts < %(tend)s
+           AND value IS NOT NULL)                              AS da_hours,
+      (SELECT max(ingested_ts) FROM timeseries_values
+         WHERE dataset = %(da)s AND series = %(hub)s
+           AND ts >= %(tstart)s AND ts < %(tend)s)             AS da_published_at,
+      (SELECT min(ingested_ts) FROM timeseries_values
+         WHERE dataset = %(da)s AND series = %(hub)s
+           AND ts >= %(tstart)s AND ts < %(tend)s)             AS da_first_ingested_at,
+      (SELECT value FROM timeseries_values
+         WHERE dataset = %(da)s AND series = %(hub)s AND ts = %(he17)s
+           AND value IS NOT NULL LIMIT 1)                      AS sp15_da_val,
+      (SELECT ts FROM timeseries_values
+         WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
+         ORDER BY ts DESC LIMIT 1)                             AS fmm_ts,
+      (SELECT value FROM timeseries_values
+         WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
+         ORDER BY ts DESC LIMIT 1)                             AS fmm_val
+"""
 
-    Publication detection is the sole authority for DA_PUBLISHED / RT_LIVE — the
-    clock can never claim awards the lake does not hold. A stale FMM feed or an
-    overdue DAM sets `degraded`. DB unavailable -> 503.
-    """
+# (built_mono, payload) — the one key. The clock is injectable for tests.
+_market_clock_entry: tuple | None = None
+_market_clock_inflight: "asyncio.Task | None" = None
+_market_clock_tasks: set = set()        # strong refs to background rebuilds
+_market_clock_mono = time.monotonic
+_market_clock_log = logging.getLogger("energylake.market_clock")
+
+
+class _MarketClockUnavailable(Exception):
+    """The build failed (timeout, checkout, any DB error) — the house 503."""
+
+
+async def _market_clock_build() -> dict:
+    """One read of the lake, one compute_clock. Raises _MarketClockUnavailable."""
     assert _pool is not None
 
     now = _utcnow()
@@ -5723,27 +5761,6 @@ async def market_clock():
         target_date, _time(MARKET_CLOCK_PRINT_START_HOUR, 0), tzinfo=ZoneInfo(MARKET_TZ)
     ).astimezone(_timezone.utc)
 
-    # One round trip: DA detection (hours present + honest ingest time) for the
-    # target date, the on-cycle SP15 DA HE17 print, and the freshest FMM interval.
-    query = """
-        SELECT
-          (SELECT count(*) FROM timeseries_values
-             WHERE dataset = %(da)s AND series = %(hub)s
-               AND ts >= %(tstart)s AND ts < %(tend)s
-               AND value IS NOT NULL)                              AS da_hours,
-          (SELECT max(ingested_ts) FROM timeseries_values
-             WHERE dataset = %(da)s
-               AND ts >= %(tstart)s AND ts < %(tend)s)             AS da_published_at,
-          (SELECT value FROM timeseries_values
-             WHERE dataset = %(da)s AND series = %(hub)s AND ts = %(he17)s
-               AND value IS NOT NULL LIMIT 1)                      AS sp15_da_val,
-          (SELECT ts FROM timeseries_values
-             WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
-             ORDER BY ts DESC LIMIT 1)                             AS fmm_ts,
-          (SELECT value FROM timeseries_values
-             WHERE dataset = %(fmm)s AND series = %(hub)s AND value IS NOT NULL
-             ORDER BY ts DESC LIMIT 1)                             AS fmm_val
-    """
     params = {
         "da": MARKET_CLOCK_DA_DATASET,
         "fmm": MARKET_CLOCK_FMM_DATASET,
@@ -5756,11 +5773,17 @@ async def market_clock():
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, params)
+                # The pool's connections are not autocommit, so this SET LOCAL
+                # opens the transaction the read runs in, and the pool ends it
+                # on return: the timeout never outlives this request.
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{MARKET_CLOCK_STATEMENT_TIMEOUT}'")
+                await cur.execute(MARKET_CLOCK_SQL, params)
                 row = await cur.fetchone()
     except Exception as e:
         # DB unavailability -> 503 (house standard; see /health). Fail loud.
-        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+        # A statement timeout lands here as QueryCanceled: the same 503.
+        raise _MarketClockUnavailable(f"db unavailable: {e}") from e
 
     row = row or {}
     da_hours = int(row.get("da_hours") or 0)
@@ -5802,24 +5825,129 @@ async def market_clock():
     if not target_published and now_pt >= overdue_after:
         degraded_feeds.append("da")
 
-    da_published_at = row.get("da_published_at")
-    if da_published_at is not None:
-        da_published_at = da_published_at.astimezone(_timezone.utc)
+    def _utc(v):
+        return v.astimezone(_timezone.utc) if v is not None else None
+
+    da_published_at = _utc(row.get("da_published_at"))
+    da_first_ingested_at = _utc(row.get("da_first_ingested_at"))
 
     clock = _mc.compute_clock(
         now,
         target_date=target_date,
         target_published=target_published,
-        da_published_at=da_published_at,
+        # The label's "published HH:MM" is the publication time: the FIRST
+        # ingest. The feed re-ingests a published day, so the newest ingest
+        # moves after publication (d091546 §0).
+        da_published_at=da_first_ingested_at,
         sp15_da_print=sp15_da_print,
         latest_fmm=latest_fmm,
         target_is_offpeak_all_day=_market_clock_offpeak_all_day(target_date),
         degraded_feeds=degraded_feeds,
     )
 
-    return clock.as_dict(
-        sources=[MARKET_CLOCK_DA_DATASET, MARKET_CLOCK_FMM_DATASET]
-    )
+    out = clock.as_dict(sources=[MARKET_CLOCK_DA_DATASET, MARKET_CLOCK_FMM_DATASET])
+    out["da_published_at"] = da_published_at.isoformat() if da_published_at else None
+    out["da_first_ingested_at"] = (da_first_ingested_at.isoformat()
+                                   if da_first_ingested_at else None)
+    return out
+
+
+async def _market_clock_build_once() -> tuple:
+    """Build into the memo, one build at a time: a caller arriving during a
+    build awaits it (shielded, so no caller's cancellation cancels it for the
+    others). -> the new entry. A failure is raised to every waiter and stored
+    nowhere."""
+    global _market_clock_inflight
+    loop = asyncio.get_running_loop()
+    task = _market_clock_inflight
+    if task is None or task.done() or task.get_loop() is not loop:
+        async def _run():
+            global _market_clock_entry, _market_clock_inflight
+            try:
+                payload = await _market_clock_build()
+                entry = (_market_clock_mono(), payload)
+                _market_clock_entry = entry
+                return entry
+            finally:
+                if _market_clock_inflight is task_ref[0]:
+                    _market_clock_inflight = None
+        task_ref = [None]
+        task = loop.create_task(_run())
+        task_ref[0] = task
+        _market_clock_inflight = task
+    return await asyncio.shield(task)
+
+
+def _market_clock_spawn_rebuild() -> None:
+    """Rebuild behind a stale answer; one at a time."""
+    t = _market_clock_inflight
+    if t is not None and not t.done() and t.get_loop() is asyncio.get_running_loop():
+        return
+
+    async def _bg():
+        try:
+            await _market_clock_build_once()
+        except Exception as e:                      # never let a rebuild escape
+            _market_clock_log.warning("market-clock: background rebuild failed: %s", e)
+    task = asyncio.get_running_loop().create_task(_bg())
+    _market_clock_tasks.add(task)
+    task.add_done_callback(_market_clock_tasks.discard)
+
+
+@app.get("/api/market-clock")
+async def market_clock():
+    """
+    The single CAISO market state for the ticker chip and every downstream
+    surface — deterministic, publication-anchored, zero LLM.
+
+        {
+          "state": "RT_LIVE",                     # DA_BIDDING | DA_MARKET_RUNNING
+                                                  # | DA_PUBLISHED | RT_LIVE
+          "label": "Real-time market live",
+          "detail": "FMM SP15 $41.20 · as-of 19:45 PT · DA 2026-07-16 published",
+          "trade_date": "2026-07-16",             # the current DA cycle's target
+          "next_expected": {"event": "bid_close", "at": "2026-07-16T17:00:00+00:00"},
+          "prints": {
+            "sp15_da":   {"hub": "SP15", "ts": "...", "price": 40.05, "he": 17} | null,
+            "latest_fmm":{"hub": "SP15", "market": "rtpd", "ts": "...", "price": 41.2} | null
+          },
+          "as_of": "2026-07-16T02:27:30+00:00",
+          "degraded": false, "degraded_feeds": [],
+          "sources": ["caiso_lmp_da_hourly", "caiso_lmp_rt_15min"],
+          "da_published_at": "2026-07-15T20:49:12+00:00" | null,
+          "da_first_ingested_at": "2026-07-15T20:36:40+00:00" | null
+        }
+
+    `da_published_at` is the NEWEST ingest of the reference hub's (SP15) DA rows
+    for the target trade date — "last ingested", not "first published": the
+    feed re-ingests a published day, so it moves after publication. The name is
+    kept for the clients that read it. `da_first_ingested_at` is the FIRST
+    ingest of the same rows: the publication time, and the one the
+    DA_PUBLISHED label prints. Both are null before publication, and neither
+    gates a state: the state machine decides on the hour count alone.
+
+    Publication detection is the sole authority for DA_PUBLISHED / RT_LIVE — the
+    clock can never claim awards the lake does not hold. A stale FMM feed or an
+    overdue DAM sets `degraded`. DB unavailable -> 503.
+
+    Served from a 20 s single-flight memo (D-09-25-75); `as_of` is the moment
+    the answer was built, so a memoised answer states its age. An answer is
+    never served more than 120 s after its build: past that, with no fresh
+    build, the route is a 503.
+    """
+    hit = _market_clock_entry
+    if hit is not None:
+        age = _market_clock_mono() - hit[0]
+        if age < MARKET_CLOCK_MEMO_TTL:
+            return hit[1]
+        if age < MARKET_CLOCK_STALE_MAX:
+            _market_clock_spawn_rebuild()
+            return hit[1]
+    try:
+        entry = await _market_clock_build_once()
+    except _MarketClockUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    return entry[1]
 
 
 # ═══════════════════════════════════════════════════════════════════════════

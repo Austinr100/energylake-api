@@ -339,6 +339,7 @@ def _hour_row(s: dict, label: str) -> dict:
             "wind": {"dir_deg": None, "dir_txt": None, "speed": s["wind"], "gust": None},
             "pop": None, "precip_amt": None, "sky": s["sky"], "mslp": s["mslp"],
             "condition": lf.condition_from_sky(s["sky"]), "condition_raw": None,
+            "condition_text": None,
             "t_spread": None, "interp": s["interp"], "source": f"model · {label} {fh}",
             "absent": absent}
 
@@ -406,7 +407,7 @@ def _day_row(d: date, hours: list[dict], tz: str, lat: float, lon: float,
     return {"date": d.isoformat(), "hi": hi, "lo": lo, "lo_period": None,
             "pop": None, "precip_amt": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": wind, "gust": None},
-            "sky": sky, "condition": lf.condition_from_sky(sky),
+            "sky": sky, "condition": lf.condition_from_sky(sky), "condition_text": None,
             "sunrise": sun["sunrise"], "sunset": sun["sunset"],
             "source": (f"model · {label} f{hours[0]['h']:03d}–f{hours[-1]['h']:03d}"),
             "absent": absent}
@@ -463,7 +464,7 @@ def _today_row(series: list[dict], run_dt: datetime, generated_at: datetime, tz:
     return {"date": today.isoformat(), "hi": hi, "lo": lo, "lo_period": None,
             "pop": None, "precip_amt": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": wind, "gust": None},
-            "sky": sky, "condition": lf.condition_from_sky(sky),
+            "sky": sky, "condition": lf.condition_from_sky(sky), "condition_text": None,
             "sunrise": sun["sunrise"], "sunset": sun["sunset"],
             # the plain form, so the page's run divider (D-09-25-22) keeps it
             # with the days after it
@@ -515,7 +516,8 @@ def build(ladders: dict, run_dt: datetime, lat: float, lon: float, *, tz: str,
         now_valid = lf.iso_z(generated_at.astimezone(UTC).replace(
             minute=0, second=0, microsecond=0))
     now = {k: now_row[k] for k in ("t", "feels", "dewpoint", "rh", "wind", "sky",
-                                   "mslp", "condition", "condition_raw")}
+                                   "mslp", "condition", "condition_raw",
+                                   "condition_text")}
     now["absent"] = [a for a in now_row["absent"]
                      if not a.startswith(("pop:", "precip_amt:", "t_spread:"))]
     now["valid"] = now_valid

@@ -1,0 +1,43 @@
+# d091546 rehearsed reds — the new and amended tests run against HEAD (a7b85d2) source
+# (main.py, nws_arm.py, model_arm.py, local_forecast.py from HEAD; the tests from this branch)
+
+FAILED tests/test_market_clock.py::test_M1_every_subquery_names_its_series
+FAILED tests/test_market_clock.py::test_M1_rehearsed_red_drops_one_series_and_is_caught
+FAILED tests/test_market_clock.py::test_M1_the_route_runs_that_statement
+FAILED tests/test_market_clock.py::test_M5_first_ingest_precedes_newest_and_both_are_null_before
+FAILED tests/test_local_forecast.py::test_T9f_key_sets_are_byte_identical_to_main
+FAILED tests/test_local_forecast.py::test_N6_nws_arm_body_is_byte_identical_to_main
+FAILED tests/test_local_forecast.py::test_L9_a_daytime_read_is_mains_rows_plus_lo_period
+FAILED tests/test_local_forecast.py::test_C1_a_hot_day_is_unknown_and_carries_nws_words_verbatim
+FAILED tests/test_local_forecast.py::test_C1b_a_night_only_row_carries_the_nights_words
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[Hot-Hot]
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[  Mostly Sunny \n-Mostly Sunny]
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[-None]
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[   -None]
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[None-None]
+FAILED tests/test_local_forecast.py::test_C1c_the_phrase_is_stripped_and_otherwise_untouched[42-None]
+FAILED tests/test_local_forecast.py::test_C2_hourly_and_now_carry_it_and_the_model_arm_carries_null
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[-ValueError-now]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[-ValueError-hourly]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[-ValueError-daily]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-ValueError-now]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-ValueError-hourly]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-ValueError-daily]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[7-TypeError-now]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[7-TypeError-hourly]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[7-TypeError-daily]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[bad3-TypeError-now]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[bad3-TypeError-hourly]
+FAILED tests/test_local_forecast.py::test_C3_the_validator_refuses_empty_too_long_and_not_a_string[bad3-TypeError-daily]
+FAILED tests/test_local_forecast.py::test_C4_every_banked_body_validates_with_the_key
+ERROR tests/test_market_clock.py::test_M2_twenty_concurrent_requests_on_a_cold_memo_run_one_query
+ERROR tests/test_market_clock.py::test_M3_stale_during_a_rebuild_keeps_its_as_of_and_dies_at_120s
+ERROR tests/test_market_clock.py::test_M4_a_statement_timeout_is_a_503_and_not_memoised
+29 failed, 13 passed, 212 deselected, 3 errors in 3.02s
+
+# M2-M4 after the fixture took raising=False (so the red is the route's behaviour, not setup):
+test_M2: assert 20 == 1   (pool.checkouts: twenty requests, twenty queries)
+test_M3: assert 2 == 1    (pool.checkouts at +10 s: no memo, a second query)
+test_M4: AttributeError: module 'main' has no attribute 'MARKET_CLOCK_SQL'
+
+# green, this branch: 2123 passed (full suite)

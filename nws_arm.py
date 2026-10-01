@@ -266,6 +266,15 @@ def _cond(icon: Optional[str], absent: list[str], *, raw: bool = True
     return condition, token
 
 
+def _phrase(text: Any) -> Optional[str]:
+    """D-09-25-76 — NWS's own words (`shortForecast`, `textDescription`),
+    stripped and otherwise verbatim; null when the source sent none. Nothing is
+    derived from it: `condition` stays the icon table's word."""
+    if not isinstance(text, str):
+        return None
+    return text.strip() or None
+
+
 def _sky(token: Optional[str], absent: list[str]) -> Optional[float]:
     sky = lf.COVER_FRACTION.get(token or "")
     if sky is None:
@@ -297,6 +306,7 @@ def hourly_row(period: dict, source: str) -> dict:
     return {"valid": lf.iso_z(lf.parse_iso(period["startTime"])), "t": t, "feels": None,
             "dewpoint": dew, "rh": rh, "wind": wind, "pop": pop, "precip_amt": None,
             "sky": sky, "mslp": None, "condition": condition, "condition_raw": raw,
+            "condition_text": _phrase(period.get("shortForecast")),
             "t_spread": None, "interp": False, "source": source, "absent": absent}
 
 
@@ -388,7 +398,10 @@ def _daily_row(day: Optional[dict], night: Optional[dict], zone: ZoneInfo, tz: s
     absent.append("precip_amt: not in nws forecast")
     return {"date": d.isoformat(), "hi": hi, "lo": lo, "lo_period": lo_period,
             "pop": pop, "precip_amt": None,
-            "wind": wind, "sky": sky, "condition": condition, "sunrise": sun["sunrise"],
+            "wind": wind, "sky": sky, "condition": condition,
+            # the lead period's words, as `condition` is the lead period's class
+            "condition_text": _phrase(lead.get("shortForecast")),
+            "sunrise": sun["sunrise"],
             "sunset": sun["sunset"], "source": source, "absent": absent}
 
 
@@ -437,6 +450,7 @@ def now_block(obs: dict, station: str, generated_at: datetime) -> dict:
     stamp = valid.strftime("%H:%MZ") if valid else "time unknown"
     return {"t": t, "feels": feels, "dewpoint": dew, "rh": rh, "wind": wind, "sky": sky,
             "mslp": mslp, "condition": condition, "condition_raw": raw,
+            "condition_text": _phrase(p.get("textDescription")),
             "valid": lf.iso_z(valid), "source": f"nws · {station} · observed {stamp}",
             "age_min": age, "absent": absent}
 
@@ -454,7 +468,7 @@ def now_unavailable(station: Optional[str], reason: str) -> dict:
     return {"t": None, "feels": None, "dewpoint": None, "rh": None,
             "wind": {"dir_deg": None, "dir_txt": None, "speed": None, "gust": None},
             "sky": None, "mslp": None, "condition": lf.UNKNOWN, "condition_raw": None,
-            "valid": None,
+            "condition_text": None, "valid": None,
             "source": f"nws · {station or 'station unknown'} · no recent observation",
             "age_min": None, "absent": absent}
 
