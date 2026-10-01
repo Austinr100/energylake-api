@@ -71,6 +71,8 @@ def _build(daily, var="precip", area="station:USW00023232", bins=None,
 
 def test_s1_gap_excludes_base_season_and_stops_this_season():
     # WY1990..WY2026 (start years 1989..2025); frontier 2026-09-24.
+    # d091550: the base is unchanged (STOP-B: past seasons stay strict); the
+    # season in progress is summed over its reported days (D-09-25-86).
     daily = _history("precip", 1989, 2025, frontier=date(2026, 9, 24))
     del daily[date(2000, 1, 15)]                   # absent row inside WY2000
     daily[date(2003, 3, 3)] = None                 # NULL value inside WY2003
@@ -86,18 +88,21 @@ def test_s1_gap_excludes_base_season_and_stops_this_season():
 
     ts = p["this_season"]
     assert ts["season"] == "WY2026"
-    assert ts["through"] == "2026-02-18"
-    assert ts["complete_to_date"] is False
+    assert ts["through"] == "2026-09-24"
+    assert ts["complete_to_date"] is False and ts["within_tolerance"] is True
+    assert ts["days_missing"] == 1 and ts["missing_days"] == ["2026-02-19"]
     assert ts["absence"]["first_missing"] == "2026-02-19"
     assert ts["absence"]["mode"] == "absent"
     i18 = p["axis"].index("02-18")
     assert ts["values"][i18] == float(i18 + 1)
-    assert all(v is None for v in ts["values"][i18 + 1:])
-    assert p["readout"] is None
-    assert p["readout_absence"]["first_missing"] == "2026-02-19"
+    assert ts["values"][i18 + 1] == float(i18 + 1)          # Feb 19 adds nothing
+    i24 = p["axis"].index("09-24")
+    assert ts["values"][i24] == float(i24)                  # one day short of every day
+    assert p["readout"]["value"] == float(i24) and p["readout"]["day"] == i24
+    assert p["readout_absence"] is None
     # to_date is on the through day, like for like.
     wy25 = next(y for y in p["years"] if y["season"] == "WY2025")
-    assert wy25["to_date"] == float(i18 + 1)
+    assert wy25["to_date"] == float(i24 + 1)
 
 
 def test_s1_a_null_value_is_incomplete_not_zero():
@@ -105,7 +110,8 @@ def test_s1_a_null_value_is_incomplete_not_zero():
     daily[date(2025, 12, 1)] = None
     p = _build(daily)
     assert p["this_season"]["absence"]["mode"] == "incomplete"
-    assert p["this_season"]["through"] == "2025-11-30"
+    assert p["this_season"]["first_missing"] == "2025-12-01"
+    assert p["this_season"]["through"] == "2026-09-24"
 
 
 # ---------------------------------------------------------------------------

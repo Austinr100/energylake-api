@@ -1,0 +1,131 @@
+{
+ "hdd_station": {
+  "body": "77e7985c3856238e8e59067208270db191f3cacb3f2532561436c839ff973eec",
+  "sans_readout": "6cd5dd2ea02b651e6212c44e9b75f8f21fe465e323c5f590bac23f11183a642a",
+  "n": 44,
+  "readout": null,
+  "readout_absence": {
+   "reason": "gap",
+   "first_missing": "2026-01-05",
+   "mode": "incomplete",
+   "days_complete": 101
+  }
+ },
+ "cdd_station": {
+  "body": "193d12de69093dc8c8428b889bdd451307b2eecf723a757107d15acdf483609c",
+  "sans_readout": "50ec6f15cde0757845350610542cf732f31da5ea452b43959ab27fdcb40889bc",
+  "n": 45,
+  "readout": null,
+  "readout_absence": {
+   "reason": "gap",
+   "first_missing": "2026-06-30",
+   "mode": "absent",
+   "days_complete": 111
+  }
+ },
+ "hdd_lwt": {
+  "body": "946d3c18af0c1ae4aebe0f1f5304b9b7163142ee8968bcd9f102245ea1f73bd9",
+  "sans_readout": "44acf7b00478d3a68fc281ca6dde2a19036c8215ab1b1c39f8c9701b0619ee22",
+  "n": 35,
+  "readout": null,
+  "readout_absence": {
+   "reason": "gap",
+   "first_missing": "2026-02-01",
+   "mode": "absent",
+   "days_complete": 120
+  }
+ },
+ "swe": {
+  "body": "35c3ee27a0d658e2bdfdb624ea3200be46885b27754956d1b3ba1b81e266f778",
+  "sans_readout": "a1a03477e7ccbe7005aa4696cb1772730c475ecea383f9633750b5620a394b69",
+  "n": 40,
+  "readout": {
+   "day": 182,
+   "value": 118.0,
+   "median": 104.2,
+   "pct_of_median": 113.3,
+   "percentile": 88.8,
+   "vs_five_year": 16.1,
+   "vs_category": {
+    "nino": 12.3,
+    "nina": null,
+    "neutral": 14.4,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": 10.4,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   },
+   "pct_of_median_peak": 106.8,
+   "median_peak": 110.5
+  },
+  "readout_absence": null
+ },
+ "storage_n20": {
+  "body": "dafa20c8454b54002ee32c31b3095502d21dca1b0fabaf80e629b8dc0a7924f1",
+  "sans_readout": "ee5fad9aaa08d8bead90e546417382c28f20eb162fa6350fbd1cdd923ca3defc",
+  "n": 20,
+  "readout": {
+   "day": 287,
+   "value": 2845.5,
+   "median": null,
+   "pct_of_median": null,
+   "percentile": null,
+   "vs_five_year": 92.3,
+   "vs_category": {
+    "nino": 149.8,
+    "nina": null,
+    "neutral": -179.7,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": -30.0,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   },
+   "pct_of_median_peak": 85.0,
+   "median_peak": 3348.0
+  },
+  "readout_absence": null
+ },
+ "storage_n35": {
+  "body": "c597475adc046de5802db00340a806deba3fe2bd18b5aed5250b2372883d69a7",
+  "sans_readout": "2e4d316a2f174a411b5044fedc2b44ef17885efc17efcb6998da553c6dbe7a48",
+  "n": 35,
+  "readout": {
+   "day": 287,
+   "value": 2845.5,
+   "median": 2875.5,
+   "pct_of_median": 99.0,
+   "percentile": 48.6,
+   "vs_five_year": 92.3,
+   "vs_category": {
+    "nino": -30.0,
+    "nina": null,
+    "neutral": 40.1,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": -30.0,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   },
+   "pct_of_median_peak": 82.3,
+   "median_peak": 3456.0
+  },
+  "readout_absence": null
+ }
+}

@@ -276,7 +276,12 @@ def test_h5_short_record_carries_a_range_not_a_cone():
     assert p["range_absence"] is None and rg["n"] == 20 and len(rg["seasons"]) == 20
     assert rg["seasons"][0] == "WY2006" and rg["seasons"][-1] == "WY2025"
     assert set(rg) == {"n", "n_by_day_min", "seasons", "min", "median", "max"}
-    assert p["readout"]["percentile"] is None and p["readout"]["median"] is None
+    # d091550 §2.3: the readout reads the range median (the snapshot's rule),
+    # and still ranks nothing below n = 30.
+    r = p["readout"]
+    assert r["percentile"] is None
+    assert r["median"] == rg["median"][r["day"]]
+    assert r["median_basis"].startswith("the base's range median (n = 20")
     assert tuple(p) == season.LEVEL_RESPONSE_KEYS
 
     p4 = _build(_history(2021, 2024, _tank))                  # n = 4

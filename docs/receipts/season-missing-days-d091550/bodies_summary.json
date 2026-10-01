@@ -1,0 +1,182 @@
+{
+ "USW00023232 before": {
+  "frontier": "2026-09-26",
+  "base_n": 74,
+  "this_season": {
+   "season": "WY2026",
+   "start": "2025-10-01",
+   "through": "2026-02-18",
+   "complete_to_date": false,
+   "absence": {
+    "reason": "gap",
+    "first_missing": "2026-02-19",
+    "mode": "absent",
+    "days_complete": 360
+   },
+   "values_at": {
+    "02-18": 315.3,
+    "02-19": null,
+    "02-20": null,
+    "04-01": null,
+    "09-26": null
+   }
+  },
+  "readout": null,
+  "readout_absence": {
+   "reason": "gap",
+   "first_missing": "2026-02-19",
+   "mode": "absent",
+   "days_complete": 360
+  },
+  "method": "GHCNd daily precipitation at the station, summed from the season's first day; a missing or null day stops the sum."
+ },
+ "USW00023232 after": {
+  "frontier": "2026-09-26",
+  "base_n": 74,
+  "this_season": {
+   "season": "WY2026",
+   "start": "2025-10-01",
+   "through": "2026-09-26",
+   "complete_to_date": false,
+   "within_tolerance": true,
+   "days_missing": 1,
+   "missing_days": [
+    "2026-02-19"
+   ],
+   "first_missing": "2026-02-19",
+   "absence": {
+    "reason": "gap",
+    "first_missing": "2026-02-19",
+    "mode": "absent",
+    "days_complete": 360,
+    "days_missing": 1
+   },
+   "values_at": {
+    "02-18": 315.3,
+    "02-19": 315.3,
+    "02-20": 315.3,
+    "04-01": 324.5,
+    "09-26": 427.7
+   }
+  },
+  "readout": {
+   "day": 360,
+   "value": 427.7,
+   "median": 405.5,
+   "pct_of_median": 105.5,
+   "percentile": 58.1,
+   "vs_five_year": 99.2,
+   "vs_category": {
+    "nino": 22.4,
+    "nina": null,
+    "neutral": 16.0,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": 25.4,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   },
+   "days_missing": 1,
+   "basis": "sum of reported days; 1 missing"
+  },
+  "readout_absence": null,
+  "method": "GHCNd daily precipitation at the station, summed from the season's first day over the days that reported. In the season in progress a missing or null day adds nothing and does not stop the sum; the season says how many days are missing, and with more than 5 the readout is withheld. A past season joins the base only when every day reported."
+ },
+ "USW00023174 before": {
+  "frontier": "2026-09-26",
+  "base_n": 81,
+  "this_season": {
+   "season": "WY2026",
+   "start": "2025-10-01",
+   "through": "2026-09-26",
+   "complete_to_date": true,
+   "absence": null,
+   "values_at": {
+    "02-18": 314.7,
+    "02-19": 329.2,
+    "02-20": 329.2,
+    "04-01": 332.0,
+    "09-26": 360.5
+   }
+  },
+  "readout": {
+   "day": 360,
+   "value": 360.5,
+   "median": 260.0,
+   "pct_of_median": 138.7,
+   "percentile": 74.1,
+   "vs_five_year": 21.7,
+   "vs_category": {
+    "nino": 119.1,
+    "nina": null,
+    "neutral": 98.6,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": 74.2,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   }
+  },
+  "readout_absence": null,
+  "method": "GHCNd daily precipitation at the station, summed from the season's first day; a missing or null day stops the sum."
+ },
+ "USW00023174 after": {
+  "frontier": "2026-09-26",
+  "base_n": 81,
+  "this_season": {
+   "season": "WY2026",
+   "start": "2025-10-01",
+   "through": "2026-09-26",
+   "complete_to_date": true,
+   "within_tolerance": true,
+   "days_missing": 0,
+   "missing_days": [],
+   "first_missing": null,
+   "absence": null,
+   "values_at": {
+    "02-18": 314.7,
+    "02-19": 329.2,
+    "02-20": 329.2,
+    "04-01": 332.0,
+    "09-26": 360.5
+   }
+  },
+  "readout": {
+   "day": 360,
+   "value": 360.5,
+   "median": 260.0,
+   "pct_of_median": 138.7,
+   "percentile": 74.1,
+   "vs_five_year": 21.7,
+   "vs_category": {
+    "nino": 119.1,
+    "nina": null,
+    "neutral": 98.6,
+    "nino_weak": null,
+    "nino_moderate": null,
+    "nino_strong": 74.2,
+    "nina_weak": null,
+    "nina_moderate": null,
+    "nina_strong": null,
+    "nino_EP": null,
+    "nino_CP": null,
+    "nina_EP": null,
+    "nina_CP": null
+   },
+   "days_missing": 0,
+   "basis": "sum of reported days; 0 missing"
+  },
+  "readout_absence": null,
+  "method": "GHCNd daily precipitation at the station, summed from the season's first day over the days that reported. In the season in progress a missing or null day adds nothing and does not stop the sum; the season says how many days are missing, and with more than 5 the readout is withheld. A past season joins the base only when every day reported."
+ }
+}
