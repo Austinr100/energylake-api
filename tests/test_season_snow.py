@@ -347,7 +347,7 @@ class _SnowPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_LOAD_SQL):
+                 season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_LOAD_SQL, season.AREAS_RESERVOIR_REGIONS_SQL):
             return []
         if q == season.AREAS_SNOW_SQL:
             assert p["d"] == "snow_basin_index_daily"
@@ -362,15 +362,18 @@ class _SnowPool:
 def _clear_memos():
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
     yield
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
 
 
 @pytest.fixture
 def pool(monkeypatch):
     p = _SnowPool()
     monkeypatch.setattr(main, "_pool", p)
+    monkeypatch.setattr(main, "_season_pool", p)     # d091542: the season routes' own pool
     return p
 
 
@@ -421,13 +424,15 @@ OLD_KEYS = ("area", "var", "units", "season", "frontier", "axis", "base",
 
 def test_n9_areas_and_swe_key_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 86          # d091522 appended 4 California snow + 9 reservoir; d091525 28 ba; d091536 col_canada
+    assert len(areas) == 89          # d091522 appended 4 California snow + 9 reservoir; d091525 28 ba; d091536 col_canada; d091542 3 reservoir regions
     snow = [a for a in areas if a["kind"] == "snow"][:6]
     assert areas[38:44] == snow
     assert [(a["area"], a["label"]) for a in snow] == LABELS
     assert snow[0]["vars"] == [{"var": "swe", "season": "water_year",
                                 "units": "% of normal peak", "first_season": "WY1983",
-                                "complete_seasons": 42}]
+                                "complete_seasons": 42,
+                                "data_type": "snow_water_equivalent",      # d091542
+                                "measure": "percent of normal peak"}]
 
     r = client.get("/api/weather/season",
                    params={"area": "snow:columbia_above_the_dalles", "var": "swe"})
@@ -435,8 +440,9 @@ def test_n9_areas_and_swe_key_order(client, pool):
     body = r.json()
     assert season.RESPONSE_KEYS == OLD_KEYS + ("peak", "peak_absence", "source")
     # d091522 §2.4: a level carries `range` after five_year_absence; nothing else moved.
-    assert tuple(k for k in body if k not in ("range", "range_absence")) == season.RESPONSE_KEYS
-    assert tuple(body) == season.LEVEL_RESPONSE_KEYS
+    assert tuple(k for k in body if k not in ("range", "range_absence")
+                 + season.ROUTE_ADDED_KEYS) == season.RESPONSE_KEYS
+    assert tuple(body) == season.LEVEL_RESPONSE_KEYS + season.ROUTE_ADDED_KEYS    # d091542
     assert body["units"] == "% of normal peak" and body["season"]["mode"] == "level"
     assert body["source"] == {"dataset": "snow_basin_index_daily",
                               "method": season.METHODS[("snow", "swe")],

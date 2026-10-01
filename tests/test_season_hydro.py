@@ -461,7 +461,7 @@ class _HydroPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_SNOW_SQL, season.AREAS_LOAD_SQL):
+                 season.AREAS_SNOW_SQL, season.AREAS_LOAD_SQL, season.AREAS_RESERVOIR_REGIONS_SQL):
             return []
         if q == season.AREAS_CA_SNOW_SQL:
             assert p == {"d": "cdec_snowpack_swe_daily", "s": list(season.CA_SNOW_SERIES)}
@@ -481,15 +481,18 @@ class _HydroPool:
 def _clear_memos():
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
     yield
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
 
 
 @pytest.fixture
 def pool(monkeypatch):
     p = _HydroPool()
     monkeypatch.setattr(main, "_pool", p)
+    monkeypatch.setattr(main, "_season_pool", p)     # d091542: the season routes' own pool
     return p
 
 
@@ -513,7 +516,8 @@ def test_h9_refusals(client):
     assert r.status_code == 400 and "swe on the Columbia basins" in r.json()["detail"]
     r = get(area="reservoir:castaic", var="storage")
     assert r.status_code == 400
-    assert ("reservoir:{id} for ca_major8, trinity, shasta, oroville, folsom, new_melones, "
+    assert ("reservoir:{id} for ca_major8, ca_north, ca_central, ca_south, "
+            "trinity, shasta, oroville, folsom, new_melones, "
             "don_pedro, millerton, san_luis") in r.json()["detail"]
     assert "snow:{California region} for ca_state, ca_north, ca_central, ca_south" \
         in r.json()["detail"]
@@ -529,35 +533,41 @@ def test_h9_refusals(client):
 
 def test_h10_areas_count_and_order(client, pool):
     areas = client.get("/api/weather/season/areas").json()["areas"]
-    assert len(areas) == 44 + 1 + 4 + 9 + 28 == 86    # d091525: + 28 ba; d091536: + col_canada at 44
+    assert len(areas) == 44 + 1 + 4 + 12 + 28 == 89   # d091525: + 28 ba; d091536: + col_canada at 44; d091542: + 3 regions
     assert [a["area"] for a in areas[38:44]] == [f"snow:{b}" for b in season.SNOW_BASINS]
     assert [(a["area"], a["label"], a["kind"]) for a in areas[45:49]] == [
         ("snow:ca_state", "California statewide", "snow"),
         ("snow:ca_north", "Northern Sierra / Trinity", "snow"),
         ("snow:ca_central", "Central Sierra", "snow"),
         ("snow:ca_south", "Southern Sierra", "snow")]
-    assert [(a["area"], a["label"]) for a in areas[49:58]] == [
+    assert [(a["area"], a["label"]) for a in areas[49:61]] == [
         ("reservoir:ca_major8", "California, eight major reservoirs"),
+        ("reservoir:ca_north", "Northern California reservoirs (Trinity, Shasta, Oroville)"),
+        ("reservoir:ca_central", "Central Sierra reservoirs (Folsom, New Melones, Don Pedro)"),
+        ("reservoir:ca_south", "Southern Sierra reservoir (Millerton)"),
         ("reservoir:trinity", "Trinity Lake"), ("reservoir:shasta", "Shasta Lake"),
         ("reservoir:oroville", "Lake Oroville"), ("reservoir:folsom", "Folsom Lake"),
         ("reservoir:new_melones", "New Melones Lake"),
         ("reservoir:don_pedro", "Don Pedro Reservoir"),
         ("reservoir:millerton", "Millerton Lake"), ("reservoir:san_luis", "San Luis Reservoir")]
-    assert areas[49]["capacity_taf"] == 18505.727 and areas[51]["capacity_taf"] == 4552.0
+    assert areas[49]["capacity_taf"] == 18505.727 and areas[54]["capacity_taf"] == 4552.0
     assert areas[45]["vars"] == [{"var": "swe_in", "season": "water_year", "units": "in",
                                   "first_season": "WY2006", "complete_seasons": 20,
-                                  "qualifying_seasons": 20}]
+                                  "qualifying_seasons": 20,
+                                  "data_type": "snow_water_equivalent", "measure": "inches"}]
     assert areas[49]["vars"] == [{"var": "storage", "season": "water_year", "units": "TAF",
                                   "first_season": "WY1996", "complete_seasons": 0,
-                                  "qualifying_seasons": 29}]
-    assert areas[50]["vars"][0]["complete_seasons"] == 30
+                                  "qualifying_seasons": 29,
+                                  "data_type": "reservoir_storage",
+                                  "measure": "thousand acre-feet"}]
+    assert areas[53]["vars"][0]["complete_seasons"] == 30
 
 
 def test_h10_major8_and_ca_state_reads(client, pool):
     r = client.get("/api/weather/season", params={"area": "reservoir:ca_major8", "var": "storage"})
     assert r.status_code == 200 and r.headers["cache-control"] == "max-age=900"
     body = r.json()
-    assert tuple(body) == season.LEVEL_RESPONSE_KEYS
+    assert tuple(body) == season.LEVEL_RESPONSE_KEYS + season.ROUTE_ADDED_KEYS    # d091542
     assert body["units"] == "TAF" and body["frontier"] == "2026-09-28"
     assert body["this_season"]["values"][AX.index("09-27")] is None     # don_pedro absent
     assert body["source"]["capacity_taf"] == 18505.727

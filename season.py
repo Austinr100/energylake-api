@@ -172,10 +172,31 @@ RESERVOIRS = (  # (id, label, capacity in acre-feet)
 RESERVOIR_IDS = tuple(r[0] for r in RESERVOIRS)
 MAJOR8 = "ca_major8"
 MAJOR8_LABEL = "California, eight major reservoirs"
-RESERVOIR_AREAS = (MAJOR8,) + RESERVOIR_IDS          # /areas order
-RESERVOIR_LABELS = {MAJOR8: MAJOR8_LABEL, **{i: lab for i, lab, _ in RESERVOIRS}}
+# d091542 (D-09-25-71): three regional composites, each the sum of its members
+# by `major8_daily`'s rule. The grouping is by the CDEC snow region that feeds
+# each reservoir, checked against CDEC's own region definitions
+# (cdec.water.ca.gov/snowapp/sweq.action, 2026-10-01): North "Trinity through
+# Feather & Truckee"; Central "Yuba & Tahoe through Merced & Walker"; South
+# "San Joaquin & Mono through Kern". Folsom (American), New Melones
+# (Stanislaus) and Don Pedro (Tuolumne) are Central; Millerton (San Joaquin)
+# is South. San Luis is in no region: it is off-stream and fills by pumping.
+RESERVOIR_REGIONS = (  # (id, label, members)
+    ("ca_north", "Northern California reservoirs (Trinity, Shasta, Oroville)",
+     ("trinity", "shasta", "oroville")),
+    ("ca_central", "Central Sierra reservoirs (Folsom, New Melones, Don Pedro)",
+     ("folsom", "new_melones", "don_pedro")),
+    ("ca_south", "Southern Sierra reservoir (Millerton)", ("millerton",)),
+)
+RESERVOIR_REGION_IDS = tuple(r[0] for r in RESERVOIR_REGIONS)
+RESERVOIR_MEMBERS = {MAJOR8: RESERVOIR_IDS, **{i: m for i, _, m in RESERVOIR_REGIONS}}
+MAJOR8_MEMBERS_NOTE = ("San Luis Reservoir is in the eight and in no regional composite: "
+                       "it is off-stream and fills by pumping, not from its own snow region")
+RESERVOIR_AREAS = (MAJOR8,) + RESERVOIR_REGION_IDS + RESERVOIR_IDS          # /areas order
+RESERVOIR_LABELS = {MAJOR8: MAJOR8_LABEL, **{i: lab for i, lab, _ in RESERVOIR_REGIONS},
+                    **{i: lab for i, lab, _ in RESERVOIRS}}
 CAPACITY_AF = {i: af for i, _, af in RESERVOIRS}
-CAPACITY_AF[MAJOR8] = sum(af for _, _, af in RESERVOIRS)
+for _c, _m in RESERVOIR_MEMBERS.items():
+    CAPACITY_AF[_c] = sum(CAPACITY_AF[i] for i in _m)
 
 # California's snow: CDEC's four regional averages (`{region}_avg_swc`, inches).
 CA_SNOW_DATASET = "cdec_snowpack_swe_daily"
@@ -203,6 +224,218 @@ DAY_RULE = ("a fixed UTC−8 day for every area, no daylight-saving shift: day D
             "its 24 hours report, and is null otherwise")
 DAY_RULE_7D = (DAY_RULE + "; peak_load_7d on day D is the mean of the daily peaks "
                "D−6 … D, null unless all seven carry one")
+
+
+# ---------------------------------------------------------------------------
+# What an area measures and where it is (d091542, D-09-25-70)
+# ---------------------------------------------------------------------------
+# Pinned here, never derived from the id. `data_type` is a property of the
+# VAR; `measure` keeps the two snow measures apart. "Snowpack" is the reader's
+# word; the quantity is snow water equivalent, and the API says so.
+DATA_TYPES = ("precipitation", "snow_water_equivalent", "reservoir_storage",
+              "heating_degree_days", "cooling_degree_days", "peak_load")
+VAR_DATA_TYPES = {  # var -> (data_type, measure)
+    "precip": ("precipitation", "water-year total, mm"),
+    "swe": ("snow_water_equivalent", "percent of normal peak"),
+    "swe_in": ("snow_water_equivalent", "inches"),
+    "storage": ("reservoir_storage", "thousand acre-feet"),
+    "hdd": ("heating_degree_days", "°F·day, season total"),
+    "cdd": ("cooling_degree_days", "°F·day, season total"),
+    "peak_load": ("peak_load", "MW, daily peak"),
+    "peak_load_7d": ("peak_load", "MW, 7-day mean of daily peaks"),
+}
+# The var a snapshot reads for a data type on an area that carries it (an area
+# carries at most one var per data type, but for the load pair: the daily peak).
+SNAPSHOT_VAR_ORDER = ("precip", "swe", "swe_in", "storage", "hdd", "cdd", "peak_load")
+
+REGIONS = ("california", "pacific_northwest", "canada", "southwest", "rockies")
+REGION_LABELS = {"california": "California", "pacific_northwest": "Pacific Northwest",
+                 "canada": "Canada (Columbia)", "southwest": "Southwest",
+                 "rockies": "Rockies"}
+LEVELS = ("aggregate", "region", "basin", "station", "reservoir", "balancing_area")
+# A station's or a balancing area's two-letter state -> its region (§2.3).
+STATE_REGIONS = {"CA": "california",
+                 "OR": "pacific_northwest", "WA": "pacific_northwest",
+                 "ID": "pacific_northwest", "MT": "pacific_northwest",
+                 "AZ": "southwest", "NM": "southwest", "NV": "southwest",
+                 "CO": "rockies", "UT": "rockies", "WY": "rockies"}
+# The balancing areas' home states: the state of the utility's or the
+# authority's headquarters (EIA-930's BA list; EIA Form 861 for the utility's
+# address). A BA spanning states takes its home state, and the row says
+# `region_basis: "home state"`. EPE (El Paso Electric) is headquartered in
+# Texas, which the table does not map: STOP-R, region null with a reason.
+BA_HOME_STATES = {
+    "AVA": "WA", "AZPS": "AZ", "BANC": "CA", "BPAT": "OR", "CHPD": "WA", "CISO": "CA",
+    "DOPD": "WA", "EPE": "TX", "GCPD": "WA", "IID": "CA", "IPCO": "ID", "LDWP": "CA",
+    "NEVP": "NV", "NWMT": "MT", "PACE": "UT", "PACW": "OR", "PGE": "OR", "PNM": "NM",
+    "PSCO": "CO", "PSEI": "WA", "SCL": "WA", "SRP": "AZ", "TEPC": "AZ", "TIDC": "CA",
+    "TPWR": "WA", "WACM": "CO", "WALC": "AZ", "WAUW": "MT",
+}
+# The 17 load regions of lwt_degree_days_daily, keyed like the BAs; the -TAC
+# regions are CAISO's transmission access charge areas (PG&E, SCE, SDG&E in
+# California; Valley Electric in Nevada).
+LWT_HOME_STATES = {
+    "AZPS": "AZ", "BANC": "CA", "BPAT": "OR", "EPE": "TX", "IPCO": "ID", "LADWP": "CA",
+    "NEVP": "NV", "PACE": "UT", "PACW": "OR", "PGE-TAC": "CA", "PNM": "NM", "PSEI": "WA",
+    "SCE-TAC": "CA", "SDGE-TAC": "CA", "SRP": "AZ", "TEPC": "AZ", "VEA-TAC": "NV",
+}
+# Snow and reservoir areas, pinned: (region, level, state or None, members).
+# The Columbia unions are the pantry's (snow/basins.py): the index station
+# counts banked on 2026-09-28 add up (Grand Coulee 44 + Mid-Columbia 34 +
+# Snake 85 = The Dalles 163; Upper Snake 61 + Lower Snake 24 = Snake 85).
+_SNOW_PLACES = {
+    "columbia_above_the_dalles": ("pacific_northwest", "aggregate", None,
+                                  ("snow:col_above_grand_coulee", "snow:col_mid_tributaries",
+                                   "snow:snake")),
+    "col_above_grand_coulee": ("pacific_northwest", "basin", None, None),
+    "col_mid_tributaries": ("pacific_northwest", "basin", None, None),
+    "snake": ("pacific_northwest", "basin", None, ("snow:snake_upper", "snow:snake_lower")),
+    "snake_upper": ("pacific_northwest", "basin", None, None),
+    "snake_lower": ("pacific_northwest", "basin", None, None),
+    "col_canada": ("canada", "aggregate", None, None),
+    "ca_state": ("california", "aggregate", "CA",
+                 ("snow:ca_north", "snow:ca_central", "snow:ca_south")),
+    "ca_north": ("california", "region", "CA", None),
+    "ca_central": ("california", "region", "CA", None),
+    "ca_south": ("california", "region", "CA", None),
+}
+# A region's aggregate area per data type, or None with the reason. "oregon" is
+# a state inside the Pacific Northwest, listed because the captain names it.
+REGION_VIEWS = (
+    ("california", "California", None),
+    ("pacific_northwest", "Pacific Northwest", None),
+    ("oregon", "Oregon", "pacific_northwest"),
+    ("canada", "Canada (Columbia)", None),
+    ("southwest", "Southwest", None),
+    ("rockies", "Rockies", None),
+)
+REGION_AGGREGATES = {
+    ("california", "snow_water_equivalent"): ("snow:ca_state", None),
+    ("california", "reservoir_storage"): ("reservoir:ca_major8", None),
+    ("pacific_northwest", "snow_water_equivalent"): (
+        "snow:columbia_above_the_dalles",
+        "the Columbia above The Dalles, US side: the Pacific Northwest's snow as banked; "
+        "Oregon west of the Cascades and Washington's coast are not in it"),
+    ("pacific_northwest", "reservoir_storage"): (None, "no Pacific Northwest reservoir "
+                                                       "storage is banked"),
+    ("oregon", "snow_water_equivalent"): (None, "no Oregon snow index is banked (d091544)"),
+    ("oregon", "reservoir_storage"): (None, "no Oregon reservoir storage is banked"),
+    ("canada", "snow_water_equivalent"): ("snow:col_canada", None),
+}
+NO_AGGREGATE = "no aggregate area is served for this data type in this region"
+
+
+def area_place(area: str, metadata_stations: Sequence[Mapping] = ()) -> dict:
+    """{region, level, state?, members?, members_note?, region_basis?,
+    region_absence?} for an area, from the pinned tables above (never the id)."""
+    kind, ident = area.split(":", 1)
+    out: dict[str, Any] = {}
+
+    def _by_state(st: Optional[str], basis: Optional[str] = None) -> None:
+        reg = STATE_REGIONS.get(st) if st else None
+        out["region"] = reg
+        if reg is None:
+            out["region_absence"] = (f"state {st} is not in the region table" if st
+                                     else "no state is banked for this area")
+        if basis and reg is not None:
+            out["region_basis"] = basis
+
+    if kind == "station":
+        meta = next((m for m in metadata_stations if m["station_id"] == ident), None)
+        st = meta.get("state") if meta else None
+        _by_state(st)
+        out["level"] = "station"
+        if st:
+            out["state"] = st
+    elif kind in ("lwt", "ba"):
+        st = (LWT_HOME_STATES if kind == "lwt" else BA_HOME_STATES).get(ident)
+        _by_state(st, "home state")
+        out["level"] = "balancing_area"
+        if st:
+            out["state"] = st
+    elif kind == "snow":
+        reg, lvl, st, members = _SNOW_PLACES[ident]
+        out.update(region=reg, level=lvl)
+        if st:
+            out["state"] = st
+        if members:
+            out["members"] = list(members)
+    elif kind == "reservoir":
+        out["region"] = "california"
+        if ident == MAJOR8:
+            out["level"] = "aggregate"
+        elif ident in RESERVOIR_REGION_IDS:
+            out["level"] = "region"
+        else:
+            out["level"] = "reservoir"
+        out["state"] = "CA"
+        if ident in RESERVOIR_MEMBERS:
+            out["members"] = [f"reservoir:{i}" for i in RESERVOIR_MEMBERS[ident]]
+        if ident == MAJOR8:
+            out["members_note"] = MAJOR8_MEMBERS_NOTE
+    return {k: out[k] for k in AREA_ADDED_KEYS if k in out}     # one key order
+
+
+# The keys d091542 added to /areas, after each row's existing ones (a station's
+# `state` was already there, before `vars`).
+AREA_ADDED_KEYS = ("region", "level", "state", "members", "members_note", "region_basis",
+                   "region_absence")
+VAR_ADDED_KEYS = ("data_type", "measure")
+
+
+def area_label(area: str, metadata_stations: Sequence[Mapping] = ()) -> str:
+    """The label /areas gives an area (a station: its display name, or its id
+    when station_metadata.json does not carry it)."""
+    kind, ident = area.split(":", 1)
+    if kind == "station":
+        m = next((m for m in metadata_stations if m["station_id"] == ident), None)
+        return (m.get("display_name") or m.get("metro")) if m else ident
+    if kind == "snow":
+        return {**SNOW_LABELS, **CANADA_SNOW_LABELS, **CA_SNOW_LABELS}[ident]
+    if kind == "reservoir":
+        return RESERVOIR_LABELS[ident]
+    return ident
+
+
+def var_type(var: str) -> dict:
+    data_type, measure = VAR_DATA_TYPES[var]
+    return {"data_type": data_type, "measure": measure}
+
+
+def build_regions(areas: Sequence[Mapping]) -> dict:
+    """The top-level `regions` block of /areas: each region's label, its
+    aggregate area per data type (null with a reason), and its member areas."""
+    out = {}
+    for reg, lab, within in REGION_VIEWS:
+        if within is None:
+            members = [a["area"] for a in areas if a.get("region") == reg]
+        else:   # a state inside a region: the region's areas in that state
+            members = [a["area"] for a in areas
+                       if a.get("region") == within and a.get("state") == "OR"]
+        aggregates, notes = {}, {}
+        for dt in DATA_TYPES:
+            area, why = REGION_AGGREGATES.get((reg, dt), (None, NO_AGGREGATE))
+            aggregates[dt] = area
+            if why is not None:
+                notes[dt] = why
+        out[reg] = {"label": lab, "kind": "state" if within else "region",
+                    "within": within, "aggregates": aggregates,
+                    "aggregate_notes": notes, "members": members}
+    return out
+
+
+def in_progress_season(var: str, frontier: Optional[date]) -> Optional[int]:
+    """The season in progress on a series whose newest valued day is
+    `frontier`: the season holding the frontier, unless the frontier is that
+    season's last day (or in no season). The ONE rule the payload's base and
+    /areas' counts both use: a count over "every season with a row" otherwise
+    counts the season in progress (d091542)."""
+    if frontier is None:
+        return None
+    s = season_of(var, frontier)
+    if s is not None and frontier < bounds(var, s)[1]:
+        return s
+    return None
 
 
 def reservoir_series(area: str) -> str:
@@ -308,6 +541,9 @@ METHODS = {
     ("major8", "storage"): ("The sum of the eight reservoirs' daily storage, in thousand "
                             "acre-feet; a day carries a value only when all eight report "
                             "(never renormalised)."),
+    ("reservoir_region", "storage"): ("The sum of the region's member reservoirs' daily "
+                                      "storage, in thousand acre-feet; a day carries a value "
+                                      "only when every member reports (never renormalised)."),
     ("snow", "swe_in"): ("CDEC's regional average snow water content, in inches; the feed "
                          "reports the snow season only, so a summer day has no row."),
     ("ba", "peak_load"): ("The balancing area's maximum hourly load (EIA-930) on each UTC−8 "
@@ -323,6 +559,7 @@ _DATASETS = {("station", "precip"): "ghcnd_weather_daily",
              ("snow", "swe"): SNOW_DATASET,
              ("reservoir", "storage"): RESERVOIR_DATASET,
              ("major8", "storage"): RESERVOIR_DATASET,
+             ("reservoir_region", "storage"): RESERVOIR_DATASET,
              ("snow", "swe_in"): CA_SNOW_DATASET,
              ("ba", "peak_load"): LOAD_DATASET, ("ba", "peak_load_7d"): LOAD_DATASET}
 # The frontier row's meta keys `source` carries for a snow area.
@@ -476,9 +713,14 @@ def vars_for(area: str) -> tuple[str, ...]:
 
 
 def area_kind(area: str) -> str:
-    """The (kind) key of METHODS / _DATASETS: the eight's sum is its own kind."""
+    """The (kind) key of METHODS / _DATASETS: the eight's sum is its own kind,
+    and so is a regional composite (d091542)."""
     kind, ident = area.split(":", 1)
-    return "major8" if (kind, ident) == ("reservoir", MAJOR8) else kind
+    if kind == "reservoir" and ident == MAJOR8:
+        return "major8"
+    if kind == "reservoir" and ident in RESERVOIR_REGION_IDS:
+        return "reservoir_region"
+    return kind
 
 
 def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[str],
@@ -506,15 +748,24 @@ def parse_request(area: Optional[str], var: Optional[str], classifier: Optional[
 
 def build_areas(metadata_stations: Sequence[Mapping],
                 counts: Mapping[tuple[str, str], Mapping[int, int]],
-                frontiers: Optional[Mapping[str, Optional[str]]] = None) -> dict:
+                frontiers: Optional[Mapping[str, Optional[str]]] = None,
+                lasts: Optional[Mapping[tuple[str, str], Optional[date]]] = None) -> dict:
     """`counts[(area, var)][season start year] = days carrying a value` (inside
     the count window: swe_in counts Dec 1 -> May 31 only, snow:col_canada's
     swe Nov 1 -> May 31), over every
     season with at least one row. A season is complete iff that count equals
     its window's days; a floored var (§2) also says how many qualify.
     `frontiers[area]` is a balancing area's newest qualifying day (d091525), so
-    a series that stopped early says where."""
+    a series that stopped early says where.
+
+    d091542: `lasts[(area, var)]` is the series' newest valued day; the season
+    it holds, when in progress (`in_progress_season`, the payload's own rule),
+    is left out of `complete_seasons` and `qualifying_seasons`. Each var gains
+    `data_type` and `measure`, each area `region`, `level` and where one
+    applies `state`, `members`, `members_note`, `region_basis` or
+    `region_absence`, after its existing keys; the body gains `regions`."""
     areas = []
+    lasts = lasts or {}
 
     def _vars(area: str) -> list[dict]:
         out = []
@@ -522,17 +773,24 @@ def build_areas(metadata_stations: Sequence[Mapping],
             per = counts.get((area, v), {})
             first = min(per) if per else None
             fl = floor(v, area)
+            cur = in_progress_season(v, lasts.get((area, v)))
+            done = {s: n for s, n in per.items() if s != cur}
             row = {
                 "var": v, "season": _SEASONS[v][0], "units": units(v),
                 "first_season": label(v, first) if first is not None else None,
-                "complete_seasons": sum(1 for s, n in per.items()
+                "complete_seasons": sum(1 for s, n in done.items()
                                         if n == window_days(v, s, area)),
             }
             if fl is not None:
-                row["qualifying_seasons"] = sum(1 for s, n in per.items()
+                row["qualifying_seasons"] = sum(1 for s, n in done.items()
                                                 if n >= fl[0] * window_days(v, s, area))
+            row.update(var_type(v))
             out.append(row)
         return out
+
+    def _add(row: dict) -> None:
+        row.update(area_place(row["area"], metadata_stations))
+        areas.append(row)
 
     for sid, meta in station_order(metadata_stations):
         area = f"station:{sid}"
@@ -541,31 +799,29 @@ def build_areas(metadata_stations: Sequence[Mapping],
         if meta and meta.get("state"):
             row["state"] = meta["state"]
         row["vars"] = _vars(area)
-        areas.append(row)
+        _add(row)
     for ba in LWT_BAS:
         area = f"lwt:{ba}"
-        areas.append({"area": area, "kind": "lwt", "label": ba, "vars": _vars(area)})
+        _add({"area": area, "kind": "lwt", "label": ba, "vars": _vars(area)})
     for b in SNOW_BASINS:
         area = f"snow:{b}"
-        areas.append({"area": area, "kind": "snow", "label": SNOW_LABELS[b],
-                      "vars": _vars(area)})
+        _add({"area": area, "kind": "snow", "label": SNOW_LABELS[b], "vars": _vars(area)})
     for b in CANADA_SNOW:
         area = f"snow:{b}"
-        areas.append({"area": area, "kind": "snow", "label": CANADA_SNOW_LABELS[b],
-                      "vars": _vars(area)})
+        _add({"area": area, "kind": "snow", "label": CANADA_SNOW_LABELS[b],
+              "vars": _vars(area)})
     for r in CA_SNOW:
         area = f"snow:{r}"
-        areas.append({"area": area, "kind": "snow", "label": CA_SNOW_LABELS[r],
-                      "vars": _vars(area)})
+        _add({"area": area, "kind": "snow", "label": CA_SNOW_LABELS[r], "vars": _vars(area)})
     for r in RESERVOIR_AREAS:
         area = f"reservoir:{r}"
-        areas.append({"area": area, "kind": "reservoir", "label": RESERVOIR_LABELS[r],
-                      "capacity_taf": CAPACITY_AF[r] / 1000.0, "vars": _vars(area)})
+        _add({"area": area, "kind": "reservoir", "label": RESERVOIR_LABELS[r],
+              "capacity_taf": CAPACITY_AF[r] / 1000.0, "vars": _vars(area)})
     for b in BAS:
         area = f"ba:{b}"
-        areas.append({"area": area, "kind": "ba", "label": b,
-                      "frontier": (frontiers or {}).get(area), "vars": _vars(area)})
-    return {"areas": areas}
+        _add({"area": area, "kind": "ba", "label": b,
+              "frontier": (frontiers or {}).get(area), "vars": _vars(area)})
+    return {"areas": areas, "regions": build_regions(areas)}
 
 
 # ---------------------------------------------------------------------------
@@ -812,7 +1068,8 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                  classifier: str, catalog_version: Optional[str],
                  developing: Optional[Mapping], bins: Sequence[Mapping],
                  oni_last_centre: Optional[tuple[int, int]] = None,
-                 source_meta: Optional[Mapping] = None) -> dict:
+                 source_meta: Optional[Mapping] = None,
+                 extras: Optional[dict] = None) -> dict:
     """The /api/weather/season body, keys in contract order.
 
     `daily` maps each calendar date that HAS A ROW to its value, None where the
@@ -820,6 +1077,11 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     row is simply not a key. `bins` are enso_year_bins rows for `classifier`.
     `source_meta` is the frontier row's `meta` (Columbia snow areas), or for
     `reservoir:ca_major8` {"series_frontiers": {...}}.
+
+    `extras` (d091542), when a dict, is filled with what the same build knows
+    and the body does not carry, for the snapshot: `base` (the base seasons'
+    labels), `B` (their per-day values, unrounded) and `values` (every
+    season's walk by label, unrounded). The body is unchanged by it.
     """
     level = mode(var) == LEVEL
     fl = floor(var, area)
@@ -835,11 +1097,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     seasons = sorted({s for d in daily for s in [season_of(var, d)]
                       if s is not None and (frontier is None or bounds(var, s)[0] <= frontier)})
 
-    cur = None
-    if frontier is not None:
-        s = season_of(var, frontier)
-        if s is not None and frontier < bounds(var, s)[1]:
-            cur = s
+    cur = in_progress_season(var, frontier)
 
     walks: dict[int, _Walk] = {}
     for s in seasons:
@@ -1028,6 +1286,11 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             "vs_five_year": _r(value - five_at) if five_at is not None else None,
             "vs_category": vs_cat,
         }
+        if level:   # d091542 §2.6: the day against the median peak, in one read
+            mp = peak_base([walks[s] for s in base], slots)["median"]
+            readout["pct_of_median_peak"] = (_r(100.0 * value / mp)
+                                             if mp is not None and mp != 0 else None)
+            readout["median_peak"] = mp
 
     # ── years / curves ──────────────────────────────────────────────────────
     years = []
@@ -1080,6 +1343,18 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     else:
         base_block = {"rule": "every complete season, full record, excluding the current season",
                       "seasons": [label(var, s) for s in base], "n": n, "excluded": excluded}
+
+    if extras is not None:
+        extras["base"] = [label(var, s) for s in base]
+        extras["B"] = B
+        extras["values"] = {label(var, s): list(walks[s].values) for s in seasons}
+        # the day statistics unrounded, so a ratio is taken before the one rounding
+        extras["p50"] = p50
+        extras["range_median"] = None
+        if level and range_ is not None:
+            rcnt, rok = _nan_stats(B)
+            extras["range_median"] = _masked(np.nanmedian, B, rok)
+        extras["cat_medians"] = cat_medians
 
     body = {
         "area": area, "var": var, "units": units(var),
@@ -1233,10 +1508,11 @@ def source(area: str, var: str, meta: Optional[Mapping] = None) -> dict:
     elif kind == "ba":
         out["series"] = reservoir_series(area)
         out["min_hours"] = LOAD_MIN_HOURS
-    elif kind in ("reservoir", "major8"):
+    elif kind in ("reservoir", "major8", "reservoir_region"):
         out["capacity_taf"] = CAPACITY_AF[reservoir_series(area)] / 1000.0
-        if kind == "major8":
-            out["capacity_af_by_reservoir"] = {i: CAPACITY_AF[i] for i in RESERVOIR_IDS}
+        if kind in ("major8", "reservoir_region"):
+            members = RESERVOIR_MEMBERS[reservoir_series(area)]
+            out["capacity_af_by_reservoir"] = {i: CAPACITY_AF[i] for i in members}
             out["series_frontiers"] = dict((meta or {}).get("series_frontiers") or {})
         out["capacity_source"] = ("energylake-dashboard src/app/almanac/"
                                   "california-water-storage/page.tsx RESERVOIRS (capacityAF)")
@@ -1257,8 +1533,218 @@ LEVEL_RESPONSE_KEYS = (RESPONSE_KEYS[:RESPONSE_KEYS.index("five_year_absence") +
                        + RESPONSE_KEYS[RESPONSE_KEYS.index("five_year_absence") + 1:])
 
 
+# d091542 §2.6: what the ROUTE adds at the top level, after the payload's own
+# keys: whether the memo served an expired payload while its replacement
+# builds, and when the served payload was built.
+ROUTE_ADDED_KEYS = ("stale", "built_at")
+# ... and what a level's readout gained, after its existing keys.
+READOUT_ADDED_KEYS = ("pct_of_median_peak", "median_peak")
+
+
 def response_keys(var: str) -> tuple[str, ...]:
     return LEVEL_RESPONSE_KEYS if mode(var) == LEVEL else RESPONSE_KEYS
+
+
+# ---------------------------------------------------------------------------
+# The snapshot (/api/weather/season/snapshot, d091542 D-09-25-69, -72)
+# ---------------------------------------------------------------------------
+
+SNAPSHOT_KEYS = ("area", "label", "region", "level", "var", "units", "measure",
+                 "date", "season", "season_day", "value", "median", "median_basis",
+                 "pct_of_median", "percentile", "pct_of_median_peak", "median_peak",
+                 "median_peak_md", "n", "frontier", "category", "category_absence",
+                 "geo", "absence")
+
+# Map points (§2.5), pinned, each with its source. Polygons are not this
+# lane's. Reservoirs: the dam's location (USGS GNIS / the National Inventory of
+# Dams, to 0.01°); a composite: the mean of its members' points. Snow regions
+# and basins: a hand-placed point inside the area, near its middle, read off
+# the USGS Watershed Boundary Dataset (Columbia, Snake: HUC4 1701-1706) and
+# CDEC's snow-region map (California); not a computed centroid, good to ~0.5°.
+DAM_POINTS = {
+    "trinity": (40.80, -122.76),      # Trinity Dam
+    "shasta": (40.72, -122.42),       # Shasta Dam
+    "oroville": (39.54, -121.49),     # Oroville Dam
+    "folsom": (38.71, -121.16),       # Folsom Dam
+    "new_melones": (37.95, -120.53),  # New Melones Dam
+    "don_pedro": (37.70, -120.42),    # Don Pedro Dam
+    "millerton": (37.00, -119.70),    # Friant Dam
+    "san_luis": (37.06, -121.07),     # B. F. Sisk (San Luis) Dam
+}
+SNOW_POINTS = {
+    "columbia_above_the_dalles": (46.0, -117.5),   # WBD 1701-1707 (US), hand-placed
+    "col_above_grand_coulee": (48.3, -116.0),      # WBD 1701 + 1702 (US), hand-placed
+    "col_mid_tributaries": (46.8, -120.5),         # WBD 1702-1703, 1707, hand-placed
+    "snake": (44.0, -115.5),                       # WBD 1704-1706, hand-placed
+    "snake_upper": (43.5, -113.5),                 # WBD 1704-1705, hand-placed
+    "snake_lower": (45.5, -115.8),                 # WBD 1706, hand-placed
+    "col_canada": (50.5, -117.5),                  # BC Columbia above the border, hand-placed
+    "ca_state": (38.0, -119.8),                    # the Sierra's middle, CDEC map
+    "ca_north": (40.2, -121.5),                    # CDEC North, hand-placed
+    "ca_central": (38.5, -120.2),                  # CDEC Central, hand-placed
+    "ca_south": (36.8, -118.6),                    # CDEC South, hand-placed
+}
+
+
+def area_geo(area: str, metadata_stations: Sequence[Mapping] = ()) -> Optional[dict]:
+    """A point for the map, or None (a balancing area, or a station
+    station_metadata.json does not carry)."""
+    kind, ident = area.split(":", 1)
+    if kind == "station":
+        m = next((m for m in metadata_stations if m["station_id"] == ident), None)
+        return {"lat": m["lat"], "lon": m["lon"]} if m and m.get("lat") is not None else None
+    if kind == "reservoir":
+        pts = [DAM_POINTS[i] for i in RESERVOIR_MEMBERS.get(ident, (ident,))]
+        return {"lat": round(sum(p[0] for p in pts) / len(pts), 2),
+                "lon": round(sum(p[1] for p in pts) / len(pts), 2)}
+    if kind == "snow":
+        lat, lon = SNOW_POINTS[ident]
+        return {"lat": lat, "lon": lon}
+    return None
+
+
+def snapshot_areas(data_type: str, metadata_stations: Sequence[Mapping]) -> list[tuple[str, str]]:
+    """[(area, var)] in /areas order: every area carrying the data type, with
+    the var the snapshot reads (the daily peak for the load pair)."""
+    out = []
+    for area in area_vocabulary(metadata_stations):
+        for v in SNAPSHOT_VAR_ORDER:
+            if v in vars_for(area) and VAR_DATA_TYPES[v][0] == data_type:
+                out.append((area, v))
+                break
+    return out
+
+
+def _slot_of(d: date) -> str:
+    return "02-28" if (d.month, d.day) == (2, 29) else _md(d)
+
+
+def snapshot_row(area: str, var: str, payload: Mapping, extras: Mapping, *,
+                 on: Optional[date], cat: Optional[str], area_label: str,
+                 place: Mapping, geo: Optional[Mapping]) -> dict:
+    """One area's row on one season day, every number read off the /season
+    build for (area, var, classifier): `payload` and its `extras`.
+
+    The frame is the season day (D-09-25-69): `on` (default: the area's own
+    frontier) answers on the curve of the season holding it, against the same
+    base. `value` is that season's value on the day (a level's own value, a
+    cumulative's running sum); `median` is the cone's p50 on the day (n >= 30,
+    the readout's rule) or, on a level with a shorter base, the base's range
+    median (n >= 5; `median_basis` says which); `percentile` is the mid-rank
+    against the base on the day and needs the cone; the peak fields are the
+    base's median peak. `category` is the category's median on the day
+    against the all-years median on the day. Absence is a sentence, never a
+    zero."""
+    level = mode(var) == LEVEL
+    row = dict.fromkeys(SNAPSHOT_KEYS)
+    vt = VAR_DATA_TYPES[var]
+    row.update(area=area, label=area_label, region=place.get("region"),
+               level=place.get("level"), var=var, units=units(var), measure=vt[1],
+               frontier=payload["frontier"], n=payload["base"]["n"], geo=geo)
+    pk = (payload.get("peak") or {}).get("base") if level else None
+    if pk:
+        row.update(median_peak=pk["median"], median_peak_md=pk["median_md"])
+    if on is None:
+        if payload["frontier"] is None:
+            row["absence"] = "no value is banked for this area"
+            return row
+        on = date.fromisoformat(payload["frontier"])
+    row["date"] = on.isoformat()
+    s = season_of(var, on)
+    if s is None:
+        row["absence"] = "the date is outside this data type's season"
+        return row
+    slots = _slot_index(var)
+    day = slots[_slot_of(on)]
+    row.update(season=label(var, s), season_day=day)
+    frontier = date.fromisoformat(payload["frontier"]) if payload["frontier"] else None
+    curve = extras["values"].get(label(var, s))
+    value = curve[day] if curve is not None and (frontier is None or on <= frontier) else None
+    if value is None:
+        a, b = count_window(var, s, area)
+        if floor(var, area) and not (a <= on <= b):
+            row["absence"] = ("no value on this day: outside the series' reporting window "
+                              f"({_md(a)} – {_md(b)})")
+        else:
+            row["absence"] = "no value on this day"
+        return row
+    row["value"] = _r(value)
+
+    # The day's statistics, unrounded (`extras`), are the payload's own numbers
+    # before its one rounding: `median` below equals the payload's p50 (or
+    # range median) on the day, and a ratio is taken before rounding, as the
+    # readout takes it.
+    pct = payload.get("percentiles")
+    rng = payload.get("range") if level else None
+    if pct is not None:
+        median = _at(extras["p50"], day)
+        basis = f"the cone's p50 (n = {payload['base']['n']} >= {CONE_MIN_N})"
+    elif rng is not None:
+        median = _at(extras["range_median"], day)
+        basis = (f"the base's range median (n = {rng['n']}, {RANGE_MIN_N} <= n < "
+                 f"{CONE_MIN_N}); no percentile below n = {CONE_MIN_N}")
+    else:
+        median, basis = None, None
+    if median is None:
+        row["absence"] = (f"short base: n = {payload['base']['n']}, no median on this day "
+                          f"(the cone needs n >= {CONE_MIN_N}"
+                          + (f", a level's range n >= {RANGE_MIN_N}" if level else "") + ")")
+    else:
+        row["median"], row["median_basis"] = _r(median), basis
+        row["pct_of_median"] = _r(100.0 * value / median) if median != 0 else None
+        if pct is not None:
+            sample = [x for x in extras["B"][:, day].tolist() if not np.isnan(x)]
+            row["percentile"] = _r(mid_rank(value, sample)) if sample else None
+    if pk and pk["median"]:
+        row["pct_of_median_peak"] = _r(100.0 * value / pk["median"])
+
+    if cat is not None:
+        block = payload["enso"]["categories"][cat]
+        cm = _at(extras["cat_medians"].get(cat), day)
+        if block.get("median") is None:
+            row["category_absence"] = {"cat": cat, **(block.get("absence")
+                                                      or {"reason": "small_n", "n": block["n"]})}
+        elif cm is None:
+            row["category_absence"] = {"cat": cat, "reason": "no category median on this day",
+                                       "n": block["n"]}
+        else:
+            row["category"] = {"cat": cat, "n": block["n"], "median": _r(cm),
+                               "pct_of_all_years_median": (_r(100.0 * cm / median)
+                                                           if median else None)}
+            if median is None:
+                row["category_absence"] = {"cat": cat, "reason": "no all-years median on this day"}
+    return row
+
+
+def build_snapshot(data_type: str, on: Optional[date], classifier: str, cat: Optional[str],
+                   rows: Sequence[Mapping]) -> dict:
+    return {"data_type": data_type, "date": on.isoformat() if on else None,
+            "date_rule": ("each area's own frontier" if on is None else
+                          "the requested day, on the curve of the season holding it, "
+                          "in each area's own season"),
+            "classifier": classifier, "cat": cat, "n_areas": len(rows), "rows": list(rows)}
+
+
+def parse_snapshot(data_type: Optional[str], on: Optional[str], classifier: Optional[str],
+                   cat: Optional[str]) -> tuple[str, Optional[date], str, Optional[str]]:
+    """-> (data_type, date or None, classifier, cat or None), or ValueError
+    naming the allowed set."""
+    if data_type not in DATA_TYPES:
+        raise ValueError(f"unknown data_type {data_type!r}; allowed: " + ", ".join(DATA_TYPES))
+    d = None
+    if on:
+        try:
+            d = date.fromisoformat(on)
+        except ValueError:
+            raise ValueError(f"malformed date {on!r}; allowed: YYYY-MM-DD") from None
+        if len(on) != 10:
+            raise ValueError(f"malformed date {on!r}; allowed: YYYY-MM-DD")
+    classifier = classifier or DEFAULT_CLASSIFIER
+    if classifier not in CLASSIFIERS:
+        raise ValueError(f"unknown classifier {classifier!r}; allowed: " + ", ".join(CLASSIFIERS))
+    if cat is not None and cat not in CATEGORIES:
+        raise ValueError(f"unknown cat {cat!r}; allowed: " + ", ".join(CATEGORIES))
+    return data_type, d, classifier, cat
 
 
 # ---------------------------------------------------------------------------
@@ -1356,19 +1842,22 @@ ONI_LAST_SQL = """
 AREAS_PRECIP_SQL = """
     SELECT station_id AS id,
            extract(year FROM obs_date - interval '9 months')::int AS s,
-           count(prcp_mm)::int AS n
+           count(prcp_mm)::int AS n,
+           max(obs_date) FILTER (WHERE prcp_mm IS NOT NULL) AS last
     FROM ghcnd_weather_daily GROUP BY 1, 2
 """
 
 AREAS_STATION_DD_SQL = """
     SELECT station_id AS id, 'hdd' AS var,
            extract(year FROM obs_date - interval '10 months')::int AS s,
-           count(*) FILTER (WHERE hdd IS NOT NULL AND basis_complete)::int AS n
+           count(*) FILTER (WHERE hdd IS NOT NULL AND basis_complete)::int AS n,
+           max(obs_date) FILTER (WHERE hdd IS NOT NULL AND basis_complete) AS last
     FROM station_degree_days_daily
     WHERE extract(month FROM obs_date) IN (11, 12, 1, 2, 3) GROUP BY 1, 2, 3
     UNION ALL
     SELECT station_id, 'cdd', extract(year FROM obs_date)::int,
-           count(*) FILTER (WHERE cdd IS NOT NULL AND basis_complete)::int
+           count(*) FILTER (WHERE cdd IS NOT NULL AND basis_complete)::int,
+           max(obs_date) FILTER (WHERE cdd IS NOT NULL AND basis_complete)
     FROM station_degree_days_daily
     WHERE extract(month FROM obs_date) BETWEEN 5 AND 9 GROUP BY 1, 2, 3
 """
@@ -1383,7 +1872,8 @@ AREAS_LWT_SQL = """
     SELECT id, var,
            CASE WHEN var = 'hdd' THEN extract(year FROM d - interval '10 months')
                 ELSE extract(year FROM d) END::int AS s,
-           count(value)::int AS n
+           count(value)::int AS n,
+           max(d) FILTER (WHERE value IS NOT NULL) AS last
     FROM t
     WHERE (var = 'hdd' AND extract(month FROM d) IN (11, 12, 1, 2, 3))
        OR (var = 'cdd' AND extract(month FROM d) BETWEEN 5 AND 9)
@@ -1399,7 +1889,8 @@ AREAS_SNOW_SQL = """
            extract(year FROM (ts AT TIME ZONE 'UTC')::date - interval '9 months')::int AS s,
            count(value)::int AS n,
            count(value) FILTER (WHERE extract(month FROM ts AT TIME ZONE 'UTC')
-                                IN (11, 12, 1, 2, 3, 4, 5))::int AS nw
+                                IN (11, 12, 1, 2, 3, 4, 5))::int AS nw,
+           max((ts AT TIME ZONE 'UTC')::date) FILTER (WHERE value IS NOT NULL) AS last
     FROM timeseries_values
     WHERE dataset = %(d)s AND series LIKE '%%.SWE_PCT'
     GROUP BY 1, 2
@@ -1452,11 +1943,12 @@ AREAS_RESERVOIR_SQL = """
         FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
     )
     SELECT series AS id, extract(year FROM d - interval '9 months')::int AS s,
-           count(value)::int AS n
+           count(value)::int AS n, max(d) FILTER (WHERE value IS NOT NULL) AS last
     FROM t GROUP BY 1, 2
     UNION ALL
-    SELECT %(m)s AS id, s, count(*) FILTER (WHERE k = %(k)s)::int AS n
-    FROM (SELECT extract(year FROM d - interval '9 months')::int AS s,
+    SELECT %(m)s AS id, s, count(*) FILTER (WHERE k = %(k)s)::int AS n,
+           max(d) FILTER (WHERE k = %(k)s) AS last
+    FROM (SELECT d, extract(year FROM d - interval '9 months')::int AS s,
                  count(DISTINCT series) FILTER (WHERE value IS NOT NULL) AS k
           FROM t GROUP BY d) x
     GROUP BY 2
@@ -1469,10 +1961,41 @@ AREAS_CA_SNOW_SQL = """
     SELECT split_part(series, '_', 1) AS id,
            extract(year FROM (ts AT TIME ZONE 'UTC')::date - interval '9 months')::int AS s,
            count(value) FILTER (WHERE extract(month FROM ts AT TIME ZONE 'UTC')
-                                IN (12, 1, 2, 3, 4, 5))::int AS n
+                                IN (12, 1, 2, 3, 4, 5))::int AS n,
+           max((ts AT TIME ZONE 'UTC')::date) FILTER (WHERE value IS NOT NULL) AS last
     FROM timeseries_values WHERE dataset = %(d)s AND series = ANY(%(s)s)
     GROUP BY 1, 2
 """
+
+# d091542: the three regional composites' valued days per water year (a day
+# counts when every member carries a value, `major8_daily`'s rule) and their
+# newest such day. `g` / `gs` are the (composite, member series) pairs.
+AREAS_RESERVOIR_REGIONS_SQL = """
+    WITH m AS (
+        SELECT * FROM unnest(%(g)s::text[], %(gs)s::text[]) AS m(id, series)
+    ), need AS (
+        SELECT id, count(*) AS need FROM m GROUP BY 1
+    ), k AS (
+        SELECT m.id, (t.ts AT TIME ZONE 'UTC')::date AS d,
+               count(DISTINCT t.series) FILTER (WHERE t.value IS NOT NULL) AS k
+        FROM timeseries_values t JOIN m ON m.series = t.series
+        WHERE t.dataset = %(d)s AND t.series = ANY(%(s)s)
+        GROUP BY 1, 2
+    )
+    SELECT k.id, extract(year FROM k.d - interval '9 months')::int AS s,
+           count(*) FILTER (WHERE k.k = need.need)::int AS n,
+           max(k.d) FILTER (WHERE k.k = need.need) AS last
+    FROM k JOIN need ON need.id = k.id
+    GROUP BY 1, 2
+"""
+
+
+def reservoir_region_params() -> dict:
+    """AREAS_RESERVOIR_REGIONS_SQL's parameters (bar the dataset)."""
+    pairs = [(c, i) for c in RESERVOIR_REGION_IDS for i in RESERVOIR_MEMBERS[c]]
+    return {"g": [c for c, _ in pairs], "gs": [i for _, i in pairs],
+            "s": sorted({i for _, i in pairs})}
+
 
 CA_SNOW_SERIES = tuple(r.removeprefix("ca_") + "_avg_swc" for r in CA_SNOW)
 
@@ -1482,24 +2005,35 @@ def storage_daily(rows: Iterable[Mapping]) -> dict[date, Optional[float]]:
     return {r["obs_date"]: None if r["v"] is None else float(r["v"]) / 1000.0 for r in rows}
 
 
-def major8_daily(rows: Iterable[Mapping]) -> tuple[dict[date, Optional[float]], dict[str, Optional[str]]]:
-    """The eight's rows -> ({date: TAF or None}, {id: newest valued day}).
+def major8_daily(rows: Iterable[Mapping], members: Sequence[str] = RESERVOIR_IDS
+                 ) -> tuple[dict[date, Optional[float]], dict[str, Optional[str]]]:
+    """The members' rows (default: the eight) -> ({date: TAF or None}, {id:
+    newest valued day}).
 
-    A date any row carries is a key. Its value is the sum of the eight's
-    acre-feet / 1000 when ALL EIGHT carry a value that day, and None
-    otherwise: never a partial sum, never renormalised."""
+    A date any member's row carries is a key. Its value is the sum of the
+    members' acre-feet / 1000 when EVERY MEMBER carries a value that day, and
+    None otherwise: never a partial sum, never renormalised. d091542's three
+    regional composites are this rule on their own members."""
     by_day: dict[date, dict[str, float]] = {}
-    last: dict[str, Optional[date]] = dict.fromkeys(RESERVOIR_IDS)
+    last: dict[str, Optional[date]] = dict.fromkeys(members)
     for r in rows:
+        if r["series"] not in last:
+            continue
         day = by_day.setdefault(r["obs_date"], {})
-        if r["v"] is not None and r["series"] in last:
+        if r["v"] is not None:
             day[r["series"]] = float(r["v"])
             if last[r["series"]] is None or r["obs_date"] > last[r["series"]]:
                 last[r["series"]] = r["obs_date"]
-    out = {d: (sum(v[i] for i in RESERVOIR_IDS) / 1000.0
-               if all(i in v for i in RESERVOIR_IDS) else None)
+    out = {d: (sum(v[i] for i in members) / 1000.0
+               if all(i in v for i in members) else None)
            for d, v in by_day.items()}
     return out, {i: (d.isoformat() if d else None) for i, d in last.items()}
+
+
+def composite_daily(area: str, rows: Iterable[Mapping]
+                    ) -> tuple[dict[date, Optional[float]], dict[str, Optional[str]]]:
+    """`reservoir:ca_major8` or a regional composite: `major8_daily` on its members."""
+    return major8_daily(rows, RESERVOIR_MEMBERS[reservoir_series(area)])
 
 
 # ---------------------------------------------------------------------------
@@ -1538,7 +2072,8 @@ AREAS_LOAD_SQL = """
     SELECT id, extract(year FROM d - interval '9 months')::int AS s,
            count(*) FILTER (WHERE ok)::int AS n,
            count(*) FILTER (WHERE k = 7)::int AS n7,
-           max(d) FILTER (WHERE ok) AS last
+           max(d) FILTER (WHERE ok) AS last,
+           max(d) FILTER (WHERE k = 7) AS last7
     FROM w GROUP BY 1, 2
 """
 

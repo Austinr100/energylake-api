@@ -376,7 +376,7 @@ class _LoadPool:
         if q == season.ONI_LAST_SQL:
             return [{"ts": datetime.datetime(2026, 7, 1, tzinfo=UTC)}]
         if q in (season.AREAS_PRECIP_SQL, season.AREAS_STATION_DD_SQL, season.AREAS_LWT_SQL,
-                 season.AREAS_SNOW_SQL, season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL):
+                 season.AREAS_SNOW_SQL, season.AREAS_CA_SNOW_SQL, season.AREAS_RESERVOIR_SQL, season.AREAS_RESERVOIR_REGIONS_SQL):
             return []
         if q == season.AREAS_LOAD_SQL:
             assert p == {"d": "wecc_load_hourly", "s": list(season.BAS), "h": 20}
@@ -400,15 +400,18 @@ class _LoadPool:
 def _clear_memos():
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
     yield
     main._season_cache.clear()
     main._season_areas_cache.clear()
+    main._season_snapshot_cache.clear()
 
 
 @pytest.fixture
 def pool(monkeypatch):
     p = _LoadPool()
     monkeypatch.setattr(main, "_pool", p)
+    monkeypatch.setattr(main, "_season_pool", p)     # d091542: the season routes' own pool
     return p
 
 
@@ -425,9 +428,9 @@ def test_d5_areas_lists_the_28_after_the_reservoirs(client, pool):
     r = client.get("/api/weather/season/areas")
     assert r.status_code == 200
     areas = r.json()["areas"]
-    assert len(areas) == 58 + 28 == 86                # d091536: + col_canada before
-    assert areas[57]["area"] == "reservoir:san_luis"
-    ba = areas[58:]
+    assert len(areas) == 61 + 28 == 89                # d091536: + col_canada before; d091542: + 3 regions
+    assert areas[60]["area"] == "reservoir:san_luis"
+    ba = areas[61:]
     assert [a["area"] for a in ba] == [f"ba:{b}" for b in season.BAS]
     assert [a["label"] for a in ba] == list(season.BAS) == sorted(season.BAS)
     assert {a["kind"] for a in ba} == {"ba"}
@@ -436,16 +439,20 @@ def test_d5_areas_lists_the_28_after_the_reservoirs(client, pool):
         assert all(v["units"] == "MW" and v["season"] == "water_year" for v in a["vars"])
     ciso = next(a for a in ba if a["area"] == "ba:CISO")
     assert ciso["frontier"] == "2026-09-29"
-    # /areas counts every season with rows, the current one too (d091522's rule):
-    # WY2026 at 364/365 qualifies there, though the payload's base excludes it.
+    # d091542: /areas leaves out the season in progress, by the payload's own
+    # rule (the frontier 2026-09-29 is before Sep 30, so WY2026 is in progress):
+    # WY2026 at 364/365 no longer qualifies here, as the payload's base excludes
+    # it. Before d091542 this read 7.
     assert ciso["vars"][0] == {"var": "peak_load", "season": "water_year", "units": "MW",
                                "first_season": "WY2019", "complete_seasons": 6,
-                               "qualifying_seasons": 7}
+                               "qualifying_seasons": 6,
+                               "data_type": "peak_load", "measure": "MW, daily peak"}
     wacm = next(a for a in ba if a["area"] == "ba:WACM")
     assert wacm["frontier"] == "2026-04-01"               # the series stopped early
-    assert list(wacm) == ["area", "kind", "label", "frontier", "vars"]
+    assert list(wacm) == ["area", "kind", "label", "frontier", "vars",
+                          "region", "level", "state", "region_basis"]      # d091542 appended
     psei = next(a for a in ba if a["area"] == "ba:PSEI")
-    assert psei["vars"][0]["qualifying_seasons"] == 5          # WY2022..WY2026
+    assert psei["vars"][0]["qualifying_seasons"] == 4          # WY2022..WY2025 (d091542: WY2026 is in progress; was 5)
     assert r.headers["cache-control"] == "max-age=3600"
 
 
@@ -461,7 +468,7 @@ def test_d5_season_reads_and_refusals(client, pool):
     r = client.get("/api/weather/season", params={"area": "ba:CISO", "var": "peak_load"})
     assert r.status_code == 200 and r.headers["cache-control"] == "max-age=900"
     body = r.json()
-    assert tuple(body) == season.LEVEL_RESPONSE_KEYS
+    assert tuple(body) == season.LEVEL_RESPONSE_KEYS + season.ROUTE_ADDED_KEYS    # d091542
     assert body["units"] == "MW" and body["frontier"] == "2026-09-29"
     assert body["season"]["day_rule"] == season.DAY_RULE
     assert body["source"] == {"dataset": "wecc_load_hourly",
