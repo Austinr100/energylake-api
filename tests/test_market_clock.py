@@ -229,6 +229,9 @@ def client():
 def _install(row, now):
     pool = FakePool(row)
     main._pool = pool
+    # d091546: the route memoises; each test starts cold.
+    main._market_clock_entry = None
+    main._market_clock_inflight = None
     main._utcnow = lambda: now
     return pool
 
@@ -301,3 +304,250 @@ def test_endpoint_partial_da_write_is_not_published(client):
     )
     body = client.get("/api/market-clock").json()
     assert body["state"] == "DA_MARKET_RUNNING"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# M1..M5 are d091546's (D-09-25-75): a polled route holds a connection for
+# milliseconds, or it does not hold one. Every subquery names its series; the
+# answer comes from a 20 s single-flight memo that serves stale for at most
+# 120 s from its build; the statement carries a 3 s timeout, and a timeout is
+# a 503 that is not memoised. The concurrent ones run the app in ONE event loop
+# (httpx over ASGI), as uvicorn does.
+# ═══════════════════════════════════════════════════════════════════════════
+
+import asyncio  # noqa: E402
+import re  # noqa: E402
+
+import httpx  # noqa: E402
+import psycopg  # noqa: E402
+
+_SUBQUERY = re.compile(r"\(SELECT\b(.*?)\)\s+AS\s+(\w+)", re.S | re.I)
+
+
+def _subqueries_without_series(sql):
+    """Every `(SELECT …) AS name` that reads timeseries_values without both a
+    dataset and a series equality -> [name]."""
+    subs = _SUBQUERY.findall(sql)
+    assert subs, "no subqueries parsed"
+    bad = []
+    for body, name in subs:
+        if "timeseries_values" not in body:
+            continue
+        if not (re.search(r"\bdataset\s*=", body) and re.search(r"\bseries\s*=", body)):
+            bad.append(name)
+    return bad
+
+
+def test_M1_every_subquery_names_its_series():
+    sql = main.MARKET_CLOCK_SQL
+    names = [n for _, n in _SUBQUERY.findall(sql)]
+    assert names == ["da_hours", "da_published_at", "da_first_ingested_at",
+                     "sp15_da_val", "fmm_ts", "fmm_val"]
+    assert _subqueries_without_series(sql) == []
+
+
+def test_M1_rehearsed_red_drops_one_series_and_is_caught():
+    # The shipped shape (d091542 Gate 0): da_published_at without `series`.
+    shipped = main.MARKET_CLOCK_SQL.replace(
+        """(SELECT max(ingested_ts) FROM timeseries_values
+         WHERE dataset = %(da)s AND series = %(hub)s""",
+        """(SELECT max(ingested_ts) FROM timeseries_values
+         WHERE dataset = %(da)s""")
+    assert shipped != main.MARKET_CLOCK_SQL
+    assert _subqueries_without_series(shipped) == ["da_published_at"]
+
+
+def test_M1_the_route_runs_that_statement(client):
+    pool = _install({"da_hours": 0}, now=_pt(2026, 7, 16, 8, 0))
+    assert client.get("/api/market-clock").status_code == 200
+    assert pool.sink["query"] == main.MARKET_CLOCK_SQL
+
+
+class _CountingPool:
+    """Counts checkouts and statements. The main statement waits on `gate`
+    (when set), then raises `fail` (when set) or returns `row`."""
+
+    def __init__(self, row):
+        self.row, self.checkouts, self.statements = row, 0, []
+        self.gate, self.fail = None, None
+
+    def connection(self):
+        pool = self
+
+        class _Cur:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def execute(self, query, params=None):
+                pool.statements.append(query)
+                if "timeseries_values" in query:
+                    if pool.gate is not None:
+                        await pool.gate.wait()
+                    if pool.fail is not None:
+                        raise pool.fail
+
+            async def fetchone(self):
+                return dict(pool.row)
+
+        class _Conn:
+            async def __aenter__(self):
+                pool.checkouts += 1
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            def cursor(self):
+                return _Cur()
+
+        return _Conn()
+
+
+class _Mono:
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+
+@pytest.fixture
+def cold(monkeypatch):
+    """A cold memo, a counting pool, a hand-driven monotonic clock."""
+    pool = _CountingPool({"da_hours": 0, "fmm_ts": _pt(2026, 7, 16, 7, 55),
+                          "fmm_val": 33.0})
+    mono = _Mono()
+    monkeypatch.setattr(main, "_pool", pool)
+    # raising=False: on a main without the memo (the rehearsed red) the test
+    # fails on what the route does, not on setup.
+    monkeypatch.setattr(main, "_market_clock_entry", None, raising=False)
+    monkeypatch.setattr(main, "_market_clock_inflight", None, raising=False)
+    monkeypatch.setattr(main, "_market_clock_mono", mono, raising=False)
+    monkeypatch.setattr(main, "_utcnow", lambda: _pt(2026, 7, 16, 8, 0))
+    return pool, mono
+
+
+def _aclient():
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app),
+                             base_url="http://t")
+
+
+def test_M2_twenty_concurrent_requests_on_a_cold_memo_run_one_query(cold):
+    pool, _ = cold
+
+    async def go():
+        pool.gate = asyncio.Event()
+        async with _aclient() as c:
+            reqs = [asyncio.create_task(c.get("/api/market-clock")) for _ in range(20)]
+            await asyncio.sleep(0.05)               # all twenty are waiting
+            assert pool.checkouts == 1
+            pool.gate.set()
+            return await asyncio.gather(*reqs)
+
+    rs = asyncio.run(go())
+    assert [r.status_code for r in rs] == [200] * 20
+    assert len({r.json()["as_of"] for r in rs}) == 1
+    assert pool.checkouts == 1
+    assert pool.statements.count(main.MARKET_CLOCK_SQL) == 1
+
+
+def test_M3_stale_during_a_rebuild_keeps_its_as_of_and_dies_at_120s(cold):
+    pool, mono = cold
+
+    async def go():
+        async with _aclient() as c:
+            first = (await c.get("/api/market-clock")).json()
+            # 10 s: fresh, no query
+            mono.t += 10
+            assert (await c.get("/api/market-clock")).json() == first
+            assert pool.checkouts == 1
+            # 30 s, the wall clock moved, the rebuild hangs: the stale answer,
+            # unchanged, at once, and exactly one rebuild behind it
+            mono.t += 20
+            main._utcnow = lambda: _pt(2026, 7, 16, 8, 1)
+            pool.gate = asyncio.Event()
+            r = await asyncio.wait_for(c.get("/api/market-clock"), 1.0)
+            assert r.status_code == 200 and r.json() == first
+            r = await asyncio.wait_for(c.get("/api/market-clock"), 1.0)
+            assert r.json()["as_of"] == first["as_of"]
+            await asyncio.sleep(0.01)
+            assert pool.checkouts == 2
+            # 121 s from the build, the rebuild still out, then it fails: 503
+            mono.t = 1000.0 + 121
+            late = asyncio.create_task(c.get("/api/market-clock"))
+            await asyncio.sleep(0.01)
+            assert not late.done()                  # it waits on THE rebuild
+            assert pool.checkouts == 2
+            pool.fail = psycopg.errors.QueryCanceled(
+                "canceling statement due to statement timeout")
+            pool.gate.set()
+            r = await late
+            assert r.status_code == 503
+            assert r.json()["detail"].startswith("db unavailable:")
+            # still past 120 s and failing: still a 503, never the old answer
+            r = await c.get("/api/market-clock")
+            assert r.status_code == 503
+            # the read comes back: a fresh answer with a new as_of
+            pool.fail = None
+            r = await c.get("/api/market-clock")
+            assert r.status_code == 200
+            assert r.json()["as_of"] != first["as_of"]
+            return first
+
+    first = asyncio.run(go())
+    assert first["as_of"] == _pt(2026, 7, 16, 8, 0).isoformat()
+
+
+def test_M4_a_statement_timeout_is_a_503_and_not_memoised(cold):
+    pool, _ = cold
+    pool.fail = psycopg.errors.QueryCanceled(
+        "canceling statement due to statement timeout")
+
+    async def go():
+        async with _aclient() as c:
+            a = await c.get("/api/market-clock")
+            b = await c.get("/api/market-clock")
+            pool.fail = None
+            ok = await c.get("/api/market-clock")
+            return a, b, ok
+
+    a, b, ok = asyncio.run(go())
+    assert a.status_code == b.status_code == 503
+    assert a.json()["detail"] == \
+        "db unavailable: canceling statement due to statement timeout"
+    assert pool.checkouts == 3                       # each one queried: nothing kept
+    assert ok.status_code == 200
+    # the timeout is set first, in the same transaction as the read
+    assert pool.statements[:2] == ["SET LOCAL statement_timeout = '3s'",
+                                   main.MARKET_CLOCK_SQL]
+    assert main.MARKET_CLOCK_STATEMENT_TIMEOUT == "3s"
+
+
+def _agg_row(ingests, **extra):
+    """The row Postgres returns for SP15's target-day ingest stamps."""
+    return {"da_hours": len(ingests) and 24,
+            "da_published_at": max(ingests) if ingests else None,
+            "da_first_ingested_at": min(ingests) if ingests else None, **extra}
+
+
+def test_M5_first_ingest_precedes_newest_and_both_are_null_before(client):
+    _install(_agg_row([]), now=_pt(2026, 7, 16, 8, 0))
+    body = client.get("/api/market-clock").json()
+    assert body["state"] == "DA_BIDDING"
+    assert body["da_published_at"] is None and body["da_first_ingested_at"] is None
+
+    # published 13:36 PT, then re-ingested at 17:49 PT (d091546 §0)
+    ingests = [_pt(2026, 7, 15, 13, 36), _pt(2026, 7, 15, 15, 2), _pt(2026, 7, 15, 17, 49)]
+    _install(_agg_row(ingests, sp15_da_val=40.05, fmm_ts=_pt(2026, 7, 15, 13, 55),
+                      fmm_val=41.2),
+             now=_pt(2026, 7, 15, 14, 0))
+    body = client.get("/api/market-clock").json()
+    first = datetime.datetime.fromisoformat(body["da_first_ingested_at"])
+    newest = datetime.datetime.fromisoformat(body["da_published_at"])
+    assert first <= newest
+    assert first == ingests[0] and newest == ingests[-1]
+    assert body["state"] == "DA_PUBLISHED"
+    assert body["label"] == "DA awards published 13:36 PT"   # the first, not the newest

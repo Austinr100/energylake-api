@@ -464,12 +464,18 @@ def sun_times(lat: float, lon: float, day: date, tz: str) -> dict[str, Any]:
 PLACE_KEYS = ("lat", "lon", "tz", "tz_source", "country")
 WIND_KEYS = ("dir_deg", "dir_txt", "speed", "gust")
 NOW_KEYS = ("t", "feels", "dewpoint", "rh", "wind", "sky", "mslp", "condition",
-            "condition_raw", "valid", "source", "age_min", "absent")
+            "condition_raw", "condition_text", "valid", "source", "age_min", "absent")
 HOURLY_KEYS = ("valid", "t", "feels", "dewpoint", "rh", "wind", "pop", "precip_amt",
-               "sky", "mslp", "condition", "condition_raw", "t_spread", "interp",
-               "source", "absent")
+               "sky", "mslp", "condition", "condition_raw", "condition_text", "t_spread",
+               "interp", "source", "absent")
 DAILY_KEYS = ("date", "hi", "lo", "lo_period", "pop", "precip_amt", "wind", "sky",
-              "condition", "sunrise", "sunset", "source", "absent")
+              "condition", "condition_text", "sunrise", "sunset", "source", "absent")
+
+#: D-09-25-76 — `condition_text` is the source's own words (NWS `shortForecast`,
+#: or the observation's `textDescription`), verbatim; null when the source sent
+#: none, and a model has none. A null needs no reason in `absent[]`: it is not a
+#: missing value, it is a source that does not speak.
+CONDITION_TEXT_MAX = 120
 ALERT_KEYS = ("id", "event", "severity", "headline", "onset", "ends")
 SUN_KEYS = ("sunrise", "sunset", "day_length_min", "source", "absent")
 MEMO_KEYS = ("points", "forecast", "obs", "alerts")
@@ -522,11 +528,26 @@ def _check_reasons(row: dict, kind: str, where: str) -> None:
     if kind in ("now", "hourly", "daily") and row.get("condition") == UNKNOWN \
             and "condition" not in named:
         raise ValueError(f"{where}.condition is unknown with no reason in absent[]")
+    if kind in ("now", "hourly", "daily") and "condition_text" in row:
+        _check_condition_text(row["condition_text"], where)
     wind = row.get("wind")
     if isinstance(wind, dict):
         for f in WIND_KEYS:
             if wind.get(f) is None and f"wind.{f}" not in named:
                 raise ValueError(f"{where}.wind.{f} is null with no reason in absent[]")
+
+
+def _check_condition_text(v: Any, where: str) -> None:
+    """Null, or a non-empty string of at most CONDITION_TEXT_MAX characters."""
+    if v is None:
+        return
+    if not isinstance(v, str):
+        raise TypeError(f"{where}.condition_text is {type(v).__name__}, not a string")
+    if not v:
+        raise ValueError(f"{where}.condition_text is empty — the source's silence is null")
+    if len(v) > CONDITION_TEXT_MAX:
+        raise ValueError(f"{where}.condition_text is {len(v)} characters "
+                         f"(at most {CONDITION_TEXT_MAX})")
 
 
 def _wind(w: dict, where: str) -> dict:
