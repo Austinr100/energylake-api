@@ -195,10 +195,13 @@ def test_s1_row_equals_the_season_payload(client):
             assert row["percentile"] == r["percentile"]
             assert row["median_basis"].startswith("the cone's p50")
         else:                                 # a short base: the range's median
-            assert r["median"] is None and row["median"] == p["range"]["median"][r["day"]]
-            assert row["percentile"] is None
+            # d091550 §2.3: the readout reads the same range median now
+            assert row["median"] == r["median"] == p["range"]["median"][r["day"]]
+            assert row["pct_of_median"] == r["pct_of_median"]
+            assert row["percentile"] is None and r["percentile"] is None
             assert abs(row["pct_of_median"] - 100.0 * row["value"] / row["median"]) < 0.5
             assert row["median_basis"].startswith("the base's range median")
+        assert row["median_basis"] == r["median_basis"]
         assert row["absence"] is None
     dalles = _row(body, "snow:columbia_above_the_dalles")
     assert (dalles["region"], dalles["level"], dalles["measure"]) == (
@@ -211,10 +214,11 @@ def test_s1_row_equals_the_season_payload(client):
 
 
 def test_s1_readout_gained_two_keys_on_a_level_only(client):
+    # d091550 §2.3 appended a third, `median_basis`.
     p = client.get("/api/weather/season", params={"area": "snow:snake", "var": "swe"}).json()
     keys = list(p["readout"])
-    assert keys[-2:] == list(season.READOUT_ADDED_KEYS)
-    assert keys[:-2] == ["day", "value", "median", "pct_of_median", "percentile",
+    assert keys[-3:] == list(season.READOUT_ADDED_KEYS)
+    assert keys[:-3] == ["day", "value", "median", "pct_of_median", "percentile",
                          "vs_five_year", "vs_category"]
     peak = p["peak"]["base"]["median"]
     assert p["readout"]["pct_of_median_peak"] == round(100.0 * p["readout"]["value"] / peak, 1)

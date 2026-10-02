@@ -15,7 +15,7 @@ THE RULES (spec cc_spec_2026_09_28_season_api.md §2), one per trap
     or its value is NULL / its degree-day basis is incomplete (`incomplete`) —
     the two modes of the dashboard's stationPrecip.ts contract. There is NO
     `or 0` on any value path: a missing day stops the cumulative, it is never
-    summed as dry.
+    summed as dry (but see CARRIED below for station precipitation).
   * CUMULATIVE. values[i] is the running sum from season day 0 through day i,
     and null from the first missing day on.
   * LEAP DAY. The axis has no Feb 29. In a leap year Feb 29 is added INTO the
@@ -94,6 +94,28 @@ with no row is a gap on the chart (null, never 0, never carried forward) and
 does not disqualify the season. Its statistics are the floored, null-aware
 ones; a member with no Jul 1 value is left out of Jul 1 (its `n` says so). It
 is not on the board and is summed into nothing.
+
+CARRIED (d091550, spec cc_spec_2026_10_01_season_missing_days.md, D-09-25-86).
+Station precipitation, `("station", "precip")` only, is summed over the days
+that reported and says how many did not:
+
+  * A missing day adds nothing and does not stop the sum: its slot carries the
+    running total unchanged (0 before the first reported day) and later days
+    keep adding. A missing Feb 29 leaves the Feb 28 slot as Feb 28 wrote it.
+  * The season block says so: `days_missing`, `missing_days` (the first 31),
+    `first_missing`, `within_tolerance`; `through` is the newest valued day.
+    `complete_to_date` stays strictly "no missing day".
+  * PRECIP_MISSING_TOLERANCE = 5 missing days, chosen, not measured. At or
+    under it the readout is given with `basis: "sum of reported days; n
+    missing"`; over it the curve is still drawn and the readout is withheld,
+    `reason: "too_many_missing"`.
+  * STOP-B fired (handback_2026_10_01_season_missing_days.md): the rule is on
+    for the SEASON IN PROGRESS only. Past seasons walk and qualify exactly as
+    before (strict) while PRECIP_TOLERANT_BASE is False; set True, a past
+    season with at most 5 missing days is carried, qualifies for the base and
+    counts in /areas' `qualifying_seasons`.
+
+HDD, CDD and every level walk as before.
 
 Rounding happens once, at the edge (`_r`): everything is float64 until then.
 """
@@ -498,6 +520,36 @@ WINDOW_NOTES = {
 def floor(var: str, area: Optional[str] = None) -> Optional[tuple]:
     """FLOORS' entry for (area, var), else for var, else None (strict)."""
     return FLOORS.get((area, var)) or FLOORS.get(var)
+
+
+# d091550 (D-09-25-86): the (area kind, var) pairs summed over the days that
+# reported. A missing day there is most often a dry day nobody wrote down, so
+# the sum is a close lower bound; HDD and CDD carry degrees every day and are
+# not here.
+CARRIED = {("station", "precip")}
+# Chosen, not measured: nothing banked says 5 rather than 4 (§1.4).
+PRECIP_MISSING_TOLERANCE = 5
+MISSING_DAYS_LISTED = 31
+# STOP-B (§2.5) fired on 2026-10-01: three stations' Sep 30 median moves more
+# than 5 % when the 1-5-day seasons join the base. The rule is therefore on for
+# the season in progress only; True also carries and admits past seasons.
+PRECIP_TOLERANT_BASE = False
+
+
+def carried(var: str, area: Optional[str]) -> bool:
+    """Is (area, var) summed over its reported days (CARRIED)?"""
+    return area is not None and (area_kind(area), var) in CARRIED
+
+
+def tolerant_base(var: str, area: Optional[str]) -> bool:
+    """Do past seasons of (area, var) carry and qualify by the tolerance?"""
+    return PRECIP_TOLERANT_BASE and carried(var, area)
+
+
+def carried_basis(days_missing: int) -> str:
+    return f"sum of reported days; {days_missing} missing"
+
+
 STAT_MIN_DAY_N = 3          # fewer contributing seasons on a day -> null that day
 RANGE_MIN_N = 5
 OUTLOOK_DAYS = ("04-01", "07-01")
@@ -522,7 +574,11 @@ MAPPING = {
 # `source.method`, one sentence per (area kind, var).
 METHODS = {
     ("station", "precip"): ("GHCNd daily precipitation at the station, summed from the "
-                            "season's first day; a missing or null day stops the sum."),
+                            "season's first day over the days that reported. In the season "
+                            "in progress a missing or null day adds nothing and does not "
+                            "stop the sum; the season says how many days are missing, and "
+                            "with more than 5 the readout is withheld. A past season joins "
+                            "the base only when every day reported."),
     ("station", "hdd"): ("Station daily heating degree days (base 65 °F, GHCNd basis), summed "
                          "from the season's first day; a day without both extremes stops the sum."),
     ("station", "cdd"): ("Station daily cooling degree days (base 65 °F, GHCNd basis), summed "
@@ -552,6 +608,12 @@ METHODS = {
                              "trailing seven UTC−8 days, in MW; null unless all seven "
                              "days carry a peak."),
 }
+# ... and its sentence when PRECIP_TOLERANT_BASE admits past seasons too.
+METHOD_PRECIP_TOLERANT = ("GHCNd daily precipitation at the station, summed from the "
+                          "season's first day over the days that reported: a missing or "
+                          "null day adds nothing and does not stop the sum. The season says "
+                          "how many days are missing; with more than 5 the readout is "
+                          "withheld, and a past season joins the base only with 5 or fewer.")
 _DATASETS = {("station", "precip"): "ghcnd_weather_daily",
              ("station", "hdd"): "station_degree_days_daily",
              ("station", "cdd"): "station_degree_days_daily",
@@ -763,7 +825,11 @@ def build_areas(metadata_stations: Sequence[Mapping],
     is left out of `complete_seasons` and `qualifying_seasons`. Each var gains
     `data_type` and `measure`, each area `region`, `level` and where one
     applies `state`, `members`, `members_note`, `region_basis` or
-    `region_absence`, after its existing keys; the body gains `regions`."""
+    `region_absence`, after its existing keys; the body gains `regions`.
+
+    d091550: with PRECIP_TOLERANT_BASE, station precipitation also says
+    `qualifying_seasons` (at most 5 days missing); `complete_seasons` is
+    unchanged either way."""
     areas = []
     lasts = lasts or {}
 
@@ -784,6 +850,10 @@ def build_areas(metadata_stations: Sequence[Mapping],
             if fl is not None:
                 row["qualifying_seasons"] = sum(1 for s, n in done.items()
                                                 if n >= fl[0] * window_days(v, s, area))
+            elif tolerant_base(v, area):    # d091550: at most 5 days missing
+                row["qualifying_seasons"] = sum(
+                    1 for s, n in done.items()
+                    if window_days(v, s, area) - n <= PRECIP_MISSING_TOLERANCE)
             row.update(var_type(v))
             out.append(row)
         return out
@@ -834,7 +904,7 @@ _NO_ROW = object()
 class _Walk:
     __slots__ = ("s", "values", "days_complete", "days_in_window", "first_missing",
                  "mode", "through", "days_missing", "peak", "peak_date",
-                 "window", "window_complete", "window_days")
+                 "window", "window_complete", "window_days", "carried", "missing")
 
     @property
     def gap(self) -> bool:
@@ -842,13 +912,15 @@ class _Walk:
 
 
 def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
-          slots: Mapping[str, int], area: Optional[str] = None) -> _Walk:
+          slots: Mapping[str, int], area: Optional[str] = None, *,
+          carry: bool = False) -> _Walk:
     """Walk season `s` by calendar date from its first day through `limit`.
 
     Every day is looked up; nothing is iterated by row. CUMULATIVE: the running
     sum is written to each day's slot until the first missing day, after which
     the slot stays None. Feb 29 folds into the Feb 28 slot; if Feb 29 is the
     first missing day, the Feb 28 slot it would have completed is withdrawn too.
+    `carry` (d091550, a CARRIED pair): `_walk_carried` instead.
     LEVEL: `_walk_level`. `area` picks an area's own count window (`floor`)."""
     start, end = bounds(var, s)
     w = _Walk()
@@ -861,8 +933,11 @@ def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
     w.window = count_window(var, s, area)
     w.window_days = (w.window[1] - w.window[0]).days + 1
     w.window_complete = 0
+    w.carried, w.missing = False, []
     if mode(var) == LEVEL:
         return _walk_level(w, start, daily, limit, slots)
+    if carry:
+        return _walk_carried(w, start, daily, limit, slots)
     total = 0.0
     d = start
     while d <= limit:
@@ -881,6 +956,38 @@ def _walk(var: str, s: int, daily: Mapping[date, Optional[float]], limit: date,
                 total += float(v)
                 w.values[slot] = total
                 w.through = d
+        d += timedelta(days=1)
+    return w
+
+
+def _walk_carried(w: _Walk, start: date, daily: Mapping[date, Optional[float]],
+                  limit: date, slots: Mapping[str, int]) -> _Walk:
+    """D-09-25-86 §1.2-§1.3: a cumulative summed over the days that reported.
+    A missing day adds nothing and does not stop the sum: its slot carries the
+    running total unchanged (0.0 before any day has reported), and it is
+    counted (`days_missing`) and listed (`missing`). Feb 29 folds into Feb 28
+    as ever; a missing Feb 29 leaves the Feb 28 slot as Feb 28 wrote it.
+    `through` is the newest valued day."""
+    w.carried = True
+    total = 0.0
+    d = start
+    while d <= limit:
+        v = daily.get(d, _NO_ROW)
+        leap = (d.month, d.day) == (2, 29)
+        slot = slots["02-28" if leap else f"{d.month:02d}-{d.day:02d}"]
+        if v is _NO_ROW or v is None:
+            w.days_missing += 1
+            w.missing.append(d)
+            if w.first_missing is None:
+                w.first_missing = d
+                w.mode = ABSENT if v is _NO_ROW else INCOMPLETE
+            if not leap:
+                w.values[slot] = total
+        else:
+            w.days_complete += 1
+            total += float(v)
+            w.values[slot] = total
+            w.through = d
         d += timedelta(days=1)
     return w
 
@@ -931,8 +1038,13 @@ def _complete(w: _Walk) -> bool:
 def _qualifies(var: str, w: _Walk, area: Optional[str] = None) -> bool:
     """§2: a floored season (`floor`: the var's entry, or its area's (area,
     var) one) qualifies when >= min_days_frac of its count window's days carry
-    a value; every other is strict (`_complete`)."""
+    a value; every other is strict (`_complete`).
+
+    d091550: a carried walk of a CARRIED pair, with PRECIP_TOLERANT_BASE,
+    qualifies with at most PRECIP_MISSING_TOLERANCE missing days."""
     fl = floor(var, area)
+    if tolerant_base(var, area) and w.carried:
+        return w.days_missing <= PRECIP_MISSING_TOLERANCE
     if fl is None:
         return _complete(w)
     return w.window_complete >= fl[0] * w.window_days
@@ -1012,15 +1124,26 @@ def _season_block(var: str, w: _Walk, *, current: bool, area: Optional[str] = No
         out["complete_to_date"] = not w.gap
     else:
         out["complete"] = _qualifies(var, w, area)
-    out["absence"] = _gap_absence(w, level) if w.gap else None
+    if w.carried:   # d091550 §1.3: the season says how many days did not report
+        out["within_tolerance"] = w.days_missing <= PRECIP_MISSING_TOLERANCE
+        out["days_missing"] = w.days_missing
+        out["missing_days"] = [d.isoformat() for d in w.missing[:MISSING_DAYS_LISTED]]
+        out["first_missing"] = w.first_missing.isoformat() if w.first_missing else None
+    out["absence"] = _gap_absence(w, level or w.carried) if w.gap else None
     return out
+
+
+def _too_many_missing(w: _Walk) -> dict:
+    return {"reason": "too_many_missing", "days_missing": w.days_missing,
+            "tolerance": PRECIP_MISSING_TOLERANCE,
+            "first_missing": w.first_missing.isoformat() if w.first_missing else None}
 
 
 def _gap_absence(w: _Walk, level: bool = False) -> dict:
     out = {"reason": "gap", "first_missing": w.first_missing.isoformat(),
            "mode": w.mode, "days_complete": w.days_complete}
-    if level:
-        out["days_missing"] = w.days_missing     # a level's later days still stand
+    if level:   # a level's (and a carried sum's) later days still stand
+        out["days_missing"] = w.days_missing
     return out
 
 
@@ -1064,6 +1187,23 @@ def _at(arr: Optional[np.ndarray], i: int) -> Optional[float]:
     return None if np.isnan(x) else x
 
 
+def day_median(day: int, *, n: int, p50: Optional[np.ndarray],
+               range_n: Optional[int] = None,
+               range_median: Optional[np.ndarray] = None) -> tuple[Optional[float], Optional[str]]:
+    """The median a readout and a snapshot row both read on a day, unrounded,
+    and its basis in words (d091550 §2.3, one function so they cannot
+    disagree): the cone's p50 when the base has n >= 30; else, on a level
+    with 5 <= n < 30, the base's range median; else (None, None). A ranked
+    percentile needs the cone, whichever median is read."""
+    if p50 is not None:
+        return _at(p50, day), f"the cone's p50 (n = {n} >= {CONE_MIN_N})"
+    if range_median is not None:
+        return _at(range_median, day), (f"the base's range median (n = {range_n}, "
+                                        f"{RANGE_MIN_N} <= n < {CONE_MIN_N}); no percentile "
+                                        f"below n = {CONE_MIN_N}")
+    return None, None
+
+
 def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                  classifier: str, catalog_version: Optional[str],
                  developing: Optional[Mapping], bins: Sequence[Mapping],
@@ -1100,14 +1240,24 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     cur = in_progress_season(var, frontier)
 
     walks: dict[int, _Walk] = {}
+    carries = carried(var, area)
+    tolerant = tolerant_base(var, area)
     for s in seasons:
         limit = frontier if s == cur else bounds(var, s)[1]
-        walks[s] = _walk(var, s, daily, limit, slots, area)
+        walks[s] = _walk(var, s, daily, limit, slots, area,
+                         carry=carries and (s == cur or tolerant))
     past = [s for s in seasons if s != cur]
 
     # ── base ────────────────────────────────────────────────────────────────
     base = [s for s in past if _qualifies(var, walks[s], area)]
-    if floored:
+    if tolerant:
+        excluded = [{"season": label(var, s), "days_complete": walks[s].days_complete,
+                     "days_in_window": walks[s].days_in_window,
+                     "first_missing": walks[s].first_missing.isoformat()
+                     if walks[s].first_missing else None,
+                     "days_missing": walks[s].days_missing}
+                    for s in past if not _qualifies(var, walks[s], area)]
+    elif floored:
         excluded = [{"season": label(var, s), "days_complete": walks[s].window_complete,
                      "days_in_window": walks[s].window_days,
                      "first_missing": walks[s].first_missing.isoformat()
@@ -1178,8 +1328,12 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         five_year_absence = {"reason": "fewer_than_five", "n": len(five)}
 
     # ── range (a level only): what happened, not a percentile ───────────────
+    range_median = None             # unrounded, for `day_median`
     if level:
         range_, range_absence = range_block(var, B, [label(var, s) for s in base])
+        if range_ is not None:
+            _, rok = _nan_stats(B)
+            range_median = _masked(np.nanmedian, B, rok)
     else:
         range_, range_absence = None, None
 
@@ -1246,6 +1400,12 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             # Feb 29, whose statistics are read on the Feb 28 slot). The
             # frontier is by definition valued; an earlier gap withholds nothing.
             value = float(daily[w.through])
+        elif w.carried and day is not None:
+            # §1.4: summed over the reported days, given up to the tolerance.
+            if w.days_missing > PRECIP_MISSING_TOLERANCE:
+                readout_absence, value = _too_many_missing(w), None
+            else:
+                value = w.values[day]
         elif w.gap or day is None:
             readout_absence = _gap_absence(w) if w.gap else {"reason": "no_data"}
             value = None
@@ -1254,7 +1414,12 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
     elif last_s is not None:
         w = walks[last_s]
         day = ndays - 1
-        if level:
+        if w.carried:
+            if w.days_missing > PRECIP_MISSING_TOLERANCE:
+                readout_absence, value = _too_many_missing(w), None
+            else:
+                value = w.values[day]
+        elif level:
             value = w.values[day]
             if value is None:           # withheld only when that day is missing
                 readout_absence = (_gap_absence(w, level) if w.gap
@@ -1269,7 +1434,10 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         readout_absence = {"reason": "no_data"}
 
     if value is not None:
-        median = _at(p50, day)
+        # §2.3 (d091550): the snapshot's median rule, one function for both.
+        median, median_basis = day_median(day, n=n, p50=p50,
+                                          range_n=range_["n"] if range_ else None,
+                                          range_median=range_median)
         five_at = _at(five_mean, day)
         sample = [x for x in B[:, day].tolist() if not np.isnan(x)]
         vs_cat = {c: (_r(value - m) if (m := _at(cat_medians[c], day)) is not None
@@ -1282,7 +1450,7 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                               if median is not None and median != 0 else None),
             # The same n >= 30 gate as the cone: no rank against a short record.
             "percentile": (_r(mid_rank(value, sample))
-                           if median is not None and sample else None),
+                           if p50 is not None and median is not None and sample else None),
             "vs_five_year": _r(value - five_at) if five_at is not None else None,
             "vs_category": vs_cat,
         }
@@ -1291,6 +1459,10 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             readout["pct_of_median_peak"] = (_r(100.0 * value / mp)
                                              if mp is not None and mp != 0 else None)
             readout["median_peak"] = mp
+            readout["median_basis"] = median_basis if median is not None else None
+        if w.carried:   # d091550 §1.4
+            readout["days_missing"] = w.days_missing
+            readout["basis"] = carried_basis(w.days_missing)
 
     # ── years / curves ──────────────────────────────────────────────────────
     years = []
@@ -1340,6 +1512,12 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
                              "end_md": season_meta(var)["end_md"]}),
             "seasons": [label(var, s) for s in base], "n": n,
             "n_by_day_min": _n_by_day_min(cnt, ok), "excluded": excluded}
+    elif tolerant:
+        base_block = {"rule": ("every season with at most "
+                               f"{PRECIP_MISSING_TOLERANCE} missing days, summed over the "
+                               "days that reported, full record, excluding the current season"),
+                      "tolerance": PRECIP_MISSING_TOLERANCE,
+                      "seasons": [label(var, s) for s in base], "n": n, "excluded": excluded}
     else:
         base_block = {"rule": "every complete season, full record, excluding the current season",
                       "seasons": [label(var, s) for s in base], "n": n, "excluded": excluded}
@@ -1350,11 +1528,11 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         extras["values"] = {label(var, s): list(walks[s].values) for s in seasons}
         # the day statistics unrounded, so a ratio is taken before the one rounding
         extras["p50"] = p50
-        extras["range_median"] = None
-        if level and range_ is not None:
-            rcnt, rok = _nan_stats(B)
-            extras["range_median"] = _masked(np.nanmedian, B, rok)
+        extras["range_median"] = range_median
         extras["cat_medians"] = cat_medians
+        # d091550: each carried season's missing days, for the snapshot's count
+        extras["missing"] = {label(var, s): list(walks[s].missing) for s in seasons
+                             if walks[s].carried}
 
     body = {
         "area": area, "var": var, "units": units(var),
@@ -1498,7 +1676,8 @@ def source(area: str, var: str, meta: Optional[Mapping] = None) -> dict:
     reservoir area its capacity in TAF (the eight: their total, plus each
     series' newest valued day, so a stopped feed is visible)."""
     kind = area_kind(area)
-    out = {"dataset": _DATASETS[(kind, var)], "method": METHODS[(kind, var)]}
+    out = {"dataset": _DATASETS[(kind, var)],
+           "method": METHOD_PRECIP_TOLERANT if tolerant_base(var, area) else METHODS[(kind, var)]}
     if (area, var) in WINDOW_NOTES:         # d091536: the area's own window, in words
         out["method"] += f" For this area, {WINDOW_NOTES[(area, var)]}."
     if kind == "snow" and var == "swe":
@@ -1537,8 +1716,11 @@ LEVEL_RESPONSE_KEYS = (RESPONSE_KEYS[:RESPONSE_KEYS.index("five_year_absence") +
 # keys: whether the memo served an expired payload while its replacement
 # builds, and when the served payload was built.
 ROUTE_ADDED_KEYS = ("stale", "built_at")
-# ... and what a level's readout gained, after its existing keys.
-READOUT_ADDED_KEYS = ("pct_of_median_peak", "median_peak")
+# ... and what a level's readout gained, after its existing keys (d091550 §2.3
+# appended `median_basis`, the snapshot row's words for the same median).
+READOUT_ADDED_KEYS = ("pct_of_median_peak", "median_peak", "median_basis")
+# d091550 §1.4: what a CARRIED pair's readout (station precipitation) gained.
+READOUT_CARRIED_KEYS = ("days_missing", "basis")
 
 
 def response_keys(var: str) -> tuple[str, ...]:
@@ -1554,6 +1736,10 @@ SNAPSHOT_KEYS = ("area", "label", "region", "level", "var", "units", "measure",
                  "pct_of_median", "percentile", "pct_of_median_peak", "median_peak",
                  "median_peak_md", "n", "frontier", "category", "category_absence",
                  "geo", "absence")
+# d091550: a CARRIED pair's row (station precipitation) adds, after `absence`,
+# the season's missing days to the row's date and the sum's basis (null when
+# the season walked strictly, or the row has no value).
+SNAPSHOT_CARRIED_KEYS = ("days_missing", "basis")
 
 # Map points (§2.5), pinned, each with its source. Polygons are not this
 # lane's. Reservoirs: the dam's location (USGS GNIS / the National Inventory of
@@ -1636,7 +1822,7 @@ def snapshot_row(area: str, var: str, payload: Mapping, extras: Mapping, *,
     against the all-years median on the day. Absence is a sentence, never a
     zero."""
     level = mode(var) == LEVEL
-    row = dict.fromkeys(SNAPSHOT_KEYS)
+    row = dict.fromkeys(SNAPSHOT_KEYS + (SNAPSHOT_CARRIED_KEYS if carried(var, area) else ()))
     vt = VAR_DATA_TYPES[var]
     row.update(area=area, label=area_label, region=place.get("region"),
                level=place.get("level"), var=var, units=units(var), measure=vt[1],
@@ -1668,6 +1854,15 @@ def snapshot_row(area: str, var: str, payload: Mapping, extras: Mapping, *,
         else:
             row["absence"] = "no value on this day"
         return row
+    missing = (extras.get("missing") or {}).get(label(var, s))
+    if missing is not None:     # d091550 §1.4: a carried season, counted to the day
+        k = sum(1 for d in missing if d <= on)
+        row["days_missing"] = k
+        if k > PRECIP_MISSING_TOLERANCE:
+            row["absence"] = (f"{k} days missing in the season to date, more than the "
+                              f"tolerance of {PRECIP_MISSING_TOLERANCE}: the sum is withheld")
+            return row
+        row["basis"] = carried_basis(k)
     row["value"] = _r(value)
 
     # The day's statistics, unrounded (`extras`), are the payload's own numbers
@@ -1676,15 +1871,10 @@ def snapshot_row(area: str, var: str, payload: Mapping, extras: Mapping, *,
     # readout takes it.
     pct = payload.get("percentiles")
     rng = payload.get("range") if level else None
-    if pct is not None:
-        median = _at(extras["p50"], day)
-        basis = f"the cone's p50 (n = {payload['base']['n']} >= {CONE_MIN_N})"
-    elif rng is not None:
-        median = _at(extras["range_median"], day)
-        basis = (f"the base's range median (n = {rng['n']}, {RANGE_MIN_N} <= n < "
-                 f"{CONE_MIN_N}); no percentile below n = {CONE_MIN_N}")
-    else:
-        median, basis = None, None
+    median, basis = day_median(day, n=payload["base"]["n"],
+                               p50=extras["p50"] if pct is not None else None,
+                               range_n=rng["n"] if rng else None,
+                               range_median=extras["range_median"] if rng else None)
     if median is None:
         row["absence"] = (f"short base: n = {payload['base']['n']}, no median on this day "
                           f"(the cone needs n >= {CONE_MIN_N}"
