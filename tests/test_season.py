@@ -71,20 +71,26 @@ def _build(daily, var="precip", area="station:USW00023232", bins=None,
 
 def test_s1_gap_excludes_base_season_and_stops_this_season():
     # WY1990..WY2026 (start years 1989..2025); frontier 2026-09-24.
-    # d091550: the base is unchanged (STOP-B: past seasons stay strict); the
-    # season in progress is summed over its reported days (D-09-25-86).
+    # d091550: the season in progress is summed over its reported days
+    # (D-09-25-86). d091553 (D-09-25-93): so is a past season, which joins the
+    # base with at most 5 missing days; with 6 it is still excluded.
     daily = _history("precip", 1989, 2025, frontier=date(2026, 9, 24))
     del daily[date(2000, 1, 15)]                   # absent row inside WY2000
     daily[date(2003, 3, 3)] = None                 # NULL value inside WY2003
+    for k in range(6):                             # six absent rows inside WY2010
+        del daily[date(2010, 1, 10) + timedelta(days=k)]
     del daily[date(2026, 2, 19)]                   # Sacramento's own hole, WY2026
     p = _build(daily)
 
-    ex = {e["season"]: e for e in p["base"]["excluded"]}
-    assert ex["WY2000"] == {"season": "WY2000", "days_complete": 365,
-                            "days_in_window": 366, "first_missing": "2000-01-15"}
-    assert ex["WY2003"]["first_missing"] == "2003-03-03"
-    assert "WY2000" not in p["base"]["seasons"] and "WY2003" not in p["base"]["seasons"]
-    assert p["base"]["n"] == 36 - 2
+    assert "WY2000" in p["base"]["seasons"] and "WY2003" in p["base"]["seasons"]
+    wy = {y["season"]: y for y in p["years"]}
+    assert wy["WY2000"]["complete"] is True and wy["WY2000"]["final"] == 366.0 - 1
+    assert wy["WY2003"]["complete"] is True and wy["WY2003"]["final"] == 365.0 - 1
+    assert p["base"]["excluded"] == [{"season": "WY2010", "days_complete": 359,
+                                      "days_in_window": 365, "first_missing": "2010-01-10",
+                                      "days_missing": 6}]
+    assert "WY2010" not in p["base"]["seasons"] and wy["WY2010"]["complete"] is False
+    assert p["base"]["n"] == 36 - 1 and p["base"]["tolerance"] == 5
 
     ts = p["this_season"]
     assert ts["season"] == "WY2026"
@@ -188,13 +194,22 @@ def test_s3_cone_gate_29_is_null_30_is_present():
 # ---------------------------------------------------------------------------
 
 def test_s4_five_year_skips_incomplete_and_lists_its_five():
+    # d091553 (D-09-25-93): a precip season is incomplete for the base at more
+    # than 5 missing days; with 1 it is carried and counts.
     daily = _history("precip", 2015, 2025, lambda d, s: s - 2000, frontier=date(2026, 9, 24))
-    del daily[date(2023, 6, 1)]                    # WY2023 incomplete
+    for k in range(6):                             # WY2023: 6 missing, out
+        del daily[date(2023, 6, 1) + timedelta(days=k)]
     p = _build(daily)
     fy = p["five_year"]
     assert fy["seasons"] == ["WY2020", "WY2021", "WY2022", "WY2024", "WY2025"]
     assert fy["mean"][0] == np.mean([19, 20, 21, 23, 24])
     assert fy["min"][0] == 19 and fy["max"][0] == 24
+
+    daily = _history("precip", 2015, 2025, lambda d, s: s - 2000, frontier=date(2026, 9, 24))
+    del daily[date(2023, 6, 1)]                    # WY2023: 1 missing, in
+    fy = _build(daily)["five_year"]
+    assert fy["seasons"] == ["WY2021", "WY2022", "WY2023", "WY2024", "WY2025"]
+    assert fy["mean"][0] == np.mean([20, 21, 22, 23, 24])
 
 
 def test_s4_fewer_than_five_is_null():
@@ -459,7 +474,9 @@ def test_s11_route_key_order_and_areas(client, pool):
     pv = next(v for v in sac["vars"] if v["var"] == "precip")
     assert pv == {"var": "precip", "season": "water_year", "units": "mm",
                   "first_season": "WY1942", "complete_seasons": 85,
+                  "qualifying_seasons": 85,           # d091553: the tolerant base
                   "data_type": "precipitation", "measure": "water-year total, mm"}   # d091542
+    assert list(pv).index("qualifying_seasons") == list(pv).index("complete_seasons") + 1
     assert [v["var"] for v in areas[37]["vars"]] == ["hdd", "cdd"]
 
 

@@ -1,0 +1,20 @@
+E       KeyError: 'WY2000'
+E       AssertionError: assert ['WY2021', 'W...24', 'WY2025'] == ['WY2020', 'W...24', 'WY2025']
+E         
+E         At index 0 diff: 'WY2021' != 'WY2020'
+E         Use -v to get more diff
+E       AssertionError: assert {'var': 'prec...'WY1942', ...} == {'var': 'prec...'WY1942', ...}
+E         
+E         Omitting 7 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'qualifying_seasons': 85}
+E         Use -v to get more diff
+E       assert True is False
+E        +  where True = season.PRECIP_TOLERANT_BASE
+E       AssertionError: assert (32 == 32 and 'qualifying_seasons' not in {'var': 'precip', 'season': 'water_year', 'units': 'mm', 'first_season': 'WY1991', ...})
+FAILED tests/test_season.py::test_s1_gap_excludes_base_season_and_stops_this_season
+FAILED tests/test_season.py::test_s4_five_year_skips_incomplete_and_lists_its_five
+FAILED tests/test_season.py::test_s11_route_key_order_and_areas - AssertionEr...
+FAILED tests/test_season_missing_days.py::test_s4_three_missing_flag_off_the_base_is_unchanged
+FAILED tests/test_season_missing_days.py::test_s8_areas_counts - AssertionErr...
+5 failed, 34 passed in 4.39s

@@ -109,11 +109,13 @@ that reported and says how many did not:
     under it the readout is given with `basis: "sum of reported days; n
     missing"`; over it the curve is still drawn and the readout is withheld,
     `reason: "too_many_missing"`.
-  * STOP-B fired (handback_2026_10_01_season_missing_days.md): the rule is on
-    for the SEASON IN PROGRESS only. Past seasons walk and qualify exactly as
-    before (strict) while PRECIP_TOLERANT_BASE is False; set True, a past
-    season with at most 5 missing days is carried, qualifies for the base and
-    counts in /areas' `qualifying_seasons`.
+  * PRECIP_TOLERANT_BASE (d091553, D-09-25-93): past seasons follow the same
+    rule. A past season with at most 5 missing days is carried, qualifies for
+    the base and counts in /areas' `qualifying_seasons`; `complete_seasons`
+    stays strict. A past season's `years[].to_date` is withheld (null) when
+    more than 5 of its days to that slot are missing, as the readout is.
+    (d091550 shipped it off, STOP-B; D-09-25-93 reads STOP-B on published
+    medians, n >= 30, where the largest move was -1.9 %.)
 
 HDD, CDD and every level walk as before.
 
@@ -530,10 +532,14 @@ CARRIED = {("station", "precip")}
 # Chosen, not measured: nothing banked says 5 rather than 4 (§1.4).
 PRECIP_MISSING_TOLERANCE = 5
 MISSING_DAYS_LISTED = 31
-# STOP-B (§2.5) fired on 2026-10-01: three stations' Sep 30 median moves more
-# than 5 % when the 1-5-day seasons join the base. The rule is therefore on for
-# the season in progress only; True also carries and admits past seasons.
-PRECIP_TOLERANT_BASE = False
+# D-09-25-93 (architect, 2026-10-02): STOP-B (§2.5) is read on PUBLISHED
+# medians, the stations with n >= 30 past seasons. There the largest Sep 30
+# move when the 1-5-day seasons join the base is -1.9 % (USW00024229), under
+# the 5 % line, so past seasons carry and qualify by the tolerance too. The
+# three stations that moved more than 5 % (USW00003102, USW00003145,
+# USW00023152) have n < 30 and publish no median. False puts the base back to
+# complete seasons only (d091550's shipped state).
+PRECIP_TOLERANT_BASE = True
 
 
 def carried(var: str, area: Optional[str]) -> bool:
@@ -1459,7 +1465,9 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
             readout["pct_of_median_peak"] = (_r(100.0 * value / mp)
                                              if mp is not None and mp != 0 else None)
             readout["median_peak"] = mp
-            readout["median_basis"] = median_basis if median is not None else None
+        # d091550 §2.3 put the snapshot row's `median_basis` on a level's
+        # readout; d091553 puts it on every readout (precip, HDD, CDD too).
+        readout["median_basis"] = median_basis if median is not None else None
         if w.carried:   # d091550 §1.4
             readout["days_missing"] = w.days_missing
             readout["basis"] = carried_basis(w.days_missing)
@@ -1471,11 +1479,19 @@ def build_season(area: str, var: str, daily: Mapping[date, Optional[float]], *,
         cats, why = klass[s]
         complete = s != cur and _qualifies(var, w, area)
         has_peak = level and (complete or s == cur) and w.peak is not None
+        to_date = w.values[day] if day is not None else None
+        if (to_date is not None and w.carried and s != cur
+                and sum(1 for d in w.missing if slots[_slot_of(d)] <= day)
+                > PRECIP_MISSING_TOLERANCE):
+            # d091553: a past season carried past the tolerance on this day is
+            # withheld, as the readout is (§1.4); never a sum over a season
+            # that mostly did not report, nor a 0.0 before it began (§1.6).
+            to_date = None
         years.append({
             "season": label(var, s), "enso_year": enso_year(var, s),
             "categories": cats, "category_absence": why,
             "complete": complete,
-            "to_date": _r(w.values[day]) if day is not None else None,
+            "to_date": _r(to_date),
             # A level's last day (Sep 30: bare ground) says nothing: no final.
             "final": _r(w.values[-1]) if complete and not level else None,
             "peak": _r(w.peak) if has_peak else None,
@@ -1719,6 +1735,9 @@ ROUTE_ADDED_KEYS = ("stale", "built_at")
 # ... and what a level's readout gained, after its existing keys (d091550 §2.3
 # appended `median_basis`, the snapshot row's words for the same median).
 READOUT_ADDED_KEYS = ("pct_of_median_peak", "median_peak", "median_basis")
+# d091553: a cumulative readout (precip, HDD, CDD) appends `median_basis` too,
+# after `vs_category` and before a CARRIED pair's keys below.
+READOUT_CUMULATIVE_ADDED_KEYS = ("median_basis",)
 # d091550 §1.4: what a CARRIED pair's readout (station precipitation) gained.
 READOUT_CARRIED_KEYS = ("days_missing", "basis")
 
