@@ -16254,17 +16254,23 @@ _DD_FORECAST_SQL = """
     WITH scoped AS (
         SELECT station_id, target_date, issued_ts, tmax_f, tmin_f, tavg_f,
                hdd, cdd, basis_complete, hours_covered, hours_required,
-               source_product, gridpoint_id, icao,
-               row_number() OVER (PARTITION BY station_id, target_date
+               source_product, gridpoint_id, icao, sample_spacing_hours,
+               -- PER SOURCE (2026-10-02, pantry d091557 handback). Migration
+               -- 202 put source_product in the key so four sources share the
+               -- table; ranked without it, rank 1 minus rank 2 was GFS minus
+               -- IFS labelled "run_over_run".
+               row_number() OVER (PARTITION BY station_id, target_date,
+                                               source_product
                                   ORDER BY issued_ts DESC) AS rn
         FROM station_degree_days_forecast
         WHERE target_date >= %(from_date)s
           AND target_date < %(to_date)s
           AND (%(station)s::text IS NULL OR station_id = %(station)s)
+          AND (%(source)s::text IS NULL OR source_product = %(source)s)
     )
     SELECT * FROM scoped
     WHERE rn <= 2
-    ORDER BY station_id, target_date, rn
+    ORDER BY station_id, target_date, source_product, rn
 """
 
 
@@ -16561,13 +16567,19 @@ async def dd_forecast(
         None, description="GHCN station id. Omit for every station on the board."),
     days: int = Query(_DD_FORECAST_DEFAULT_DAYS, ge=1, le=_DD_FORECAST_MAX_DAYS,
                       description="Forward horizon in days from today."),
+    source: Optional[str] = Query(
+        None, max_length=32,
+        description="source_product exactly as banked (GFS, IFS, AIFS, "
+                    "gridpoints_raw). Omit for every source."),
 ):
     """The forecast degree-day board: newest issuance per target date, PLUS the
     run-over-run delta against the issuance before it.
 
         { station, from_date, days, board_state, absence, stations_present,
           row_count, rows_with_run_over_run_delta, newest_issued_ts,
-          rows: [ { station_id, target_date, issued_ts, tmax_f, tmin_f, tavg_f,
+          source, sources_present,
+          rows: [ { station_id, target_date, source_product,
+                    sample_spacing_hours, issued_ts, tmax_f, tmin_f, tavg_f,
                     hdd, cdd, basis_complete, hours_covered, hours_required,
                     prior_issued_ts, prior_hdd, prior_cdd, prior_tavg_f,
                     delta_hdd, delta_cdd, delta_tavg_f,
@@ -16591,14 +16603,16 @@ async def dd_forecast(
     assert _pool is not None
     from_date = _utcnow().date()
     to_date = from_date + _timedelta(days=days)
-    key = (station, from_date, days)
+    key = (station, from_date, days, source)
 
     async def _build():
         rows = await _dd_read(_DD_FORECAST_SQL, {
             "from_date": from_date, "to_date": to_date, "station": station,
+            "source": source,
         })
         return _dd.forecast_payload(rows, station=station,
-                                    from_date=from_date, days=days)
+                                    from_date=from_date, days=days,
+                                    source=source)
 
     payload, state, entry = await _dd_forecast_cache.serve(key, _build)
     return _dd_envelope(payload, state, entry, _dd_forecast_cache, response)

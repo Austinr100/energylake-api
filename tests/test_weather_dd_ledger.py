@@ -390,6 +390,38 @@ def test_first_sighting_has_no_delta_and_says_so():
     assert payload["rows_with_run_over_run_delta"] == 0
 
 
+def test_two_sources_are_never_differenced_against_each_other():
+    """pantry d091557 handback: GFS 12Z and IFS 12Z share a target date. Ranked
+    without source_product, IFS-minus-GFS was served as "run_over_run"."""
+    target = D(2026, 10, 5)
+    t12 = datetime.datetime(2026, 10, 2, 12, tzinfo=datetime.timezone.utc)
+    t06 = datetime.datetime(2026, 10, 2, 6, tzinfo=datetime.timezone.utc)
+    gfs_now = dict(_fc("USW00023174", target, t12, 1, cdd=9, tavg=74),
+                   source_product="GFS", sample_spacing_hours=6)
+    gfs_prior = dict(_fc("USW00023174", target, t06, 2, cdd=8, tavg=73),
+                     source_product="GFS", sample_spacing_hours=6)
+    ifs_only = dict(_fc("USW00023174", target, t12, 1, cdd=12, tavg=77),
+                    source_product="IFS", sample_spacing_hours=6)
+
+    payload = dd.forecast_payload([ifs_only, gfs_now, gfs_prior], station=None,
+                                  from_date=D(2026, 10, 2), days=15)
+    cells = {c["source_product"]: c for c in payload["rows"]}
+    assert set(cells) == {"GFS", "IFS"} and payload["row_count"] == 2
+    assert payload["sources_present"] == ["GFS", "IFS"]
+    assert cells["GFS"]["delta_cdd"] == 1.0            # GFS against GFS
+    assert cells["GFS"]["sample_spacing_hours"] == 6
+    assert cells["IFS"]["delta_cdd"] is None           # one IFS run: no revision
+    assert cells["IFS"]["delta_absence"]["reason"] == "no_prior_issuance"
+    assert payload["rows_with_run_over_run_delta"] == 1
+
+
+def test_forecast_sql_ranks_and_filters_per_source():
+    sql = " ".join(main._DD_FORECAST_SQL.split())
+    assert "PARTITION BY station_id, target_date, source_product" in sql
+    assert "sample_spacing_hours" in sql
+    assert "source_product = %(source)s" in sql
+
+
 def test_empty_forecast_board_is_an_absence_not_an_empty_list():
     """station_degree_days_forecast holds 0 rows today (measured 2026-08-10)."""
     payload = dd.forecast_payload([], station=None,
