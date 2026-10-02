@@ -2908,9 +2908,12 @@ async def weather_regime():
         cpc_chips.append({
             "family": family,
             "product": product,
-            "issued_date": r["issued_date"].isoformat() if r else None,
-            "valid_start": r["valid_start"].isoformat() if r else None,
-            "valid_end": r["valid_end"].isoformat() if r else None,
+            # A CPC row can carry NULL valid_start / valid_end (three of the four
+            # live vintages did on 2026-10-01, and the route answered 500 on
+            # `.isoformat()`). A null date is printed as null, never raised on.
+            "issued_date": r["issued_date"].isoformat() if r and r["issued_date"] else None,
+            "valid_start": r["valid_start"].isoformat() if r and r["valid_start"] else None,
+            "valid_end": r["valid_end"].isoformat() if r and r["valid_end"] else None,
             "artifact_format": r["artifact_format"] if r else None,
             "lean": None,
             "lean_status": "pending render leg",
