@@ -1,0 +1,50 @@
+## 1. this branch's new tests on HEAD source (d08d602)
+
+3 failed, 3 passed, 26 deselected, 8 errors in 0.80s
+   FAILED tests/test_market_clock.py::test_d091551_M1_set_local_runs_inside_an_explicit_transaction
+   FAILED tests/test_market_clock.py::test_d091551_M1_a_timeout_rolls_the_transaction_back
+   FAILED tests/test_market_clock.py::test_d091551_M4_a_503_carries_retry_after
+   ERROR tests/test_polled_routes_d091551.py::test_R1_one_limit_1_lateral_per_dataset_and_series
+   ERROR tests/test_polled_routes_d091551.py::test_R1_rehearsed_red_the_shipped_statement_is_caught
+   ERROR tests/test_polled_routes_d091551.py::test_R1_the_route_runs_that_statement
+   ERROR tests/test_polled_routes_d091551.py::test_R2_regime_body_is_byte_identical_to_the_banked_body
+   ERROR tests/test_polled_routes_d091551.py::test_D1_peak_demand_body_is_byte_identical_cold_fresh_and_stale
+   ERROR tests/test_polled_routes_d091551.py::test_D1_as_of_is_the_request_instant_not_the_build
+   ERROR tests/test_polled_routes_d091551.py::test_D1_twenty_concurrent_cold_requests_make_one_read
+   ERROR tests/test_polled_routes_d091551.py::test_D1_a_failed_read_is_a_503_and_not_memoised
+
+## 2. one deliberate break each, on this branch's source
+
+- M1: SET LOCAL outside an explicit transaction  [-k test_d091551_M1]
+    2 failed, 38 deselected in 0.93s
+      FAILED tests/test_market_clock.py::test_d091551_M1_set_local_runs_inside_an_explicit_transaction
+      FAILED tests/test_market_clock.py::test_d091551_M1_a_timeout_rolls_the_transaction_back
+- M2: the cold-memo fixture is not autouse  [-k test_d091551_M2]
+    1 failed, 1 passed, 38 deselected in 0.75s
+      FAILED tests/test_market_clock.py::test_d091551_M2b_and_this_one_starts_cold
+- M3: a failed rebuild is memoised  [-k test_d091551_M3]
+    1 failed, 39 deselected in 0.74s
+      FAILED tests/test_market_clock.py::test_d091551_M3_a_rebuild_that_raises_keeps_the_previous_answer
+- M3: an expired answer is not served while the rebuild runs  [-k test_d091551_M3]
+    1 failed, 39 deselected in 0.73s
+      FAILED tests/test_market_clock.py::test_d091551_M3_a_rebuild_that_raises_keeps_the_previous_answer
+- M4: the 503 has no Retry-After  [-k test_d091551_M4]
+    1 failed, 39 deselected in 0.83s
+      FAILED tests/test_market_clock.py::test_d091551_M4_a_503_carries_retry_after
+- R1: the lateral drops the series  [-k R1]
+    2 failed, 1 passed, 37 deselected in 0.79s
+      FAILED tests/test_polled_routes_d091551.py::test_R1_one_limit_1_lateral_per_dataset_and_series
+      FAILED tests/test_polled_routes_d091551.py::test_R1_rehearsed_red_the_shipped_statement_is_caught
+- R2: the chips are keyed by series, not dataset  [-k R2]
+    1 failed, 39 deselected in 0.77s
+      FAILED tests/test_polled_routes_d091551.py::test_R2_regime_body_is_byte_identical_to_the_banked_body
+- D1: ties go to the latest hour  [-k D1]
+    1 failed, 3 passed, 36 deselected in 1.06s
+      FAILED tests/test_polled_routes_d091551.py::test_D1_peak_demand_body_is_byte_identical_cold_fresh_and_stale
+- D1: the memoised body keeps the build's as_of  [-k D1]
+    1 failed, 3 passed, 36 deselected in 1.06s
+      FAILED tests/test_polled_routes_d091551.py::test_D1_as_of_is_the_request_instant_not_the_build
+
+## 3. green on this branch
+
+14 passed, 26 deselected in 0.76s

@@ -1,0 +1,19 @@
+# python docs/receipts/polled-routes-d091551/tx_probe.py — local Postgres 16.14, psycopg 3.3.6, psycopg_pool 3.3.3, 2026-10-01
+shipped (no tx), autocommit off              after pre-ping: INTRANS  inside: 3s   next checkout: 0
+shipped (no tx), autocommit ON               after pre-ping: IDLE     inside: 0    next checkout: 0
+d091551 (conn.transaction()), autocommit off after pre-ping: INTRANS  inside: 3s   next checkout: 0
+d091551 (conn.transaction()), autocommit ON  after pre-ping: IDLE     inside: 3s   next checkout: 0
+
+# server log (log_statement=all), transaction-control lines only, in order
+[3925] LOG:  statement: COMMIT
+[3925] LOG:  statement: BEGIN
+[3925] LOG:  statement: COMMIT
+[3926] WARNING:  SET LOCAL can only be used in transaction blocks
+[3927] LOG:  statement: BEGIN
+[3927] LOG:  statement: SAVEPOINT "_pg3_1"
+[3927] LOG:  statement: RELEASE "_pg3_1"
+[3927] LOG:  statement: COMMIT
+[3927] LOG:  statement: BEGIN
+[3927] LOG:  statement: COMMIT
+[3928] LOG:  statement: BEGIN
+[3928] LOG:  statement: COMMIT

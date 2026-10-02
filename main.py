@@ -2797,14 +2797,38 @@ async def weather_temp_matrix():
     }
 
 
-# Driver chips: (display key, timeseries dataset). One series per dataset.
+# Driver chips: (display key, timeseries dataset, its one series).
 _REGIME_DRIVERS = [
-    ("oni", "cpc_oni_monthly"),
-    ("roni", "cpc_roni_monthly"),
-    ("pdo", "climate_pdo_monthly"),
-    ("qbo", "climate_qbo_monthly"),
-    ("iod_dmi", "climate_iod_dmi_monthly"),
+    ("oni", "cpc_oni_monthly", "oni"),
+    ("roni", "cpc_roni_monthly", "roni"),
+    ("pdo", "climate_pdo_monthly", "pdo"),
+    ("qbo", "climate_qbo_monthly", "qbo"),
+    ("iod_dmi", "climate_iod_dmi_monthly", "iod_dmi"),
 ]
+
+# d091551 (D-09-25-75): one LIMIT 1 lateral per (dataset, series), in one
+# statement. The DISTINCT ON (dataset) it replaces read all five datasets end
+# to end (6,724 rows, 533 buffers, 92 ms) to keep five rows; this is five
+# idx_tsv_series_ts lookups (30 buffers, 0.1 ms). Receipts:
+# docs/receipts/polled-routes-d091551/plans.md. tests/test_polled_routes_d091551.py
+# R1 holds the VALUES list to _REGIME_DRIVERS.
+_REGIME_DRIVERS_SQL = """
+    SELECT d.dataset, l.series, l.ts, l.value
+    FROM (VALUES
+        ('cpc_oni_monthly', 'oni'),
+        ('cpc_roni_monthly', 'roni'),
+        ('climate_pdo_monthly', 'pdo'),
+        ('climate_qbo_monthly', 'qbo'),
+        ('climate_iod_dmi_monthly', 'iod_dmi')
+    ) AS d(dataset, series)
+    CROSS JOIN LATERAL (
+        SELECT t.series, t.ts, t.value
+        FROM timeseries_values t
+        WHERE t.dataset = d.dataset AND t.series = d.series
+        ORDER BY t.ts DESC
+        LIMIT 1
+    ) AS l
+"""
 
 # CPC outlook families → the cpc_outlook_vintage.product code for each.
 _REGIME_CPC_FAMILIES = [
@@ -2833,12 +2857,6 @@ async def weather_regime():
     now = _utcnow()
     today = now.astimezone(ZoneInfo(MARKET_TZ)).date()
 
-    drivers_sql = """
-        SELECT DISTINCT ON (dataset) dataset, series, ts, value
-        FROM timeseries_values
-        WHERE dataset = ANY(%(datasets)s)
-        ORDER BY dataset, ts DESC
-    """
     cpc_sql = """
         SELECT DISTINCT ON (product)
                product, issued_date, valid_start, valid_end, artifact_format
@@ -2850,8 +2868,7 @@ async def weather_regime():
     try:
         async with _pool.connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(drivers_sql, {
-                    "datasets": [ds for _, ds in _REGIME_DRIVERS]})
+                await cur.execute(_REGIME_DRIVERS_SQL)
                 driver_rows = await cur.fetchall()
                 await cur.execute(cpc_sql, {
                     "products": [p for _, p in _REGIME_CPC_FAMILIES]})
@@ -2863,7 +2880,7 @@ async def weather_regime():
 
     by_dataset = {r["dataset"]: r for r in (driver_rows or [])}
     drivers = []
-    for key, dataset in _REGIME_DRIVERS:
+    for key, dataset, _series in _REGIME_DRIVERS:
         r = by_dataset.get(dataset)
         if r is None:
             drivers.append({
@@ -5211,28 +5228,62 @@ async def caiso_peak_demand():
         }
 
     Honest-empty: no banked rows -> 200 with areas: []. DB unavailable -> 503.
+
+    d091551 (D-09-25-75): the body is every operating date the dataset holds
+    (76 on 2026-10-01), so the read cannot take a ts floor without changing it.
+    It is memoised instead: one key, 300 s fresh, single-flight, served stale
+    behind one background refresh (`_DDCache`, allow_stale), and the read runs
+    under a 5 s statement timeout. `as_of` stays the request instant, stamped
+    on the way out, so the body is what it was before the memo.
     """
+    now = _utcnow()
+    try:
+        payload, _state, _entry = await _peak_demand_cache.serve(
+            "all", _peak_demand_build)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"db unavailable: peak-demand build exceeded "
+                   f"{PEAK_DEMAND_BUILD_TIMEOUT:g} s")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+    out = dict(payload)
+    out["as_of"] = now.isoformat()        # same key, same place in the body
+    return out
+
+
+PEAK_DEMAND_MEMO_TTL = 300.0             # one issuance a day; five minutes is plenty
+PEAK_DEMAND_STATEMENT_TIMEOUT = "5s"     # measured 76 ms on 2026-10-01
+PEAK_DEMAND_BUILD_TIMEOUT = 15.0         # checkout wait + the read, as a backstop
+
+# Single immutable issuance -> a plain read of the dataset; the peak/argmax is
+# derived in Python (mirrors the temp-matrix per-day bucketing). value is
+# nullable in the schema, so drop nulls before they reach the max.
+PEAK_DEMAND_SQL = """
+    SELECT ts, series, value, meta
+    FROM timeseries_values
+    WHERE dataset = %(dataset)s AND value IS NOT NULL
+    ORDER BY series ASC, ts ASC
+"""
+
+
+async def _peak_demand_build() -> dict:
+    """The read and the derivation. Raises on any DB failure (the route's 503);
+    `as_of` here is the build moment, and the route overwrites it."""
     assert _pool is not None
 
     now = _utcnow()
     tz = ZoneInfo(MARKET_TZ)
 
-    # Single immutable issuance -> a plain read of the dataset; the peak/argmax
-    # is derived in Python (mirrors the temp-matrix per-day bucketing). value is
-    # nullable in the schema, so drop nulls before they reach the max.
-    query = """
-        SELECT ts, series, value, meta
-        FROM timeseries_values
-        WHERE dataset = %(dataset)s AND value IS NOT NULL
-        ORDER BY series ASC, ts ASC
-    """
-    try:
-        async with _pool.connection() as conn:
+    async with _pool.connection() as conn:
+        # SET LOCAL inside an explicit transaction, as the market clock does:
+        # it holds whatever the pool's autocommit setting.
+        async with conn.transaction():
             async with conn.cursor() as cur:
-                await cur.execute(query, {"dataset": PEAK_DEMAND_DATASET})
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{PEAK_DEMAND_STATEMENT_TIMEOUT}'")
+                await cur.execute(PEAK_DEMAND_SQL, {"dataset": PEAK_DEMAND_DATASET})
                 rows = await cur.fetchall()
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
 
     # Honest-empty: the strip renders its holding state, never an error page.
     if not rows:
@@ -5699,6 +5750,9 @@ def _market_clock_offpeak_all_day(d: _date) -> bool:
 MARKET_CLOCK_MEMO_TTL = 20.0
 MARKET_CLOCK_STALE_MAX = 120.0
 MARKET_CLOCK_STATEMENT_TIMEOUT = "3s"
+# d091551: a 503 says when to come back — the next build can run at once, so
+# the hint is short; it is not a promise the read will have recovered.
+MARKET_CLOCK_RETRY_AFTER = 5
 
 # One round trip: DA detection for the target date (hours present, the newest
 # and the first ingest of the reference hub's rows), the on-cycle SP15 DA HE17
@@ -5772,14 +5826,17 @@ async def _market_clock_build() -> dict:
 
     try:
         async with _pool.connection() as conn:
-            async with conn.cursor() as cur:
-                # The pool's connections are not autocommit, so this SET LOCAL
-                # opens the transaction the read runs in, and the pool ends it
-                # on return: the timeout never outlives this request.
-                await cur.execute(
-                    f"SET LOCAL statement_timeout = '{MARKET_CLOCK_STATEMENT_TIMEOUT}'")
-                await cur.execute(MARKET_CLOCK_SQL, params)
-                row = await cur.fetchone()
+            # d091551: an explicit transaction, so SET LOCAL holds whatever the
+            # pool's autocommit setting (under autocommit, a bare SET LOCAL is a
+            # no-op with a WARNING) and ends with the read. With today's pool it
+            # is a SAVEPOINT inside the pre-ping's BEGIN
+            # (docs/receipts/polled-routes-d091551/tx_probe.txt).
+            async with conn.transaction():
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        f"SET LOCAL statement_timeout = '{MARKET_CLOCK_STATEMENT_TIMEOUT}'")
+                    await cur.execute(MARKET_CLOCK_SQL, params)
+                    row = await cur.fetchone()
     except Exception as e:
         # DB unavailability -> 503 (house standard; see /health). Fail loud.
         # A statement timeout lands here as QueryCanceled: the same 503.
@@ -5835,10 +5892,9 @@ async def _market_clock_build() -> dict:
         now,
         target_date=target_date,
         target_published=target_published,
-        # The label's "published HH:MM" is the publication time: the FIRST
-        # ingest. The feed re-ingests a published day, so the newest ingest
-        # moves after publication (d091546 §0).
-        da_published_at=da_first_ingested_at,
+        # Both stamps, by name. The label prints the FIRST ingest (d091546).
+        da_published_at=da_published_at,
+        da_first_ingested_at=da_first_ingested_at,
         sp15_da_print=sp15_da_print,
         latest_fmm=latest_fmm,
         target_is_offpeak_all_day=_market_clock_offpeak_all_day(target_date),
@@ -5933,7 +5989,7 @@ async def market_clock():
     Served from a 20 s single-flight memo (D-09-25-75); `as_of` is the moment
     the answer was built, so a memoised answer states its age. An answer is
     never served more than 120 s after its build: past that, with no fresh
-    build, the route is a 503.
+    build, the route is a 503, with `Retry-After: 5`.
     """
     hit = _market_clock_entry
     if hit is not None:
@@ -5946,7 +6002,8 @@ async def market_clock():
     try:
         entry = await _market_clock_build_once()
     except _MarketClockUnavailable as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e),
+                            headers={"Retry-After": str(MARKET_CLOCK_RETRY_AFTER)})
     return entry[1]
 
 
@@ -16056,6 +16113,14 @@ _dd_cumulative_cache = _DDCache(
 
 _DD_CACHES = (_dd_regions_cache, _dd_daily_cache, _dd_grade_cache,
               _dd_forecast_cache, _dd_cumulative_cache)
+
+# d091551: /api/timeseries/caiso-peak-demand's memo (the route is defined far
+# above; it reads this name at request time). Not in _DD_CACHES: it is not a
+# dd route and carries no `cache` block.
+_peak_demand_cache = _DDCache(
+    "timeseries/caiso-peak-demand", PEAK_DEMAND_MEMO_TTL, max_entries=1,
+    allow_stale=True, build_timeout=PEAK_DEMAND_BUILD_TIMEOUT,
+)
 
 
 # ── SQL ─────────────────────────────────────────────────────────────────────

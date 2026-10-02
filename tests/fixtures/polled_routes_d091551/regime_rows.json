@@ -1,0 +1,45 @@
+{
+ "now": "2026-10-01T17:24:00+00:00",
+ "drivers": [
+  {
+   "dataset": "climate_iod_dmi_monthly",
+   "series": "iod_dmi",
+   "ts": "2026-05-01T00:00:00+00:00",
+   "value": "0.146000"
+  },
+  {
+   "dataset": "climate_pdo_monthly",
+   "series": "pdo",
+   "ts": "2026-07-01T00:00:00+00:00",
+   "value": "-2.030000"
+  },
+  {
+   "dataset": "climate_qbo_monthly",
+   "series": "qbo",
+   "ts": "2026-02-01T00:00:00+00:00",
+   "value": "-23.130000"
+  },
+  {
+   "dataset": "cpc_oni_monthly",
+   "series": "oni",
+   "ts": "2026-07-01T00:00:00+00:00",
+   "value": "1.800000"
+  },
+  {
+   "dataset": "cpc_roni_monthly",
+   "series": "roni",
+   "ts": "2026-07-01T00:00:00+00:00",
+   "value": "1.360000"
+  }
+ ],
+ "cpc": [
+  {
+   "product": "814temp",
+   "issued_date": "2026-09-30",
+   "valid_start": "2026-10-08",
+   "valid_end": "2026-10-14",
+   "artifact_format": "shapefile"
+  }
+ ],
+ "depth": "2021-10-26"
+}
