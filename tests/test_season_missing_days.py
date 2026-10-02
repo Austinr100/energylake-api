@@ -5,9 +5,10 @@ readout taking the snapshot's median rule.
 
 S1..S8 are the spec's §2.6 table; each test's name carries its number.
 
-STOP-B fired (the handback has the stations): the base change is not shipped.
-PRECIP_TOLERANT_BASE is False, so past seasons stay strict; S4 and S8 pin that,
-and pin the rule with the flag set, so the change is ready when it is ruled on.
+STOP-B fired (the handback has the stations), so d091550 shipped the base
+change off. d091553 (D-09-25-93, STOP-B read on published medians) ships it:
+PRECIP_TOLERANT_BASE is True. S4 and S8 pin the shipped state, and pin the
+strict base with the flag cleared, the way back.
 
 S5 compares against digests of main's season.py (main at d08d602, banked in
 tests/fixtures/season_s5_main_digests.json). Regenerate them with
@@ -261,7 +262,8 @@ def test_s3_a_complete_season_says_none_missing():
 
 
 # ---------------------------------------------------------------------------
-# S4 — a past season with 3 missing days (STOP-B: strict while the flag is off)
+# S4 — a past season with 3 missing days (D-09-25-93: it qualifies; strict
+#      only with the flag cleared)
 # ---------------------------------------------------------------------------
 
 def _three_holes(var):
@@ -273,8 +275,8 @@ def _three_holes(var):
     return daily
 
 
-def test_s4_three_missing_with_the_flag_set_precip_qualifies_hdd_does_not(monkeypatch):
-    monkeypatch.setattr(season, "PRECIP_TOLERANT_BASE", True)
+def test_s4_three_missing_with_the_flag_set_precip_qualifies_hdd_does_not():
+    assert season.PRECIP_TOLERANT_BASE is True        # D-09-25-93, shipped
     p = _build(_three_holes("precip"))
     assert "WY2000" in p["base"]["seasons"] and p["base"]["n"] == 36
     assert p["base"]["tolerance"] == 5 and p["base"]["excluded"] == []
@@ -287,8 +289,9 @@ def test_s4_three_missing_with_the_flag_set_precip_qualifies_hdd_does_not(monkey
     assert [e["season"] for e in h["base"]["excluded"]] == ["1999-00"]
 
 
-def test_s4_three_missing_flag_off_the_base_is_unchanged():
-    assert season.PRECIP_TOLERANT_BASE is False       # STOP-B
+def test_s4_three_missing_flag_off_the_base_is_unchanged(monkeypatch):
+    # the way back: clearing the flag restores d091550's strict base
+    monkeypatch.setattr(season, "PRECIP_TOLERANT_BASE", False)
     p = _build(_three_holes("precip"))
     assert "WY2000" not in p["base"]["seasons"] and p["base"]["n"] == 35
     assert p["base"]["excluded"] == [{"season": "WY2000", "days_complete": 363,
@@ -407,11 +410,13 @@ META = [{"station_id": "USW00023232", "display_name": "Sacramento", "state": "CA
 
 def test_s8_areas_counts(monkeypatch):
     lasts = {(SAC, "precip"): date(2026, 9, 26)}
-    off, hdd_off = _precip_row(season.build_areas(META, _areas_counts(), None, lasts))
+    on, hdd_on = _precip_row(season.build_areas(META, _areas_counts(), None, lasts))
+    with monkeypatch.context() as m:        # the way back: the flag cleared
+        m.setattr(season, "PRECIP_TOLERANT_BASE", False)
+        off, hdd_off = _precip_row(season.build_areas(META, _areas_counts(), None, lasts))
     assert off["complete_seasons"] == 32 and "qualifying_seasons" not in off
 
-    monkeypatch.setattr(season, "PRECIP_TOLERANT_BASE", True)
-    on, hdd_on = _precip_row(season.build_areas(META, _areas_counts(), None, lasts))
+    # shipped (D-09-25-93)
     assert on["complete_seasons"] == 32                 # unchanged
     assert on["qualifying_seasons"] == 34               # + the 3- and 5-missing seasons
     assert list(on).index("qualifying_seasons") == list(on).index("complete_seasons") + 1

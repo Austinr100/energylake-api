@@ -1,0 +1,13 @@
+d45f798 Merge pull request #94 from Austinr100/claude/season-missing-days-d091550-sczehg
+FAILED tests/test_season_tolerant_base.py::test_t1_sacramento_base_takes_its_three_carried_seasons
+FAILED tests/test_season_tolerant_base.py::test_t2_precip_readout_and_snapshot_row_agree
+FAILED tests/test_season_tolerant_base.py::test_t3_degree_day_readout_and_snapshot_row_agree[hdd-1980-frontier0]
+FAILED tests/test_season_tolerant_base.py::test_t3_degree_day_readout_and_snapshot_row_agree[cdd-1980-frontier1]
+FAILED tests/test_season_tolerant_base.py::test_t4_short_base_has_no_median_basis[precip]
+FAILED tests/test_season_tolerant_base.py::test_t4_short_base_has_no_median_basis[hdd]
+FAILED tests/test_season.py::test_s1_gap_excludes_base_season_and_stops_this_season
+FAILED tests/test_season.py::test_s4_five_year_skips_incomplete_and_lists_its_five
+FAILED tests/test_season.py::test_s11_route_key_order_and_areas - AssertionEr...
+FAILED tests/test_season_missing_days.py::test_s4_three_missing_with_the_flag_set_precip_qualifies_hdd_does_not
+FAILED tests/test_season_missing_days.py::test_s8_areas_counts - KeyError: 'q...
+11 failed, 35 passed in 4.83s
