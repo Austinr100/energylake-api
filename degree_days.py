@@ -518,6 +518,7 @@ def _forecast_cell(cur: dict, prior: Optional[dict]) -> dict:
         "hours_covered": _i(cur.get("hours_covered")),
         "hours_required": _i(cur.get("hours_required")),
         "source_product": cur.get("source_product"),
+        "sample_spacing_hours": _i(cur.get("sample_spacing_hours")),
         "gridpoint_id": cur.get("gridpoint_id"),
         "icao": cur.get("icao"),
         "prior_issued_ts": _iso(prior.get("issued_ts")) if prior else None,
@@ -535,24 +536,33 @@ def _forecast_cell(cur: dict, prior: Optional[dict]) -> dict:
     }
 
 
-def forecast_payload(rows: Iterable[dict], *, station, from_date, days) -> dict:
-    """Rows ranked 1-2 per (station_id, target_date) -> the board.
+def forecast_payload(rows: Iterable[dict], *, station, from_date, days,
+                     source=None) -> dict:
+    """Rows ranked 1-2 per (station_id, target_date, source_product) -> the board.
 
-    Expects main.py's query to have already cut each (station, target_date) to
-    its two newest issuances via `row_number()`; rank 1 is current, rank 2 is
-    prior. Ordering is re-established here so the shape does not depend on the
-    server's row order.
+    Expects main.py's query to have already cut each (station, target_date,
+    source) to its two newest issuances via `row_number()`; rank 1 is current,
+    rank 2 is prior. Ordering is re-established here so the shape does not
+    depend on the server's row order.
+
+    ONE CELL PER SOURCE. A revision is a model against ITS OWN previous run.
+    The key carries source_product here as well as in the SQL, so rows from two
+    sources can never be differenced even if a caller hands them in ranked
+    together.
     """
-    by_key: dict[tuple[str, Any], dict[int, dict]] = {}
+    by_key: dict[tuple[str, Any, Any], dict[int, dict]] = {}
     for r in rows:
-        by_key.setdefault((r["station_id"], r["target_date"]), {})[int(r["rn"])] = r
+        by_key.setdefault(
+            (r["station_id"], r["target_date"], r.get("source_product")), {}
+        )[int(r["rn"])] = r
 
     cells = [
         _forecast_cell(ranks[1], ranks.get(2))
         for ranks in by_key.values()
         if 1 in ranks
     ]
-    cells.sort(key=lambda c: (c["station_id"], c["target_date"]))
+    cells.sort(key=lambda c: (c["station_id"], c["target_date"],
+                              c["source_product"] or ""))
 
     stations = sorted({c["station_id"] for c in cells})
     issuances = sorted({c["issued_ts"] for c in cells if c["issued_ts"]})
@@ -565,6 +575,9 @@ def forecast_payload(rows: Iterable[dict], *, station, from_date, days) -> dict:
         "board_state": "populated" if cells else "empty",
         "absence": None if cells else _absence("no_rows", FORECAST_EMPTY_NOTE),
         "stations_present": stations,
+        "source": source,
+        "sources_present": sorted({c["source_product"] for c in cells
+                                   if c["source_product"]}),
         "row_count": len(cells),
         "rows_with_run_over_run_delta": with_delta,
         "newest_issued_ts": issuances[-1] if issuances else None,
