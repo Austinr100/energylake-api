@@ -40,7 +40,8 @@ Endpoints:
     GET /api/weather/dd/cumulative         Degree Day Ledger: MTD + STD for every region on one date, off migration 164's views. THE SLOW ONE — ~52 s board-wide, measured — so it is built once for all five regions and cached 30 min with stale-while-revalidate; a NULL total stays null and carries its own day counts in `absence` (2026-08-10)
     GET /api/weather/dd/socalgas-grade     Degree Day Ledger: our composite vs SoCalGas's published composite + the delta, with window and all-time summaries over arbiter_present days only (2026-08-10)
     GET /api/weather/dd/forecast           Degree Day Ledger: newest forecast issuance per target date PLUS the run-over-run delta against the prior issuance; board is honestly empty until the builder's maiden run (2026-08-10)
-    GET /api/regulatory/board              regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
+    GET /api/weather/dd/forecast/regions   Degree-day forecast board per region off pantry's three region views: each source's newest run per day, its change against its OWN prior run, the spread between models, and d01-05/06-10/11-15 sums only where every day is complete (d091576, D-09-25-120)
+    GET /api/regulatory/board             regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
     GET /api/atlas/pnode-history           7-day price-component history for one pnode, columnar prices-only (D-07-08)
@@ -16616,6 +16617,272 @@ async def dd_forecast(
 
     payload, state, entry = await _dd_forecast_cache.serve(key, _build)
     return _dd_envelope(payload, state, entry, _dd_forecast_cache, response)
+
+
+# ── /forecast/regions (d091576, D-09-25-120) ────────────────────────────────
+#
+# The region board, off pantry's three views. Measured on Neon 2026-10-03
+# (EXPLAIN ANALYZE, see docs/handback_2026_10_03_dd_forecast_regions.md):
+# filtered to one (region, weighting) each view is 9-15 ms, unfiltered
+# 101-110 ms. Under the 2 s STOP-V line by two orders of magnitude, so the
+# views are read as they are, one read per view, concurrently.
+#
+# Each read runs under its own statement timeout (D-09-25-75); the board is a
+# single-flight memo (_DDCache) for 5 minutes, the sibling forecast route's
+# TTL: the models issue every 6 h and the NWS leg hourly, so five minutes
+# never hides a run for long and collapses a page's polling into one build.
+
+_DD_REGION_FC_TTL = 300.0
+_DD_REGION_FC_STATEMENT_TIMEOUT = "2s"      # the STOP-V line; measured <= 110 ms
+_DD_REGION_FC_BUILD_TIMEOUT = 10.0          # checkout waits + three reads
+_DD_REGION_FC_DEFAULT_DAYS = 16
+_DD_REGION_FC_MAX_DAYS = 30
+_DD_REGION_FC_FROM_MAX_OFFSET_DAYS = 60     # |from - today (Pacific)|
+_DD_REGION_FC_DEFAULT_WEIGHTING = "population"
+_DD_REGION_VECTORS_TTL = 900.0
+
+_dd_region_fc_cache = _DDCache(
+    "dd/forecast/regions", _DD_REGION_FC_TTL, max_entries=32,
+    build_timeout=_DD_REGION_FC_BUILD_TIMEOUT,
+)
+_dd_region_vectors_cache = _DDCache(
+    "dd/forecast/regions:vectors", _DD_REGION_VECTORS_TTL, max_entries=1,
+    build_timeout=_DD_REGION_FC_BUILD_TIMEOUT,
+)
+_DD_CACHES = _DD_CACHES + (_dd_region_fc_cache, _dd_region_vectors_cache)
+
+# The vocabulary: which regions each weighting carries, and their members.
+# 39 rows. Validation needs it independent of the window, so it is not taken
+# from the views (an empty window is not an unknown region).
+_DD_REGION_FC_VECTORS_SQL = """
+    SELECT region, basis AS weighting, station_id
+    FROM degree_day_region_weights
+    ORDER BY region, basis, station_id
+"""
+
+# rn = 1: the newest issuance per (region, weighting, source_product,
+# target_date) — the same cut in all three reads, so a cell, its change and
+# the day's spread all describe the same run. Every predicate is on a column
+# the views partition or group by, so the filter reaches the base table and
+# the delta view's lag() still sees the whole partition.
+_DD_REGION_FC_SQL = """
+    WITH ranked AS (
+        SELECT region, weighting, target_date, issued_ts, source_product,
+               basis_complete,
+               hdd_wtd::float8       AS hdd,
+               cdd_wtd::float8       AS cdd,
+               tavg_f_wtd::float8    AS tavg_f,
+               hdd_norm_wtd::float8  AS hdd_norm,
+               cdd_norm_wtd::float8  AS cdd_norm,
+               hdd_vs_norm::float8   AS hdd_vs_norm,
+               cdd_vs_norm::float8   AS cdd_vs_norm,
+               sample_spacing_hours,
+               member_stations, members_present, missing_stations,
+               row_number() OVER (PARTITION BY region, weighting, source_product,
+                                               target_date
+                                  ORDER BY issued_ts DESC) AS rn
+        FROM v_degree_days_region_forecast
+        WHERE weighting = %(weighting)s
+          AND (%(region)s::text IS NULL OR region = %(region)s)
+          AND target_date >= %(from_date)s AND target_date < %(to_date)s
+    )
+    SELECT * FROM ranked WHERE rn = 1
+    ORDER BY region, target_date, source_product
+"""
+
+_DD_REGION_DELTA_SQL = """
+    WITH ranked AS (
+        SELECT region, weighting, target_date, source_product, issued_ts,
+               prior_issued_ts,
+               hdd_delta::float8 AS hdd_delta,
+               cdd_delta::float8 AS cdd_delta,
+               basis_complete, prior_basis_complete,
+               sample_spacing_hours, prior_sample_spacing_hours,
+               spacing_comparable,
+               row_number() OVER (PARTITION BY region, weighting, source_product,
+                                               target_date
+                                  ORDER BY issued_ts DESC) AS rn
+        FROM v_degree_days_model_delta
+        WHERE weighting = %(weighting)s
+          AND (%(region)s::text IS NULL OR region = %(region)s)
+          AND target_date >= %(from_date)s AND target_date < %(to_date)s
+    )
+    SELECT * FROM ranked WHERE rn = 1
+    ORDER BY region, target_date, source_product
+"""
+
+_DD_REGION_SPREAD_SQL = """
+    SELECT region, weighting, target_date, source_products, sources_present,
+           sources_complete,
+           hdd_max_minus_min::float8 AS hdd_max_minus_min,
+           cdd_max_minus_min::float8 AS cdd_max_minus_min,
+           spacing_comparable
+    FROM v_degree_days_model_spread
+    WHERE weighting = %(weighting)s
+      AND (%(region)s::text IS NULL OR region = %(region)s)
+      AND target_date >= %(from_date)s AND target_date < %(to_date)s
+    ORDER BY region, target_date
+"""
+
+
+async def _dd_timed_read(sql: str, params: dict) -> list:
+    """One read under a statement timeout (D-09-25-75). Any failure -> 503.
+
+    SET LOCAL inside an explicit transaction, as the market clock and the
+    peak-demand memo do, so it holds whatever the pool's autocommit setting.
+    """
+    assert _pool is not None
+    try:
+        async with _pool.connection() as conn:
+            async with conn.transaction():
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        f"SET LOCAL statement_timeout = "
+                        f"'{_DD_REGION_FC_STATEMENT_TIMEOUT}'")
+                    await cur.execute(sql, params)
+                    return await cur.fetchall()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"db unavailable: {e}")
+
+
+def _dd_400(field: str, message: str) -> HTTPException:
+    return HTTPException(status_code=400, detail=f"{field}: {message}")
+
+
+@app.get(f"{DD_PREFIX}/forecast/regions")
+async def dd_forecast_regions(
+    response: Response,
+    region: Optional[str] = Query(
+        None, description="One region id. Omit for every region the weighting has."),
+    weighting: Optional[str] = Query(
+        None, description="population (default) or load_share_365d."),
+    from_: Optional[str] = Query(
+        None, alias="from",
+        description="ISO date, first target date. Defaults to today in Pacific time."),
+    days: Optional[str] = Query(
+        None, description=f"Target dates to serve, 1-{_DD_REGION_FC_MAX_DAYS}. "
+                          f"Default {_DD_REGION_FC_DEFAULT_DAYS}."),
+):
+    """The degree-day forecast board per region, from pantry's three views.
+
+        { weighting, from, days, tz, period_rule, source_labels, region_count,
+          regions: [ { region, weighting,
+                       members: {expected, expected_stations, present, missing[],
+                                 missing_by_source},
+                       sources: [ {source_product, label, newest_issued_ts,
+                                   prior_issued_ts, sample_spacing_hours[]} ],
+                       period_anchor_issued_ts,
+                       days: [ { target_date, normal: {hdd, cdd} | null,
+                                 by_source: { <source_product>: {
+                                     hdd, cdd, tavg_f, hdd_normal, cdd_normal,
+                                     hdd_vs_norm, cdd_vs_norm, issued_ts,
+                                     basis_complete, sample_spacing_hours,
+                                     members_present, missing_stations,
+                                     change: {hdd, cdd, prior_issued_ts,
+                                              spacing_comparable,
+                                              prior_sample_spacing_hours} | null,
+                                     change_absence } },
+                                 spread: {hdd, cdd, sources_present[],
+                                          sources_complete,
+                                          spacing_comparable} | null } ],
+                       periods: [ { window, from, to, by_source: { <source>: {
+                                     hdd, cdd, hdd_normal, cdd_normal, issued_ts,
+                                     days_present, days_required, complete } } } ] } ],
+          cache: {...} }
+
+    D-09-25-120: a change is one source against its own previous issuance
+    (v_degree_days_model_delta); the difference between models is `spread`
+    (v_degree_days_model_spread), on each model's latest run. A change between
+    two differently spaced issuances is served with `spacing_comparable:
+    false`, not hidden. `gridpoints_raw` is labelled NWS in one place
+    (degree_days.SOURCE_LABELS) and the payload carries both. Normals and
+    departures are the view's; a row without one serves null, never a fill.
+
+    Caps: `days` 1-30, `from` within 60 days of today (Pacific). Each bad
+    parameter is a 400 naming the field. Cached 5 min, single-flight; every
+    read runs under a 2 s statement timeout. DB unavailable or a read over
+    the timeout -> 503.
+    """
+    assert _pool is not None
+
+    # days
+    if days is None or days == "":
+        n_days = _DD_REGION_FC_DEFAULT_DAYS
+    else:
+        try:
+            n_days = int(days)
+        except ValueError:
+            raise _dd_400("days", f"must be an integer 1-{_DD_REGION_FC_MAX_DAYS}, "
+                                  f"got {days!r}")
+        if not 1 <= n_days <= _DD_REGION_FC_MAX_DAYS:
+            raise _dd_400("days", f"must be 1-{_DD_REGION_FC_MAX_DAYS} "
+                                  f"(cap {_DD_REGION_FC_MAX_DAYS}), got {n_days}. "
+                                  "This endpoint never silently truncates.")
+
+    # from
+    today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+    if from_ is None or from_ == "":
+        from_date = today_pt
+    else:
+        try:
+            from_date = _date.fromisoformat(from_)
+        except ValueError:
+            raise _dd_400("from", f"must be an ISO date (YYYY-MM-DD), got {from_!r}")
+        if abs((from_date - today_pt).days) > _DD_REGION_FC_FROM_MAX_OFFSET_DAYS:
+            raise _dd_400("from", f"must be within {_DD_REGION_FC_FROM_MAX_OFFSET_DAYS} "
+                                  f"days of today ({today_pt.isoformat()}, Pacific), "
+                                  f"got {from_date.isoformat()}")
+
+    # weighting, region — against the vectors, not the window
+    try:
+        vectors, _, _ = await _dd_region_vectors_cache.serve(
+            "vectors", lambda: _dd_timed_read(_DD_REGION_FC_VECTORS_SQL, {}))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="db unavailable: vectors read timed out")
+    by_weighting: dict[str, dict[str, list[str]]] = {}
+    for v in vectors:
+        by_weighting.setdefault(v["weighting"], {}).setdefault(
+            v["region"], []).append(v["station_id"])
+
+    w = weighting if weighting not in (None, "") else _DD_REGION_FC_DEFAULT_WEIGHTING
+    if w not in by_weighting:
+        raise _dd_400("weighting", f"unknown weighting {w!r}. one of "
+                                   f"{sorted(by_weighting)}")
+    known = sorted(by_weighting[w])
+    if region not in (None, ""):
+        if region not in known:
+            raise _dd_400("region", f"unknown region {region!r} under weighting "
+                                    f"{w!r}. one of {known}")
+        regions, r_param = [region], region
+    else:
+        regions, r_param = known, None
+
+    to_date = from_date + _timedelta(days=n_days)
+    params = {"weighting": w, "region": r_param,
+              "from_date": from_date, "to_date": to_date}
+    members = {r: by_weighting[w][r] for r in regions}
+
+    async def _build():
+        fc, delta, spread = await asyncio.gather(
+            _dd_timed_read(_DD_REGION_FC_SQL, params),
+            _dd_timed_read(_DD_REGION_DELTA_SQL, params),
+            _dd_timed_read(_DD_REGION_SPREAD_SQL, params),
+        )
+        return _dd.region_forecast_payload(
+            fc, delta, spread, regions=regions, weighting=w,
+            from_date=from_date, days=n_days, members=members)
+
+    try:
+        payload, state, entry = await _dd_region_fc_cache.serve(
+            (r_param, w, from_date, n_days), _build)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"db unavailable: the region board did not build within "
+                   f"{_DD_REGION_FC_BUILD_TIMEOUT:g} s")
+    return _dd_envelope(payload, state, entry, _dd_region_fc_cache, response)
 
 
 # ── Startup warm ────────────────────────────────────────────────────────────
