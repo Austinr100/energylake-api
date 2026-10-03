@@ -1,0 +1,59 @@
+# implied_gen_site_latest: 394,800 rows, 67 MB; implied_gen_sites: 1,914 rows
+
+## SITE_LATEST_SQL, a Pacific day
+```
+Seq Scan on implied_gen_site_latest l  (cost=0.00..13160.00 rows=40009 width=50) (actual time=0.104..25.266 rows=39480 loops=1)
+  Filter: ((target_ts >= '2026-10-03 07:00:00+00'::timestamp with time zone) AND (target_ts < '2026-10-04 07:00:00+00'::timestamp with time zone) AND (tech = 'solar_pv'::text) AND (model = 'gfs'::text))
+  Rows Removed by Filter: 355320
+  Buffers: shared hit=5264
+Planning Time: 0.095 ms
+Execution Time: 26.775 ms
+```
+
+## SITE_LATEST_SQL, one hour
+```
+Gather  (cost=1000.00..9666.40 rows=1124 width=50) (actual time=0.699..14.856 rows=1645 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=5264
+  ->  Parallel Seq Scan on implied_gen_site_latest l  (cost=0.00..8554.00 rows=468 width=50) (actual time=5.307..8.915 rows=548 loops=3)
+        Filter: ((target_ts >= '2026-10-03 07:00:00+00'::timestamp with time zone) AND (target_ts < '2026-10-03 08:00:00+00'::timestamp with time zone) AND (tech = 'solar_pv'::text) AND (model = 'gfs'::text))
+        Rows Removed by Filter: 131052
+        Buffers: shared hit=5264
+Planning Time: 0.126 ms
+Execution Time: 14.936 ms
+```
+
+## SITE_UNITS_SQL
+```
+Sort  (cost=184.40..189.19 rows=1914 width=166) (actual time=1.209..1.288 rows=1914 loops=1)
+  Sort Key: plant_code, generator_id
+  Sort Method: quicksort  Memory: 273kB
+  Buffers: shared hit=37
+  ->  Seq Scan on implied_gen_sites  (cost=0.00..80.06 rows=1914 width=166) (actual time=0.006..0.714 rows=1914 loops=1)
+        Filter: (tech = 'solar_pv'::text)
+        Buffers: shared hit=37
+Planning Time: 0.071 ms
+Execution Time: 1.369 ms
+```
+
+## FLEET_SQL[hub_sum]
+```
+Sort  (cost=75.31..75.31 rows=1 width=30) (actual time=0.461..0.462 rows=1 loops=1)
+  Sort Key: mount_basis, dc_basis
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=37
+  ->  HashAggregate  (cost=75.28..75.30 rows=1 width=30) (actual time=0.457..0.458 rows=1 loops=1)
+        Group Key: mount_basis, dc_basis
+        Batches: 1  Memory Usage: 24kB
+        Buffers: shared hit=37
+        ->  Seq Scan on implied_gen_sites  (cost=0.00..60.92 rows=1436 width=19) (actual time=0.003..0.231 rows=1436 loops=1)
+              Filter: ((hub IS NOT NULL) AND (tech = 'solar_pv'::text))
+              Rows Removed by Filter: 478
+              Buffers: shared hit=37
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.069 ms
+Execution Time: 0.480 ms
+```
+

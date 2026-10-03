@@ -1,0 +1,3272 @@
+{
+ "actuals": [
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": -7.50627
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": -6.87751
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 303.83543
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 1398.23622
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 1697.05589
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 1742.41059
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 1715.00613
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 1736.76718
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 1769.48053
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 1785.67273
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 1730.09215
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 1817.56055
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 988.72783
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 64.67282
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": -8.91236
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": -7.92485
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": -7.20929
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": -7.15225
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": -7.42152
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": -7.23654
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": -7.35453
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": -7.48481
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": -7.36653
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": -7.32022
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": -7.3743
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": -6.7258
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 248.85378
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 1242.79137
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 1526.61376
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 1621.22628
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 1253.91475
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 1283.34545
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 1167.38281
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 1045.74446
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 1043.53472
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 978.09288
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 444.15152
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 26.37186
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": -8.88516
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": -9.39868
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": -7.55502
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 360.38824
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 1549.00562
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 2119.25672
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 2346.24392
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 2366.72343
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 2241.26633
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 2121.69372
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 2315.07811
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 2212.91146
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 2022.54759
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 1047.86347
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 87.32499
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": -2.00189
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": 0.01931
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": 0.62328
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": 0.67212
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": 0.5749
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": 0.50553
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": 0.46803
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": -0.52316
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": -0.32682
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": -0.51057
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": -0.70147
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": 1.19392
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 352.2573
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 1598.13124
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 1922.81735
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 2338.37307
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 2117.5721
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 2319.71437
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 2186.93518
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 2359.16461
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 2153.53539
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 1722.59525
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 851.55881
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 38.43499
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": -10.42724
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": -28.65006
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": 60.92112
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 3705.66369
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 10015.05333
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 12588.87002
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 13057.55977
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 13065.03065
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 12872.02482
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 13283.2897
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 12892.91784
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 11648.14797
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 10400.53279
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 4925.69215
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 533.78069
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": 79.11671
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": -40.25516
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": -40.7409
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": -39.32168
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": -38.22724
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": -37.76489
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": -37.36486
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": -37.18555
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": -36.92742
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": -37.39107
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": -37.59359
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": 48.11825
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 3692.00883
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 9974.11609
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 12235.32916
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 12655.24957
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 12807.4519
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 12999.54157
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 12435.82644
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 12058.60669
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 11655.35176
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 10158.21719
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 4749.43284
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 263.22449
+  },
+  {
+   "dataset": "caiso_renewables_hourly",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": -31.19669
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": 0.35
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 380.48
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 1728.68
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 2381.07
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 2509.4
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 2503.14
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 2503.16
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 2476.25
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 2489.74
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 2420.94
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 2195.58
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 1187.43
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 171.07
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 233.67
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 1162.48
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 1714.52
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 1810.79
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 1849.72
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 1810.16
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 1728.57
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 1609.54
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 1432.24
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 1123.58
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 556.06
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 81.61
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T13:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T14:00:00+00:00",
+   "value": 313.06
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T15:00:00+00:00",
+   "value": 1522.71
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T16:00:00+00:00",
+   "value": 2186.92
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T17:00:00+00:00",
+   "value": 2270.83
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T18:00:00+00:00",
+   "value": 2275.62
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T19:00:00+00:00",
+   "value": 2251.94
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T20:00:00+00:00",
+   "value": 2244.01
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T21:00:00+00:00",
+   "value": 2261.59
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T22:00:00+00:00",
+   "value": 2246.69
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-03T23:00:00+00:00",
+   "value": 1989.17
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T00:00:00+00:00",
+   "value": 1091.83
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T01:00:00+00:00",
+   "value": 160.64
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "NP15:Solar",
+   "ts": "2026-10-04T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": 1.36
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 454.89
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 1822.62
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 2443.22
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 2639.05
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 2702.33
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 2708.23
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 2677.85
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 2614.9
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 2476.97
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 2145.98
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 1176.23
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 121.97
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": 0.33
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 340.74
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 1460.61
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 2154.95
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 2337.82
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 2372.08
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 2326.66
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 2243.16
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 2095.31
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 1839.61
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 1380.84
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 658.58
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 89.53
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T13:00:00+00:00",
+   "value": 0.17
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T14:00:00+00:00",
+   "value": 372.9
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T15:00:00+00:00",
+   "value": 1588.81
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T16:00:00+00:00",
+   "value": 2328.17
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T17:00:00+00:00",
+   "value": 2520.25
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T18:00:00+00:00",
+   "value": 2591.87
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T19:00:00+00:00",
+   "value": 2586.43
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T20:00:00+00:00",
+   "value": 2573.74
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T21:00:00+00:00",
+   "value": 2569.8
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T22:00:00+00:00",
+   "value": 2481.43
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-03T23:00:00+00:00",
+   "value": 2066.45
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T00:00:00+00:00",
+   "value": 1060.52
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T01:00:00+00:00",
+   "value": 143.68
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "ZP26:Solar",
+   "ts": "2026-10-04T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T13:00:00+00:00",
+   "value": 89.14
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T14:00:00+00:00",
+   "value": 4108.34
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T15:00:00+00:00",
+   "value": 10996.12
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T16:00:00+00:00",
+   "value": 13285.53
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T17:00:00+00:00",
+   "value": 13942.43
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T18:00:00+00:00",
+   "value": 14169.78
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T19:00:00+00:00",
+   "value": 14201.26
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T20:00:00+00:00",
+   "value": 14127.24
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T21:00:00+00:00",
+   "value": 13851.41
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T22:00:00+00:00",
+   "value": 13174.2
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-01T23:00:00+00:00",
+   "value": 11363.42
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T00:00:00+00:00",
+   "value": 5229.55
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T01:00:00+00:00",
+   "value": 442.93
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T13:00:00+00:00",
+   "value": 72.83
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T14:00:00+00:00",
+   "value": 4229.78
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T15:00:00+00:00",
+   "value": 10329.75
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T16:00:00+00:00",
+   "value": 13003.25
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T17:00:00+00:00",
+   "value": 13490.03
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T18:00:00+00:00",
+   "value": 13681.63
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T19:00:00+00:00",
+   "value": 13631.06
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T20:00:00+00:00",
+   "value": 13533.69
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T21:00:00+00:00",
+   "value": 13293.06
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T22:00:00+00:00",
+   "value": 12681.39
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-02T23:00:00+00:00",
+   "value": 10130.5
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T00:00:00+00:00",
+   "value": 4496.47
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T01:00:00+00:00",
+   "value": 362.11
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T05:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T06:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T07:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T08:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T09:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T10:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T11:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T12:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T13:00:00+00:00",
+   "value": 64.93
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T14:00:00+00:00",
+   "value": 4120.24
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T15:00:00+00:00",
+   "value": 10200.66
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T16:00:00+00:00",
+   "value": 12963.41
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T17:00:00+00:00",
+   "value": 13459.89
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T18:00:00+00:00",
+   "value": 13653.59
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T19:00:00+00:00",
+   "value": 13628.18
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T20:00:00+00:00",
+   "value": 13546.8
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T21:00:00+00:00",
+   "value": 13360.31
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T22:00:00+00:00",
+   "value": 12923.51
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-03T23:00:00+00:00",
+   "value": 10540.58
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T00:00:00+00:00",
+   "value": 4728.8
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T01:00:00+00:00",
+   "value": 371.37
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T02:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T03:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T04:00:00+00:00",
+   "value": 0
+  },
+  {
+   "dataset": "caiso_renewables_fcst_dam",
+   "series": "SP15:Solar",
+   "ts": "2026-10-04T05:00:00+00:00",
+   "value": 0
+  }
+ ],
+ "banked_at": "2026-10-03T17:20:46.232826+00:00",
+ "fleet": [],
+ "hours": [
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 1,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:35:15+00:00",
+   "target_ts": "2026-10-01T12:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 2,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 16.267,
+   "registry_mw": 16.259,
+   "source_posted_ts": "2026-10-01T15:35:24+00:00",
+   "target_ts": "2026-10-01T13:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 3,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 23.642,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 4952.053,
+   "registry_mw": 5004.329,
+   "source_posted_ts": "2026-10-01T15:36:05+00:00",
+   "target_ts": "2026-10-01T14:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 4,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 100.327,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 17044.696,
+   "registry_mw": 17193.876,
+   "source_posted_ts": "2026-10-01T15:36:22+00:00",
+   "target_ts": "2026-10-01T15:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 5,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 118.092,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19715.322,
+   "registry_mw": 19932.582,
+   "source_posted_ts": "2026-10-01T15:36:22+00:00",
+   "target_ts": "2026-10-01T16:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h01_06",
+   "lead_h": 6,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 120.908,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 20112.326,
+   "registry_mw": 20366.345,
+   "source_posted_ts": "2026-10-01T15:36:20+00:00",
+   "target_ts": "2026-10-01T17:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 7,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 118.855,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19866.396,
+   "registry_mw": 20130.341,
+   "source_posted_ts": "2026-10-01T15:36:29+00:00",
+   "target_ts": "2026-10-01T18:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 8,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 116.547,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19572.426,
+   "registry_mw": 19841.453,
+   "source_posted_ts": "2026-10-01T15:37:20+00:00",
+   "target_ts": "2026-10-01T19:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 9,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 117.229,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19526.962,
+   "registry_mw": 19800.655,
+   "source_posted_ts": "2026-10-01T15:37:38+00:00",
+   "target_ts": "2026-10-01T20:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 10,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 122.394,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19581.839,
+   "registry_mw": 19850.617,
+   "source_posted_ts": "2026-10-01T15:37:38+00:00",
+   "target_ts": "2026-10-01T21:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 11,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 121.603,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19291.009,
+   "registry_mw": 19530.036,
+   "source_posted_ts": "2026-10-01T15:52:23+00:00",
+   "target_ts": "2026-10-01T22:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 12,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 121.778,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 17740.739,
+   "registry_mw": 17894.109,
+   "source_posted_ts": "2026-10-01T15:52:23+00:00",
+   "target_ts": "2026-10-01T23:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 13,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 63.467,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 8684.607,
+   "registry_mw": 8717.459,
+   "source_posted_ts": "2026-10-01T15:38:27+00:00",
+   "target_ts": "2026-10-02T00:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 14,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 2.121,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 258.675,
+   "registry_mw": 259.347,
+   "source_posted_ts": "2026-10-01T15:38:27+00:00",
+   "target_ts": "2026-10-02T01:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 15,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:39:28+00:00",
+   "target_ts": "2026-10-02T02:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 16,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:39:32+00:00",
+   "target_ts": "2026-10-02T03:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 17,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:39:44+00:00",
+   "target_ts": "2026-10-02T04:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 18,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:39:55+00:00",
+   "target_ts": "2026-10-02T05:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 19,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:39:55+00:00",
+   "target_ts": "2026-10-02T06:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 20,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:40:51+00:00",
+   "target_ts": "2026-10-02T07:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 21,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:42:07+00:00",
+   "target_ts": "2026-10-02T08:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 22,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:42:07+00:00",
+   "target_ts": "2026-10-02T09:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 23,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:41:53+00:00",
+   "target_ts": "2026-10-02T10:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h07_24",
+   "lead_h": 24,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:41:53+00:00",
+   "target_ts": "2026-10-02T11:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 25,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 0,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:42:11+00:00",
+   "target_ts": "2026-10-02T12:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 26,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0.018,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 13.223,
+   "registry_mw": 12.636,
+   "source_posted_ts": "2026-10-01T15:43:20+00:00",
+   "target_ts": "2026-10-02T13:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 27,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 112.994,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 4746.603,
+   "registry_mw": 4465.063,
+   "source_posted_ts": "2026-10-01T15:44:19+00:00",
+   "target_ts": "2026-10-02T14:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 28,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 339.518,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 16565.522,
+   "registry_mw": 15241.278,
+   "source_posted_ts": "2026-10-01T15:44:19+00:00",
+   "target_ts": "2026-10-02T15:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 29,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 402.609,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19241.086,
+   "registry_mw": 17888.484,
+   "source_posted_ts": "2026-10-01T15:43:18+00:00",
+   "target_ts": "2026-10-02T16:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 30,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 460.588,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19652.986,
+   "registry_mw": 19085.538,
+   "source_posted_ts": "2026-10-01T15:44:05+00:00",
+   "target_ts": "2026-10-02T17:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 31,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 454.914,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 19326.313,
+   "registry_mw": 19051.548,
+   "source_posted_ts": "2026-10-01T15:44:05+00:00",
+   "target_ts": "2026-10-02T18:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 32,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 441.992,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 18976.187,
+   "registry_mw": 18509.9,
+   "source_posted_ts": "2026-10-01T15:43:49+00:00",
+   "target_ts": "2026-10-02T19:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 33,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 437.525,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 18882.838,
+   "registry_mw": 17668.311,
+   "source_posted_ts": "2026-10-01T15:58:53+00:00",
+   "target_ts": "2026-10-02T20:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 34,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 402.172,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 18608.713,
+   "registry_mw": 16918.62,
+   "source_posted_ts": "2026-10-01T15:58:53+00:00",
+   "target_ts": "2026-10-02T21:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 35,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 377.431,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 17558.256,
+   "registry_mw": 15990.095,
+   "source_posted_ts": "2026-10-01T15:44:15+00:00",
+   "target_ts": "2026-10-02T22:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 36,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 344.248,
+   "prev_calibrated_mw": null,
+   "prev_method_version": "solar_pv_v1",
+   "prev_registry_mw": 14558.617,
+   "registry_mw": 14269.982,
+   "source_posted_ts": "2026-10-01T15:44:26+00:00",
+   "target_ts": "2026-10-02T23:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 37,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 152.924,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 6399.588,
+   "source_posted_ts": "2026-10-01T15:59:20+00:00",
+   "target_ts": "2026-10-03T00:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 38,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 3.368,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 182.185,
+   "source_posted_ts": "2026-10-01T15:59:20+00:00",
+   "target_ts": "2026-10-03T01:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 39,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:45:31+00:00",
+   "target_ts": "2026-10-03T02:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 40,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:59:55+00:00",
+   "target_ts": "2026-10-03T03:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 41,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:59:55+00:00",
+   "target_ts": "2026-10-03T04:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 42,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:46:41+00:00",
+   "target_ts": "2026-10-03T05:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 43,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:46:41+00:00",
+   "target_ts": "2026-10-03T06:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 44,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T15:46:44+00:00",
+   "target_ts": "2026-10-03T07:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 45,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:01:38+00:00",
+   "target_ts": "2026-10-03T08:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 46,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:01:38+00:00",
+   "target_ts": "2026-10-03T09:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 47,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:01:11+00:00",
+   "target_ts": "2026-10-03T10:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h25_48",
+   "lead_h": 48,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:02:17+00:00",
+   "target_ts": "2026-10-03T11:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 49,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:02:33+00:00",
+   "target_ts": "2026-10-03T12:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 50,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0.001,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 11.25,
+   "source_posted_ts": "2026-10-01T16:02:33+00:00",
+   "target_ts": "2026-10-03T13:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 51,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 110.672,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 4333.459,
+   "source_posted_ts": "2026-10-01T16:02:19+00:00",
+   "target_ts": "2026-10-03T14:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 52,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 389.921,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 15944.183,
+   "source_posted_ts": "2026-10-01T15:48:42+00:00",
+   "target_ts": "2026-10-03T15:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 53,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 461.712,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19034.83,
+   "source_posted_ts": "2026-10-01T16:18:58+00:00",
+   "target_ts": "2026-10-03T16:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 54,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 468.851,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19613.806,
+   "source_posted_ts": "2026-10-01T16:18:58+00:00",
+   "target_ts": "2026-10-03T17:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 55,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 460.329,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19454.582,
+   "source_posted_ts": "2026-10-01T16:03:29+00:00",
+   "target_ts": "2026-10-03T18:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 56,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 452.8,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19210.688,
+   "source_posted_ts": "2026-10-01T15:50:15+00:00",
+   "target_ts": "2026-10-03T19:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 57,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 455.404,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19213.558,
+   "source_posted_ts": "2026-10-01T15:49:58+00:00",
+   "target_ts": "2026-10-03T20:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 58,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 462.219,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 19265.262,
+   "source_posted_ts": "2026-10-01T15:50:06+00:00",
+   "target_ts": "2026-10-03T21:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 59,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 459.736,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 18887.577,
+   "source_posted_ts": "2026-10-01T16:05:08+00:00",
+   "target_ts": "2026-10-03T22:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 60,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 420.091,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 17056.968,
+   "source_posted_ts": "2026-10-01T16:05:08+00:00",
+   "target_ts": "2026-10-03T23:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 61,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 179.972,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 7497.42,
+   "source_posted_ts": "2026-10-01T15:51:33+00:00",
+   "target_ts": "2026-10-04T00:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 62,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 3.402,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 178.904,
+   "source_posted_ts": "2026-10-01T16:06:16+00:00",
+   "target_ts": "2026-10-04T01:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 63,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:06:57+00:00",
+   "target_ts": "2026-10-04T02:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 64,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:07:25+00:00",
+   "target_ts": "2026-10-04T03:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 65,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:07:25+00:00",
+   "target_ts": "2026-10-04T04:00:00+00:00",
+   "weather_step_h": 1
+  },
+  {
+   "ac_mw_total": 24208.3,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "lead_band": "h49_120",
+   "lead_h": 66,
+   "method_version": "solar_pv_v1",
+   "n_sites": 1027,
+   "outage_mw_subtracted": 0,
+   "prev_calibrated_mw": null,
+   "prev_method_version": null,
+   "prev_registry_mw": null,
+   "registry_mw": 0,
+   "source_posted_ts": "2026-10-01T16:07:13+00:00",
+   "target_ts": "2026-10-04T05:00:00+00:00",
+   "weather_step_h": 1
+  }
+ ],
+ "issuance": {
+  "init_ts": "2026-10-01T12:00:00+00:00",
+  "prev_init_ts": "2026-09-30T06:00:00+00:00"
+ },
+ "lines_existing_hubsum": [
+  {
+   "calibration_id": 382,
+   "fit_end": "2026-10-01",
+   "fit_start": "2026-09-04",
+   "intercept_mw": -68.7166,
+   "lead_band": "h01_06",
+   "n_days": 28,
+   "slope": 0.801
+  },
+  {
+   "calibration_id": 383,
+   "fit_end": "2026-10-01",
+   "fit_start": "2026-09-04",
+   "intercept_mw": -280.3526,
+   "lead_band": "h07_24",
+   "n_days": 28,
+   "slope": 0.823767
+  },
+  {
+   "calibration_id": 384,
+   "fit_end": "2026-10-01",
+   "fit_start": "2026-09-04",
+   "intercept_mw": -132.2295,
+   "lead_band": "h25_48",
+   "n_days": 28,
+   "slope": 0.822645
+  },
+  {
+   "calibration_id": 385,
+   "fit_end": "2026-10-01",
+   "fit_start": "2026-09-04",
+   "intercept_mw": -160.1917,
+   "lead_band": "h49_120",
+   "n_days": 28,
+   "slope": 0.81301
+  }
+ ],
+ "scores": [
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 1519.104,
+   "lead_band": "h01_06",
+   "mae_mw": 1552.271,
+   "mae_pct_installed": 6.4121,
+   "n_days": 28,
+   "n_hours": 165,
+   "r": 0.99345,
+   "rmse_mw": 2445.462,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": -70.55,
+   "lead_band": "h01_06",
+   "mae_mw": 542.478,
+   "mae_pct_installed": 2.2409,
+   "n_days": 21,
+   "n_hours": 124,
+   "r": 0.99318,
+   "rmse_mw": 855.016,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-11"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 1610.826,
+   "lead_band": "h07_24",
+   "mae_mw": 1625.513,
+   "mae_pct_installed": 6.7147,
+   "n_days": 28,
+   "n_hours": 501,
+   "r": 0.99464,
+   "rmse_mw": 2482.932,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": -37.747,
+   "lead_band": "h07_24",
+   "mae_mw": 403.086,
+   "mae_pct_installed": 1.6651,
+   "n_days": 21,
+   "n_hours": 370,
+   "r": 0.99565,
+   "rmse_mw": 717.84,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-11"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 1472.789,
+   "lead_band": "h25_48",
+   "mae_mw": 1496.298,
+   "mae_pct_installed": 6.1809,
+   "n_days": 28,
+   "n_hours": 673,
+   "r": 0.99323,
+   "rmse_mw": 2357.943,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 41.997,
+   "lead_band": "h25_48",
+   "mae_mw": 460.881,
+   "mae_pct_installed": 1.9038,
+   "n_days": 21,
+   "n_hours": 504,
+   "r": 0.99357,
+   "rmse_mw": 852.613,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-11"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 2072.933,
+   "lead_band": "h49_120",
+   "mae_mw": 2097.123,
+   "mae_pct_installed": 8.6628,
+   "n_days": 28,
+   "n_hours": 500,
+   "r": 0.98654,
+   "rmse_mw": 2981.171,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 137.204,
+   "lead_band": "h49_120",
+   "mae_mw": 724.766,
+   "mae_pct_installed": 2.9939,
+   "n_days": 20,
+   "n_hours": 355,
+   "r": 0.9878,
+   "rmse_mw": 1188.568,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-12"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": null,
+   "lead_band": "h121_240",
+   "mae_mw": null,
+   "mae_pct_installed": null,
+   "n_days": 0,
+   "n_hours": 0,
+   "r": null,
+   "rmse_mw": null,
+   "scored": false,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": null
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": null,
+   "lead_band": "h121_240",
+   "mae_mw": null,
+   "mae_pct_installed": null,
+   "n_days": 0,
+   "n_hours": 0,
+   "r": null,
+   "rmse_mw": null,
+   "scored": false,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": null
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 1484.651,
+   "lead_band": "dam_comparable",
+   "mae_mw": 1508.984,
+   "mae_pct_installed": 6.2333,
+   "n_days": 28,
+   "n_hours": 667,
+   "r": 0.99318,
+   "rmse_mw": 2368.513,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "registry",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 41.779,
+   "lead_band": "dam_comparable",
+   "mae_mw": 465.71,
+   "mae_pct_installed": 1.9238,
+   "n_days": 21,
+   "n_hours": 498,
+   "r": 0.99351,
+   "rmse_mw": 857.707,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "calibrated",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-11"
+  },
+  {
+   "area_kind": "hub_sum",
+   "bias_mw": 670.066,
+   "lead_band": "dam_comparable",
+   "mae_mw": 723.113,
+   "mae_pct_installed": 2.987,
+   "n_days": 22,
+   "n_hours": 523,
+   "r": 0.99512,
+   "rmse_mw": 1195.068,
+   "scored": true,
+   "scored_at": "2026-10-03T16:25:30.531978+00:00",
+   "who": "caiso_dam",
+   "window_end": "2026-10-01",
+   "window_start": "2026-09-04"
+  }
+ ]
+}

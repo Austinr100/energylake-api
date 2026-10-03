@@ -1,0 +1,15 @@
+==================================== ERRORS ====================================
+_________________ ERROR collecting tests/test_solar_outlook.py _________________
+ImportError while importing test module '/home/user/energylake-api/tests/test_solar_outlook.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_solar_outlook.py:33: in <module>
+    import solar_outlook as so
+E   ModuleNotFoundError: No module named 'solar_outlook'
+=========================== short test summary info ============================
+ERROR tests/test_solar_outlook.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.67s
