@@ -1,0 +1,1725 @@
+{
+ "weighting": "population",
+ "from": "2026-10-03",
+ "days": 16,
+ "tz": "America/Los_Angeles",
+ "period_rule": "Day 1 is the Pacific calendar day after the Pacific date of the newest issuance served for the region (any source). d01_05 is days 1-5, d06_10 days 6-10, d11_15 days 11-15. A source's period sum is printed only when all five days are served, come from that source's newest issuance, and are basis_complete with a value; otherwise hdd/cdd are null and days_present says how many qualified. The normal sum is over the same days, and is null if any of them has no normal. Days outside the requested window are not served and so do not qualify.",
+ "source_labels": {
+  "gridpoints_raw": "NWS"
+ },
+ "region_count": 1,
+ "regions": [
+  {
+   "region": "pnw",
+   "weighting": "population",
+   "members": {
+    "expected": 4,
+    "expected_stations": [
+     "USW00024131",
+     "USW00024157",
+     "USW00024229",
+     "USW00024233"
+    ],
+    "present": 4,
+    "missing": [],
+    "missing_by_source": {
+     "AIFS": [],
+     "GFS": [],
+     "IFS": [],
+     "gridpoints_raw": [
+      "USW00024131",
+      "USW00024157",
+      "USW00024233"
+     ]
+    }
+   },
+   "sources": [
+    {
+     "source_product": "AIFS",
+     "label": "AIFS",
+     "newest_issued_ts": "2026-10-03T00:00:00+00:00",
+     "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+     "sample_spacing_hours": [
+      6
+     ]
+    },
+    {
+     "source_product": "GFS",
+     "label": "GFS",
+     "newest_issued_ts": "2026-10-03T06:00:00+00:00",
+     "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+     "sample_spacing_hours": [
+      3,
+      6
+     ]
+    },
+    {
+     "source_product": "IFS",
+     "label": "IFS",
+     "newest_issued_ts": "2026-10-03T00:00:00+00:00",
+     "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+     "sample_spacing_hours": [
+      6
+     ]
+    },
+    {
+     "source_product": "gridpoints_raw",
+     "label": "NWS",
+     "newest_issued_ts": "2026-10-02T18:41:09+00:00",
+     "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+     "sample_spacing_hours": []
+    }
+   ],
+   "period_anchor_issued_ts": "2026-10-03T06:00:00+00:00",
+   "days": [
+    {
+     "target_date": "2026-10-03",
+     "normal": {
+      "hdd": 6.865104,
+      "cdd": 0.37832
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 3.960956,
+       "cdd": 0.565698,
+       "tavg_f": 61.604742,
+       "hdd_normal": 6.865104,
+       "cdd_normal": 0.37832,
+       "hdd_vs_norm": -2.904148,
+       "cdd_vs_norm": 0.187378,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.54918,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 1.497885,
+       "cdd": 1.325015,
+       "tavg_f": 64.82713,
+       "hdd_normal": 6.865104,
+       "cdd_normal": 0.37832,
+       "hdd_vs_norm": -5.367219,
+       "cdd_vs_norm": 0.946694,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.0,
+        "cdd": -0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 3.411776,
+       "cdd": 0.883343,
+       "tavg_f": 62.471567,
+       "hdd_normal": 6.865104,
+       "cdd_normal": 0.37832,
+       "hdd_vs_norm": -3.453328,
+       "cdd_vs_norm": 0.505023,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.0,
+        "cdd": 0.317645,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 2.463071,
+      "cdd": 0.759316,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-04",
+     "normal": {
+      "hdd": 7.316544,
+      "cdd": 0.320836
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 3.145426,
+       "cdd": 0.496107,
+       "tavg_f": 62.350681,
+       "hdd_normal": 7.316544,
+       "cdd_normal": 0.320836,
+       "hdd_vs_norm": -4.171118,
+       "cdd_vs_norm": 0.175271,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.0,
+        "cdd": -0.317645,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 0.682355,
+       "cdd": 2.138767,
+       "tavg_f": 66.456411,
+       "hdd_normal": 7.316544,
+       "cdd_normal": 0.320836,
+       "hdd_vs_norm": -6.634189,
+       "cdd_vs_norm": 1.817931,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -0.54918,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 2.596246,
+       "cdd": 1.573068,
+       "tavg_f": 63.976822,
+       "hdd_normal": 7.316544,
+       "cdd_normal": 0.320836,
+       "hdd_vs_norm": -4.720298,
+       "cdd_vs_norm": 1.252232,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.0,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 2.463071,
+      "cdd": 1.64266,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-05",
+     "normal": {
+      "hdd": 7.755582,
+      "cdd": 0.289071
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 4.764198,
+       "cdd": 0.868187,
+       "tavg_f": 61.103989,
+       "hdd_normal": 7.755582,
+       "cdd_normal": 0.289071,
+       "hdd_vs_norm": -2.991384,
+       "cdd_vs_norm": 0.579116,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.875973,
+        "cdd": 0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 0.682355,
+       "cdd": 1.681939,
+       "tavg_f": 65.999584,
+       "hdd_normal": 7.755582,
+       "cdd_normal": 0.289071,
+       "hdd_vs_norm": -7.073227,
+       "cdd_vs_norm": 1.392868,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.682355,
+        "cdd": -0.387236,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 3.20587,
+       "cdd": 0.992214,
+       "tavg_f": 62.786344,
+       "hdd_normal": 7.755582,
+       "cdd_normal": 0.289071,
+       "hdd_vs_norm": -4.549712,
+       "cdd_vs_norm": 0.703143,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.193618,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 4.081843,
+      "cdd": 0.813752,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-06",
+     "normal": {
+      "hdd": 8.153019,
+      "cdd": 0.189986
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 5.151434,
+       "cdd": 0.620134,
+       "tavg_f": 60.468699,
+       "hdd_normal": 8.153019,
+       "cdd_normal": 0.189986,
+       "hdd_vs_norm": -3.001585,
+       "cdd_vs_norm": 0.430148,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.193618,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 3.145426,
+       "cdd": 1.116241,
+       "tavg_f": 62.970814,
+       "hdd_normal": 8.153019,
+       "cdd_normal": 0.189986,
+       "hdd_vs_norm": -5.007593,
+       "cdd_vs_norm": 0.926255,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 1.098361,
+        "cdd": -0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 4.792968,
+       "cdd": 0.868187,
+       "tavg_f": 61.07522,
+       "hdd_normal": 8.153019,
+       "cdd_normal": 0.189986,
+       "hdd_vs_norm": -3.360051,
+       "cdd_vs_norm": 0.678201,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.355562,
+        "cdd": 0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 2.006008,
+      "cdd": 0.496107,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-07",
+     "normal": {
+      "hdd": 8.404459,
+      "cdd": 0.164266
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 5.284609,
+       "cdd": 0.496107,
+       "tavg_f": 60.211498,
+       "hdd_normal": 8.404459,
+       "cdd_normal": 0.164266,
+       "hdd_vs_norm": -3.11985,
+       "cdd_vs_norm": 0.331841,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.326793,
+        "cdd": 0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 3.532663,
+       "cdd": 0.992214,
+       "tavg_f": 62.459552,
+       "hdd_normal": 8.404459,
+       "cdd_normal": 0.164266,
+       "hdd_vs_norm": -4.871797,
+       "cdd_vs_norm": 0.827948,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.060443,
+        "cdd": -0.248054,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 4.348192,
+       "cdd": 0.744161,
+       "tavg_f": 61.395968,
+       "hdd_normal": 8.404459,
+       "cdd_normal": 0.164266,
+       "hdd_vs_norm": -4.056267,
+       "cdd_vs_norm": 0.579895,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.326793,
+        "cdd": 0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 1.751946,
+      "cdd": 0.496107,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-08",
+     "normal": {
+      "hdd": 8.611733,
+      "cdd": 0.151863
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 3.472219,
+       "cdd": 0.248054,
+       "tavg_f": 61.775834,
+       "hdd_normal": 8.611733,
+       "cdd_normal": 0.151863,
+       "hdd_vs_norm": -5.139513,
+       "cdd_vs_norm": 0.09619,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 0.875973,
+        "cdd": -0.193618,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 1.231536,
+       "cdd": 1.116241,
+       "tavg_f": 64.884705,
+       "hdd_normal": 8.611733,
+       "cdd_normal": 0.151863,
+       "hdd_vs_norm": -7.380197,
+       "cdd_vs_norm": 0.964378,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -1.231536,
+        "cdd": -0.248054,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 3.278601,
+       "cdd": 0.813752,
+       "tavg_f": 62.535151,
+       "hdd_normal": 8.611733,
+       "cdd_normal": 0.151863,
+       "hdd_vs_norm": -5.333131,
+       "cdd_vs_norm": 0.661889,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -0.609624,
+        "cdd": 0.069591,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 1,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 2.240684,
+      "cdd": 0.868187,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-09",
+     "normal": {
+      "hdd": 8.82505,
+      "cdd": 0.194379
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 5.627883,
+       "cdd": 0.37208,
+       "tavg_f": 59.744197,
+       "hdd_normal": 8.82505,
+       "cdd_normal": 0.194379,
+       "hdd_vs_norm": -3.197167,
+       "cdd_vs_norm": 0.177702,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -1.469115,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 6.637031,
+       "cdd": 0.868187,
+       "tavg_f": 59.231156,
+       "hdd_normal": 8.82505,
+       "cdd_normal": 0.194379,
+       "hdd_vs_norm": -2.188019,
+       "cdd_vs_norm": 0.673809,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 4.307135,
+        "cdd": -0.620134,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 4.037881,
+       "cdd": 0.744161,
+       "tavg_f": 61.706279,
+       "hdd_normal": 8.82505,
+       "cdd_normal": 0.194379,
+       "hdd_vs_norm": -4.787169,
+       "cdd_vs_norm": 0.549782,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -4.883795,
+        "cdd": -0.124027,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 0,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024229",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T18:31:56+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": 2.59915,
+      "cdd": 0.496107,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS",
+       "gridpoints_raw"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-10",
+     "normal": {
+      "hdd": 8.963173,
+      "cdd": 0.120099
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 9.974786,
+       "cdd": 0.0,
+       "tavg_f": 55.025214,
+       "hdd_normal": 8.963173,
+       "cdd_normal": 0.120099,
+       "hdd_vs_norm": 1.011614,
+       "cdd_vs_norm": -0.120099,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -2.388598,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 10.239358,
+       "cdd": 0.0,
+       "tavg_f": 54.760642,
+       "hdd_normal": 8.963173,
+       "cdd_normal": 0.120099,
+       "hdd_vs_norm": 1.276185,
+       "cdd_vs_norm": -0.120099,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "basis_complete": true,
+        "prior_basis_complete": false
+       }
+      },
+      "IFS": {
+       "hdd": 7.646179,
+       "cdd": 1.116241,
+       "tavg_f": 58.470062,
+       "hdd_normal": 8.963173,
+       "cdd_normal": 0.120099,
+       "hdd_vs_norm": -1.316993,
+       "cdd_vs_norm": 0.996142,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -6.953243,
+        "cdd": 1.116241,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 2.593179,
+      "cdd": 1.116241,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-11",
+     "normal": {
+      "hdd": 9.169531,
+      "cdd": 0.107696
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 11.21509,
+       "cdd": 0.0,
+       "tavg_f": 53.78491,
+       "hdd_normal": 9.169531,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 2.045559,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.742799,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 15.81867,
+       "cdd": 0.0,
+       "tavg_f": 49.18133,
+       "hdd_normal": 9.169531,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 6.649139,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 7.741293,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 8.392154,
+       "cdd": 0.0,
+       "tavg_f": 56.607846,
+       "hdd_normal": 9.169531,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": -0.777377,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -7.46447,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 7.426516,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-12",
+     "normal": {
+      "hdd": 9.288893,
+      "cdd": 0.107696
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 11.863994,
+       "cdd": 0.0,
+       "tavg_f": 53.136006,
+       "hdd_normal": 9.288893,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 2.575101,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -4.803242,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 11.932223,
+       "cdd": 0.0,
+       "tavg_f": 53.067777,
+       "hdd_normal": 9.288893,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 2.64333,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 1.816928,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 10.898771,
+       "cdd": 0.0,
+       "tavg_f": 54.101229,
+       "hdd_normal": 9.288893,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 1.609878,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -4.764235,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 1.033452,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-13",
+     "normal": {
+      "hdd": 9.544726,
+      "cdd": 0.107696
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 14.072768,
+       "cdd": 0.0,
+       "tavg_f": 50.927232,
+       "hdd_normal": 9.544726,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 4.528042,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.069591,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 12.171129,
+       "cdd": 0.0,
+       "tavg_f": 52.828871,
+       "hdd_normal": 9.544726,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 2.626403,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -1.956454,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 9.76556,
+       "cdd": 0.0,
+       "tavg_f": 55.23444,
+       "hdd_normal": 9.544726,
+       "cdd_normal": 0.107696,
+       "hdd_vs_norm": 0.220834,
+       "cdd_vs_norm": -0.107696,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -4.919971,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 4.307207,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-14",
+     "normal": {
+      "hdd": 9.900559,
+      "cdd": 0.075932
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 13.110685,
+       "cdd": 0.0,
+       "tavg_f": 51.889315,
+       "hdd_normal": 9.900559,
+       "cdd_normal": 0.075932,
+       "hdd_vs_norm": 3.210127,
+       "cdd_vs_norm": -0.075932,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -2.314505,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 11.735465,
+       "cdd": 0.0,
+       "tavg_f": 53.264535,
+       "hdd_normal": 9.900559,
+       "cdd_normal": 0.075932,
+       "hdd_vs_norm": 1.834906,
+       "cdd_vs_norm": -0.075932,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.496107,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 11.276823,
+       "cdd": 0.0,
+       "tavg_f": 53.723177,
+       "hdd_normal": 9.900559,
+       "cdd_normal": 0.075932,
+       "hdd_vs_norm": 1.376264,
+       "cdd_vs_norm": -0.075932,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -1.440346,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 1.833862,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-15",
+     "normal": {
+      "hdd": 10.313876,
+      "cdd": 0.05657
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 10.079012,
+       "cdd": 0.0,
+       "tavg_f": 54.920988,
+       "hdd_normal": 10.313876,
+       "cdd_normal": 0.05657,
+       "hdd_vs_norm": -0.234865,
+       "cdd_vs_norm": -0.05657,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -0.930173,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 12.342221,
+       "cdd": 0.0,
+       "tavg_f": 52.657779,
+       "hdd_normal": 10.313876,
+       "cdd_normal": 0.05657,
+       "hdd_vs_norm": 2.028345,
+       "cdd_vs_norm": -0.05657,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.022526,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 10.517507,
+       "cdd": 0.0,
+       "tavg_f": 54.482493,
+       "hdd_normal": 10.313876,
+       "cdd_normal": 0.05657,
+       "hdd_vs_norm": 0.203631,
+       "cdd_vs_norm": -0.05657,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -0.568838,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 2.263209,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-16",
+     "normal": {
+      "hdd": 10.746869,
+      "cdd": 0.044167
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": 7.529831,
+       "cdd": 0.0,
+       "tavg_f": 57.470169,
+       "hdd_normal": 10.746869,
+       "cdd_normal": 0.044167,
+       "hdd_vs_norm": -3.217038,
+       "cdd_vs_norm": -0.044167,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.647305,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      },
+      "GFS": {
+       "hdd": 13.454232,
+       "cdd": 0.0,
+       "tavg_f": 51.545768,
+       "hdd_normal": 10.746869,
+       "cdd_normal": 0.044167,
+       "hdd_vs_norm": 2.707363,
+       "cdd_vs_norm": -0.044167,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": 3.328119,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 3
+       },
+       "change_absence": null
+      },
+      "IFS": {
+       "hdd": 6.745939,
+       "cdd": 0.0,
+       "tavg_f": 58.254061,
+       "hdd_normal": 10.746869,
+       "cdd_normal": 0.044167,
+       "hdd_vs_norm": -4.000931,
+       "cdd_vs_norm": -0.044167,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 6,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": {
+        "hdd": -3.21638,
+        "cdd": 0.0,
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "spacing_comparable": true,
+        "prior_sample_spacing_hours": 6
+       },
+       "change_absence": null
+      }
+     },
+     "spread": {
+      "hdd": 6.708293,
+      "cdd": 0.0,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 3,
+      "spacing_comparable": false
+     }
+    },
+    {
+     "target_date": "2026-10-17",
+     "normal": {
+      "hdd": 11.111627,
+      "cdd": 0.031764
+     },
+     "by_source": {
+      "AIFS": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 0,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024229",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      },
+      "GFS": {
+       "hdd": 11.599422,
+       "cdd": 0.0,
+       "tavg_f": 53.400578,
+       "hdd_normal": 11.111627,
+       "cdd_normal": 0.031764,
+       "hdd_vs_norm": 0.487795,
+       "cdd_vs_norm": -0.031764,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "basis_complete": true,
+       "sample_spacing_hours": 3,
+       "members_present": 4,
+       "missing_stations": [],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "basis_complete": true,
+        "prior_basis_complete": false
+       }
+      },
+      "IFS": {
+       "hdd": null,
+       "cdd": null,
+       "tavg_f": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "hdd_vs_norm": null,
+       "cdd_vs_norm": null,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "basis_complete": false,
+       "sample_spacing_hours": null,
+       "members_present": 0,
+       "missing_stations": [
+        "USW00024131",
+        "USW00024157",
+        "USW00024229",
+        "USW00024233"
+       ],
+       "change": null,
+       "change_absence": {
+        "reason": "incomplete_basis",
+        "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+        "prior_issued_ts": "2026-10-02T12:00:00+00:00",
+        "basis_complete": false,
+        "prior_basis_complete": false
+       }
+      }
+     },
+     "spread": {
+      "hdd": null,
+      "cdd": null,
+      "sources_present": [
+       "AIFS",
+       "GFS",
+       "IFS"
+      ],
+      "sources_complete": 1,
+      "spacing_comparable": true
+     }
+    },
+    {
+     "target_date": "2026-10-18",
+     "normal": null,
+     "by_source": {},
+     "spread": null
+    }
+   ],
+   "periods": [
+    {
+     "window": "d01_05",
+     "from": "2026-10-03",
+     "to": "2026-10-07",
+     "by_source": {
+      "AIFS": {
+       "hdd": 22.306623,
+       "cdd": 3.046233,
+       "hdd_normal": 38.494708,
+       "cdd_normal": 1.342479,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "GFS": {
+       "hdd": 9.540684,
+       "cdd": 7.254176,
+       "hdd_normal": 38.494708,
+       "cdd_normal": 1.342479,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "IFS": {
+       "hdd": 18.355052,
+       "cdd": 5.060973,
+       "hdd_normal": 38.494708,
+       "cdd_normal": 1.342479,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "days_present": 0,
+       "days_required": 5,
+       "complete": false
+      }
+     }
+    },
+    {
+     "window": "d06_10",
+     "from": "2026-10-08",
+     "to": "2026-10-12",
+     "by_source": {
+      "AIFS": {
+       "hdd": 42.153972,
+       "cdd": 0.620134,
+       "hdd_normal": 44.85838,
+       "cdd_normal": 0.681733,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "GFS": {
+       "hdd": 45.858818,
+       "cdd": 1.984428,
+       "hdd_normal": 44.85838,
+       "cdd_normal": 0.681733,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "IFS": {
+       "hdd": 34.253586,
+       "cdd": 2.674154,
+       "hdd_normal": 44.85838,
+       "cdd_normal": 0.681733,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "days_present": 0,
+       "days_required": 5,
+       "complete": false
+      }
+     }
+    },
+    {
+     "window": "d11_15",
+     "from": "2026-10-13",
+     "to": "2026-10-17",
+     "by_source": {
+      "AIFS": {
+       "hdd": null,
+       "cdd": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 4,
+       "days_required": 5,
+       "complete": false
+      },
+      "GFS": {
+       "hdd": 61.302469,
+       "cdd": 0.0,
+       "hdd_normal": 51.617657,
+       "cdd_normal": 0.316129,
+       "issued_ts": "2026-10-03T06:00:00+00:00",
+       "days_present": 5,
+       "days_required": 5,
+       "complete": true
+      },
+      "IFS": {
+       "hdd": null,
+       "cdd": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "issued_ts": "2026-10-03T00:00:00+00:00",
+       "days_present": 4,
+       "days_required": 5,
+       "complete": false
+      },
+      "gridpoints_raw": {
+       "hdd": null,
+       "cdd": null,
+       "hdd_normal": null,
+       "cdd_normal": null,
+       "issued_ts": "2026-10-02T18:41:09+00:00",
+       "days_present": 0,
+       "days_required": 5,
+       "complete": false
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "cache": {
+  "state": "miss",
+  "built_at": "2026-10-03T17:12:05.370737+00:00",
+  "age_seconds": 0.0,
+  "ttl_seconds": 300.0,
+  "build_seconds": 0.002,
+  "refreshing": false
+ }
+}

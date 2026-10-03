@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from datetime import date as _date
 from datetime import datetime as _datetime
+from datetime import timedelta as _timedelta
 from decimal import Decimal
 from typing import Any, Iterable, Optional
 
@@ -582,4 +583,290 @@ def forecast_payload(rows: Iterable[dict], *, station, from_date, days,
         "rows_with_run_over_run_delta": with_delta,
         "newest_issued_ts": issuances[-1] if issuances else None,
         "rows": cells,
+    }
+
+
+# ---------------------------------------------------------------------------
+# /forecast/regions — the region board (d091576, D-09-25-120)
+# ---------------------------------------------------------------------------
+#
+# Three pantry views, read as they are, composed here:
+#
+#   v_degree_days_region_forecast  the level, per (region, weighting,
+#                                  target_date, issued_ts, source_product)
+#   v_degree_days_model_delta      a source against ITS OWN previous issuance
+#   v_degree_days_model_spread     latest run per model, max minus min
+#
+# main.py cuts each (region, weighting, source_product, target_date) to its
+# newest issuance (rn = 1) in all three reads. Nothing here differences two
+# rows: every change is the delta view's, every spread is the spread view's,
+# every normal and departure is the forecast view's. The only arithmetic in
+# this section is the period sums, and they are printed only when every day
+# in the period is present and complete for that source (ruling 4).
+
+# The ONE place a stored source_product becomes a printed label (ruling 5).
+# The stored label stays the key everywhere; the payload carries both.
+SOURCE_LABELS = {"gridpoints_raw": "NWS"}
+
+
+def source_label(source_product: Optional[str]) -> Optional[str]:
+    return SOURCE_LABELS.get(source_product, source_product)
+
+
+REGION_FORECAST_TZ = "America/Los_Angeles"
+
+PERIOD_WINDOWS = (("d01_05", 1, 5), ("d06_10", 6, 10), ("d11_15", 11, 15))
+
+PERIOD_RULE = (
+    "Day 1 is the Pacific calendar day after the Pacific date of the newest "
+    "issuance served for the region (any source). d01_05 is days 1-5, d06_10 "
+    "days 6-10, d11_15 days 11-15. A source's period sum is printed only when "
+    "all five days are served, come from that source's newest issuance, and "
+    "are basis_complete with a value; otherwise hdd/cdd are null and "
+    "days_present says how many qualified. The normal sum is over the same "
+    "days, and is null if any of them has no normal. Days outside the "
+    "requested window are not served and so do not qualify."
+)
+
+CHANGE_NO_PRIOR = "no_prior_issuance"
+CHANGE_INCOMPLETE = "incomplete_basis"
+
+
+def _pacific_date(ts: Any) -> Optional[_date]:
+    if ts is None:
+        return None
+    if isinstance(ts, str):
+        ts = _datetime.fromisoformat(ts)
+    from zoneinfo import ZoneInfo
+    return ts.astimezone(ZoneInfo(REGION_FORECAST_TZ)).date()
+
+
+def _as_date(v: Any) -> _date:
+    if isinstance(v, _datetime):
+        return v.date()
+    if isinstance(v, _date):
+        return v
+    return _date.fromisoformat(str(v)[:10])
+
+
+def _region_change(cell_issued: Any, d: Optional[dict]) -> tuple[Optional[dict], Optional[dict]]:
+    """(change, change_absence) for one cell, off its delta-view row.
+
+    The delta view partitions by (region, weighting, source_product,
+    target_date), so its prior is always the same source's previous issuance.
+    The row is matched on issued_ts too: a delta for any issuance other than
+    the one the cell serves is not this cell's change.
+    """
+    if d is None or d.get("issued_ts") != cell_issued or d.get("prior_issued_ts") is None:
+        return None, _absence(
+            CHANGE_NO_PRIOR,
+            "first issuance of this source for this target date — no prior run "
+            "of the same source to difference",
+        )
+    hdd, cdd = _f(d.get("hdd_delta")), _f(d.get("cdd_delta"))
+    if hdd is None and cdd is None:
+        return None, _absence(
+            CHANGE_INCOMPLETE,
+            "this issuance or the prior one is not basis_complete, so the view "
+            "carries no value to difference",
+            prior_issued_ts=_iso(d.get("prior_issued_ts")),
+            basis_complete=d.get("basis_complete"),
+            prior_basis_complete=d.get("prior_basis_complete"),
+        )
+    return {
+        "hdd": hdd,
+        "cdd": cdd,
+        "prior_issued_ts": _iso(d.get("prior_issued_ts")),
+        "spacing_comparable": d.get("spacing_comparable"),
+        "prior_sample_spacing_hours": _i(d.get("prior_sample_spacing_hours")),
+    }, None
+
+
+def _region_cell(r: dict, d: Optional[dict]) -> dict:
+    change, change_absence = _region_change(r.get("issued_ts"), d)
+    return {
+        "hdd": _f(r.get("hdd")),
+        "cdd": _f(r.get("cdd")),
+        "tavg_f": _f(r.get("tavg_f")),
+        "hdd_normal": _f(r.get("hdd_norm")),
+        "cdd_normal": _f(r.get("cdd_norm")),
+        "hdd_vs_norm": _f(r.get("hdd_vs_norm")),
+        "cdd_vs_norm": _f(r.get("cdd_vs_norm")),
+        "issued_ts": _iso(r.get("issued_ts")),
+        "basis_complete": r.get("basis_complete"),
+        "sample_spacing_hours": _i(r.get("sample_spacing_hours")),
+        "members_present": _i(r.get("members_present")),
+        "missing_stations": _stations(r.get("missing_stations")),
+        "change": change,
+        "change_absence": change_absence,
+    }
+
+
+def _region_spread(s: Optional[dict]) -> Optional[dict]:
+    if s is None:
+        return None
+    return {
+        "hdd": _f(s.get("hdd_max_minus_min")),
+        "cdd": _f(s.get("cdd_max_minus_min")),
+        "sources_present": list(s.get("source_products") or []),
+        "sources_complete": _i(s.get("sources_complete")),
+        "spacing_comparable": s.get("spacing_comparable"),
+    }
+
+
+def _period_cell(cells: list[Optional[dict]], newest_issued: Optional[str]) -> dict:
+    ok = [c for c in cells
+          if c is not None
+          and c["issued_ts"] == newest_issued
+          and c["basis_complete"] is True
+          and c["hdd"] is not None and c["cdd"] is not None]
+    complete = len(ok) == len(cells)
+    normals = complete and all(c["hdd_normal"] is not None and
+                               c["cdd_normal"] is not None for c in ok)
+    return {
+        "hdd": round(sum(c["hdd"] for c in ok), 6) if complete else None,
+        "cdd": round(sum(c["cdd"] for c in ok), 6) if complete else None,
+        "hdd_normal": round(sum(c["hdd_normal"] for c in ok), 6) if normals else None,
+        "cdd_normal": round(sum(c["cdd_normal"] for c in ok), 6) if normals else None,
+        "issued_ts": newest_issued,
+        "days_present": len(ok),
+        "days_required": len(cells),
+        "complete": complete,
+    }
+
+
+def region_forecast_payload(fc_rows: Iterable[dict], delta_rows: Iterable[dict],
+                            spread_rows: Iterable[dict], *, regions: list[str],
+                            weighting: str, from_date: _date, days: int,
+                            members: dict[str, list[str]]) -> dict:
+    """Three rn=1 reads -> one board per region.
+
+    `members` is the region's vector under this weighting (station ids), from
+    degree_day_region_weights; it states who is expected, and each served
+    cell's `missing_stations` says who was not there.
+    """
+    dates = [from_date + _timedelta(days=i) for i in range(days)]
+
+    fc: dict[str, dict[_date, dict[str, dict]]] = {}
+    for r in fc_rows:
+        fc.setdefault(r["region"], {}).setdefault(
+            _as_date(r["target_date"]), {})[r["source_product"]] = r
+    dl: dict[tuple, dict] = {}
+    for d in delta_rows:
+        dl[(d["region"], _as_date(d["target_date"]), d["source_product"])] = d
+    sp: dict[tuple, dict] = {}
+    for s in spread_rows:
+        sp[(s["region"], _as_date(s["target_date"]))] = s
+
+    out = []
+    for region in regions:
+        by_day = fc.get(region, {})
+        day_cells: dict[_date, dict[str, dict]] = {}
+        for day in dates:
+            day_cells[day] = {
+                src: _region_cell(r, dl.get((region, day, src)))
+                for src, r in sorted(by_day.get(day, {}).items())
+            }
+
+        # Sources: newest issuance and the issuance before it, per source.
+        src_cells: dict[str, list[dict]] = {}
+        for day in dates:
+            for src, c in day_cells[day].items():
+                src_cells.setdefault(src, []).append(c)
+        sources = []
+        newest_by_src: dict[str, Optional[str]] = {}
+        for src in sorted(src_cells):
+            cs = src_cells[src]
+            newest = max((c["issued_ts"] for c in cs if c["issued_ts"]), default=None)
+            newest_by_src[src] = newest
+            priors = [c["change"]["prior_issued_ts"] if c["change"] else
+                      (c["change_absence"] or {}).get("prior_issued_ts")
+                      for c in cs if c["issued_ts"] == newest]
+            priors = [p for p in priors if p]
+            sources.append({
+                "source_product": src,
+                "label": source_label(src),
+                "newest_issued_ts": newest,
+                "prior_issued_ts": max(priors) if priors else None,
+                "sample_spacing_hours": sorted({c["sample_spacing_hours"] for c in cs
+                                                if c["sample_spacing_hours"] is not None}),
+            })
+
+        # Members: the vector, and which of its stations no served cell had.
+        # A partial first or last day lists every member as missing in its
+        # own cell (`missing_stations`, kept per cell); unioning those would
+        # call a fully reporting region empty. So a member is missing here
+        # only if it is present in NO served cell (of that source, in
+        # missing_by_source; of any source, in missing).
+        expected = sorted(members.get(region, []))
+        present_by_source = {
+            src: {s for c in cs for s in expected if s not in c["missing_stations"]}
+            for src, cs in src_cells.items()
+        }
+        missing_by_source = {
+            src: [s for s in expected if s not in present_by_source[src]]
+            for src in sorted(src_cells)
+        }
+        present_any = set().union(*present_by_source.values()) if present_by_source else set()
+        missing = [s for s in expected if s not in present_any]
+
+        out_days = []
+        for day in dates:
+            cells = day_cells[day]
+            normal = next(({"hdd": c["hdd_normal"], "cdd": c["cdd_normal"]}
+                           for c in cells.values()
+                           if c["hdd_normal"] is not None and c["cdd_normal"] is not None),
+                          None)
+            out_days.append({
+                "target_date": _iso(day),
+                "normal": normal,
+                "by_source": cells,
+                "spread": _region_spread(sp.get((region, day))),
+            })
+
+        newest_any = max((v for v in newest_by_src.values() if v), default=None)
+        anchor = _pacific_date(newest_any)
+        periods = []
+        if anchor is not None:
+            for name, lo, hi in PERIOD_WINDOWS:
+                p_from = anchor + _timedelta(days=lo)
+                p_to = anchor + _timedelta(days=hi)
+                span = [p_from + _timedelta(days=i) for i in range((p_to - p_from).days + 1)]
+                periods.append({
+                    "window": name,
+                    "from": _iso(p_from),
+                    "to": _iso(p_to),
+                    "by_source": {
+                        src: _period_cell(
+                            [day_cells.get(day, {}).get(src) for day in span],
+                            newest_by_src[src])
+                        for src in sorted(src_cells)
+                    },
+                })
+
+        out.append({
+            "region": region,
+            "weighting": weighting,
+            "members": {
+                "expected": len(expected),
+                "expected_stations": expected,
+                "present": len(expected) - len(missing),
+                "missing": missing,
+                "missing_by_source": missing_by_source,
+            },
+            "sources": sources,
+            "period_anchor_issued_ts": newest_any,
+            "days": out_days,
+            "periods": periods,
+        })
+
+    return {
+        "weighting": weighting,
+        "from": _iso(from_date),
+        "days": days,
+        "tz": REGION_FORECAST_TZ,
+        "period_rule": PERIOD_RULE,
+        "source_labels": dict(SOURCE_LABELS),
+        "region_count": len(out),
+        "regions": out,
     }
