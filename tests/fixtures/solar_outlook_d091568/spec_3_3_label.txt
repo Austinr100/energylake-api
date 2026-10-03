@@ -1,0 +1,1 @@
+Weather-implied generation. What the weather says these plants should produce, from open-source models (pvlib) and public plant data. Not a forecast of metered output and not any plant's schedule.

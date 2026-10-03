@@ -1,0 +1,24 @@
+# d091568 reds — each break must turn its tests red; the clean tree must be green
+
+G1          RED   a band with no row borrows another band's score for the same who
+            -k 'test_G1_band_with_no_row': 1 failed, 40 deselected in 0.74s
+G1          RED   scored=false served as a score
+            -k 'test_G1_scored_false': 1 failed, 40 deselected in 0.72s
+G1          RED   the score lateral keeps the band but drops `who`
+            -k 'test_G1_the_score_read or test_PG_G1': 1 failed, 1 passed, 39 deselected in 1.95s
+G2          RED   caiso_dam offered beside every area
+            -k 'test_G2_no_caiso_dam': 3 failed, 38 deselected in 0.76s
+G2          RED   the score card asks for caiso_dam on every kind
+            -k 'test_G2_no_caiso_dam': 3 failed, 38 deselected in 0.71s
+G3          RED   previous issuance ranked without the model (the d091557 mistake)
+            -k 'test_G3_previous_issuance_is_ranked or test_PG_G3_previous': 2 failed, 39 deselected in 2.19s
+G3          RED   previous_mw mixes figures (always the previous registry)
+            -k 'test_G3_calibrated_hours': 1 failed, 40 deselected in 0.77s
+G4          RED   a line that exists is reported though no row carries it
+            -k 'test_G4_a_line_the_rows_do_not_carry': 1 failed, 40 deselected in 0.82s
+G5          RED   one word of the label changed
+            -k 'test_G5': 2 failed, 2 passed, 37 deselected in 0.75s
+D-09-25-75  RED   the statement timeout dropped from the outlook read
+            -k 'test_reads_run_after_the_statement_timeout': 1 failed, 40 deselected in 0.66s
+
+clean tree: GREEN  41 passed in 2.07s

@@ -1,0 +1,1490 @@
+{
+ "label": "Weather-implied generation. What the weather says these plants should produce, from open-source models (pvlib) and public plant data. Not a forecast of metered output and not any plant's schedule.",
+ "tech": "solar_pv",
+ "area_kind": "hub_sum",
+ "area": "HUBSUM",
+ "unit": "MW",
+ "issuance": {
+  "model": "gfs",
+  "init_ts": "2026-10-01T12:00:00+00:00",
+  "method_version": "solar_pv_v1",
+  "previous_init_ts": "2026-09-30T06:00:00+00:00",
+  "previous_method_version": "solar_pv_v1",
+  "source_posted_ts": "2026-10-01T16:18:58+00:00",
+  "lead_h_first": 1,
+  "lead_h_last": 66
+ },
+ "hours": [
+  {
+   "target_ts": "2026-10-01T12:00:00+00:00",
+   "lead_h": 1,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T13:00:00+00:00",
+   "lead_h": 2,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 16.259,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 16.267,
+   "previous_registry_mw": 16.267,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T14:00:00+00:00",
+   "lead_h": 3,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 5004.329,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 23.642,
+   "previous_mw": 4952.053,
+   "previous_registry_mw": 4952.053,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T15:00:00+00:00",
+   "lead_h": 4,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 17193.876,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 100.327,
+   "previous_mw": 17044.696,
+   "previous_registry_mw": 17044.696,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T16:00:00+00:00",
+   "lead_h": 5,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 19932.582,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 118.092,
+   "previous_mw": 19715.322,
+   "previous_registry_mw": 19715.322,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T17:00:00+00:00",
+   "lead_h": 6,
+   "lead_band": "h01_06",
+   "weather_step_h": 1,
+   "registry_mw": 20366.345,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 120.908,
+   "previous_mw": 20112.326,
+   "previous_registry_mw": 20112.326,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T18:00:00+00:00",
+   "lead_h": 7,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 20130.341,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 118.855,
+   "previous_mw": 19866.396,
+   "previous_registry_mw": 19866.396,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T19:00:00+00:00",
+   "lead_h": 8,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 19841.453,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 116.547,
+   "previous_mw": 19572.426,
+   "previous_registry_mw": 19572.426,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T20:00:00+00:00",
+   "lead_h": 9,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 19800.655,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 117.229,
+   "previous_mw": 19526.962,
+   "previous_registry_mw": 19526.962,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T21:00:00+00:00",
+   "lead_h": 10,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 19850.617,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 122.394,
+   "previous_mw": 19581.839,
+   "previous_registry_mw": 19581.839,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T22:00:00+00:00",
+   "lead_h": 11,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 19530.036,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 121.603,
+   "previous_mw": 19291.009,
+   "previous_registry_mw": 19291.009,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-01T23:00:00+00:00",
+   "lead_h": 12,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 17894.109,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 121.778,
+   "previous_mw": 17740.739,
+   "previous_registry_mw": 17740.739,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T00:00:00+00:00",
+   "lead_h": 13,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 8717.459,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 63.467,
+   "previous_mw": 8684.607,
+   "previous_registry_mw": 8684.607,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T01:00:00+00:00",
+   "lead_h": 14,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 259.347,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 2.121,
+   "previous_mw": 258.675,
+   "previous_registry_mw": 258.675,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T02:00:00+00:00",
+   "lead_h": 15,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T03:00:00+00:00",
+   "lead_h": 16,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T04:00:00+00:00",
+   "lead_h": 17,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T05:00:00+00:00",
+   "lead_h": 18,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T06:00:00+00:00",
+   "lead_h": 19,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T07:00:00+00:00",
+   "lead_h": 20,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T08:00:00+00:00",
+   "lead_h": 21,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T09:00:00+00:00",
+   "lead_h": 22,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T10:00:00+00:00",
+   "lead_h": 23,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T11:00:00+00:00",
+   "lead_h": 24,
+   "lead_band": "h07_24",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T12:00:00+00:00",
+   "lead_h": 25,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": 0.0,
+   "previous_registry_mw": 0.0,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T13:00:00+00:00",
+   "lead_h": 26,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 12.636,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.018,
+   "previous_mw": 13.223,
+   "previous_registry_mw": 13.223,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T14:00:00+00:00",
+   "lead_h": 27,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 4465.063,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 112.994,
+   "previous_mw": 4746.603,
+   "previous_registry_mw": 4746.603,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T15:00:00+00:00",
+   "lead_h": 28,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 15241.278,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 339.518,
+   "previous_mw": 16565.522,
+   "previous_registry_mw": 16565.522,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T16:00:00+00:00",
+   "lead_h": 29,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 17888.484,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 402.609,
+   "previous_mw": 19241.086,
+   "previous_registry_mw": 19241.086,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T17:00:00+00:00",
+   "lead_h": 30,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 19085.538,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 460.588,
+   "previous_mw": 19652.986,
+   "previous_registry_mw": 19652.986,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T18:00:00+00:00",
+   "lead_h": 31,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 19051.548,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 454.914,
+   "previous_mw": 19326.313,
+   "previous_registry_mw": 19326.313,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T19:00:00+00:00",
+   "lead_h": 32,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 18509.9,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 441.992,
+   "previous_mw": 18976.187,
+   "previous_registry_mw": 18976.187,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T20:00:00+00:00",
+   "lead_h": 33,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 17668.311,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 437.525,
+   "previous_mw": 18882.838,
+   "previous_registry_mw": 18882.838,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T21:00:00+00:00",
+   "lead_h": 34,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 16918.62,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 402.172,
+   "previous_mw": 18608.713,
+   "previous_registry_mw": 18608.713,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T22:00:00+00:00",
+   "lead_h": 35,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 15990.095,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 377.431,
+   "previous_mw": 17558.256,
+   "previous_registry_mw": 17558.256,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-02T23:00:00+00:00",
+   "lead_h": 36,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 14269.982,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 344.248,
+   "previous_mw": 14558.617,
+   "previous_registry_mw": 14558.617,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T00:00:00+00:00",
+   "lead_h": 37,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 6399.588,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 152.924,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T01:00:00+00:00",
+   "lead_h": 38,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 182.185,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 3.368,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T02:00:00+00:00",
+   "lead_h": 39,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T03:00:00+00:00",
+   "lead_h": 40,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T04:00:00+00:00",
+   "lead_h": 41,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T05:00:00+00:00",
+   "lead_h": 42,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T06:00:00+00:00",
+   "lead_h": 43,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T07:00:00+00:00",
+   "lead_h": 44,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T08:00:00+00:00",
+   "lead_h": 45,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T09:00:00+00:00",
+   "lead_h": 46,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T10:00:00+00:00",
+   "lead_h": 47,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T11:00:00+00:00",
+   "lead_h": 48,
+   "lead_band": "h25_48",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T12:00:00+00:00",
+   "lead_h": 49,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T13:00:00+00:00",
+   "lead_h": 50,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 11.25,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.001,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T14:00:00+00:00",
+   "lead_h": 51,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 4333.459,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 110.672,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T15:00:00+00:00",
+   "lead_h": 52,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 15944.183,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 389.921,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T16:00:00+00:00",
+   "lead_h": 53,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19034.83,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 461.712,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T17:00:00+00:00",
+   "lead_h": 54,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19613.806,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 468.851,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T18:00:00+00:00",
+   "lead_h": 55,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19454.582,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 460.329,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T19:00:00+00:00",
+   "lead_h": 56,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19210.688,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 452.8,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T20:00:00+00:00",
+   "lead_h": 57,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19213.558,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 455.404,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T21:00:00+00:00",
+   "lead_h": 58,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 19265.262,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 462.219,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T22:00:00+00:00",
+   "lead_h": 59,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 18887.577,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 459.736,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-03T23:00:00+00:00",
+   "lead_h": 60,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 17056.968,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 420.091,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T00:00:00+00:00",
+   "lead_h": 61,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 7497.42,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 179.972,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T01:00:00+00:00",
+   "lead_h": 62,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 178.904,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 3.402,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T02:00:00+00:00",
+   "lead_h": 63,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T03:00:00+00:00",
+   "lead_h": 64,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T04:00:00+00:00",
+   "lead_h": 65,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  },
+  {
+   "target_ts": "2026-10-04T05:00:00+00:00",
+   "lead_h": 66,
+   "lead_band": "h49_120",
+   "weather_step_h": 1,
+   "registry_mw": 0.0,
+   "calibrated_mw": null,
+   "calibration_id": null,
+   "outage_mw_subtracted": 0.0,
+   "previous_mw": null,
+   "previous_registry_mw": null,
+   "previous_calibrated_mw": null
+  }
+ ],
+ "unscaled": true,
+ "calibration": {
+  "h01_06": null,
+  "h07_24": null,
+  "h25_48": null,
+  "h49_120": null,
+  "h121_240": null
+ },
+ "scores": {
+  "h01_06": {
+   "registry": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 165,
+    "n_days": 28,
+    "bias_mw": 1519.104,
+    "mae_mw": 1552.271,
+    "mae_pct_installed": 6.4121,
+    "rmse_mw": 2445.462,
+    "r": 0.99345,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "calibrated": {
+    "window_start": "2026-09-11",
+    "window_end": "2026-10-01",
+    "n_hours": 124,
+    "n_days": 21,
+    "bias_mw": -70.55,
+    "mae_mw": 542.478,
+    "mae_pct_installed": 2.2409,
+    "rmse_mw": 855.016,
+    "r": 0.99318,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   }
+  },
+  "h07_24": {
+   "registry": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 501,
+    "n_days": 28,
+    "bias_mw": 1610.826,
+    "mae_mw": 1625.513,
+    "mae_pct_installed": 6.7147,
+    "rmse_mw": 2482.932,
+    "r": 0.99464,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "calibrated": {
+    "window_start": "2026-09-11",
+    "window_end": "2026-10-01",
+    "n_hours": 370,
+    "n_days": 21,
+    "bias_mw": -37.747,
+    "mae_mw": 403.086,
+    "mae_pct_installed": 1.6651,
+    "rmse_mw": 717.84,
+    "r": 0.99565,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   }
+  },
+  "h25_48": {
+   "registry": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 673,
+    "n_days": 28,
+    "bias_mw": 1472.789,
+    "mae_mw": 1496.298,
+    "mae_pct_installed": 6.1809,
+    "rmse_mw": 2357.943,
+    "r": 0.99323,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "calibrated": {
+    "window_start": "2026-09-11",
+    "window_end": "2026-10-01",
+    "n_hours": 504,
+    "n_days": 21,
+    "bias_mw": 41.997,
+    "mae_mw": 460.881,
+    "mae_pct_installed": 1.9038,
+    "rmse_mw": 852.613,
+    "r": 0.99357,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   }
+  },
+  "h49_120": {
+   "registry": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 500,
+    "n_days": 28,
+    "bias_mw": 2072.933,
+    "mae_mw": 2097.123,
+    "mae_pct_installed": 8.6628,
+    "rmse_mw": 2981.171,
+    "r": 0.98654,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "calibrated": {
+    "window_start": "2026-09-12",
+    "window_end": "2026-10-01",
+    "n_hours": 355,
+    "n_days": 20,
+    "bias_mw": 137.204,
+    "mae_mw": 724.766,
+    "mae_pct_installed": 2.9939,
+    "rmse_mw": 1188.568,
+    "r": 0.9878,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   }
+  },
+  "h121_240": {
+   "registry": "not yet scored",
+   "calibrated": "not yet scored"
+  },
+  "dam_comparable": {
+   "registry": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 667,
+    "n_days": 28,
+    "bias_mw": 1484.651,
+    "mae_mw": 1508.984,
+    "mae_pct_installed": 6.2333,
+    "rmse_mw": 2368.513,
+    "r": 0.99318,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "calibrated": {
+    "window_start": "2026-09-11",
+    "window_end": "2026-10-01",
+    "n_hours": 498,
+    "n_days": 21,
+    "bias_mw": 41.779,
+    "mae_mw": 465.71,
+    "mae_pct_installed": 1.9238,
+    "rmse_mw": 857.707,
+    "r": 0.99351,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   },
+   "caiso_dam": {
+    "window_start": "2026-09-04",
+    "window_end": "2026-10-01",
+    "n_hours": 523,
+    "n_days": 22,
+    "bias_mw": 670.066,
+    "mae_mw": 723.113,
+    "mae_pct_installed": 2.987,
+    "rmse_mw": 1195.068,
+    "r": 0.99512,
+    "scored_at": "2026-10-03T16:25:30.531978+00:00"
+   }
+  }
+ },
+ "score_progress": {
+  "h121_240": {
+   "registry": {
+    "n_days": 0,
+    "n_hours": 0,
+    "window_end": "2026-10-01",
+    "min_days": 14
+   },
+   "calibrated": {
+    "n_days": 0,
+    "n_hours": 0,
+    "window_end": "2026-10-01",
+    "min_days": 14
+   }
+  }
+ },
+ "actuals": [
+  {
+   "target_ts": "2026-10-01T12:00:00+00:00",
+   "mw": -45.555
+  },
+  {
+   "target_ts": "2026-10-01T13:00:00+00:00",
+   "mw": 46.489
+  },
+  {
+   "target_ts": "2026-10-01T14:00:00+00:00",
+   "mw": 4369.887
+  },
+  {
+   "target_ts": "2026-10-01T15:00:00+00:00",
+   "mw": 12962.295
+  },
+  {
+   "target_ts": "2026-10-01T16:00:00+00:00",
+   "mw": 16405.183
+  },
+  {
+   "target_ts": "2026-10-01T17:00:00+00:00",
+   "mw": 17146.214
+  },
+  {
+   "target_ts": "2026-10-01T18:00:00+00:00",
+   "mw": 17146.76
+  },
+  {
+   "target_ts": "2026-10-01T19:00:00+00:00",
+   "mw": 16850.058
+  },
+  {
+   "target_ts": "2026-10-01T20:00:00+00:00",
+   "mw": 17174.464
+  },
+  {
+   "target_ts": "2026-10-01T21:00:00+00:00",
+   "mw": 16993.669
+  },
+  {
+   "target_ts": "2026-10-01T22:00:00+00:00",
+   "mw": 15591.152
+  },
+  {
+   "target_ts": "2026-10-01T23:00:00+00:00",
+   "mw": 14240.641
+  },
+  {
+   "target_ts": "2026-10-02T00:00:00+00:00",
+   "mw": 6962.283
+  },
+  {
+   "target_ts": "2026-10-02T01:00:00+00:00",
+   "mw": 685.779
+  },
+  {
+   "target_ts": "2026-10-02T02:00:00+00:00",
+   "mw": 68.202
+  },
+  {
+   "target_ts": "2026-10-02T03:00:00+00:00",
+   "mw": -48.161
+  },
+  {
+   "target_ts": "2026-10-02T04:00:00+00:00",
+   "mw": -47.327
+  },
+  {
+   "target_ts": "2026-10-02T05:00:00+00:00",
+   "mw": -45.802
+  },
+  {
+   "target_ts": "2026-10-02T06:00:00+00:00",
+   "mw": -45.074
+  },
+  {
+   "target_ts": "2026-10-02T07:00:00+00:00",
+   "mw": -44.496
+  },
+  {
+   "target_ts": "2026-10-02T08:00:00+00:00",
+   "mw": -44.251
+  },
+  {
+   "target_ts": "2026-10-02T09:00:00+00:00",
+   "mw": -45.194
+  },
+  {
+   "target_ts": "2026-10-02T10:00:00+00:00",
+   "mw": -44.621
+  },
+  {
+   "target_ts": "2026-10-02T11:00:00+00:00",
+   "mw": -45.222
+  },
+  {
+   "target_ts": "2026-10-02T12:00:00+00:00",
+   "mw": -45.669
+  },
+  {
+   "target_ts": "2026-10-02T13:00:00+00:00",
+   "mw": 42.586
+  },
+  {
+   "target_ts": "2026-10-02T14:00:00+00:00",
+   "mw": 4293.12
+  },
+  {
+   "target_ts": "2026-10-02T15:00:00+00:00",
+   "mw": 12815.039
+  },
+  {
+   "target_ts": "2026-10-02T16:00:00+00:00",
+   "mw": 15684.76
+  },
+  {
+   "target_ts": "2026-10-02T17:00:00+00:00",
+   "mw": 16614.849
+  },
+  {
+   "target_ts": "2026-10-02T18:00:00+00:00",
+   "mw": 16178.939
+  },
+  {
+   "target_ts": "2026-10-02T19:00:00+00:00",
+   "mw": 16602.601
+  },
+  {
+   "target_ts": "2026-10-02T20:00:00+00:00",
+   "mw": 15790.144
+  },
+  {
+   "target_ts": "2026-10-02T21:00:00+00:00",
+   "mw": 15463.516
+  },
+  {
+   "target_ts": "2026-10-02T22:00:00+00:00",
+   "mw": 14852.422
+  },
+  {
+   "target_ts": "2026-10-02T23:00:00+00:00",
+   "mw": 12858.905
+  },
+  {
+   "target_ts": "2026-10-03T00:00:00+00:00",
+   "mw": 6045.143
+  },
+  {
+   "target_ts": "2026-10-03T01:00:00+00:00",
+   "mw": 328.031
+  },
+  {
+   "target_ts": "2026-10-03T02:00:00+00:00",
+   "mw": -50.509
+  }
+ ],
+ "caiso_dam": [
+  {
+   "target_ts": "2026-10-01T12:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-01T13:00:00+00:00",
+   "mw": 90.85
+  },
+  {
+   "target_ts": "2026-10-01T14:00:00+00:00",
+   "mw": 4943.71
+  },
+  {
+   "target_ts": "2026-10-01T15:00:00+00:00",
+   "mw": 14547.42
+  },
+  {
+   "target_ts": "2026-10-01T16:00:00+00:00",
+   "mw": 18109.82
+  },
+  {
+   "target_ts": "2026-10-01T17:00:00+00:00",
+   "mw": 19090.88
+  },
+  {
+   "target_ts": "2026-10-01T18:00:00+00:00",
+   "mw": 19375.25
+  },
+  {
+   "target_ts": "2026-10-01T19:00:00+00:00",
+   "mw": 19412.65
+  },
+  {
+   "target_ts": "2026-10-01T20:00:00+00:00",
+   "mw": 19281.34
+  },
+  {
+   "target_ts": "2026-10-01T21:00:00+00:00",
+   "mw": 18956.05
+  },
+  {
+   "target_ts": "2026-10-01T22:00:00+00:00",
+   "mw": 18072.11
+  },
+  {
+   "target_ts": "2026-10-01T23:00:00+00:00",
+   "mw": 15704.98
+  },
+  {
+   "target_ts": "2026-10-02T00:00:00+00:00",
+   "mw": 7593.21
+  },
+  {
+   "target_ts": "2026-10-02T01:00:00+00:00",
+   "mw": 735.97
+  },
+  {
+   "target_ts": "2026-10-02T02:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T03:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T04:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T05:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T06:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T07:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T08:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T09:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T10:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T11:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T12:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-02T13:00:00+00:00",
+   "mw": 73.16
+  },
+  {
+   "target_ts": "2026-10-02T14:00:00+00:00",
+   "mw": 4804.19
+  },
+  {
+   "target_ts": "2026-10-02T15:00:00+00:00",
+   "mw": 12952.84
+  },
+  {
+   "target_ts": "2026-10-02T16:00:00+00:00",
+   "mw": 16872.72
+  },
+  {
+   "target_ts": "2026-10-02T17:00:00+00:00",
+   "mw": 17638.64
+  },
+  {
+   "target_ts": "2026-10-02T18:00:00+00:00",
+   "mw": 17903.43
+  },
+  {
+   "target_ts": "2026-10-02T19:00:00+00:00",
+   "mw": 17767.88
+  },
+  {
+   "target_ts": "2026-10-02T20:00:00+00:00",
+   "mw": 17505.42
+  },
+  {
+   "target_ts": "2026-10-02T21:00:00+00:00",
+   "mw": 16997.91
+  },
+  {
+   "target_ts": "2026-10-02T22:00:00+00:00",
+   "mw": 15953.24
+  },
+  {
+   "target_ts": "2026-10-02T23:00:00+00:00",
+   "mw": 12634.92
+  },
+  {
+   "target_ts": "2026-10-03T00:00:00+00:00",
+   "mw": 5711.11
+  },
+  {
+   "target_ts": "2026-10-03T01:00:00+00:00",
+   "mw": 533.25
+  },
+  {
+   "target_ts": "2026-10-03T02:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T03:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T04:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T05:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T06:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T07:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T08:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T09:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T10:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T11:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T12:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-03T13:00:00+00:00",
+   "mw": 65.1
+  },
+  {
+   "target_ts": "2026-10-03T14:00:00+00:00",
+   "mw": 4806.2
+  },
+  {
+   "target_ts": "2026-10-03T15:00:00+00:00",
+   "mw": 13312.18
+  },
+  {
+   "target_ts": "2026-10-03T16:00:00+00:00",
+   "mw": 17478.5
+  },
+  {
+   "target_ts": "2026-10-03T17:00:00+00:00",
+   "mw": 18250.97
+  },
+  {
+   "target_ts": "2026-10-03T18:00:00+00:00",
+   "mw": 18521.08
+  },
+  {
+   "target_ts": "2026-10-03T19:00:00+00:00",
+   "mw": 18466.55
+  },
+  {
+   "target_ts": "2026-10-03T20:00:00+00:00",
+   "mw": 18364.55
+  },
+  {
+   "target_ts": "2026-10-03T21:00:00+00:00",
+   "mw": 18191.7
+  },
+  {
+   "target_ts": "2026-10-03T22:00:00+00:00",
+   "mw": 17651.63
+  },
+  {
+   "target_ts": "2026-10-03T23:00:00+00:00",
+   "mw": 14596.2
+  },
+  {
+   "target_ts": "2026-10-04T00:00:00+00:00",
+   "mw": 6881.15
+  },
+  {
+   "target_ts": "2026-10-04T01:00:00+00:00",
+   "mw": 675.69
+  },
+  {
+   "target_ts": "2026-10-04T02:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-04T03:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-04T04:00:00+00:00",
+   "mw": 0.0
+  },
+  {
+   "target_ts": "2026-10-04T05:00:00+00:00",
+   "mw": 0.0
+  }
+ ],
+ "fleet": {
+  "ac_mw_total": 24208.3,
+  "n_sites": 1027,
+  "by_mount_basis": [],
+  "by_dc_basis": [],
+  "registry_units": 0,
+  "registry_ac_mw": 0
+ },
+ "absence": null,
+ "cache": {
+  "state": "<per request>",
+  "built_at": "<per request>",
+  "age_seconds": "<per request>",
+  "ttl_seconds": "<per request>",
+  "build_seconds": "<per request>",
+  "refreshing": "<per request>"
+ }
+}
