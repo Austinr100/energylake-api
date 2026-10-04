@@ -1,0 +1,28 @@
+# d091590 reds — each break must turn its tests red; the clean tree must be green
+
+W1          RED   the stored calibrated figure is served at every lead (D-09-25-127 ignored)
+            -k 'test_W1_beyond or test_P1_production_hubsum': 2 failed, 1 passed, 88 deselected in 0.91s
+W1          RED   the boundary hard-coded to today's 66
+            -k 'test_W1_the_boundary_moves or test_W1_no_constant or test_W1_a_line_whose': 5 failed, 1 passed, 85 deselected in 1.01s
+W2          RED   the previous run's calibrated figure is not gated by its own line
+            -k 'test_W2': 1 failed, 90 deselected in 0.89s
+W3          RED   a day across the calibration seam is one total
+            -k 'test_W3 or test_P1_production_hubsum': 3 failed, 1 passed, 87 deselected in 0.97s
+W4          RED   the weather seam is a constant
+            -k 'test_W4_the_weather_seam': 1 failed, 1 passed, 89 deselected in 0.94s
+W5          RED   the derivation counts rows written after the line was fitted
+            -k 'test_PG_W5_derived or test_W5_derivation': 2 failed, 89 deselected in 2.39s
+W5          RED   the derivation ignores the scored set
+            -k 'test_PG_W5_derived or test_W5_derivation': 2 failed, 89 deselected in 2.08s
+W6          RED   CISO is paired with the hub actuals
+            -k 'test_W6': 2 failed, 4 passed, 85 deselected in 0.98s
+W7          RED   ZP26 gets a score card
+            -k 'test_W7_zp26 or test_P1_production_ciso': 2 failed, 89 deselected in 0.93s
+W8          RED   the attribution notice dropped from /sites
+            -k 'test_W8_on_both_routes': 1 failed, 90 deselected in 0.86s
+W9          RED   the site read becomes a window on target_ts over the whole table
+            -k 'test_W9_site_read or test_PG_W9': 2 failed, 89 deselected in 2.29s
+D-09-25-75  RED   the statement timeout dropped
+            -k 'test_reads_run_after_the_statement_timeout': 1 failed, 1 passed, 89 deselected in 0.93s
+
+clean tree: GREEN  91 passed in 4.00s

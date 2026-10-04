@@ -19874,6 +19874,225 @@ async def solar_sites(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# WIND GENERATION OUTLOOK — d091590 (API half), D-09-25-126, D-09-25-127
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/generation/wind/outlook   one area's issuance, hour by hour, with
+#                                      its weather source, lead, scaling, the
+#                                      two seams and the score per band
+#   GET /api/generation/wind/sites     the newest cycle's plants, for the map
+#
+# READ-ONLY. The tables are pantry migration 269's (tech = 'wind'); the writer
+# is pantry d091589. The SQL and the shaping are in wind_outlook.py, which
+# shares solar_outlook.py's code where the payload is the same. This section
+# is the routes and their memos; the memo plumbing, the timeout and the 503
+# contract are the solar section's (_solar_serve, SOLAR_STATEMENT_TIMEOUT,
+# SOLAR_BUILD_TIMEOUT), not a copy of them. Plans (EXPLAIN ANALYZE, BUFFERS)
+# are in docs/receipts/wind-outlook-api-d091590/plans.md.
+
+import wind_outlook as _wo
+
+_wind_outlook_cache = _DDCache(
+    "generation/wind/outlook", SOLAR_MEMO_TTL, max_entries=64,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+)
+_wind_sites_cache = _DDCache(
+    "generation/wind/sites", SOLAR_MEMO_TTL, max_entries=32,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+)
+
+
+async def _wind_outlook_build(area_kind: str, area: str, model: str,
+                              init: Optional[_datetime]) -> dict:
+    assert _pool is not None
+    key = {"tech": _wo.TECH, "area_kind": area_kind, "area": area, "model": model}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                if init is None:
+                    await cur.execute(_wo.ISSUANCE_NEWEST_SQL, key)
+                else:
+                    await cur.execute(_wo.ISSUANCE_AT_SQL, {**key, "init": init})
+                issuance = await cur.fetchone()
+                if issuance is None and init is not None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"no {model} issuance at init={init.isoformat()} "
+                               f"for {area_kind}={area}")
+                hours: list = []
+                if issuance is not None:
+                    await cur.execute(_wo.HOURS_SQL, {
+                        **key, "init": issuance["init_ts"],
+                        "prev_init": issuance["prev_init_ts"]})
+                    hours = await cur.fetchall()
+                score_rows: list = []
+                if hours and area not in _wo.NO_SCORE_AREAS:
+                    await cur.execute(_wo.SCORES_SQL[area_kind], {
+                        "tech": _wo.TECH, "area_kind": area_kind, "area": area,
+                        "method_version": hours[0]["method_version"]})
+                    score_rows = await cur.fetchall()
+                lines: list = []
+                ids = _wo.calibration_ids(hours)
+                if ids:
+                    await cur.execute(_wo.CALIBRATION_SQL, {**key, "ids": ids})
+                    lines = await cur.fetchall()
+                actual_rows: list = []
+                actuals_sql = _wo.ACTUALS_SQL.get((area_kind, area))
+                if hours and actuals_sql is not None:
+                    await cur.execute(actuals_sql, {"lo": hours[0]["target_ts"],
+                                                    "hi": hours[-1]["target_ts"]})
+                    actual_rows = await cur.fetchall()
+                await cur.execute(_wo.FLEET_SQL)
+                site_rows = await cur.fetchall()
+    return _wo.build_outlook(area_kind=area_kind, area=area, model=model,
+                             issuance=issuance, hours=hours, score_rows=score_rows,
+                             lines=lines, actual_rows=actual_rows, site_rows=site_rows)
+
+
+@app.get("/api/generation/wind/outlook")
+async def wind_outlook(
+    response: Response,
+    area_kind: Optional[str] = Query(
+        None, description="hub | hub_sum | ba | state"),
+    area: Optional[str] = Query(
+        None, description="NP15/ZP26/SP15 for hub; HUBSUM (or omit) for hub_sum; "
+                          "a BA code (CISO, ...) or a state (CA, ...)."),
+    init: Optional[str] = Query(
+        None, description="ISO instant of the issuance. Default: the newest."),
+    model: Optional[str] = Query(
+        None, description=f"One of {list(_wo.MODELS)}. Default {_wo.DEFAULT_MODEL}."),
+):
+    """Weather-implied wind generation for one area, one issuance.
+
+        { label, attribution, tech, area_kind, area, unit,
+          issuance: { model, init_ts, method_version, previous_init_ts,
+                      previous_method_version, source_posted_ts,
+                      lead_h_first, lead_h_last } | null,
+          hours: [ { target_ts, lead_h, lead_band, weather_source, weather_step_h,
+                     registry_mw, calibrated_mw, calibrated_absent_reason,
+                     calibration_id, outage_mw_subtracted, cap_mw_subtracted,
+                     scored_registry_mw, previous_mw, previous_registry_mw,
+                     previous_calibrated_mw } ],
+          unscaled,
+          seams: { weather: { last_lead, first_lead, before, after, ... } | null,
+                   calibration: { last_calibrated_lead, first_registry_lead,
+                                  reason, ... } | null },
+          calibration: { <lead band>: { slope, intercept_mw, fit_start, fit_end,
+                                        fit_lead_min, fit_lead_max, fit_rows,
+                                        ... } | null },
+          calibration_fit_leads_basis,
+          days: [ { day, hours_in_day, hours_covered, complete, figure,
+                    crosses_calibration_seam, crosses_weather_seam,
+                    energy_mwh, peak_mw, peak_ts,       # null when mixed
+                    parts: [ { figure, first_lead, last_lead, hours,
+                               energy_mwh, peak_mw, peak_ts } ] } ],
+          scores: { <band>: { registry, calibrated[, caiso_dam]: {...,
+                     actual_source, mw_yes, mw_unknown, mw_no}
+                     | "not yet scored" } } | null,     # null for ZP26
+          score_progress, scores_absence,
+          actuals: [ {target_ts, mw} ],
+          caiso_dam, caiso_dam_issued,     # hub and hub_sum ONLY; absent otherwise
+          weather_height_m, fleet, absence, cache }
+
+    D-09-25-127: `calibrated_mw` is served only where the hour's line was
+    fitted on its lead; beyond, it is null with `calibrated_absent_reason`
+    "beyond_fitted_leads" and the hour shows the registry figure. The fitted
+    leads are derived from the rows the line was fitted on
+    (`calibration_fit_leads_basis`). A day across the calibration seam is two
+    parts and never one total. Hub areas pair with hub actuals, CISO with the
+    fuel mix's wind; ZP26 has no score row (it is in HUBSUM).
+
+    A valid area with nothing banked -> 200 with `absence`; an `init` that is
+    not banked -> 404; bad params -> 400; DB unavailable -> 503. Memoised 300 s
+    per (area, model, init), single-flight, served stale while it rebuilds;
+    every read under a 5 s statement timeout.
+    """
+    try:
+        area_kind, area = _wo.parse_area(area_kind, area)
+        model = _wo.parse_model(model)
+        init_ts = _wo.parse_instant(init, "init")
+    except ValueError as e:
+        _solar_400(e)
+    key = (area_kind, area, model, init_ts)
+    return await _solar_serve(
+        _wind_outlook_cache, key,
+        lambda: _wind_outlook_build(area_kind, area, model, init_ts), response)
+
+
+async def _wind_sites_build(model: str, target: Optional[_datetime],
+                            day: Optional[_date], lo: _datetime, hi: _datetime,
+                            area_kind: Optional[str], area: Optional[str]) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_wo.SITES_SQL, {
+                    "tech": _wo.TECH, "model": model, "lo": lo, "hi": hi})
+                rows = await cur.fetchall()
+    return _wo.build_sites(model=model, target=target, day=day, lo=lo, hi=hi,
+                           area_kind=area_kind, area=area, rows=rows)
+
+
+@app.get("/api/generation/wind/sites")
+async def wind_sites(
+    response: Response,
+    target: Optional[str] = Query(
+        None, description="ISO instant of one target hour (interval-beginning)."),
+    day: Optional[str] = Query(
+        None, description="ISO date: a Pacific day's energy. Give target OR day."),
+    area_kind: Optional[str] = Query(None, description="Optional area filter."),
+    area: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
+):
+    """The newest cycle's wind plants: facts with their bases, implied output.
+
+        { label, attribution, tech, model, figure: "registry", init_ts,
+          method_version, target_ts, day, hours_expected, area_kind, area,
+          weather_height_m, plant_count, nameplate_mw,
+          plants: [ { plant_code, plant_name, latitude, longitude, nameplate_mw,
+                      hub, ba_code, state, county,
+                      turbine_model(+_basis), n_turbines(+_basis), rotor_m(+_basis),
+                      hub_height_m(+_basis), curve_turbine_type, curve_hub_height_m,
+                      curve_basis, counts_in_hub_actual(+_basis),
+                      export_cap_group, export_cap_mw, export_cap_basis,
+                      hrrr_dist_km, weather_sources, lead_h_min, lead_h_max,
+                      implied_mw, outage_mw_subtracted, cap_mw_subtracted,   # target=
+                      | implied_mwh, outage_mwh_subtracted, cap_mwh_subtracted,
+                        hours_covered,                                       # day=
+                      capacity_factor } ],
+          absence, cache }
+
+    One of `target` (an hour) or `day` (a Pacific day, 23/24/25 hours) is
+    required. Site figures are the registry figure (no line is fitted per
+    plant); `capacity_factor` is against nameplate. `export_cap_mw` is the
+    cap of the plant's GROUP (SunZia's two plants share one). Memoised 300 s,
+    5 s statement timeout. Bad params -> 400; DB unavailable -> 503.
+    """
+    try:
+        model = _wo.parse_model(model)
+        t = _wo.parse_instant(target, "target")
+        d = _wo.parse_day(day)
+        if (t is None) == (d is None):
+            raise ValueError("give exactly one of target (an ISO hour) or day (an ISO date)")
+        if t is not None and (t.minute or t.second or t.microsecond):
+            raise ValueError(f"target must be on the hour, got {target!r}")
+        ak, ar = (None, None)
+        if area_kind is not None or area is not None:
+            ak, ar = _wo.parse_area(area_kind, area)
+    except ValueError as e:
+        _solar_400(e)
+    lo, hi = (t, t + _timedelta(hours=1)) if t is not None else _wo.pacific_day_bounds(d)
+    key = (model, t, d, ak, ar)
+    return await _solar_serve(
+        _wind_sites_cache, key,
+        lambda: _wind_sites_build(model, t, d, lo, hi, ak, ar), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)
 #
 # The arithmetic — the calendar walk, the leap fold, the base, the cone, the

@@ -195,19 +195,22 @@ HOURS_SQL = f"""
 """
 
 
-def _scores_sql(area_kind: str) -> str:
+def _scores_sql(area_kind: str, extra_cols: tuple = ()) -> str:
+    """`extra_cols`: further implied_gen_scores columns a tech's rows carry
+    (wind: actual_source and the MW by class). Solar passes none."""
     values = ",\n            ".join(f"('{b}', '{w}')" for b, w in score_pairs(area_kind))
+    outer = "".join(f", s.{c}" for c in extra_cols)
     return f"""
     SELECT v.lead_band, v.who, s.area_kind, s.window_start, s.window_end,
            s.n_hours, s.n_days, s.scored, s.bias_mw, s.mae_mw,
-           s.mae_pct_installed, s.rmse_mw, s.r, s.scored_at
+           s.mae_pct_installed, s.rmse_mw, s.r, s.scored_at{outer}
       FROM (VALUES
             {values}
            ) AS v(lead_band, who)
      CROSS JOIN LATERAL (
         SELECT s.area_kind, s.window_start, s.window_end, s.n_hours, s.n_days,
                s.scored, s.bias_mw, s.mae_mw, s.mae_pct_installed, s.rmse_mw,
-               s.r, s.scored_at
+               s.r, s.scored_at{outer}
           FROM implied_gen_scores s
          WHERE s.tech = %(tech)s AND s.area = %(area)s
            AND s.lead_band = v.lead_band AND s.who = v.who
@@ -326,7 +329,7 @@ def _f(v) -> Optional[float]:
     return float(v) if v is not None else None
 
 
-def _score_obj(r: dict) -> dict:
+def _score_obj(r: dict, extra: tuple = ()) -> dict:
     return {
         "window_start": _iso(r.get("window_start")),
         "window_end": _iso(r["window_end"]),
@@ -338,10 +341,11 @@ def _score_obj(r: dict) -> dict:
         "rmse_mw": _f(r.get("rmse_mw")),
         "r": _f(r.get("r")),
         "scored_at": _iso(r.get("scored_at")),
+        **{c: r.get(c) for c in extra},
     }
 
 
-def build_scores(area_kind: str, rows: list[dict]) -> tuple[dict, dict]:
+def build_scores(area_kind: str, rows: list[dict], extra: tuple = ()) -> tuple[dict, dict]:
     """(scores, score_progress).
 
     scores[band][who] is the newest score row OF THAT BAND AND THAT WHO with
@@ -360,7 +364,7 @@ def build_scores(area_kind: str, rows: list[dict]) -> tuple[dict, dict]:
         if r is not None and r.get("area_kind") not in (None, area_kind):
             r = None                    # another kind's row is not this area's
         scored = r is not None and bool(r["scored"]) and r["n_days"] >= MIN_SCORED_DAYS
-        scores.setdefault(band, {})[who] = _score_obj(r) if scored else NOT_YET_SCORED
+        scores.setdefault(band, {})[who] = _score_obj(r, extra) if scored else NOT_YET_SCORED
         if not scored:
             progress.setdefault(band, {})[who] = (
                 None if r is None else {"n_days": r["n_days"], "n_hours": r["n_hours"],
@@ -404,11 +408,13 @@ def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
     return out
 
 
-def build_actuals(area_kind: str, area: str, rows: list[dict]) -> tuple[list, Optional[list]]:
+def build_actuals(area_kind: str, area: str, rows: list[dict],
+                  pairs: Optional[list] = None) -> tuple[list, Optional[list]]:
     """(actuals, caiso_dam). hub_sum is the three hubs' sum on hours where all
     three exist (the writer's rule, store.actual_series). caiso_dam is None —
-    the key is left out of the body — for any area clause 6 keeps it from."""
-    pairs = actual_pairs(area_kind, area)
+    the key is left out of the body — for any area clause 6 keeps it from.
+    `pairs` defaults to solar's; wind passes its own (wind_outlook)."""
+    pairs = actual_pairs(area_kind, area) if pairs is None else pairs
     role_of = {(ds, se): role for role, ds, se in pairs}
     per: dict = {"actual": {}, "caiso_dam": {}}
     for r in rows:
