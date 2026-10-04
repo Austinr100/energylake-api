@@ -1,0 +1,7 @@
+{
+ "source": "energylake-pantry @ 2dbb43a",
+ "LABEL_WIND (scripts/implied_wind.py)": "Weather-implied generation. What the weather says these plants should produce, from open-source models (windpowerlib) and public plant data. Not a forecast of metered output and not any plant's schedule.",
+ "CURVE_DATA_NOTICE (implied_gen/wind_method.py)": "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/",
+ "CAISO_ISSUE_SENTENCE (implied_gen/wind_method.py)": "CAISO's day-ahead forecast: issued between 06:09 PT the day before and 06:09 PT on the day (as far as we know).",
+ "SEAM_LEAD (implied_gen/wind_method.py)": 48
+}
