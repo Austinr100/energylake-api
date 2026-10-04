@@ -73,7 +73,7 @@ What differs from solar's body:
 ### `GET /api/generation/wind/sites?target=|day=[&area_kind=&area=][&model=]`
 
 The parameters are solar's. The response has one row per plant:
-- **Plant facts, each with its basis:** turbine model, count, rotor, hub height (null on 2 plants,
+- **Plant facts, each with its basis:** turbine model, count, rotor, hub height (null on 3 plants,
   `basis: "none"`), the curve's turbine and hub height, `counts_in_hub_actual` and its basis,
   `export_cap_group` / `export_cap_mw` / `export_cap_basis`, and `hrrr_dist_km`.
 - **Implied output:** `weather_sources` and the lead range. For `target`: implied MW, outage MW and
