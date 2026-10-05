@@ -1,0 +1,206 @@
+# d091611 — EXPLAIN (ANALYZE, BUFFERS), Neon production, 2026-10-05 ~03:40Z
+# Each statement is load_outlook.py's own text, rendered by render.py with NOW = 2026-10-05T03:30Z.
+# tests/test_load_outlook.py P1 reads this file.
+
+== FCST_SQL (area 'CA ISO-TAC')   render.py fcst "CA ISO-TAC"
+Nested Loop  (cost=0.69..215.71 rows=51 width=80) (actual time=0.035..3.194 rows=2328 loops=1)
+  Buffers: shared hit=2782
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.04 rows=3 width=64) (actual time=0.010..0.012 rows=3 loops=1)
+  ->  Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..71.72 rows=17 width=48) (actual time=0.016..0.983 rows=776 loops=3)
+        Index Cond: ((dataset = "*VALUES*".column2) AND (series = 'CA ISO-TAC'::text) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-12 07:00:00+00'::timestamp with time zone))
+        Filter: (value IS NOT NULL)
+        Buffers: shared hit=2782
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.158 ms
+Execution Time: 3.316 ms
+
+== SERIES_SQL (EIA-930 DF, BPAT)   render.py df BPAT
+Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..63.81 rows=15 width=16) (actual time=0.021..1.050 rows=672 loops=1)
+  Index Cond: ((dataset = 'wecc_load_forecast_da_hourly'::text) AND (series = 'BPAT'::text) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-12 07:00:00+00'::timestamp with time zone))
+  Filter: (value IS NOT NULL)
+  Buffers: shared hit=1173
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.121 ms
+Execution Time: 1.099 ms
+
+== SERIES_SQL (native actual)   render.py native
+Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..8.72 rows=1 width=16) (actual time=0.023..0.601 rows=692 loops=1)
+  Index Cond: ((dataset = 'caiso_load_hourly'::text) AND (series = 'actual'::text) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-05 03:30:00+00'::timestamp with time zone))
+  Filter: (value IS NOT NULL)
+  Buffers: shared hit=382
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.125 ms
+Execution Time: 0.653 ms
+
+== SERIES_SQL (EIA-930 D, BPAT)   render.py eia_d BPAT
+Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..59.87 rows=14 width=16) (actual time=0.024..1.045 rows=690 loops=1)
+  Index Cond: ((dataset = 'wecc_load_hourly'::text) AND (series = 'BPAT'::text) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-05 03:30:00+00'::timestamp with time zone))
+  Filter: (value IS NOT NULL)
+  Buffers: shared hit=1148
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.139 ms
+Execution Time: 1.096 ms
+
+== USABILITY_SQL (all 20 BAs, as /areas runs it)   render.py usability ""
+Merge Left Join  (cost=1074.90..1080.29 rows=13 width=120) (actual time=99.202..109.980 rows=20 loops=1)
+  Merge Cond: (m.area = ds.area)
+  Buffers: shared hit=31521
+  CTE m
+    ->  Values Scan on "*VALUES*"  (cost=0.05..0.40 rows=13 width=64) (actual time=0.005..0.011 rows=20 loops=1)
+          Filter: (column1 = ANY ('{AVA,AZPS,BANC,BPAT,EPE,IPCO,LADWP,NEVP,NWMT,PACE,PACW,PGE,PNM,PSEI,SCL,SRP,TEPC,TIDC,TPWR,WALC}'::text[]))
+  CTE d
+    ->  Nested Loop  (cost=0.69..883.01 rows=209 width=48) (actual time=0.031..15.707 rows=13440 loops=1)
+          Buffers: shared hit=18462
+          ->  CTE Scan on m m_1  (cost=0.00..0.26 rows=13 width=64) (actual time=0.000..0.005 rows=20 loops=1)
+          ->  Index Scan using idx_tsv_series_ts on timeseries_values t  (cost=0.69..67.70 rows=16 width=32) (actual time=0.014..0.615 rows=672 loops=20)
+                Index Cond: ((dataset = 'wecc_load_hourly'::text) AND (series = m_1.eia) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-04 07:00:00+00'::timestamp with time zone))
+                Filter: (value IS NOT NULL)
+                Buffers: shared hit=18462
+  CTE f
+    ->  Nested Loop  (cost=0.70..113.81 rows=11 width=48) (actual time=0.031..13.205 rows=13480 loops=1)
+          Buffers: shared hit=13059
+          ->  CTE Scan on m m_2  (cost=0.00..0.26 rows=13 width=32) (actual time=0.001..0.007 rows=20 loops=1)
+          ->  Index Scan using idx_tsv_series_ts on timeseries_values t_1  (cost=0.70..8.72 rows=1 width=32) (actual time=0.014..0.470 rows=674 loops=20)
+                Index Cond: ((dataset = 'caiso_load_fcst_dam'::text) AND (series = m_2.area) AND (ts >= ('2026-09-06 07:00:00+00'::timestamp with time zone - '01:00:00'::interval)) AND (ts < ('2026-10-04 07:00:00+00'::timestamp with time zone + '01:00:00'::interval)))
+                Filter: (value IS NOT NULL)
+                Buffers: shared hit=13059
+  CTE dm
+    ->  GroupAggregate  (cost=12.23..16.82 rows=200 width=48) (actual time=21.238..24.380 rows=20 loops=1)
+          Group Key: d_1.area
+          Buffers: shared hit=18454
+          ->  Sort  (cost=12.23..12.76 rows=209 width=40) (actual time=21.057..21.724 rows=13440 loops=1)
+                Sort Key: d_1.area
+                Sort Method: quicksort  Memory: 805kB
+                Buffers: shared hit=18454
+                ->  CTE Scan on d d_1  (cost=0.00..4.18 rows=209 width=40) (actual time=0.001..19.026 rows=13440 loops=1)
+                      Buffers: shared hit=18454
+  CTE ds
+    ->  Nested Loop  (cost=0.00..16.77 rows=627 width=52) (actual time=0.007..12.498 rows=40320 loops=1)
+          ->  CTE Scan on d d_2  (cost=0.00..4.18 rows=209 width=48) (actual time=0.001..1.001 rows=13440 loops=1)
+          ->  Materialize  (cost=0.00..0.05 rows=3 width=4) (actual time=0.000..0.000 rows=3 loops=13440)
+                ->  Values Scan on "*VALUES*_1"  (cost=0.00..0.04 rows=3 width=4) (actual time=0.002..0.003 rows=3 loops=1)
+  ->  Merge Left Join  (cost=26.44..31.71 rows=13 width=96) (actual time=50.512..53.617 rows=20 loops=1)
+        Merge Cond: (m.area = f.area)
+        Buffers: shared hit=31521
+        ->  Merge Left Join  (cost=26.15..31.35 rows=13 width=88) (actual time=31.364..31.396 rows=20 loops=1)
+              Merge Cond: (m.area = dm.area)
+              Buffers: shared hit=18462
+              ->  Sort  (cost=26.15..26.18 rows=13 width=72) (actual time=31.358..31.365 rows=20 loops=1)
+                    Sort Key: m.area
+                    Sort Method: quicksort  Memory: 25kB
+                    Buffers: shared hit=18462
+                    ->  Hash Right Join  (cost=21.03..25.91 rows=13 width=72) (actual time=31.335..31.352 rows=20 loops=1)
+                          Hash Cond: (d.area = m.area)
+                          Buffers: shared hit=18462
+                          ->  HashAggregate  (cost=20.61..22.61 rows=200 width=40) (actual time=31.307..31.314 rows=20 loops=1)
+                                Group Key: d.area
+                                Batches: 1  Memory Usage: 40kB
+                                Buffers: shared hit=18462
+                                ->  Hash Join  (cost=6.50..18.52 rows=209 width=48) (actual time=24.430..28.975 rows=13440 loops=1)
+                                      Hash Cond: (d.area = dm_1.area)
+                                      Buffers: shared hit=18462
+                                      ->  CTE Scan on d  (cost=0.00..4.18 rows=209 width=40) (actual time=0.031..0.979 rows=13440 loops=1)
+                                            Buffers: shared hit=8
+                                      ->  Hash  (cost=4.00..4.00 rows=200 width=40) (actual time=24.395..24.396 rows=20 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                            Buffers: shared hit=18454
+                                            ->  CTE Scan on dm dm_1  (cost=0.00..4.00 rows=200 width=40) (actual time=21.239..24.387 rows=20 loops=1)
+                                                  Buffers: shared hit=18454
+                          ->  Hash  (cost=0.26..0.26 rows=13 width=64) (actual time=0.020..0.021 rows=20 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                ->  CTE Scan on m  (cost=0.00..0.26 rows=13 width=64) (actual time=0.008..0.017 rows=20 loops=1)
+              ->  Materialize  (cost=0.00..4.50 rows=200 width=48) (actual time=0.003..0.012 rows=20 loops=1)
+                    ->  CTE Scan on dm  (cost=0.00..4.00 rows=200 width=48) (actual time=0.000..0.006 rows=20 loops=1)
+        ->  GroupAggregate  (cost=0.29..0.31 rows=1 width=40) (actual time=19.145..22.205 rows=20 loops=1)
+              Group Key: f.area
+              Buffers: shared hit=13059
+              ->  Sort  (cost=0.29..0.29 rows=1 width=40) (actual time=18.970..19.627 rows=13440 loops=1)
+                    Sort Key: f.area
+                    Sort Method: quicksort  Memory: 805kB
+                    Buffers: shared hit=13059
+                    ->  CTE Scan on f  (cost=0.00..0.28 rows=1 width=40) (actual time=0.037..16.950 rows=13440 loops=1)
+                          Filter: ((ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-04 07:00:00+00'::timestamp with time zone))
+                          Rows Removed by Filter: 40
+                          Buffers: shared hit=13059
+  ->  GroupAggregate  (cost=17.65..17.71 rows=1 width=56) (actual time=48.687..56.341 rows=20 loops=1)
+        Group Key: ds.area
+        ->  GroupAggregate  (cost=17.65..17.67 rows=1 width=44) (actual time=48.285..56.313 rows=60 loops=1)
+              Group Key: ds.area, ds.k
+              ->  Sort  (cost=17.65..17.65 rows=1 width=52) (actual time=48.133..50.150 rows=40320 loops=1)
+                    Sort Key: ds.area, ds.k
+                    Sort Method: quicksort  Memory: 3220kB
+                    ->  Hash Join  (cost=0.39..17.64 rows=1 width=52) (actual time=3.588..38.182 rows=40320 loops=1)
+                          Hash Cond: ((ds.area = f_1.area) AND (ds.fts = f_1.ts))
+                          ->  CTE Scan on ds  (cost=0.00..12.54 rows=627 width=52) (actual time=0.008..22.111 rows=40320 loops=1)
+                          ->  Hash  (cost=0.22..0.22 rows=11 width=48) (actual time=3.570..3.571 rows=13480 loops=1)
+                                Buckets: 16384 (originally 1024)  Batches: 1 (originally 1)  Memory Usage: 866kB
+                                ->  CTE Scan on f f_1  (cost=0.00..0.22 rows=11 width=48) (actual time=0.001..1.430 rows=13480 loops=1)
+Planning:
+  Buffers: shared hit=14
+Planning Time: 0.624 ms
+Execution Time: 110.895 ms
+
+== HUB_DAM_SQL   render.py hub
+Nested Loop  (cost=0.69..52.46 rows=6 width=48) (actual time=0.030..2.794 rows=3744 loops=1)
+  Buffers: shared hit=1872
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.08 rows=6 width=32) (actual time=0.002..0.004 rows=6 loops=1)
+  ->  Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..8.72 rows=1 width=16) (actual time=0.012..0.403 rows=624 loops=6)
+        Index Cond: ((dataset = 'caiso_renewables_fcst_dam'::text) AND (series = "*VALUES*".column1) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-12 07:00:00+00'::timestamp with time zone))
+        Filter: (value IS NOT NULL)
+        Buffers: shared hit=1872
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.177 ms
+Execution Time: 2.980 ms
+
+== TRUTH_SQL   render.py truth
+Nested Loop  (cost=0.69..227.42 rows=54 width=48) (actual time=0.028..2.193 rows=2076 loops=1)
+  Buffers: shared hit=1301
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.04 rows=3 width=96) (actual time=0.002..0.004 rows=3 loops=1)
+  ->  Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..75.61 rows=18 width=16) (actual time=0.016..0.653 rows=692 loops=3)
+        Index Cond: ((dataset = "*VALUES*".column2) AND (series = "*VALUES*".column3) AND (ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (ts < '2026-10-05 03:30:00+00'::timestamp with time zone))
+        Filter: (value IS NOT NULL)
+        Buffers: shared hit=1301
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.186 ms
+Execution Time: 2.346 ms
+
+== GEN_NEWEST_SQL (wind)   render.py gen_newest wind
+Limit  (cost=0.42..0.51 rows=1 width=8) (actual time=0.035..0.035 rows=1 loops=1)
+  Buffers: shared hit=5
+  ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly g  (cost=0.42..86.93 rows=958 width=8) (actual time=0.034..0.034 rows=1 loops=1)
+        Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+        Heap Fetches: 0
+        Buffers: shared hit=5
+Planning Time: 0.105 ms
+Execution Time: 0.058 ms
+
+== GEN_ROWS_SQL (solar, the newest issuance 2026-10-04 18Z)   render.py gen_rows solar@2026-10-04T18:00:00+00:00
+Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly g  (cost=0.42..63.92 rows=26 width=49) (actual time=0.070..0.130 rows=181 loops=1)
+  Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = ANY ('{"2026-10-04 18:00:00+00"}'::timestamp with time zone[])) AND (target_ts >= '2026-10-04 07:00:00+00'::timestamp with time zone) AND (target_ts < '2026-10-12 07:00:00+00'::timestamp with time zone))
+  Buffers: shared hit=10
+Planning Time: 0.134 ms
+Execution Time: 0.166 ms
+
+== GEN_ROWS_SQL (solar, the backtest's 28 12Z inits)   render.py bt_rows solar
+Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly g  (cost=0.42..332.17 rows=93 width=49) (actual time=0.040..0.726 rows=1320 loops=1)
+  Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = ANY ('{"2026-09-05 12:00:00+00","2026-09-06 12:00:00+00","2026-09-07 12:00:00+00","2026-09-08 12:00:00+00","2026-09-09 12:00:00+00","2026-09-10 12:00:00+00","2026-09-11 12:00:00+00","2026-09-12 12:00:00+00","2026-09-13 12:00:00+00","2026-09-14 12:00:00+00","2026-09-15 12:00:00+00","2026-09-16 12:00:00+00","2026-09-17 12:00:00+00","2026-09-18 12:00:00+00","2026-09-19 12:00:00+00","2026-09-20 12:00:00+00","2026-09-21 12:00:00+00","2026-09-22 12:00:00+00","2026-09-23 12:00:00+00","2026-09-24 12:00:00+00","2026-09-25 12:00:00+00","2026-09-26 12:00:00+00","2026-09-27 12:00:00+00","2026-09-28 12:00:00+00","2026-09-29 12:00:00+00","2026-09-30 12:00:00+00","2026-10-01 12:00:00+00","2026-10-02 12:00:00+00"}'::timestamp with time zone[])) AND (target_ts >= '2026-09-06 07:00:00+00'::timestamp with time zone) AND (target_ts < '2026-10-04 07:00:00+00'::timestamp with time zone))
+  Buffers: shared hit=85
+Planning:
+  Buffers: shared hit=169 read=1 dirtied=1
+Planning Time: 1.145 ms
+Execution Time: 0.853 ms
+
+== LINES_SQL   render.py lines 677,678,683,684,717,718,719,720
+Index Scan using implied_gen_calibration_pkey on implied_gen_calibration c  (cost=0.28..24.01 rows=8 width=38) (actual time=0.019..0.022 rows=8 loops=1)
+  Index Cond: (calibration_id = ANY ('{677,678,683,684,717,718,719,720}'::bigint[]))
+  Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=127
+Planning Time: 0.259 ms
+Execution Time: 0.048 ms

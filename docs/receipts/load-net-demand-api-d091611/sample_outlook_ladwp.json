@@ -1,0 +1,2013 @@
+{
+ "label": "CAISO's load forecast as CAISO publishes it (OASIS), with its measured error. Not a forecast of ours.",
+ "attributions": [
+  "Load forecasts: California ISO, OASIS (SLD_FCST). Actual load, fuel mix and hub renewables forecasts: California ISO.",
+  "Balancing-authority forecasts and actuals: U.S. Energy Information Administration, Form EIA-930."
+ ],
+ "area": {
+  "code": "LADWP",
+  "name": "Los Angeles Department of Water and Power",
+  "kind": "weim_ba",
+  "group": "western",
+  "parent": null,
+  "eia": "LDWP",
+  "eia_name": "Los Angeles Department of Water and Power"
+ },
+ "unit": "MW",
+ "today": "2026-10-04",
+ "tz": "America/Los_Angeles",
+ "max_days_ahead": 7,
+ "hours": [
+  {
+   "target_ts": "2026-10-04T07:00:00+00:00",
+   "mw": 3340.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3316.0
+  },
+  {
+   "target_ts": "2026-10-04T08:00:00+00:00",
+   "mw": 3102.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3094.0
+  },
+  {
+   "target_ts": "2026-10-04T09:00:00+00:00",
+   "mw": 2914.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2914.0
+  },
+  {
+   "target_ts": "2026-10-04T10:00:00+00:00",
+   "mw": 2771.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2781.0
+  },
+  {
+   "target_ts": "2026-10-04T11:00:00+00:00",
+   "mw": 2675.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2703.0
+  },
+  {
+   "target_ts": "2026-10-04T12:00:00+00:00",
+   "mw": 2634.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2681.0
+  },
+  {
+   "target_ts": "2026-10-04T13:00:00+00:00",
+   "mw": 2629.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2717.0
+  },
+  {
+   "target_ts": "2026-10-04T14:00:00+00:00",
+   "mw": 2682.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2793.0
+  },
+  {
+   "target_ts": "2026-10-04T15:00:00+00:00",
+   "mw": 2902.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 2991.0
+  },
+  {
+   "target_ts": "2026-10-04T16:00:00+00:00",
+   "mw": 3221.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3233.0
+  },
+  {
+   "target_ts": "2026-10-04T17:00:00+00:00",
+   "mw": 3576.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3489.0
+  },
+  {
+   "target_ts": "2026-10-04T18:00:00+00:00",
+   "mw": 3963.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3781.0
+  },
+  {
+   "target_ts": "2026-10-04T19:00:00+00:00",
+   "mw": 4326.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4082.0
+  },
+  {
+   "target_ts": "2026-10-04T20:00:00+00:00",
+   "mw": 4635.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4367.0
+  },
+  {
+   "target_ts": "2026-10-04T21:00:00+00:00",
+   "mw": 5036.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4629.0
+  },
+  {
+   "target_ts": "2026-10-04T22:00:00+00:00",
+   "mw": 5254.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4830.0
+  },
+  {
+   "target_ts": "2026-10-04T23:00:00+00:00",
+   "mw": 5401.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4929.0
+  },
+  {
+   "target_ts": "2026-10-05T00:00:00+00:00",
+   "mw": 5379.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4871.0
+  },
+  {
+   "target_ts": "2026-10-05T01:00:00+00:00",
+   "mw": 5102.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4683.0
+  },
+  {
+   "target_ts": "2026-10-05T02:00:00+00:00",
+   "mw": 4911.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4515.0
+  },
+  {
+   "target_ts": "2026-10-05T03:00:00+00:00",
+   "mw": 4704.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4321.0
+  },
+  {
+   "target_ts": "2026-10-05T04:00:00+00:00",
+   "mw": 4442.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 4103.0
+  },
+  {
+   "target_ts": "2026-10-05T05:00:00+00:00",
+   "mw": 4106.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3838.0
+  },
+  {
+   "target_ts": "2026-10-05T06:00:00+00:00",
+   "mw": 3755.0,
+   "product": "DAM",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "df_mw": 3574.0
+  },
+  {
+   "target_ts": "2026-10-05T07:00:00+00:00",
+   "mw": 3694.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T08:00:00+00:00",
+   "mw": 3436.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T09:00:00+00:00",
+   "mw": 3239.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T10:00:00+00:00",
+   "mw": 3118.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T11:00:00+00:00",
+   "mw": 3060.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T12:00:00+00:00",
+   "mw": 3088.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T13:00:00+00:00",
+   "mw": 3246.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T14:00:00+00:00",
+   "mw": 3431.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T15:00:00+00:00",
+   "mw": 3671.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T16:00:00+00:00",
+   "mw": 3939.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T17:00:00+00:00",
+   "mw": 4194.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T18:00:00+00:00",
+   "mw": 4578.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T19:00:00+00:00",
+   "mw": 4931.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T20:00:00+00:00",
+   "mw": 5235.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T21:00:00+00:00",
+   "mw": 5550.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T22:00:00+00:00",
+   "mw": 5730.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T23:00:00+00:00",
+   "mw": 5794.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T00:00:00+00:00",
+   "mw": 5747.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T01:00:00+00:00",
+   "mw": 5519.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T02:00:00+00:00",
+   "mw": 5303.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T03:00:00+00:00",
+   "mw": 5068.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T04:00:00+00:00",
+   "mw": 4778.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T05:00:00+00:00",
+   "mw": 4394.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T06:00:00+00:00",
+   "mw": 4009.0,
+   "product": "DAM",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T07:00:00+00:00",
+   "mw": 3370.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T08:00:00+00:00",
+   "mw": 3130.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T09:00:00+00:00",
+   "mw": 2953.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T10:00:00+00:00",
+   "mw": 2830.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T11:00:00+00:00",
+   "mw": 2786.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T12:00:00+00:00",
+   "mw": 2831.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T13:00:00+00:00",
+   "mw": 2980.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T14:00:00+00:00",
+   "mw": 3180.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T15:00:00+00:00",
+   "mw": 3452.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T16:00:00+00:00",
+   "mw": 3730.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T17:00:00+00:00",
+   "mw": 4130.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T18:00:00+00:00",
+   "mw": 4503.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T19:00:00+00:00",
+   "mw": 4863.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T20:00:00+00:00",
+   "mw": 5213.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T21:00:00+00:00",
+   "mw": 5477.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T22:00:00+00:00",
+   "mw": 5683.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T23:00:00+00:00",
+   "mw": 5778.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T00:00:00+00:00",
+   "mw": 5761.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T01:00:00+00:00",
+   "mw": 5547.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T02:00:00+00:00",
+   "mw": 5313.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T03:00:00+00:00",
+   "mw": 5088.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T04:00:00+00:00",
+   "mw": 4792.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T05:00:00+00:00",
+   "mw": 4406.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T06:00:00+00:00",
+   "mw": 4020.0,
+   "product": "2DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T07:00:00+00:00",
+   "mw": 3682.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T08:00:00+00:00",
+   "mw": 3429.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T09:00:00+00:00",
+   "mw": 3228.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T10:00:00+00:00",
+   "mw": 3097.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T11:00:00+00:00",
+   "mw": 3033.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T12:00:00+00:00",
+   "mw": 3050.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T13:00:00+00:00",
+   "mw": 3213.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T14:00:00+00:00",
+   "mw": 3405.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T15:00:00+00:00",
+   "mw": 3649.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T16:00:00+00:00",
+   "mw": 3914.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T17:00:00+00:00",
+   "mw": 4165.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T18:00:00+00:00",
+   "mw": 4452.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T19:00:00+00:00",
+   "mw": 4737.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T20:00:00+00:00",
+   "mw": 5003.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T21:00:00+00:00",
+   "mw": 5245.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T22:00:00+00:00",
+   "mw": 5424.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T23:00:00+00:00",
+   "mw": 5445.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T00:00:00+00:00",
+   "mw": 5382.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T01:00:00+00:00",
+   "mw": 5173.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T02:00:00+00:00",
+   "mw": 4968.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T03:00:00+00:00",
+   "mw": 4746.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T04:00:00+00:00",
+   "mw": 4478.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T05:00:00+00:00",
+   "mw": 4132.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T06:00:00+00:00",
+   "mw": 3796.0,
+   "product": "7DA",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T07:00:00+00:00",
+   "mw": 3353.31,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T08:00:00+00:00",
+   "mw": 3122.03,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T09:00:00+00:00",
+   "mw": 2931.96,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T10:00:00+00:00",
+   "mw": 2800.6,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T11:00:00+00:00",
+   "mw": 2753.61,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T12:00:00+00:00",
+   "mw": 2819.08,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T13:00:00+00:00",
+   "mw": 3027.64,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T14:00:00+00:00",
+   "mw": 3243.4,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T15:00:00+00:00",
+   "mw": 3498.71,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T16:00:00+00:00",
+   "mw": 3778.16,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T17:00:00+00:00",
+   "mw": 4046.86,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T18:00:00+00:00",
+   "mw": 4327.8,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T19:00:00+00:00",
+   "mw": 4593.41,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T20:00:00+00:00",
+   "mw": 4833.42,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T21:00:00+00:00",
+   "mw": 5041.45,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T22:00:00+00:00",
+   "mw": 5185.17,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T23:00:00+00:00",
+   "mw": 5222.04,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T00:00:00+00:00",
+   "mw": 5071.12,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T01:00:00+00:00",
+   "mw": 4801.14,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T02:00:00+00:00",
+   "mw": 4559.46,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T03:00:00+00:00",
+   "mw": 4329.02,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T04:00:00+00:00",
+   "mw": 4085.72,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T05:00:00+00:00",
+   "mw": 3802.89,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T06:00:00+00:00",
+   "mw": 3524.88,
+   "product": "7DA",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T07:00:00+00:00",
+   "mw": 3188.22,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T08:00:00+00:00",
+   "mw": 2969.69,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T09:00:00+00:00",
+   "mw": 2797.87,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T10:00:00+00:00",
+   "mw": 2679.09,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T11:00:00+00:00",
+   "mw": 2637.58,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T12:00:00+00:00",
+   "mw": 2698.04,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T13:00:00+00:00",
+   "mw": 2882.05,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T14:00:00+00:00",
+   "mw": 3064.34,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T15:00:00+00:00",
+   "mw": 3280.2,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T16:00:00+00:00",
+   "mw": 3501.01,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T17:00:00+00:00",
+   "mw": 3704.93,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T18:00:00+00:00",
+   "mw": 3927.98,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T19:00:00+00:00",
+   "mw": 4153.18,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T20:00:00+00:00",
+   "mw": 4377.94,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T21:00:00+00:00",
+   "mw": 4584.0,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T22:00:00+00:00",
+   "mw": 4726.14,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T23:00:00+00:00",
+   "mw": 4767.51,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T00:00:00+00:00",
+   "mw": 4637.07,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T01:00:00+00:00",
+   "mw": 4388.45,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T02:00:00+00:00",
+   "mw": 4173.86,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T03:00:00+00:00",
+   "mw": 3969.69,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T04:00:00+00:00",
+   "mw": 3766.21,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T05:00:00+00:00",
+   "mw": 3533.4,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T06:00:00+00:00",
+   "mw": 3293.67,
+   "product": "7DA",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T07:00:00+00:00",
+   "mw": 2988.13,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T08:00:00+00:00",
+   "mw": 2794.65,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T09:00:00+00:00",
+   "mw": 2641.73,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T10:00:00+00:00",
+   "mw": 2528.76,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T11:00:00+00:00",
+   "mw": 2464.82,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T12:00:00+00:00",
+   "mw": 2454.31,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T13:00:00+00:00",
+   "mw": 2503.23,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T14:00:00+00:00",
+   "mw": 2556.3,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T15:00:00+00:00",
+   "mw": 2697.47,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T16:00:00+00:00",
+   "mw": 2854.09,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T17:00:00+00:00",
+   "mw": 2990.88,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T18:00:00+00:00",
+   "mw": 3141.9,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T19:00:00+00:00",
+   "mw": 3304.89,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T20:00:00+00:00",
+   "mw": 3479.15,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T21:00:00+00:00",
+   "mw": 3652.58,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T22:00:00+00:00",
+   "mw": 3763.14,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T23:00:00+00:00",
+   "mw": 3779.9,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T00:00:00+00:00",
+   "mw": 3711.16,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T01:00:00+00:00",
+   "mw": 3611.31,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T02:00:00+00:00",
+   "mw": 3507.13,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T03:00:00+00:00",
+   "mw": 3371.18,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T04:00:00+00:00",
+   "mw": 3233.0,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T05:00:00+00:00",
+   "mw": 3060.17,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T06:00:00+00:00",
+   "mw": 2876.05,
+   "product": "7DA",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T07:00:00+00:00",
+   "mw": 2695.69,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T08:00:00+00:00",
+   "mw": 2534.57,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T09:00:00+00:00",
+   "mw": 2403.0,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T10:00:00+00:00",
+   "mw": 2305.36,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T11:00:00+00:00",
+   "mw": 2251.11,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T12:00:00+00:00",
+   "mw": 2245.92,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T13:00:00+00:00",
+   "mw": 2293.86,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T14:00:00+00:00",
+   "mw": 2319.56,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T15:00:00+00:00",
+   "mw": 2405.04,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T16:00:00+00:00",
+   "mw": 2485.57,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T17:00:00+00:00",
+   "mw": 2533.52,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T18:00:00+00:00",
+   "mw": 2594.12,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T19:00:00+00:00",
+   "mw": 2670.86,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T20:00:00+00:00",
+   "mw": 2768.93,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T21:00:00+00:00",
+   "mw": 2893.78,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T22:00:00+00:00",
+   "mw": 3005.57,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T23:00:00+00:00",
+   "mw": 3060.35,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T00:00:00+00:00",
+   "mw": 3035.68,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T01:00:00+00:00",
+   "mw": 3004.14,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T02:00:00+00:00",
+   "mw": 2971.13,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T03:00:00+00:00",
+   "mw": 2885.47,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T04:00:00+00:00",
+   "mw": 2794.08,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T05:00:00+00:00",
+   "mw": 2666.05,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T06:00:00+00:00",
+   "mw": 2531.5,
+   "product": "7DA",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "df_mw": null
+  }
+ ],
+ "days": [
+  {
+   "day": "2026-10-04",
+   "product": "DAM",
+   "product_name": "CAISO day-ahead (DAM)",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "issue_date": "2026-10-03",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "issued_days_ago": 1,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 93460.0,
+   "peak_mw": 5401.0,
+   "peak_ts": "2026-10-04T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO day-ahead (DAM) for Sun Oct 4, issued Sat Oct 3 at 09:10 PT, yesterday.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-05",
+   "product": "DAM",
+   "product_name": "CAISO day-ahead (DAM)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 104752.0,
+   "peak_mw": 5794.0,
+   "peak_ts": "2026-10-05T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO day-ahead (DAM) for Mon Oct 5, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-06",
+   "product": "2DA",
+   "product_name": "CAISO two-day-ahead (2DA)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 101816.0,
+   "peak_mw": 5778.0,
+   "peak_ts": "2026-10-06T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO two-day-ahead (2DA) for Tue Oct 6, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": true
+  },
+  {
+   "day": "2026-10-07",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "issue_date": "2026-09-30",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "issued_days_ago": 4,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 100846.0,
+   "peak_mw": 5445.0,
+   "peak_ts": "2026-10-07T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Wed Oct 7, issued Wed Sep 30 at 09:10 PT, 4 days ago. CAISO does not re-issue it.",
+   "product_changes": true
+  },
+  {
+   "day": "2026-10-08",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "issue_date": "2026-10-01",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "issued_days_ago": 3,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 94752.88,
+   "peak_mw": 5222.04,
+   "peak_ts": "2026-10-08T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Thu Oct 8, issued Thu Oct 1 at 09:10 PT, 3 days ago. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-09",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "issue_date": "2026-10-02",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "issued_days_ago": 2,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 87702.12,
+   "peak_mw": 4767.51,
+   "peak_ts": "2026-10-09T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Fri Oct 9, issued Fri Oct 2 at 09:10 PT, 2 days ago. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-10",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "issue_date": "2026-10-03",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "issued_days_ago": 1,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 73965.93,
+   "peak_mw": 3779.9,
+   "peak_ts": "2026-10-10T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Sat Oct 10, issued Sat Oct 3 at 09:10 PT, yesterday. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-11",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 63354.86,
+   "peak_mw": 3060.35,
+   "peak_ts": "2026-10-11T23:00:00+00:00",
+   "peak_he": 17,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Sun Oct 11, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": false
+  }
+ ],
+ "actuals": [],
+ "df": {
+  "respondent": "LDWP",
+  "respondent_name": "Los Angeles Department of Water and Power",
+  "label": "Los Angeles Department of Water and Power's own day-ahead forecast (EIA-930 DF)",
+  "dataset": "wecc_load_forecast_da_hourly"
+ },
+ "df_absent_reason": null,
+ "scores": {
+  "DAM": {
+   "status": "not_scored",
+   "text": "not scored: EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03"
+  },
+  "2DA": {
+   "status": "not_scored",
+   "text": "not scored: EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03"
+  },
+  "7DA": {
+   "status": "not_scored",
+   "text": "not scored: EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03"
+  },
+  "EIA_DF": {
+   "status": "not_scored",
+   "text": "not scored: EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03"
+  }
+ },
+ "actual_basis": {
+  "source": "eia930_d",
+  "dataset": "wecc_load_hourly",
+  "series": "LDWP",
+  "usable": false,
+  "rule": {
+   "window_days": 28,
+   "min_coverage": 0.95,
+   "dropout_fraction_of_median": 0.5,
+   "max_dropout_share": 0.005,
+   "min_r_vs_caiso_dam": 0.9,
+   "clock_shifts_h": [
+    -1,
+    0,
+    1
+   ],
+   "scale_min": 0.9,
+   "scale_max": 1.1
+  },
+  "verdict": {
+   "usable": false,
+   "failed": [
+    "dropouts",
+    "agreement"
+   ],
+   "tests": {
+    "coverage": {
+     "value": 1.0,
+     "hours": 672,
+     "hours_expected": 672,
+     "pass": true
+    },
+    "dropouts": {
+     "value": 0.0312,
+     "hours": 21,
+     "pass": false
+    },
+    "agreement": {
+     "value": 0.797,
+     "pass": false
+    },
+    "clock": {
+     "value": {
+      "-1": 0.7805,
+      "0": 0.797,
+      "+1": 0.7802
+     },
+     "pass": true
+    },
+    "scale": {
+     "value": 0.9672,
+     "d_median_mw": 3248.0,
+     "dam_median_mw": 3141.5,
+     "pass": true
+    }
+   }
+  },
+  "reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90"
+ },
+ "issue_sentence": {
+  "DAM": "CAISO's day-ahead load forecast for a day is published at 09:10 PT the day before (OASIS publication schedule; the time is derived, not stamped by CAISO).",
+  "2DA": "CAISO's two-day-ahead load forecast for a day is published at 09:10 PT two days before (OASIS publication schedule; the time is derived, not stamped by CAISO).",
+  "7DA": "CAISO's seven-day-ahead load forecast for a day is published once, at 09:10 PT seven days before, and never revised. A day three to six days out is CAISO's view from four to one days ago.",
+  "EIA_DF": "The balancing authority's own day-ahead forecast as reported to EIA-930 (DF). EIA does not report when it was issued."
+ },
+ "newest_issues": {
+  "DAM": "2026-10-04T16:10:00+00:00",
+  "2DA": "2026-10-04T16:10:00+00:00",
+  "7DA": "2026-10-04T16:10:00+00:00"
+ },
+ "absence": null
+}

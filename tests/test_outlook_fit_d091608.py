@@ -462,8 +462,11 @@ def test_A7_dd_cumulative_keeps_unbounded_stale():
 def test_A7_no_other_cache_is_bounded():
     bounded = {v.name for v in vars(main).values()
                if isinstance(v, main._DDCache) and v.max_stale_s is not None}
+    # The three load memos are bounded too, on purpose: d091611 (merged before
+    # this lane) put them under the same D-09-25-138 cap. Still an exact set.
     assert bounded == {"generation/solar/outlook", "generation/solar/sites",
-                       "generation/wind/outlook", "generation/wind/sites"}
+                       "generation/wind/outlook", "generation/wind/sites",
+                       "load/outlook", "load/areas", "load/net-demand"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

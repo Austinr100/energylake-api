@@ -299,3 +299,19 @@ The bars stay honest (no withheld number is drawn). The wording does not.
 ---
 
 **Compare:** https://github.com/Austinr100/energylake-api/compare/main...claude/outlook-routes-fitted-leads-90zzlr
+
+## Architect's addendum (2026-10-05 ~17:35Z): merged with main after d091611
+
+d091611 (load and net-demand routes, PR #100) merged first. It added `_DDCache.max_stale_s` too, with a different reading. The architect merged `origin/main` @ `5de4e89` into this branch.
+
+**The conflict, resolved to this lane's reading.**
+- `serve()` keeps `age < self.ttl + self.max_stale_s`. `max_stale_s` is the stale window **past** the ttl (D-09-25-138).
+- The `__init__` that the merge doubled now assigns `max_stale_s` once, with one comment that states the window.
+- d091611's section comment above the load memos is corrected: it said "d091608 is not on main".
+- d091611's own test (`test_stale_cap_blocks_past_max_stale`: ttl 10, cap 60, ages 30 and 120) passes under either reading, and still does.
+
+**One assertion changed.** `test_A7_no_other_cache_is_bounded` pinned the bounded set to the four outlook caches. After the merge, the three load memos are bounded as well, deliberately: d091611 put them under the same cap. The set is still exact, now seven names:
+- the four outlook caches;
+- `load/outlook`, `load/areas` and `load/net-demand`.
+
+**Tests on the merged tree:** the full suite, `tests/`, is **2361 passed**.
