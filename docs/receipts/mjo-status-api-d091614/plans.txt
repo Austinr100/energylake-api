@@ -1,0 +1,66 @@
+# d091614 — EXPLAIN (ANALYZE, BUFFERS), Neon production, 2026-10-05 ~17:45Z
+# Each statement is mjo_status.py's own text with the parameters the route binds at
+# NOW = 2026-10-05T18:00Z (mjo_status.windows / walk_range; frontier 2026-09-30).
+# tests/test_mjo_status.py P1 reads this file.
+
+== NEWEST_SQL (lo 2025-10-04, hi 2026-10-06)
+Nested Loop Left Join  (cost=0.69..43.70 rows=5 width=40) (actual time=0.047..0.097 rows=5 loops=1)
+  Buffers: shared hit=36
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.06 rows=5 width=32) (actual time=0.001..0.002 rows=5 loops=1)
+  ->  Limit  (cost=0.69..8.72 rows=1 width=8) (actual time=0.018..0.018 rows=1 loops=5)
+        Buffers: shared hit=36
+        ->  Index Only Scan using idx_tsv_series_ts on timeseries_values t  (cost=0.69..8.72 rows=1 width=8) (actual time=0.018..0.018 rows=1 loops=5)
+              Index Cond: ((dataset = 'mjo_index_daily'::text) AND (series = "*VALUES*".column1) AND (ts >= '2025-10-04 00:00:00+00'::timestamp with time zone) AND (ts < '2026-10-06 00:00:00+00'::timestamp with time zone))
+              Heap Fetches: 5
+              Buffers: shared hit=36
+Planning:
+  Buffers: shared hit=286
+Planning Time: 1.292 ms
+Execution Time: 0.156 ms
+
+== NEWEST_SQL (the CLAUDE.md trap: an empty window, lo 2026-10-01, hi 2026-10-06)
+Nested Loop Left Join  (cost=0.69..43.70 rows=5 width=40) (actual time=0.065..1.083 rows=5 loops=1)
+  Buffers: shared hit=30
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.06 rows=5 width=32) (actual time=0.001..0.005 rows=5 loops=1)
+  ->  Limit  (cost=0.69..8.72 rows=1 width=8) (actual time=0.214..0.214 rows=0 loops=5)
+        Buffers: shared hit=30
+        ->  Index Only Scan using idx_tsv_series_ts on timeseries_values t  (cost=0.69..8.72 rows=1 width=8) (actual time=0.213..0.213 rows=0 loops=5)
+              Index Cond: ((dataset = 'mjo_index_daily'::text) AND (series = "*VALUES*".column1) AND (ts >= '2026-10-01 00:00:00+00'::timestamp with time zone) AND (ts < '2026-10-06 00:00:00+00'::timestamp with time zone))
+              Heap Fetches: 0
+              Buffers: shared hit=30
+Planning:
+  Buffers: shared hit=14
+Planning Time: 0.173 ms
+Execution Time: 1.109 ms
+
+== WALK_SQL (lo 2026-08-22, hi 2026-10-01)
+Nested Loop  (cost=0.69..43.73 rows=5 width=80) (actual time=0.049..0.251 rows=200 loops=1)
+  Buffers: shared hit=114
+  ->  Values Scan on "*VALUES*"  (cost=0.00..0.06 rows=5 width=32) (actual time=0.001..0.002 rows=5 loops=1)
+  ->  Index Scan Backward using idx_tsv_series_ts on timeseries_values t  (cost=0.69..8.72 rows=1 width=48) (actual time=0.018..0.045 rows=40 loops=5)
+        Index Cond: ((dataset = 'mjo_index_daily'::text) AND (series = "*VALUES*".column1) AND (ts >= '2026-08-22 00:00:00+00'::timestamp with time zone) AND (ts < '2026-10-01 00:00:00+00'::timestamp with time zone))
+        Buffers: shared hit=114
+Planning:
+  Buffers: shared hit=17 read=2
+Planning Time: 0.811 ms
+Execution Time: 0.293 ms
+
+== SEAM_SQL (series amplitude, lo 2016-09-27, hi 2026-10-06)
+Nested Loop Left Join  (cost=1.39..25.33 rows=1 width=80) (actual time=0.192..0.193 rows=1 loops=1)
+  Buffers: shared hit=23 read=5 written=1
+  ->  Limit  (cost=0.69..16.60 rows=1 width=40) (actual time=0.174..0.174 rows=1 loops=1)
+        Buffers: shared hit=17 read=5 written=1
+        ->  Index Scan using idx_tsv_series_ts on timeseries_values t  (cost=0.69..16.60 rows=1 width=40) (actual time=0.173..0.173 rows=1 loops=1)
+              Index Cond: ((dataset = 'mjo_index_daily'::text) AND (series = 'amplitude'::text) AND (ts >= '2016-09-27 00:00:00+00'::timestamp with time zone) AND (ts < '2026-10-06 00:00:00+00'::timestamp with time zone))
+              Filter: ((meta ->> 'index_source'::text) = 'omi'::text)
+              Rows Removed by Filter: 98
+              Buffers: shared hit=17 read=5 written=1
+  ->  Limit  (cost=0.69..8.72 rows=1 width=40) (actual time=0.016..0.016 rows=1 loops=1)
+        Buffers: shared hit=6
+        ->  Index Scan Backward using idx_tsv_series_ts on timeseries_values t_1  (cost=0.69..8.72 rows=1 width=40) (actual time=0.015..0.015 rows=1 loops=1)
+              Index Cond: ((dataset = 'mjo_index_daily'::text) AND (series = 'amplitude'::text) AND (ts > t.ts) AND (ts < '2026-10-06 00:00:00+00'::timestamp with time zone))
+              Buffers: shared hit=6
+Planning:
+  Buffers: shared hit=28
+Planning Time: 0.343 ms
+Execution Time: 0.221 ms

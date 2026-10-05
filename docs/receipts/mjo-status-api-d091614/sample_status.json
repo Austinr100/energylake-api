@@ -1,0 +1,494 @@
+{
+  "label": "MJO status",
+  "dataset": "mjo_index_daily",
+  "today": {
+    "date": "2026-09-30",
+    "phase": 2,
+    "amplitude": 1.16974,
+    "active": true,
+    "index_source": "romi"
+  },
+  "frontier": {
+    "date": "2026-09-30",
+    "age_days": 5,
+    "as_of": "2026-10-05"
+  },
+  "walk": [
+    {
+      "date": "2026-08-22",
+      "pc1": -0.53379,
+      "pc2": -0.34132,
+      "rmm1": -0.34132,
+      "rmm2": 0.53379,
+      "phase": 7,
+      "amplitude": 0.63358,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-23",
+      "pc1": -0.54889,
+      "pc2": -0.47354,
+      "rmm1": -0.47354,
+      "rmm2": 0.54889,
+      "phase": 7,
+      "amplitude": 0.72493,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-24",
+      "pc1": -0.58487,
+      "pc2": -0.59704,
+      "rmm1": -0.59704,
+      "rmm2": 0.58487,
+      "phase": 8,
+      "amplitude": 0.83578,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-25",
+      "pc1": -0.66342,
+      "pc2": -0.66414,
+      "rmm1": -0.66414,
+      "rmm2": 0.66342,
+      "phase": 8,
+      "amplitude": 0.93873,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-26",
+      "pc1": -0.70133,
+      "pc2": -0.71658,
+      "rmm1": -0.71658,
+      "rmm2": 0.70133,
+      "phase": 8,
+      "amplitude": 1.00267,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-27",
+      "pc1": -0.75489,
+      "pc2": -0.71249,
+      "rmm1": -0.71249,
+      "rmm2": 0.75489,
+      "phase": 7,
+      "amplitude": 1.03803,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-28",
+      "pc1": -0.76473,
+      "pc2": -0.71245,
+      "rmm1": -0.71245,
+      "rmm2": 0.76473,
+      "phase": 7,
+      "amplitude": 1.04518,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-29",
+      "pc1": -0.71653,
+      "pc2": -0.74266,
+      "rmm1": -0.74266,
+      "rmm2": 0.71653,
+      "phase": 8,
+      "amplitude": 1.03197,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-30",
+      "pc1": -0.56733,
+      "pc2": -0.77162,
+      "rmm1": -0.77162,
+      "rmm2": 0.56733,
+      "phase": 8,
+      "amplitude": 0.95773,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-08-31",
+      "pc1": -0.51075,
+      "pc2": -0.78295,
+      "rmm1": -0.78295,
+      "rmm2": 0.51075,
+      "phase": 8,
+      "amplitude": 0.93481,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-01",
+      "pc1": -0.40388,
+      "pc2": -0.74696,
+      "rmm1": -0.74696,
+      "rmm2": 0.40388,
+      "phase": 8,
+      "amplitude": 0.84916,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-02",
+      "pc1": -0.31564,
+      "pc2": -0.6903,
+      "rmm1": -0.6903,
+      "rmm2": 0.31564,
+      "phase": 8,
+      "amplitude": 0.75904,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-03",
+      "pc1": -0.19178,
+      "pc2": -0.66602,
+      "rmm1": -0.66602,
+      "rmm2": 0.19178,
+      "phase": 8,
+      "amplitude": 0.69308,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-04",
+      "pc1": -0.18403,
+      "pc2": -0.57641,
+      "rmm1": -0.57641,
+      "rmm2": 0.18403,
+      "phase": 8,
+      "amplitude": 0.60508,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-05",
+      "pc1": -0.18107,
+      "pc2": -0.3781,
+      "rmm1": -0.3781,
+      "rmm2": 0.18107,
+      "phase": 8,
+      "amplitude": 0.41922,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-06",
+      "pc1": -0.20067,
+      "pc2": -0.15477,
+      "rmm1": -0.15477,
+      "rmm2": 0.20067,
+      "phase": 7,
+      "amplitude": 0.25341,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-07",
+      "pc1": -0.17312,
+      "pc2": -0.02637,
+      "rmm1": -0.02637,
+      "rmm2": 0.17312,
+      "phase": 7,
+      "amplitude": 0.17512,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-08",
+      "pc1": -0.19056,
+      "pc2": 0.06144,
+      "rmm1": 0.06144,
+      "rmm2": 0.19056,
+      "phase": 6,
+      "amplitude": 0.20022,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-09",
+      "pc1": -0.10799,
+      "pc2": 0.20731,
+      "rmm1": 0.20731,
+      "rmm2": 0.10799,
+      "phase": 5,
+      "amplitude": 0.23375,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-10",
+      "pc1": 0.03666,
+      "pc2": 0.32275,
+      "rmm1": 0.32275,
+      "rmm2": -0.03666,
+      "phase": 4,
+      "amplitude": 0.32483,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-11",
+      "pc1": 0.22789,
+      "pc2": 0.45021,
+      "rmm1": 0.45021,
+      "rmm2": -0.22789,
+      "phase": 4,
+      "amplitude": 0.5046,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-12",
+      "pc1": 0.3177,
+      "pc2": 0.59308,
+      "rmm1": 0.59308,
+      "rmm2": -0.3177,
+      "phase": 4,
+      "amplitude": 0.67281,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-13",
+      "pc1": 0.38098,
+      "pc2": 0.75471,
+      "rmm1": 0.75471,
+      "rmm2": -0.38098,
+      "phase": 4,
+      "amplitude": 0.84542,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-14",
+      "pc1": 0.42948,
+      "pc2": 0.77438,
+      "rmm1": 0.77438,
+      "rmm2": -0.42948,
+      "phase": 4,
+      "amplitude": 0.88551,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-15",
+      "pc1": 0.49358,
+      "pc2": 0.77959,
+      "rmm1": 0.77959,
+      "rmm2": -0.49358,
+      "phase": 4,
+      "amplitude": 0.9227,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-16",
+      "pc1": 0.44556,
+      "pc2": 0.83164,
+      "rmm1": 0.83164,
+      "rmm2": -0.44556,
+      "phase": 4,
+      "amplitude": 0.94347,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-17",
+      "pc1": 0.35091,
+      "pc2": 0.91025,
+      "rmm1": 0.91025,
+      "rmm2": -0.35091,
+      "phase": 4,
+      "amplitude": 0.97555,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-18",
+      "pc1": 0.23659,
+      "pc2": 0.93701,
+      "rmm1": 0.93701,
+      "rmm2": -0.23659,
+      "phase": 4,
+      "amplitude": 0.96642,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-19",
+      "pc1": 0.0565,
+      "pc2": 0.94634,
+      "rmm1": 0.94634,
+      "rmm2": -0.0565,
+      "phase": 4,
+      "amplitude": 0.94803,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-20",
+      "pc1": -0.06909,
+      "pc2": 0.90794,
+      "rmm1": 0.90794,
+      "rmm2": 0.06909,
+      "phase": 5,
+      "amplitude": 0.91056,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-21",
+      "pc1": -0.05879,
+      "pc2": 0.83799,
+      "rmm1": 0.83799,
+      "rmm2": 0.05879,
+      "phase": 5,
+      "amplitude": 0.84004,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-22",
+      "pc1": 0.08896,
+      "pc2": 0.696,
+      "rmm1": 0.696,
+      "rmm2": -0.08896,
+      "phase": 4,
+      "amplitude": 0.70166,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-23",
+      "pc1": 0.23669,
+      "pc2": 0.56783,
+      "rmm1": 0.56783,
+      "rmm2": -0.23669,
+      "phase": 4,
+      "amplitude": 0.61519,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-24",
+      "pc1": 0.33474,
+      "pc2": 0.40997,
+      "rmm1": 0.40997,
+      "rmm2": -0.33474,
+      "phase": 4,
+      "amplitude": 0.52926,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-25",
+      "pc1": 0.50918,
+      "pc2": 0.22277,
+      "rmm1": 0.22277,
+      "rmm2": -0.50918,
+      "phase": 3,
+      "amplitude": 0.55578,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-26",
+      "pc1": 0.70914,
+      "pc2": 0.0489,
+      "rmm1": 0.0489,
+      "rmm2": -0.70914,
+      "phase": 3,
+      "amplitude": 0.71082,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-27",
+      "pc1": 0.84777,
+      "pc2": -0.0549,
+      "rmm1": -0.0549,
+      "rmm2": -0.84777,
+      "phase": 2,
+      "amplitude": 0.84954,
+      "active": false,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-28",
+      "pc1": 0.9956,
+      "pc2": -0.1763,
+      "rmm1": -0.1763,
+      "rmm2": -0.9956,
+      "phase": 2,
+      "amplitude": 1.01109,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-29",
+      "pc1": 1.08477,
+      "pc2": -0.33517,
+      "rmm1": -0.33517,
+      "rmm2": -1.08477,
+      "phase": 2,
+      "amplitude": 1.13537,
+      "active": true,
+      "source": "romi"
+    },
+    {
+      "date": "2026-09-30",
+      "pc1": 1.06382,
+      "pc2": -0.48639,
+      "rmm1": -0.48639,
+      "rmm2": -1.06382,
+      "phase": 2,
+      "amplitude": 1.16974,
+      "active": true,
+      "source": "romi"
+    }
+  ],
+  "walk_window": {
+    "first": "2026-08-22",
+    "last": "2026-09-30",
+    "days": 40,
+    "served": 40,
+    "missing": 0,
+    "missing_dates": [],
+    "incomplete": []
+  },
+  "active_threshold": 1.0,
+  "active_rule": "active when amplitude >= 1.0 (exactly 1.0 is active)",
+  "phase_convention": "RMM1 = PC2; RMM2 = -PC1; phase = octant(atan2(RMM2, RMM1))",
+  "sources": {
+    "omi_last": "2026-06-24",
+    "romi_first": "2026-06-25",
+    "seam": "OMI through 2026-06-24; ROMI from 2026-06-25",
+    "note": null,
+    "names": {
+      "omi_orig": "OMI (original, frozen file)",
+      "omi": "OMI",
+      "romi": "ROMI (real-time OMI)"
+    },
+    "rule": "each day comes from exactly one source; nothing is blended at the seam"
+  },
+  "attribution": {
+    "text": "MJO index: NOAA Physical Sciences Laboratory (PSL), OMI and ROMI",
+    "url": "https://psl.noaa.gov/mjo/"
+  },
+  "cache": {
+    "state": "miss",
+    "built_at": "<varies>",
+    "age_seconds": 0.0,
+    "ttl_seconds": 300.0,
+    "build_seconds": "<varies>",
+    "refreshing": false
+  }
+}
