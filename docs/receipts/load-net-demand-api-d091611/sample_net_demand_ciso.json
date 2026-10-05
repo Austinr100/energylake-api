@@ -1,0 +1,5447 @@
+{
+ "label": "Net demand: CAISO's load forecast less weather-implied solar and wind, drawn only where each part has a scored figure. Not CAISO's net load forecast and not a forecast of metered output.",
+ "area": "CISO",
+ "load_area": "CA ISO-TAC",
+ "unit": "MW",
+ "today": "2026-10-04",
+ "tz": "America/Los_Angeles",
+ "definition": "net demand = CAISO's load forecast for CA ISO-TAC - CISO calibrated weather-implied solar - CISO calibrated weather-implied wind",
+ "truth_definition": "CAISO actual load (caiso_load_hourly) - fuel-mix solar - fuel-mix wind",
+ "reference_definition": "CAISO's day-ahead net demand = DAM load - DAM solar and wind of NP15, ZP26 and SP15 (caiso_renewables_fcst_dam)",
+ "issuances": {
+  "solar": {
+   "tech": "solar_pv",
+   "model": "gfs",
+   "init_ts": "2026-10-04T18:00:00+00:00"
+  },
+  "wind": {
+   "tech": "wind",
+   "model": "hrrr_gfs",
+   "init_ts": "2026-10-05T00:00:00+00:00"
+  }
+ },
+ "hours": [
+  {
+   "target_ts": "2026-10-04T07:00:00+00:00",
+   "load_mw": 30094.35,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 29413.74,
+   "truth_mw": 28903.917
+  },
+  {
+   "target_ts": "2026-10-04T08:00:00+00:00",
+   "load_mw": 28278.47,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 27541.5,
+   "truth_mw": 26817.667
+  },
+  {
+   "target_ts": "2026-10-04T09:00:00+00:00",
+   "load_mw": 26525.25,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 25642.44,
+   "truth_mw": 24996.917
+  },
+  {
+   "target_ts": "2026-10-04T10:00:00+00:00",
+   "load_mw": 25358.06,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 24364.59,
+   "truth_mw": 23622.167
+  },
+  {
+   "target_ts": "2026-10-04T11:00:00+00:00",
+   "load_mw": 24809.25,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 23744.76,
+   "truth_mw": 22873.25
+  },
+  {
+   "target_ts": "2026-10-04T12:00:00+00:00",
+   "load_mw": 24600.07,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 23493.37,
+   "truth_mw": 22536.833
+  },
+  {
+   "target_ts": "2026-10-04T13:00:00+00:00",
+   "load_mw": 24796.04,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 23617.42,
+   "truth_mw": 22379.167
+  },
+  {
+   "target_ts": "2026-10-04T14:00:00+00:00",
+   "load_mw": 25157.26,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 19338.86,
+   "truth_mw": 17593.75
+  },
+  {
+   "target_ts": "2026-10-04T15:00:00+00:00",
+   "load_mw": 25754.35,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 11207.78,
+   "truth_mw": 6549.0
+  },
+  {
+   "target_ts": "2026-10-04T16:00:00+00:00",
+   "load_mw": 26013.39,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 7000.59,
+   "truth_mw": 1652.5
+  },
+  {
+   "target_ts": "2026-10-04T17:00:00+00:00",
+   "load_mw": 26806.49,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": null,
+   "solar_absent_reason": "no_issuance_hour",
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "no_issuance_hour"
+    },
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 6787.49,
+   "truth_mw": 1724.833
+  },
+  {
+   "target_ts": "2026-10-04T18:00:00+00:00",
+   "load_mw": 28241.9,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19464.022,
+   "solar_lead_h": 1,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 8067.47,
+   "truth_mw": 3791.0
+  },
+  {
+   "target_ts": "2026-10-04T19:00:00+00:00",
+   "load_mw": 30610.34,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19203.829,
+   "solar_lead_h": 2,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 10561.07,
+   "truth_mw": 6810.083
+  },
+  {
+   "target_ts": "2026-10-04T20:00:00+00:00",
+   "load_mw": 33364.68,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19171.899,
+   "solar_lead_h": 3,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 13402.3,
+   "truth_mw": 9880.75
+  },
+  {
+   "target_ts": "2026-10-04T21:00:00+00:00",
+   "load_mw": 36349.77,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19179.742,
+   "solar_lead_h": 4,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 16695.86,
+   "truth_mw": 13309.583
+  },
+  {
+   "target_ts": "2026-10-04T22:00:00+00:00",
+   "load_mw": 39566.21,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 18729.596,
+   "solar_lead_h": 5,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 20576.83,
+   "truth_mw": 16815.333
+  },
+  {
+   "target_ts": "2026-10-04T23:00:00+00:00",
+   "load_mw": 41625.58,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 16757.064,
+   "solar_lead_h": 6,
+   "solar_absent_reason": null,
+   "wind_mw": null,
+   "wind_lead_h": null,
+   "wind_absent_reason": "no_issuance_hour",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "wind",
+     "reason": "no_issuance_hour"
+    }
+   ],
+   "caiso_da_net_demand_mw": 25984.72,
+   "truth_mw": 20884.083
+  },
+  {
+   "target_ts": "2026-10-05T00:00:00+00:00",
+   "load_mw": 43010.99,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 7312.014,
+   "solar_lead_h": 7,
+   "solar_absent_reason": null,
+   "wind_mw": 1037.518,
+   "wind_lead_h": 1,
+   "wind_absent_reason": null,
+   "net_demand_mw": 34661.458,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 35317.94,
+   "truth_mw": 32295.5
+  },
+  {
+   "target_ts": "2026-10-05T01:00:00+00:00",
+   "load_mw": 42809.28,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 177.116,
+   "solar_lead_h": 8,
+   "solar_absent_reason": null,
+   "wind_mw": 1341.175,
+   "wind_lead_h": 2,
+   "wind_absent_reason": null,
+   "net_demand_mw": 41290.989,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 41215.2,
+   "truth_mw": 40503.833
+  },
+  {
+   "target_ts": "2026-10-05T02:00:00+00:00",
+   "load_mw": 41493.97,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 9,
+   "solar_absent_reason": null,
+   "wind_mw": 1739.938,
+   "wind_lead_h": 3,
+   "wind_absent_reason": null,
+   "net_demand_mw": 39754.032,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 40603.26,
+   "truth_mw": 40173.111
+  },
+  {
+   "target_ts": "2026-10-05T03:00:00+00:00",
+   "load_mw": 39784.31,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 10,
+   "solar_absent_reason": null,
+   "wind_mw": 1363.543,
+   "wind_lead_h": 4,
+   "wind_absent_reason": null,
+   "net_demand_mw": 38420.767,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 39015.49,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T04:00:00+00:00",
+   "load_mw": 37857.22,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 11,
+   "solar_absent_reason": null,
+   "wind_mw": 981.512,
+   "wind_lead_h": 5,
+   "wind_absent_reason": null,
+   "net_demand_mw": 36875.708,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 37113.69,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T05:00:00+00:00",
+   "load_mw": 34758.93,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 12,
+   "solar_absent_reason": null,
+   "wind_mw": 1014.824,
+   "wind_lead_h": 6,
+   "wind_absent_reason": null,
+   "net_demand_mw": 33744.106,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 33981.33,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T06:00:00+00:00",
+   "load_mw": 31718.04,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 13,
+   "solar_absent_reason": null,
+   "wind_mw": 1470.907,
+   "wind_lead_h": 7,
+   "wind_absent_reason": null,
+   "net_demand_mw": 30247.133,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 31028.08,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T07:00:00+00:00",
+   "load_mw": 30114.48,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 14,
+   "solar_absent_reason": null,
+   "wind_mw": 1467.129,
+   "wind_lead_h": 8,
+   "wind_absent_reason": null,
+   "net_demand_mw": 28647.351,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 29465.63,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T08:00:00+00:00",
+   "load_mw": 28306.15,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 15,
+   "solar_absent_reason": null,
+   "wind_mw": 1434.505,
+   "wind_lead_h": 9,
+   "wind_absent_reason": null,
+   "net_demand_mw": 26871.645,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 27701.33,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T09:00:00+00:00",
+   "load_mw": 26934.35,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 16,
+   "solar_absent_reason": null,
+   "wind_mw": 1313.367,
+   "wind_lead_h": 10,
+   "wind_absent_reason": null,
+   "net_demand_mw": 25620.983,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 26438.35,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T10:00:00+00:00",
+   "load_mw": 25976.45,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 17,
+   "solar_absent_reason": null,
+   "wind_mw": 1211.11,
+   "wind_lead_h": 11,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24765.34,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 25515.03,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T11:00:00+00:00",
+   "load_mw": 25886.5,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 18,
+   "solar_absent_reason": null,
+   "wind_mw": 1133.804,
+   "wind_lead_h": 12,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24752.696,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 25456.06,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T12:00:00+00:00",
+   "load_mw": 26933.54,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 19,
+   "solar_absent_reason": null,
+   "wind_mw": 1162.548,
+   "wind_lead_h": 13,
+   "wind_absent_reason": null,
+   "net_demand_mw": 25770.992,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 26512.9,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T13:00:00+00:00",
+   "load_mw": 28781.98,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 35.174,
+   "solar_lead_h": 20,
+   "solar_absent_reason": null,
+   "wind_mw": 1409.61,
+   "wind_lead_h": 14,
+   "wind_absent_reason": null,
+   "net_demand_mw": 27337.196,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 28366.69,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T14:00:00+00:00",
+   "load_mw": 30061.92,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 4155.567,
+   "solar_lead_h": 21,
+   "solar_absent_reason": null,
+   "wind_mw": 1555.828,
+   "wind_lead_h": 15,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24350.525,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 25127.92,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T15:00:00+00:00",
+   "load_mw": 30702.68,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 22,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1314.041,
+   "wind_lead_h": 16,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": 17354.94,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T16:00:00+00:00",
+   "load_mw": 31367.26,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 23,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1086.189,
+   "wind_lead_h": 17,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": 13706.18,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T17:00:00+00:00",
+   "load_mw": 32167.14,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 24,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1095.879,
+   "wind_lead_h": 18,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": 13634.9,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T18:00:00+00:00",
+   "load_mw": 33554.18,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 25,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1045.919,
+   "wind_lead_h": 19,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": 14858.05,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T19:00:00+00:00",
+   "load_mw": 35567.68,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19407.523,
+   "solar_lead_h": 26,
+   "solar_absent_reason": null,
+   "wind_mw": 998.843,
+   "wind_lead_h": 20,
+   "wind_absent_reason": null,
+   "net_demand_mw": 15161.314,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 16965.16,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T20:00:00+00:00",
+   "load_mw": 38337.39,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19350.747,
+   "solar_lead_h": 27,
+   "solar_absent_reason": null,
+   "wind_mw": 951.443,
+   "wind_lead_h": 21,
+   "wind_absent_reason": null,
+   "net_demand_mw": 18035.2,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 19835.45,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T21:00:00+00:00",
+   "load_mw": 41267.35,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19377.404,
+   "solar_lead_h": 28,
+   "solar_absent_reason": null,
+   "wind_mw": 857.292,
+   "wind_lead_h": 22,
+   "wind_absent_reason": null,
+   "net_demand_mw": 21032.654,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 23051.76,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T22:00:00+00:00",
+   "load_mw": 43978.73,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 18929.801,
+   "solar_lead_h": 29,
+   "solar_absent_reason": null,
+   "wind_mw": 824.992,
+   "wind_lead_h": 23,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24223.937,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 26441.52,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-05T23:00:00+00:00",
+   "load_mw": 45589.88,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 16914.897,
+   "solar_lead_h": 30,
+   "solar_absent_reason": null,
+   "wind_mw": 889.025,
+   "wind_lead_h": 24,
+   "wind_absent_reason": null,
+   "net_demand_mw": 27785.958,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 31396.16,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T00:00:00+00:00",
+   "load_mw": 46806.63,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 7005.53,
+   "solar_lead_h": 31,
+   "solar_absent_reason": null,
+   "wind_mw": 955.063,
+   "wind_lead_h": 25,
+   "wind_absent_reason": null,
+   "net_demand_mw": 38846.037,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 40283.14,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T01:00:00+00:00",
+   "load_mw": 46152.64,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 51.546,
+   "solar_lead_h": 32,
+   "solar_absent_reason": null,
+   "wind_mw": 1441.914,
+   "wind_lead_h": 26,
+   "wind_absent_reason": null,
+   "net_demand_mw": 44659.18,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 45187.42,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T02:00:00+00:00",
+   "load_mw": 44407.66,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 33,
+   "solar_absent_reason": null,
+   "wind_mw": 1722.29,
+   "wind_lead_h": 27,
+   "wind_absent_reason": null,
+   "net_demand_mw": 42685.37,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 43835.47,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T03:00:00+00:00",
+   "load_mw": 42288.69,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 34,
+   "solar_absent_reason": null,
+   "wind_mw": 1655.735,
+   "wind_lead_h": 28,
+   "wind_absent_reason": null,
+   "net_demand_mw": 40632.955,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 41668.92,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T04:00:00+00:00",
+   "load_mw": 40366.53,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 35,
+   "solar_absent_reason": null,
+   "wind_mw": 1310.612,
+   "wind_lead_h": 29,
+   "wind_absent_reason": null,
+   "net_demand_mw": 39055.918,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 39630.18,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T05:00:00+00:00",
+   "load_mw": 37265.27,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 36,
+   "solar_absent_reason": null,
+   "wind_mw": 1083.154,
+   "wind_lead_h": 30,
+   "wind_absent_reason": null,
+   "net_demand_mw": 36182.116,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 36317.65,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T06:00:00+00:00",
+   "load_mw": 33954.19,
+   "load_product": "DAM",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 37,
+   "solar_absent_reason": null,
+   "wind_mw": 1337.841,
+   "wind_lead_h": 31,
+   "wind_absent_reason": null,
+   "net_demand_mw": 32616.349,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": 32925.22,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T07:00:00+00:00",
+   "load_mw": 31378.6,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 38,
+   "solar_absent_reason": null,
+   "wind_mw": 2015.232,
+   "wind_lead_h": 32,
+   "wind_absent_reason": null,
+   "net_demand_mw": 29363.368,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T08:00:00+00:00",
+   "load_mw": 29506.16,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 39,
+   "solar_absent_reason": null,
+   "wind_mw": 2596.771,
+   "wind_lead_h": 33,
+   "wind_absent_reason": null,
+   "net_demand_mw": 26909.389,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T09:00:00+00:00",
+   "load_mw": 27924.98,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 40,
+   "solar_absent_reason": null,
+   "wind_mw": 2782.024,
+   "wind_lead_h": 34,
+   "wind_absent_reason": null,
+   "net_demand_mw": 25142.956,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T10:00:00+00:00",
+   "load_mw": 26947.58,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 41,
+   "solar_absent_reason": null,
+   "wind_mw": 2876.773,
+   "wind_lead_h": 35,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24070.807,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T11:00:00+00:00",
+   "load_mw": 26770.01,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 42,
+   "solar_absent_reason": null,
+   "wind_mw": 2965.566,
+   "wind_lead_h": 36,
+   "wind_absent_reason": null,
+   "net_demand_mw": 23804.444,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T12:00:00+00:00",
+   "load_mw": 27796.71,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 43,
+   "solar_absent_reason": null,
+   "wind_mw": 2878.456,
+   "wind_lead_h": 37,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24918.254,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T13:00:00+00:00",
+   "load_mw": 29592.92,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 44,
+   "solar_absent_reason": null,
+   "wind_mw": 2613.1,
+   "wind_lead_h": 38,
+   "wind_absent_reason": null,
+   "net_demand_mw": 26979.82,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T14:00:00+00:00",
+   "load_mw": 31011.4,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 3979.565,
+   "solar_lead_h": 45,
+   "solar_absent_reason": null,
+   "wind_mw": 2189.167,
+   "wind_lead_h": 39,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24842.668,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T15:00:00+00:00",
+   "load_mw": 31426.48,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 46,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1570.663,
+   "wind_lead_h": 40,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T16:00:00+00:00",
+   "load_mw": 31824.68,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 47,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1100.281,
+   "wind_lead_h": 41,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T17:00:00+00:00",
+   "load_mw": 32664.17,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 48,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 844.64,
+   "wind_lead_h": 42,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T18:00:00+00:00",
+   "load_mw": 33981.43,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 49,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 599.502,
+   "wind_lead_h": 43,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T19:00:00+00:00",
+   "load_mw": 36091.3,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 18984.383,
+   "solar_lead_h": 50,
+   "solar_absent_reason": null,
+   "wind_mw": 470.737,
+   "wind_lead_h": 44,
+   "wind_absent_reason": null,
+   "net_demand_mw": 16636.18,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T20:00:00+00:00",
+   "load_mw": 38698.85,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 18992.714,
+   "solar_lead_h": 51,
+   "solar_absent_reason": null,
+   "wind_mw": 485.568,
+   "wind_lead_h": 45,
+   "wind_absent_reason": null,
+   "net_demand_mw": 19220.568,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T21:00:00+00:00",
+   "load_mw": 41193.48,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 19082.467,
+   "solar_lead_h": 52,
+   "solar_absent_reason": null,
+   "wind_mw": 570.498,
+   "wind_lead_h": 46,
+   "wind_absent_reason": null,
+   "net_demand_mw": 21540.515,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T22:00:00+00:00",
+   "load_mw": 43797.3,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 18721.794,
+   "solar_lead_h": 53,
+   "solar_absent_reason": null,
+   "wind_mw": 811.119,
+   "wind_lead_h": 47,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24264.387,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-06T23:00:00+00:00",
+   "load_mw": 45202.98,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 16821.855,
+   "solar_lead_h": 54,
+   "solar_absent_reason": null,
+   "wind_mw": 1053.355,
+   "wind_lead_h": 48,
+   "wind_absent_reason": null,
+   "net_demand_mw": 27327.77,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T00:00:00+00:00",
+   "load_mw": 46304.7,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 6733.92,
+   "solar_lead_h": 55,
+   "solar_absent_reason": null,
+   "wind_mw": 2476.308,
+   "wind_lead_h": 49,
+   "wind_absent_reason": null,
+   "net_demand_mw": 37094.472,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T01:00:00+00:00",
+   "load_mw": 45638.97,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 56,
+   "solar_absent_reason": null,
+   "wind_mw": 2751.185,
+   "wind_lead_h": 50,
+   "wind_absent_reason": null,
+   "net_demand_mw": 42887.785,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T02:00:00+00:00",
+   "load_mw": 43931.73,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 57,
+   "solar_absent_reason": null,
+   "wind_mw": 2778.51,
+   "wind_lead_h": 51,
+   "wind_absent_reason": null,
+   "net_demand_mw": 41153.22,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T03:00:00+00:00",
+   "load_mw": 42136.39,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 58,
+   "solar_absent_reason": null,
+   "wind_mw": 2661.218,
+   "wind_lead_h": 52,
+   "wind_absent_reason": null,
+   "net_demand_mw": 39475.172,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T04:00:00+00:00",
+   "load_mw": 40269.36,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 59,
+   "solar_absent_reason": null,
+   "wind_mw": 2552.505,
+   "wind_lead_h": 53,
+   "wind_absent_reason": null,
+   "net_demand_mw": 37716.855,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T05:00:00+00:00",
+   "load_mw": 37117.75,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 60,
+   "solar_absent_reason": null,
+   "wind_mw": 2452.743,
+   "wind_lead_h": 54,
+   "wind_absent_reason": null,
+   "net_demand_mw": 34665.007,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T06:00:00+00:00",
+   "load_mw": 33906.96,
+   "load_product": "2DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 61,
+   "solar_absent_reason": null,
+   "wind_mw": 2343.669,
+   "wind_lead_h": 55,
+   "wind_absent_reason": null,
+   "net_demand_mw": 31563.291,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T07:00:00+00:00",
+   "load_mw": 30309.79,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 62,
+   "solar_absent_reason": null,
+   "wind_mw": 2201.939,
+   "wind_lead_h": 56,
+   "wind_absent_reason": null,
+   "net_demand_mw": 28107.851,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T08:00:00+00:00",
+   "load_mw": 28521.19,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 63,
+   "solar_absent_reason": null,
+   "wind_mw": 2074.086,
+   "wind_lead_h": 57,
+   "wind_absent_reason": null,
+   "net_demand_mw": 26447.104,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T09:00:00+00:00",
+   "load_mw": 27112.83,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 64,
+   "solar_absent_reason": null,
+   "wind_mw": 2002.463,
+   "wind_lead_h": 58,
+   "wind_absent_reason": null,
+   "net_demand_mw": 25110.367,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T10:00:00+00:00",
+   "load_mw": 26123.82,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 65,
+   "solar_absent_reason": null,
+   "wind_mw": 1975.269,
+   "wind_lead_h": 59,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24148.551,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T11:00:00+00:00",
+   "load_mw": 26006.16,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": 0.0,
+   "solar_lead_h": 66,
+   "solar_absent_reason": null,
+   "wind_mw": 1955.905,
+   "wind_lead_h": 60,
+   "wind_absent_reason": null,
+   "net_demand_mw": 24050.255,
+   "absent_part": null,
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T12:00:00+00:00",
+   "load_mw": 26832.81,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 67,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1938.749,
+   "wind_lead_h": 61,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T13:00:00+00:00",
+   "load_mw": 28556.76,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 68,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1935.013,
+   "wind_lead_h": 62,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T14:00:00+00:00",
+   "load_mw": 29686.31,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 69,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1924.615,
+   "wind_lead_h": 63,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T15:00:00+00:00",
+   "load_mw": 30038.32,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 70,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 1941.965,
+   "wind_lead_h": 64,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T16:00:00+00:00",
+   "load_mw": 30189.98,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 71,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 2022.154,
+   "wind_lead_h": 65,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T17:00:00+00:00",
+   "load_mw": 30552.49,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 72,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": 2118.971,
+   "wind_lead_h": 66,
+   "wind_absent_reason": null,
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T18:00:00+00:00",
+   "load_mw": 31461.91,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 73,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 67,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T19:00:00+00:00",
+   "load_mw": 33012.74,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 74,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 68,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T20:00:00+00:00",
+   "load_mw": 35159.15,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 75,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 69,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T21:00:00+00:00",
+   "load_mw": 37571.69,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 76,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 70,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T22:00:00+00:00",
+   "load_mw": 39870.52,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 77,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 71,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-07T23:00:00+00:00",
+   "load_mw": 41684.55,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 78,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 72,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T00:00:00+00:00",
+   "load_mw": 42975.91,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 79,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 73,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T01:00:00+00:00",
+   "load_mw": 42489.42,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 80,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 74,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T02:00:00+00:00",
+   "load_mw": 41268.93,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 81,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 75,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T03:00:00+00:00",
+   "load_mw": 39758.58,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 82,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 76,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T04:00:00+00:00",
+   "load_mw": 38129.14,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 83,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 77,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T05:00:00+00:00",
+   "load_mw": 35451.92,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 84,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 78,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T06:00:00+00:00",
+   "load_mw": 32478.8,
+   "load_product": "7DA",
+   "load_issued_at": "2026-09-30T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 85,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 79,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T07:00:00+00:00",
+   "load_mw": 30682.08,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 86,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 80,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T08:00:00+00:00",
+   "load_mw": 28780.82,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 87,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 81,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T09:00:00+00:00",
+   "load_mw": 27181.09,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 88,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 82,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T10:00:00+00:00",
+   "load_mw": 26250.14,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 89,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 83,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T11:00:00+00:00",
+   "load_mw": 26216.06,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 90,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 84,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T12:00:00+00:00",
+   "load_mw": 27089.39,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 91,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 85,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T13:00:00+00:00",
+   "load_mw": 28875.14,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 92,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 86,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T14:00:00+00:00",
+   "load_mw": 30013.24,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 93,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 87,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T15:00:00+00:00",
+   "load_mw": 30157.75,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 94,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 88,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T16:00:00+00:00",
+   "load_mw": 30138.35,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 95,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 89,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T17:00:00+00:00",
+   "load_mw": 30299.43,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 96,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 90,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T18:00:00+00:00",
+   "load_mw": 31068.68,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 97,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 91,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T19:00:00+00:00",
+   "load_mw": 32648.86,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 98,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 92,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T20:00:00+00:00",
+   "load_mw": 34935.53,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 99,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 93,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T21:00:00+00:00",
+   "load_mw": 37297.2,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 100,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 94,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T22:00:00+00:00",
+   "load_mw": 40077.67,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 101,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 95,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-08T23:00:00+00:00",
+   "load_mw": 41811.93,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 102,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 96,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T00:00:00+00:00",
+   "load_mw": 43041.32,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 103,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 97,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T01:00:00+00:00",
+   "load_mw": 42901.33,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 104,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 98,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T02:00:00+00:00",
+   "load_mw": 41406.88,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 105,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 99,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T03:00:00+00:00",
+   "load_mw": 39889.3,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 106,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 100,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T04:00:00+00:00",
+   "load_mw": 38100.57,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 107,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 101,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T05:00:00+00:00",
+   "load_mw": 35178.33,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 108,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 102,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T06:00:00+00:00",
+   "load_mw": 32306.25,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-01T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 109,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 103,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T07:00:00+00:00",
+   "load_mw": 30125.97,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 110,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 104,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T08:00:00+00:00",
+   "load_mw": 28330.87,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 111,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 105,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T09:00:00+00:00",
+   "load_mw": 27013.04,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 112,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 106,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T10:00:00+00:00",
+   "load_mw": 26027.67,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 113,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 107,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T11:00:00+00:00",
+   "load_mw": 25811.34,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 114,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 108,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T12:00:00+00:00",
+   "load_mw": 26524.72,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 115,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 109,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T13:00:00+00:00",
+   "load_mw": 28074.15,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 116,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 110,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T14:00:00+00:00",
+   "load_mw": 29145.23,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 117,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 111,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T15:00:00+00:00",
+   "load_mw": 29383.2,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 118,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 112,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T16:00:00+00:00",
+   "load_mw": 29235.09,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 119,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 113,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T17:00:00+00:00",
+   "load_mw": 29386.34,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 120,
+   "solar_absent_reason": "beyond_fitted_leads",
+   "wind_mw": null,
+   "wind_lead_h": 114,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T18:00:00+00:00",
+   "load_mw": 30073.58,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 121,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 115,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T19:00:00+00:00",
+   "load_mw": 31257.75,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 122,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 116,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T20:00:00+00:00",
+   "load_mw": 32958.78,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 123,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 117,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T21:00:00+00:00",
+   "load_mw": 35073.32,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 124,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 118,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T22:00:00+00:00",
+   "load_mw": 37489.31,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 125,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 119,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-09T23:00:00+00:00",
+   "load_mw": 39214.65,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 126,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 120,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T00:00:00+00:00",
+   "load_mw": 40487.9,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 127,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 121,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T01:00:00+00:00",
+   "load_mw": 39867.34,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 128,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 122,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T02:00:00+00:00",
+   "load_mw": 38461.95,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 129,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 123,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T03:00:00+00:00",
+   "load_mw": 37001.84,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 130,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 124,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T04:00:00+00:00",
+   "load_mw": 35536.5,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 131,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 125,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T05:00:00+00:00",
+   "load_mw": 33426.88,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 132,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 126,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T06:00:00+00:00",
+   "load_mw": 30878.98,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-02T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 133,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 127,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T07:00:00+00:00",
+   "load_mw": 27526.91,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 134,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 128,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T08:00:00+00:00",
+   "load_mw": 25957.07,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 135,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 129,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T09:00:00+00:00",
+   "load_mw": 24582.47,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 136,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 130,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T10:00:00+00:00",
+   "load_mw": 23673.0,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 137,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 131,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T11:00:00+00:00",
+   "load_mw": 23320.29,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 138,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 132,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T12:00:00+00:00",
+   "load_mw": 23431.34,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 139,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 133,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T13:00:00+00:00",
+   "load_mw": 23936.6,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 140,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 134,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T14:00:00+00:00",
+   "load_mw": 24375.2,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 141,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 135,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T15:00:00+00:00",
+   "load_mw": 24468.37,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 142,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 136,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T16:00:00+00:00",
+   "load_mw": 24101.46,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 143,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 137,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T17:00:00+00:00",
+   "load_mw": 23700.64,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 144,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 138,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T18:00:00+00:00",
+   "load_mw": 23558.07,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 145,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 139,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T19:00:00+00:00",
+   "load_mw": 24108.07,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 146,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 140,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T20:00:00+00:00",
+   "load_mw": 25325.3,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 147,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 141,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T21:00:00+00:00",
+   "load_mw": 26965.11,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 148,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 142,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T22:00:00+00:00",
+   "load_mw": 28928.3,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 149,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 143,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-10T23:00:00+00:00",
+   "load_mw": 30349.26,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 150,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 144,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T00:00:00+00:00",
+   "load_mw": 31564.0,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 151,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 145,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T01:00:00+00:00",
+   "load_mw": 31929.05,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 152,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 146,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T02:00:00+00:00",
+   "load_mw": 31326.48,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 153,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 147,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T03:00:00+00:00",
+   "load_mw": 30189.03,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 154,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 148,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T04:00:00+00:00",
+   "load_mw": 29277.88,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 155,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 149,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T05:00:00+00:00",
+   "load_mw": 27997.14,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 156,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 150,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T06:00:00+00:00",
+   "load_mw": 26281.1,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-03T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 157,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 151,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T07:00:00+00:00",
+   "load_mw": 24472.33,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 158,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 152,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T08:00:00+00:00",
+   "load_mw": 23201.71,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 159,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 153,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T09:00:00+00:00",
+   "load_mw": 22132.82,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 160,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 154,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T10:00:00+00:00",
+   "load_mw": 21387.19,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 161,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 155,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T11:00:00+00:00",
+   "load_mw": 21024.16,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 162,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 156,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T12:00:00+00:00",
+   "load_mw": 21024.38,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 163,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 157,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T13:00:00+00:00",
+   "load_mw": 21351.81,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 164,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 158,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T14:00:00+00:00",
+   "load_mw": 21492.15,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 165,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 159,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T15:00:00+00:00",
+   "load_mw": 21315.35,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 166,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 160,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T16:00:00+00:00",
+   "load_mw": 20349.55,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 167,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 161,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T17:00:00+00:00",
+   "load_mw": 19351.15,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 168,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 162,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T18:00:00+00:00",
+   "load_mw": 18797.96,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 169,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 163,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T19:00:00+00:00",
+   "load_mw": 18771.21,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 170,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 164,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T20:00:00+00:00",
+   "load_mw": 19665.48,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 171,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 165,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T21:00:00+00:00",
+   "load_mw": 21131.3,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 172,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 166,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T22:00:00+00:00",
+   "load_mw": 23194.16,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 173,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 167,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-11T23:00:00+00:00",
+   "load_mw": 25210.08,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 174,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 168,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T00:00:00+00:00",
+   "load_mw": 27213.47,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 175,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 169,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T01:00:00+00:00",
+   "load_mw": 28363.98,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 176,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 170,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T02:00:00+00:00",
+   "load_mw": 28181.42,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 177,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 171,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T03:00:00+00:00",
+   "load_mw": 27342.38,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 178,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 172,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T04:00:00+00:00",
+   "load_mw": 26638.63,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 179,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 173,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T05:00:00+00:00",
+   "load_mw": 25369.85,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 180,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 174,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  },
+  {
+   "target_ts": "2026-10-12T06:00:00+00:00",
+   "load_mw": 23755.17,
+   "load_product": "7DA",
+   "load_issued_at": "2026-10-04T16:10:00+00:00",
+   "load_absent_reason": null,
+   "solar_mw": null,
+   "solar_lead_h": 181,
+   "solar_absent_reason": "registry_only",
+   "wind_mw": null,
+   "wind_lead_h": 175,
+   "wind_absent_reason": "registry_only",
+   "net_demand_mw": null,
+   "absent_part": [
+    {
+     "part": "solar",
+     "reason": "registry_only"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only"
+    }
+   ],
+   "caiso_da_net_demand_mw": null,
+   "truth_mw": null
+  }
+ ],
+ "days": [
+  {
+   "day": "2026-10-04",
+   "product": "DAM",
+   "product_name": "CAISO day-ahead (DAM)",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "issue_date": "2026-10-03",
+   "lead_days": 1,
+   "days_ahead": 0,
+   "issued_days_ago": 1,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 769384.2,
+   "peak_mw": 43010.99,
+   "peak_ts": "2026-10-05T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO day-ahead (DAM) for Sun Oct 4, issued Sat Oct 3 at 09:10 PT, yesterday.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-05",
+   "product": "DAM",
+   "product_name": "CAISO day-ahead (DAM)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 1,
+   "days_ahead": 1,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 846769.27,
+   "peak_mw": 46806.63,
+   "peak_ts": "2026-10-06T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO day-ahead (DAM) for Mon Oct 5, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-06",
+   "product": "2DA",
+   "product_name": "CAISO two-day-ahead (2DA)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 2,
+   "days_ahead": 2,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 855114.89,
+   "peak_mw": 46304.7,
+   "peak_ts": "2026-10-07T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO two-day-ahead (2DA) for Tue Oct 6, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": true
+  },
+  {
+   "day": "2026-10-07",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-09-30T16:10:00+00:00",
+   "issue_date": "2026-09-30",
+   "lead_days": 7,
+   "days_ahead": 3,
+   "issued_days_ago": 4,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 805243.72,
+   "peak_mw": 42975.91,
+   "peak_ts": "2026-10-08T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Wed Oct 7, issued Wed Sep 30 at 09:10 PT, 4 days ago. CAISO does not re-issue it.",
+   "product_changes": true
+  },
+  {
+   "day": "2026-10-08",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-01T16:10:00+00:00",
+   "issue_date": "2026-10-01",
+   "lead_days": 7,
+   "days_ahead": 4,
+   "issued_days_ago": 3,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 806347.34,
+   "peak_mw": 43041.32,
+   "peak_ts": "2026-10-09T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Thu Oct 8, issued Thu Oct 1 at 09:10 PT, 3 days ago. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-09",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-02T16:10:00+00:00",
+   "issue_date": "2026-10-02",
+   "lead_days": 7,
+   "days_ahead": 5,
+   "issued_days_ago": 2,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 770786.4,
+   "peak_mw": 40487.9,
+   "peak_ts": "2026-10-10T00:00:00+00:00",
+   "peak_he": 18,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Fri Oct 9, issued Fri Oct 2 at 09:10 PT, 2 days ago. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-10",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-03T16:10:00+00:00",
+   "issue_date": "2026-10-03",
+   "lead_days": 7,
+   "days_ahead": 6,
+   "issued_days_ago": 1,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 636872.14,
+   "peak_mw": 31929.05,
+   "peak_ts": "2026-10-11T01:00:00+00:00",
+   "peak_he": 19,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Sat Oct 10, issued Sat Oct 3 at 09:10 PT, yesterday. CAISO does not re-issue it.",
+   "product_changes": false
+  },
+  {
+   "day": "2026-10-11",
+   "product": "7DA",
+   "product_name": "CAISO seven-day-ahead (7DA)",
+   "issued_at": "2026-10-04T16:10:00+00:00",
+   "issue_date": "2026-10-04",
+   "lead_days": 7,
+   "days_ahead": 7,
+   "issued_days_ago": 0,
+   "hours_in_day": 24,
+   "hours_covered": 24,
+   "complete": true,
+   "energy_mwh": 550737.69,
+   "peak_mw": 28363.98,
+   "peak_ts": "2026-10-12T01:00:00+00:00",
+   "peak_he": 19,
+   "age_sentence": "CAISO seven-day-ahead (7DA) for Sun Oct 11, issued Sun Oct 4 at 09:10 PT, today.",
+   "product_changes": false
+  }
+ ],
+ "stops": {
+  "load": {
+   "part": "load",
+   "present": true,
+   "last_ts": null,
+   "last_lead_h": null,
+   "stop": null,
+   "gaps": []
+  },
+  "solar": {
+   "part": "solar",
+   "present": true,
+   "last_ts": "2026-10-07T11:00:00+00:00",
+   "last_lead_h": 66,
+   "stop": {
+    "first_absent_ts": "2026-10-07T12:00:00+00:00",
+    "last_absent_ts": "2026-10-12T06:00:00+00:00",
+    "hours": 115,
+    "first_absent_lead_h": 67,
+    "reason": "beyond_fitted_leads",
+    "detail": "the hour's lead is outside the leads its line was fitted on"
+   },
+   "gaps": [
+    {
+     "first_absent_ts": "2026-10-05T15:00:00+00:00",
+     "last_absent_ts": "2026-10-05T18:00:00+00:00",
+     "hours": 4,
+     "first_absent_lead_h": 22,
+     "reason": "beyond_fitted_leads",
+     "detail": "the hour's lead is outside the leads its line was fitted on"
+    },
+    {
+     "first_absent_ts": "2026-10-06T15:00:00+00:00",
+     "last_absent_ts": "2026-10-06T18:00:00+00:00",
+     "hours": 4,
+     "first_absent_lead_h": 46,
+     "reason": "beyond_fitted_leads",
+     "detail": "the hour's lead is outside the leads its line was fitted on"
+    }
+   ]
+  },
+  "wind": {
+   "part": "wind",
+   "present": true,
+   "last_ts": "2026-10-07T17:00:00+00:00",
+   "last_lead_h": 66,
+   "stop": {
+    "first_absent_ts": "2026-10-07T18:00:00+00:00",
+    "last_absent_ts": "2026-10-12T06:00:00+00:00",
+    "hours": 109,
+    "first_absent_lead_h": 67,
+    "reason": "registry_only",
+    "detail": "the hour carries no calibrated figure (registry only)"
+   },
+   "gaps": []
+  }
+ },
+ "net_demand_stop": {
+  "first_ts": "2026-10-05T00:00:00+00:00",
+  "last_ts": "2026-10-07T11:00:00+00:00",
+  "stop": {
+   "first_absent_ts": "2026-10-07T12:00:00+00:00",
+   "last_absent_ts": "2026-10-12T06:00:00+00:00",
+   "hours": 115,
+   "parts": [
+    {
+     "part": "solar",
+     "reason": "beyond_fitted_leads",
+     "detail": "the hour's lead is outside the leads its line was fitted on"
+    },
+    {
+     "part": "wind",
+     "reason": "registry_only",
+     "detail": "the hour carries no calibrated figure (registry only)"
+    }
+   ]
+  },
+  "gaps": [
+   {
+    "first_absent_ts": "2026-10-05T15:00:00+00:00",
+    "last_absent_ts": "2026-10-05T18:00:00+00:00",
+    "hours": 4,
+    "parts": [
+     {
+      "part": "solar",
+      "reason": "beyond_fitted_leads",
+      "detail": "the hour's lead is outside the leads its line was fitted on"
+     }
+    ]
+   },
+   {
+    "first_absent_ts": "2026-10-06T15:00:00+00:00",
+    "last_absent_ts": "2026-10-06T18:00:00+00:00",
+    "hours": 4,
+    "parts": [
+     {
+      "part": "solar",
+      "reason": "beyond_fitted_leads",
+      "detail": "the hour's lead is outside the leads its line was fitted on"
+     }
+    ]
+   }
+  ],
+  "sentence": "Net demand stops at 2026-10-07T12:00:00+00:00: solar (the hour's lead is outside the leads its line was fitted on, lead 67 h)."
+ },
+ "scores": {
+  "ours": {
+   "status": "not_yet_scored",
+   "text": "not yet scored",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03",
+   "n_days": 0,
+   "n_hours": 0,
+   "min_days": 14
+  },
+  "caiso_da": {
+   "status": "scored",
+   "window_start": "2026-09-06",
+   "window_end": "2026-10-03",
+   "n_days": 24,
+   "n_hours": 576,
+   "min_days": 14,
+   "mae_mw": 2016.552,
+   "bias_mw": 1833.377,
+   "wape_pct": 11.872,
+   "by_hour_pt": [
+    {
+     "hour_pt": 0,
+     "n": 24,
+     "mae_mw": 792.832,
+     "bias_mw": 438.077
+    },
+    {
+     "hour_pt": 1,
+     "n": 24,
+     "mae_mw": 954.719,
+     "bias_mw": 597.088
+    },
+    {
+     "hour_pt": 2,
+     "n": 24,
+     "mae_mw": 902.687,
+     "bias_mw": 536.44
+    },
+    {
+     "hour_pt": 3,
+     "n": 24,
+     "mae_mw": 829.135,
+     "bias_mw": 536.752
+    },
+    {
+     "hour_pt": 4,
+     "n": 24,
+     "mae_mw": 836.666,
+     "bias_mw": 533.681
+    },
+    {
+     "hour_pt": 5,
+     "n": 24,
+     "mae_mw": 907.959,
+     "bias_mw": 606.411
+    },
+    {
+     "hour_pt": 6,
+     "n": 24,
+     "mae_mw": 758.592,
+     "bias_mw": 463.348
+    },
+    {
+     "hour_pt": 7,
+     "n": 24,
+     "mae_mw": 848.29,
+     "bias_mw": 249.12
+    },
+    {
+     "hour_pt": 8,
+     "n": 24,
+     "mae_mw": 2343.32,
+     "bias_mw": 1946.78
+    },
+    {
+     "hour_pt": 9,
+     "n": 24,
+     "mae_mw": 3283.43,
+     "bias_mw": 3107.45
+    },
+    {
+     "hour_pt": 10,
+     "n": 24,
+     "mae_mw": 3607.148,
+     "bias_mw": 3607.116
+    },
+    {
+     "hour_pt": 11,
+     "n": 24,
+     "mae_mw": 3679.253,
+     "bias_mw": 3679.253
+    },
+    {
+     "hour_pt": 12,
+     "n": 24,
+     "mae_mw": 3748.31,
+     "bias_mw": 3748.31
+    },
+    {
+     "hour_pt": 13,
+     "n": 24,
+     "mae_mw": 3694.163,
+     "bias_mw": 3694.163
+    },
+    {
+     "hour_pt": 14,
+     "n": 24,
+     "mae_mw": 3550.71,
+     "bias_mw": 3464.896
+    },
+    {
+     "hour_pt": 15,
+     "n": 24,
+     "mae_mw": 3442.966,
+     "bias_mw": 3263.436
+    },
+    {
+     "hour_pt": 16,
+     "n": 24,
+     "mae_mw": 3799.49,
+     "bias_mw": 3650.65
+    },
+    {
+     "hour_pt": 17,
+     "n": 24,
+     "mae_mw": 3139.589,
+     "bias_mw": 3139.589
+    },
+    {
+     "hour_pt": 18,
+     "n": 24,
+     "mae_mw": 1482.323,
+     "bias_mw": 1469.896
+    },
+    {
+     "hour_pt": 19,
+     "n": 24,
+     "mae_mw": 1292.021,
+     "bias_mw": 1287.643
+    },
+    {
+     "hour_pt": 20,
+     "n": 24,
+     "mae_mw": 1238.117,
+     "bias_mw": 1196.211
+    },
+    {
+     "hour_pt": 21,
+     "n": 24,
+     "mae_mw": 1170.985,
+     "bias_mw": 1032.38
+    },
+    {
+     "hour_pt": 22,
+     "n": 24,
+     "mae_mw": 1065.997,
+     "bias_mw": 876.632
+    },
+    {
+     "hour_pt": 23,
+     "n": 24,
+     "mae_mw": 1028.539,
+     "bias_mw": 875.728
+    }
+   ],
+   "scope_note": "CAISO's hub DAM solar and wind (NP15, ZP26, SP15) do not cover all of the fuel mix's solar and wind, so CAISO's DA net demand sits above the truth by about the uncovered generation; its bias is mostly that."
+  }
+ },
+ "unscored_days": [
+  {
+   "day": "2026-09-06",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-05T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-05T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-07",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-06T12:00:00+00:00",
+     "first_ts": "2026-09-07T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-06T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-08",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-07T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-07T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-09",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-08T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-08T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-10",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-09T12:00:00+00:00",
+     "first_ts": "2026-09-10T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-09T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-11",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-10T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-10T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-12",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-11T12:00:00+00:00",
+     "first_ts": "2026-09-12T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-11T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-13",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-12T12:00:00+00:00",
+     "first_ts": "2026-09-13T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-12T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-14",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-13T12:00:00+00:00",
+     "first_ts": "2026-09-14T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-13T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-15",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-14T12:00:00+00:00",
+     "first_ts": "2026-09-15T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-14T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-16",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-15T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-15T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-17",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-16T12:00:00+00:00",
+     "first_ts": "2026-09-17T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-16T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-18",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-17T12:00:00+00:00",
+     "first_ts": "2026-09-18T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-17T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-19",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-18T12:00:00+00:00",
+     "first_ts": "2026-09-19T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-18T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-20",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-19T12:00:00+00:00",
+     "first_ts": "2026-09-20T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-19T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-21",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-20T12:00:00+00:00",
+     "first_ts": "2026-09-21T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-20T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-22",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-21T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-21T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-23",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-22T12:00:00+00:00",
+     "first_ts": "2026-09-23T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-22T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-24",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-23T12:00:00+00:00",
+     "first_ts": "2026-09-24T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-23T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-25",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-24T12:00:00+00:00",
+     "first_ts": "2026-09-25T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-24T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-26",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-25T12:00:00+00:00",
+     "first_ts": "2026-09-26T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-25T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-27",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-26T12:00:00+00:00",
+     "first_ts": "2026-09-27T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-26T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-28",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-27T12:00:00+00:00",
+     "first_ts": "2026-09-28T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-27T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-29",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-28T12:00:00+00:00",
+     "first_ts": "2026-09-29T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-28T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-09-30",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-09-29T12:00:00+00:00",
+     "first_ts": "2026-09-30T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-29T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-10-01",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-30T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-09-30T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-10-02",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "registry_only",
+     "init_ts": "2026-10-01T12:00:00+00:00",
+     "first_ts": "2026-10-02T07:00:00+00:00",
+     "lead_h": 20,
+     "hours_absent": 24,
+     "detail": "the hour carries no calibrated figure (registry only)"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-10-01T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  },
+  {
+   "day": "2026-10-03",
+   "stopped_by": [
+    {
+     "part": "solar",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-10-02T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    },
+    {
+     "part": "wind",
+     "reason": "no_12z_issuance",
+     "init_ts": "2026-10-02T12:00:00+00:00",
+     "detail": "no 12Z issuance of D-1 is banked"
+    }
+   ]
+  }
+ ],
+ "pairing_rule": "Scored at day-ahead. For each target Pacific day D in the trailing 28: ours = D's CAISO DAM load less the calibrated CISO solar and wind of the 12Z issuance of D-1 (each hour's figure only where its line was fitted on that lead); CAISO's = D's DAM load less the DAM solar and wind of NP15, ZP26 and SP15. Both against the truth: CAISO's actual load less fuel-mix solar and wind. A day missing any hour of any part is not scored. Fewer than 14 scored days is not yet scored. Percent error is WAPE (sum of |error| over sum of truth): midday net demand nears zero, so an hourly MAPE is undefined.",
+ "reference_scope_note": "CAISO's hub DAM solar and wind (NP15, ZP26, SP15) do not cover all of the fuel mix's solar and wind, so CAISO's DA net demand sits above the truth by about the uncovered generation; its bias is mostly that.",
+ "attributions": [
+  "Load forecasts: California ISO, OASIS (SLD_FCST). Actual load, fuel mix and hub renewables forecasts: California ISO.",
+  "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/"
+ ],
+ "issue_sentence": {
+  "DAM": "CAISO's day-ahead load forecast for a day is published at 09:10 PT the day before (OASIS publication schedule; the time is derived, not stamped by CAISO).",
+  "2DA": "CAISO's two-day-ahead load forecast for a day is published at 09:10 PT two days before (OASIS publication schedule; the time is derived, not stamped by CAISO).",
+  "7DA": "CAISO's seven-day-ahead load forecast for a day is published once, at 09:10 PT seven days before, and never revised. A day three to six days out is CAISO's view from four to one days ago."
+ },
+ "absence": null
+}

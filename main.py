@@ -24,6 +24,9 @@ Endpoints:
                                                    date-/range-addressable (?date, ?start/?end)
     GET /api/timeseries/caiso-demand-stack        forward demand-stack (total/net/solar/wind, fc+act)
     GET /api/timeseries/caiso-peak-demand         derived daily peak MW + peak HE per TAC area (from caiso_load_fcst_7day)
+    GET /api/load/outlook?area=            CAISO's own load forecast per area, today..D+7, each day its freshest product (DAM/2DA/7DA) with issue time; the BA's EIA-930 DF; scores vs a usable actual (d091611, D-09-25-139)
+    GET /api/load/areas                    the 36 SLD_FCST areas: kind, EIA counterpart, whether scored, the EIA-930 D usability verdict (d091611)
+    GET /api/load/net-demand?area=CISO     CAISO load - calibrated solar - calibrated wind, null where any part is not scored; CAISO's DA reference, truth, day-ahead backtest (d091611, D-09-25-140)
     GET /api/timeseries/caiso-hub-lmp      CAISO trading-hub LMP (DA/RTPD/RTD + DART), prev+current PT day
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29). NOTE: a literal path inside the Almanac prefix; it wins over /api/almanac/{series} only because it is registered first
     GET /api/almanac                       The Almanac v0: the shelf — every published issue as a card, newest first, ?series= filter; bare array, read_minutes derived (2026-08-07)
@@ -16005,12 +16008,16 @@ class _DDCache:
     """
 
     def __init__(self, name: str, ttl: float, *, max_entries: int = 16,
-                 allow_stale: bool = False, build_timeout: float | None = None):
+                 allow_stale: bool = False, build_timeout: float | None = None,
+                 max_stale_s: float | None = None):
         self.name = name
         self.ttl = ttl
         self.max_entries = max_entries
         self.allow_stale = allow_stale
         self.build_timeout = build_timeout
+        # D-09-25-138: an entry older than this is never served stale; the
+        # caller blocks on the rebuild instead. None = no cap (the old policy).
+        self.max_stale_s = max_stale_s
         self._entries: dict = {}
         self._lock = asyncio.Lock()
         self._tasks: set = set()            # strong refs; asyncio only holds weak ones
@@ -16075,14 +16082,15 @@ class _DDCache:
         """(payload, state, entry) — the whole policy in one place.
 
         state is "fresh" | "stale" | "miss". A stale entry is returned as-is and
-        a refresh is started behind it; a miss blocks on the build.
+        a refresh is started behind it; a miss blocks on the build. An entry
+        past `max_stale_s` is a miss.
         """
         entry = self._entries.get(key)
         if entry is not None:
             age = time.monotonic() - entry.built_mono
             if age < self.ttl:
                 return entry.payload, "fresh", entry
-            if self.allow_stale:
+            if self.allow_stale and (self.max_stale_s is None or age < self.max_stale_s):
                 self._spawn_refresh(key, builder)
                 return entry.payload, "stale", entry
         entry = await self._locked_build(key, builder)
@@ -20093,6 +20101,233 @@ async def wind_sites(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# LOAD OUTLOOK AND CAISO NET DEMAND — d091611 (API half), D-09-25-139, D-09-25-140
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/load/outlook?area=<CAISO area>   CAISO's forecast, day by day
+#   GET /api/load/areas                       the 36 areas, and which are scored
+#   GET /api/load/net-demand?area=CISO        load - calibrated solar and wind
+#
+# READ-ONLY. The SQL and the shaping are in load_outlook.py; this section is
+# the routes and their memos. Every read runs inside conn.transaction() under
+# SET LOCAL statement_timeout (D-09-25-75) and names one (dataset, series) per
+# LATERAL (d091551). Memoised 300 s, single-flight, served stale behind one
+# refresh for at most LOAD_MAX_STALE_S (D-09-25-138's 15-minute cap: d091608
+# is not on main, so the cap is added to _DDCache here as `max_stale_s`).
+# Plans (EXPLAIN ANALYZE, BUFFERS): docs/receipts/load-net-demand-api-d091611/plans.md.
+
+import load_outlook as _lo
+
+LOAD_MEMO_TTL = 300.0
+LOAD_MAX_STALE_S = 900.0              # D-09-25-138
+LOAD_STATEMENT_TIMEOUT = "5s"
+
+_load_outlook_cache = _DDCache(
+    "load/outlook", LOAD_MEMO_TTL, max_entries=40, allow_stale=True,
+    build_timeout=SOLAR_BUILD_TIMEOUT, max_stale_s=LOAD_MAX_STALE_S,
+)
+_load_areas_cache = _DDCache(
+    "load/areas", LOAD_MEMO_TTL, max_entries=1, allow_stale=True,
+    build_timeout=SOLAR_BUILD_TIMEOUT, max_stale_s=LOAD_MAX_STALE_S,
+)
+_net_demand_cache = _DDCache(
+    "load/net-demand", LOAD_MEMO_TTL, max_entries=2, allow_stale=True,
+    build_timeout=SOLAR_BUILD_TIMEOUT, max_stale_s=LOAD_MAX_STALE_S,
+)
+_LOAD_CACHES = (_load_outlook_cache, _load_areas_cache, _net_demand_cache)
+
+
+async def _load_outlook_build(area: str) -> dict:
+    assert _pool is not None
+    now = _utcnow()
+    w = _lo.windows(now)
+    a = _lo.AREAS[area]
+    rng = {"lo": w["score_lo"], "hi": w["outlook_hi"]}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{LOAD_STATEMENT_TIMEOUT}'")
+                await cur.execute(_lo.FCST_SQL, {"area": area, **rng})
+                fcst_rows = await cur.fetchall()
+                df_rows: list = []
+                dfc = _lo.df_code(area)
+                if dfc:
+                    await cur.execute(_lo.SERIES_SQL, {
+                        "dataset": _lo.DF_DATASET, "series": dfc, **rng})
+                    df_rows = await cur.fetchall()
+                usability_row = None
+                actual_rows: list = []
+                act_rng = {"lo": w["score_lo"], "hi": now}
+                if a["kind"] == "system":
+                    await cur.execute(_lo.SERIES_SQL, {
+                        "dataset": _lo.NATIVE[0], "series": _lo.NATIVE[1], **act_rng})
+                    actual_rows = await cur.fetchall()
+                elif a["kind"] == "weim_ba" and a["eia"]:
+                    await cur.execute(_lo.USABILITY_SQL, {
+                        "areas": [area], "lo": w["score_lo"], "hi": w["score_hi"],
+                        "dropout": _lo.USABILITY_RULE["dropout_fraction_of_median"]})
+                    usability_row = await cur.fetchone()
+                    await cur.execute(_lo.SERIES_SQL, {
+                        "dataset": _lo.D_DATASET, "series": a["eia"], **act_rng})
+                    actual_rows = await cur.fetchall()
+    return _lo.build_outlook(area=area, now=now, fcst_rows=fcst_rows, df_rows=df_rows,
+                             actual_rows=actual_rows, usability_row=usability_row)
+
+
+@app.get("/api/load/outlook")
+async def load_outlook(
+    response: Response,
+    area: Optional[str] = Query(
+        None, description="A CAISO forecast area: 'CA ISO-TAC', a TAC (PGE-TAC, ...) "
+                          "or a western BA (BPAT, ...). GET /api/load/areas lists them."),
+):
+    """CAISO's own load forecast for one area, today through today + 7.
+
+        { label, attributions, area: {code, name, kind, group, parent, eia, eia_name},
+          unit, today, tz, max_days_ahead,
+          hours: [ {target_ts, mw, product, issued_at, lead_days, days_ahead, df_mw} ],
+          days:  [ {day, product, product_name, issued_at, issue_date, lead_days,
+                    days_ahead, issued_days_ago, hours_in_day, hours_covered, complete,
+                    energy_mwh, peak_mw, peak_ts, peak_he, age_sentence,
+                    product_changes} ],
+          actuals: [ {target_ts, mw} ],              # elapsed hours of today
+          df: {respondent, respondent_name, label, dataset} | null, df_absent_reason,
+          scores: { DAM|2DA|7DA[|EIA_DF]: {status: scored|not_yet_scored|not_scored,
+                    text, window_start, window_end, n_days, n_hours, min_days,
+                    mape_pct, mae_mw, bias_mw, r, peak_mape_pct, peak_hour_hit_pct
+                    | reason} },
+          actual_basis: {source, dataset, series, usable, rule, verdict, reason|note},
+          issue_sentence, newest_issues, absence, cache }
+
+    D-09-25-139: each Pacific day is CAISO's freshest product for it (DAM,
+    then 2DA, then 7DA) with its issue time; nothing beyond today + 7; a 7DA
+    day says how many days ago it was issued. The BA's EIA-930 DF is a second
+    line where EIA has the BA (not for the system, whose DF is CAISO's DAM).
+    Scores are over the trailing 28 Pacific days against a usable actual only.
+
+    Unknown area -> 400; DB unavailable -> 503. Memoised 300 s, stale at most
+    900 s; every read under a 5 s statement timeout.
+    """
+    try:
+        area = _lo.parse_area(area)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_load_outlook_cache, area,
+                              lambda: _load_outlook_build(area), response)
+
+
+async def _load_areas_build() -> dict:
+    assert _pool is not None
+    now = _utcnow()
+    w = _lo.windows(now)
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{LOAD_STATEMENT_TIMEOUT}'")
+                await cur.execute(_lo.USABILITY_SQL, {
+                    "areas": [c for c, _e in _lo.BA_ACTUALS],
+                    "lo": w["score_lo"], "hi": w["score_hi"],
+                    "dropout": _lo.USABILITY_RULE["dropout_fraction_of_median"]})
+                rows = await cur.fetchall()
+    return _lo.build_areas(now=now, usability_rows=rows)
+
+
+@app.get("/api/load/areas")
+async def load_areas(response: Response):
+    """The 36 areas CAISO forecasts: display name, kind (system | tac |
+    weim_ba | sub_area), picker group, the EIA-930 counterpart, whether the
+    BA's DF is drawn, and whether the area is scored, with the usability
+    rule's verdict on EIA-930 D for each BA. Memoised 300 s, stale <= 900 s."""
+    return await _solar_serve(_load_areas_cache, "all", _load_areas_build, response)
+
+
+async def _net_demand_build(area: str) -> dict:
+    assert _pool is not None
+    now = _utcnow()
+    w = _lo.windows(now)
+    days = w["score_days"]
+    newest: dict = {}
+    gen_rows: dict = {}
+    bt_rows: dict = {}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{LOAD_STATEMENT_TIMEOUT}'")
+                await cur.execute(_lo.FCST_SQL, {
+                    "area": _lo.SYSTEM, "lo": w["score_lo"], "hi": w["outlook_hi"]})
+                fcst_rows = await cur.fetchall()
+                await cur.execute(_lo.HUB_DAM_SQL, {"lo": w["score_lo"], "hi": w["outlook_hi"]})
+                hub_rows = await cur.fetchall()
+                await cur.execute(_lo.TRUTH_SQL, {"lo": w["score_lo"], "hi": now})
+                truth_rows = await cur.fetchall()
+                for part, (tech, model) in _lo.GEN.items():
+                    key = {"tech": tech, "area": area, "model": model}
+                    await cur.execute(_lo.GEN_NEWEST_SQL, key)
+                    r = await cur.fetchone()
+                    newest[part] = r["init_ts"] if r else None
+                    gen_rows[part] = []
+                    if newest[part] is not None:
+                        await cur.execute(_lo.GEN_ROWS_SQL, {
+                            **key, "inits": [newest[part]],
+                            "lo": w["today_lo"], "hi": w["outlook_hi"]})
+                        gen_rows[part] = await cur.fetchall()
+                    await cur.execute(_lo.GEN_ROWS_SQL, {
+                        **key, "inits": _lo.backtest_inits(days),
+                        "lo": w["score_lo"], "hi": w["score_hi"]})
+                    bt_rows[part] = await cur.fetchall()
+                ids = sorted({int(r["calibration_id"])
+                              for rows in list(gen_rows.values()) + list(bt_rows.values())
+                              for r in rows if r.get("calibration_id") is not None})
+                line_rows: list = []
+                if ids:
+                    await cur.execute(_lo.LINES_SQL, {"ids": ids})
+                    line_rows = await cur.fetchall()
+    return _lo.build_net_demand(area=area, now=now, fcst_rows=fcst_rows, hub_rows=hub_rows,
+                                truth_rows=truth_rows, newest=newest, gen_rows=gen_rows,
+                                bt_gen_rows=bt_rows, line_rows=line_rows)
+
+
+@app.get("/api/load/net-demand")
+async def load_net_demand(
+    response: Response,
+    area: Optional[str] = Query(None, description="CISO (the only area in this version)."),
+):
+    """CAISO net demand: load - calibrated solar - calibrated wind, per hour.
+
+        { label, area, load_area, unit, today, tz, definition, truth_definition,
+          reference_definition, issuances: {solar|wind: {tech, model, init_ts}},
+          hours: [ {target_ts, load_mw, load_product, load_issued_at,
+                    load_absent_reason, solar_mw, solar_lead_h, solar_absent_reason,
+                    wind_mw, wind_lead_h, wind_absent_reason, net_demand_mw,
+                    absent_part: [{part, reason}] | null,
+                    caiso_da_net_demand_mw, truth_mw} ],
+          days, stops: {load|solar|wind: {part, present, last_ts, last_lead_h,
+                        stop: {first_absent_ts, last_absent_ts, hours,
+                               first_absent_lead_h, reason, detail} | null,
+                        gaps: [ same, for runs the part comes back from ]}},
+          net_demand_stop: {first_ts, last_ts, stop: {..., parts: [{part,
+                            reason, detail}]} | null, gaps, sentence},
+          scores: {ours, caiso_da}, unscored_days: [ {day, stopped_by} ],
+          pairing_rule, reference_scope_note, attributions, issue_sentence,
+          absence, cache }
+
+    D-09-25-140: a part is drawn only where it has a scored figure (CAISO's
+    load product; the calibrated line fitted on the hour's lead). Where any
+    part is absent, net demand is null and the hour names the part. Scored at
+    day-ahead by `pairing_rule`. Area other than CISO -> 400; DB unavailable
+    -> 503. Memoised 300 s, stale <= 900 s, 5 s statement timeout.
+    """
+    try:
+        area = _lo.parse_nd_area(area)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_net_demand_cache, area,
+                              lambda: _net_demand_build(area), response)
+
+# ═══════════════════════════════════════════════════════════════════════════
 # /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)
 #
 # The arithmetic — the calendar walk, the leap fold, the base, the cone, the
@@ -20577,3 +20812,4 @@ async def _season_warm() -> None:
         _season_log.warning("STOP-M " + msg, *args)
     else:
         _season_log.info(msg, *args)
+
