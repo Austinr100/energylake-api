@@ -1,0 +1,12 @@
+main (ungated): 1 seams printed
+  lead 120 -> 121: calibrated -> registry
+  band basis (score shown): {"h01_06": "calibrated", "h07_24": "calibrated", "h25_48": "calibrated", "h49_120": "calibrated", "h121_240": "registry"}
+this branch (gated): 5 seams printed
+  lead 21 -> 22: calibrated -> registry
+  lead 25 -> 26: registry -> calibrated
+  lead 45 -> 46: calibrated -> registry
+  lead 49 -> 50: registry -> calibrated
+  lead 66 -> 67: calibrated -> registry
+  band basis (score shown): {"h01_06": "calibrated", "h07_24": "registry", "h25_48": "registry", "h49_120": "registry", "h121_240": "registry"}
+this branch's own seams.calibration: {"last_calibrated_lead": 21, "first_registry_lead": 22, "target_ts_before": "2026-10-05T14:00:00+00:00", "target_ts_after": "2026-10-05T15:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+this branch's calibration_gaps: 5

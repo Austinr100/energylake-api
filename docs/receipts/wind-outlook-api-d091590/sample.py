@@ -1,7 +1,8 @@
 """The banked responses: /api/generation/wind/outlook and /sites, served by
-main.py over production's rows of the live cycle init 2026-10-04 12Z (read-only,
+main.py over production's rows of the cycle init 2026-10-05 00Z (read-only,
 through the Neon connector, by the route's own statements) in
-tests/fixtures/wind_outlook_d091590/production_2026_10_04_12z.json.
+tests/fixtures/wind_outlook_d091590/production_2026_10_05_00z.json.
+Re-banked by d091608 through the merged code (it was 2026-10-04 12Z, d091590).
 
     python docs/receipts/wind-outlook-api-d091590/sample.py
 writes sample_outlook_{hubsum,ciso,zp26}.json and sample_sites_*.json beside it.
@@ -11,7 +12,7 @@ from datetime import date, datetime
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
-FIX = ROOT / "tests" / "fixtures" / "wind_outlook_d091590" / "production_2026_10_04_12z.json"
+FIX = ROOT / "tests" / "fixtures" / "wind_outlook_d091590" / "production_2026_10_05_00z.json"
 OUT = pathlib.Path(__file__).resolve().parent
 
 TS = {"init_ts", "prev_init_ts", "target_ts", "source_posted_ts", "scored_at", "ts",
@@ -34,9 +35,10 @@ def load():
     bank = json.loads(FIX.read_text())
     areas = {a: {"issuance": typed(v["issuance"]),
                  "hours": [typed(r) for r in v["hours"]],
-                 "scores": [typed(r) for r in v["scores"]],
-                 "lines": [typed(r) for r in v["lines"]],
-                 "actuals": [typed(r) for r in v["actuals"]]}
+                 "scores": [typed(r) for r in v["scores"] or []],
+                 "lines": [typed(r) for r in v["lines"] or []],
+                 "lines_derived": [typed(r) for r in v["lines_derived"] or []],
+                 "actuals": [typed(r) for r in v["actuals"] or []]}
              for a, v in bank["areas"].items()}
     facts = {s["plant_code"]: s for s in bank["sites"]}
     latest = {k: [typed({**facts[r["plant_code"]], **r}) for r in v]
@@ -79,8 +81,8 @@ if __name__ == "__main__":
         r = c.get(f"/api/generation/wind/outlook?{q}")
         assert r.status_code == 200, r.text
         (OUT / f"sample_outlook_{area.lower()}.json").write_text(json.dumps(strip_cache(r.json()), indent=1))
-    for key, q in (("target_2026_10_04T20Z", "target=2026-10-04T20:00:00Z"),
-                   ("day_2026_10_05", "day=2026-10-05")):
+    for key, q in (("target_2026_10_05T20Z", "target=2026-10-05T20:00:00Z"),
+                   ("day_2026_10_06", "day=2026-10-06")):
         main._wind_sites_cache.clear()
         main._pool = sites_pool(b, key)
         r = c.get(f"/api/generation/wind/sites?{q}")

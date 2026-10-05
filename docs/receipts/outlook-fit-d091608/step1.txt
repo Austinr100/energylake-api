@@ -1,0 +1,229 @@
+# Step 1 — the gate over the newest issuance of each tech (re-banked rows)
+
+## solar NP15  init 2026-10-04T18:00:00+00:00
+stored calibrated hours: 120; withheld: {"beyond_lit": 36, "beyond_dark": 26, "beyond_leads_lit": [22, 23, 24, 25, 46, 47, 48, 49, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 117, 118, 119, 120], "served_calibrated": 58, "no_line": 120}
+seams.calibration: {"last_calibrated_lead": 21, "first_registry_lead": 22, "target_ts_before": "2026-10-05T14:00:00+00:00", "target_ts_after": "2026-10-05T15:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+calibration_gaps (5):
+  {"first_lead": 22, "last_lead": 24, "band": "h07_24", "reason": "beyond_fitted_leads", "fit_lead_min": 7, "fit_lead_max": 21}
+  {"first_lead": 25, "last_lead": 25, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 46, "last_lead": 48, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 49, "last_lead": 49, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+  {"first_lead": 69, "last_lead": 120, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+
+## solar ZP26  init 2026-10-04T18:00:00+00:00
+stored calibrated hours: 120; withheld: {"beyond_lit": 38, "beyond_dark": 26, "beyond_leads_lit": [21, 22, 23, 24, 25, 45, 46, 47, 48, 49, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 117, 118, 119, 120], "served_calibrated": 56, "no_line": 120}
+seams.calibration: {"last_calibrated_lead": 8, "first_registry_lead": 21, "target_ts_before": "2026-10-05T01:00:00+00:00", "target_ts_after": "2026-10-05T14:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+calibration_gaps (5):
+  {"first_lead": 21, "last_lead": 24, "band": "h07_24", "reason": "beyond_fitted_leads", "fit_lead_min": 7, "fit_lead_max": 20}
+  {"first_lead": 25, "last_lead": 25, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 44}
+  {"first_lead": 45, "last_lead": 48, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 44}
+  {"first_lead": 49, "last_lead": 49, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+  {"first_lead": 69, "last_lead": 120, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+
+## solar SP15  init 2026-10-04T18:00:00+00:00
+stored calibrated hours: 120; withheld: {"beyond_lit": 40, "beyond_dark": 23, "beyond_leads_lit": [21, 22, 23, 24, 25, 46, 47, 48, 49, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 116, 117, 118, 119, 120], "served_calibrated": 57, "no_line": 120}
+seams.calibration: {"last_calibrated_lead": 20, "first_registry_lead": 21, "target_ts_before": "2026-10-05T13:00:00+00:00", "target_ts_after": "2026-10-05T14:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+calibration_gaps (5):
+  {"first_lead": 21, "last_lead": 24, "band": "h07_24", "reason": "beyond_fitted_leads", "fit_lead_min": 7, "fit_lead_max": 20}
+  {"first_lead": 25, "last_lead": 25, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 46, "last_lead": 48, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 49, "last_lead": 49, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+  {"first_lead": 68, "last_lead": 120, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+
+## solar HUBSUM  init 2026-10-04T18:00:00+00:00
+stored calibrated hours: 120; withheld: {"beyond_lit": 39, "beyond_dark": 23, "beyond_leads_lit": [22, 23, 24, 25, 46, 47, 48, 49, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 116, 117, 118, 119, 120], "served_calibrated": 58, "no_line": 120}
+seams.calibration: {"last_calibrated_lead": 21, "first_registry_lead": 22, "target_ts_before": "2026-10-05T14:00:00+00:00", "target_ts_after": "2026-10-05T15:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+calibration_gaps (5):
+  {"first_lead": 22, "last_lead": 24, "band": "h07_24", "reason": "beyond_fitted_leads", "fit_lead_min": 7, "fit_lead_max": 21}
+  {"first_lead": 25, "last_lead": 25, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 46, "last_lead": 48, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 49, "last_lead": 49, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+  {"first_lead": 68, "last_lead": 120, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+
+## solar CISO  init 2026-10-04T18:00:00+00:00
+stored calibrated hours: 120; withheld: {"beyond_lit": 39, "beyond_dark": 23, "beyond_leads_lit": [22, 23, 24, 25, 46, 47, 48, 49, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 116, 117, 118, 119, 120], "served_calibrated": 58, "no_line": 120}
+seams.calibration: {"last_calibrated_lead": 21, "first_registry_lead": 22, "target_ts_before": "2026-10-05T14:00:00+00:00", "target_ts_after": "2026-10-05T15:00:00+00:00", "band_before": "h07_24", "band_after": "h07_24", "reason": "beyond_fitted_leads"}
+calibration_gaps (5):
+  {"first_lead": 22, "last_lead": 24, "band": "h07_24", "reason": "beyond_fitted_leads", "fit_lead_min": 7, "fit_lead_max": 21}
+  {"first_lead": 25, "last_lead": 25, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 46, "last_lead": 48, "band": "h25_48", "reason": "beyond_fitted_leads", "fit_lead_min": 26, "fit_lead_max": 45}
+  {"first_lead": 49, "last_lead": 49, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+  {"first_lead": 68, "last_lead": 120, "band": "h49_120", "reason": "beyond_fitted_leads", "fit_lead_min": 50, "fit_lead_max": 66}
+
+## wind NP15  init 2026-10-05T00:00:00+00:00
+stored calibrated hours: 66; withheld: {"beyond_lit": 0, "beyond_dark": 0, "beyond_leads_lit": [], "served_calibrated": 66, "no_line": 174}
+seams.calibration: {"last_calibrated_lead": 66, "first_registry_lead": 67, "target_ts_before": "2026-10-07T17:00:00+00:00", "target_ts_after": "2026-10-07T18:00:00+00:00", "band_before": "h49_120", "band_after": "h49_120", "reason": "no_line"}
+calibration_gaps (0):
+
+## wind ZP26  init 2026-10-05T00:00:00+00:00
+stored calibrated hours: 0; withheld: {"beyond_lit": 0, "beyond_dark": 0, "beyond_leads_lit": [], "served_calibrated": 0, "no_line": 240}
+seams.calibration: null
+calibration_gaps (0):
+
+## wind SP15  init 2026-10-05T00:00:00+00:00
+stored calibrated hours: 66; withheld: {"beyond_lit": 0, "beyond_dark": 0, "beyond_leads_lit": [], "served_calibrated": 66, "no_line": 174}
+seams.calibration: {"last_calibrated_lead": 66, "first_registry_lead": 67, "target_ts_before": "2026-10-07T17:00:00+00:00", "target_ts_after": "2026-10-07T18:00:00+00:00", "band_before": "h49_120", "band_after": "h49_120", "reason": "no_line"}
+calibration_gaps (0):
+
+## wind HUBSUM  init 2026-10-05T00:00:00+00:00
+stored calibrated hours: 66; withheld: {"beyond_lit": 0, "beyond_dark": 0, "beyond_leads_lit": [], "served_calibrated": 66, "no_line": 174}
+seams.calibration: {"last_calibrated_lead": 66, "first_registry_lead": 67, "target_ts_before": "2026-10-07T17:00:00+00:00", "target_ts_after": "2026-10-07T18:00:00+00:00", "band_before": "h49_120", "band_after": "h49_120", "reason": "no_line"}
+calibration_gaps (0):
+
+## wind CISO  init 2026-10-05T00:00:00+00:00
+stored calibrated hours: 66; withheld: {"beyond_lit": 0, "beyond_dark": 0, "beyond_leads_lit": [], "served_calibrated": 66, "no_line": 174}
+seams.calibration: {"last_calibrated_lead": 66, "first_registry_lead": 67, "target_ts_before": "2026-10-07T17:00:00+00:00", "target_ts_after": "2026-10-07T18:00:00+00:00", "band_before": "h49_120", "band_after": "h49_120", "reason": "no_line"}
+calibration_gaps (0):
+
+# Wind: served body (this branch) against main's, same rows, every difference
+
+## wind NP15: 36 differences, 0 of them in hours[]
+  .calibration.h01_06.fit_issuances: 28 -> "<absent>"
+  .calibration.h01_06.fit_leads_source: "derived" -> "stored"
+  .calibration.h01_06.fit_rows: 167 -> 166
+  .calibration.h07_24.fit_issuances: 28 -> "<absent>"
+  .calibration.h07_24.fit_leads_source: "derived" -> "stored"
+  .calibration.h07_24.fit_rows: 504 -> 500
+  .calibration.h25_48.fit_issuances: 28 -> "<absent>"
+  .calibration.h25_48.fit_leads_source: "derived" -> "stored"
+  .calibration.h25_48.fit_rows: 671 -> 666
+  .calibration.h49_120.fit_issuances: 29 -> "<absent>"
+  .calibration.h49_120.fit_leads_source: "derived" -> "stored"
+  .calibration.h49_120.fit_rows: 491 -> 486
+  .calibration_fit_leads_basis: "derived by this route: implied_gen_calibration holds no lead columns, so fit_lead_min/fit_lead_max are the min/max lead -> "stored by the writer (pantry migration 272)"
+  .calibration_gaps: "<absent>" -> []
+  .scores.dam_comparable.caiso_dam.lead_max: "<absent>" -> null
+  .scores.dam_comparable.caiso_dam.lead_min: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_max: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_min: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_max: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_min: "<absent>" -> null
+  .scores.h01_06.calibrated.lead_max: "<absent>" -> 6
+  .scores.h01_06.calibrated.lead_min: "<absent>" -> 1
+  .scores.h01_06.registry.lead_max: "<absent>" -> 6
+  .scores.h01_06.registry.lead_min: "<absent>" -> 1
+  .scores.h07_24.calibrated.lead_max: "<absent>" -> 24
+  .scores.h07_24.calibrated.lead_min: "<absent>" -> 7
+  .scores.h07_24.registry.lead_max: "<absent>" -> 24
+  .scores.h07_24.registry.lead_min: "<absent>" -> 7
+  .scores.h25_48.calibrated.lead_max: "<absent>" -> 48
+  .scores.h25_48.calibrated.lead_min: "<absent>" -> 25
+  .scores.h25_48.registry.lead_max: "<absent>" -> 48
+  .scores.h25_48.registry.lead_min: "<absent>" -> 25
+  .scores.h49_120.calibrated.lead_max: "<absent>" -> 66
+  .scores.h49_120.calibrated.lead_min: "<absent>" -> 49
+  .scores.h49_120.registry.lead_max: "<absent>" -> 66
+  .scores.h49_120.registry.lead_min: "<absent>" -> 49
+
+## wind ZP26: 2 differences, 0 of them in hours[]
+  .calibration_fit_leads_basis: "derived by this route: implied_gen_calibration holds no lead columns, so fit_lead_min/fit_lead_max are the min/max lead -> "stored by the writer (pantry migration 272)"
+  .calibration_gaps: "<absent>" -> []
+
+## wind SP15: 36 differences, 0 of them in hours[]
+  .calibration.h01_06.fit_issuances: 28 -> "<absent>"
+  .calibration.h01_06.fit_leads_source: "derived" -> "stored"
+  .calibration.h01_06.fit_rows: 167 -> 166
+  .calibration.h07_24.fit_issuances: 28 -> "<absent>"
+  .calibration.h07_24.fit_leads_source: "derived" -> "stored"
+  .calibration.h07_24.fit_rows: 504 -> 500
+  .calibration.h25_48.fit_issuances: 28 -> "<absent>"
+  .calibration.h25_48.fit_leads_source: "derived" -> "stored"
+  .calibration.h25_48.fit_rows: 671 -> 666
+  .calibration.h49_120.fit_issuances: 29 -> "<absent>"
+  .calibration.h49_120.fit_leads_source: "derived" -> "stored"
+  .calibration.h49_120.fit_rows: 501 -> 496
+  .calibration_fit_leads_basis: "derived by this route: implied_gen_calibration holds no lead columns, so fit_lead_min/fit_lead_max are the min/max lead -> "stored by the writer (pantry migration 272)"
+  .calibration_gaps: "<absent>" -> []
+  .scores.dam_comparable.caiso_dam.lead_max: "<absent>" -> null
+  .scores.dam_comparable.caiso_dam.lead_min: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_max: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_min: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_max: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_min: "<absent>" -> null
+  .scores.h01_06.calibrated.lead_max: "<absent>" -> 6
+  .scores.h01_06.calibrated.lead_min: "<absent>" -> 1
+  .scores.h01_06.registry.lead_max: "<absent>" -> 6
+  .scores.h01_06.registry.lead_min: "<absent>" -> 1
+  .scores.h07_24.calibrated.lead_max: "<absent>" -> 24
+  .scores.h07_24.calibrated.lead_min: "<absent>" -> 7
+  .scores.h07_24.registry.lead_max: "<absent>" -> 24
+  .scores.h07_24.registry.lead_min: "<absent>" -> 7
+  .scores.h25_48.calibrated.lead_max: "<absent>" -> 48
+  .scores.h25_48.calibrated.lead_min: "<absent>" -> 25
+  .scores.h25_48.registry.lead_max: "<absent>" -> 48
+  .scores.h25_48.registry.lead_min: "<absent>" -> 25
+  .scores.h49_120.calibrated.lead_max: "<absent>" -> 66
+  .scores.h49_120.calibrated.lead_min: "<absent>" -> 49
+  .scores.h49_120.registry.lead_max: "<absent>" -> 66
+  .scores.h49_120.registry.lead_min: "<absent>" -> 49
+
+## wind HUBSUM: 36 differences, 0 of them in hours[]
+  .calibration.h01_06.fit_issuances: 28 -> "<absent>"
+  .calibration.h01_06.fit_leads_source: "derived" -> "stored"
+  .calibration.h01_06.fit_rows: 167 -> 166
+  .calibration.h07_24.fit_issuances: 28 -> "<absent>"
+  .calibration.h07_24.fit_leads_source: "derived" -> "stored"
+  .calibration.h07_24.fit_rows: 504 -> 500
+  .calibration.h25_48.fit_issuances: 28 -> "<absent>"
+  .calibration.h25_48.fit_leads_source: "derived" -> "stored"
+  .calibration.h25_48.fit_rows: 671 -> 666
+  .calibration.h49_120.fit_issuances: 29 -> "<absent>"
+  .calibration.h49_120.fit_leads_source: "derived" -> "stored"
+  .calibration.h49_120.fit_rows: 504 -> 499
+  .calibration_fit_leads_basis: "derived by this route: implied_gen_calibration holds no lead columns, so fit_lead_min/fit_lead_max are the min/max lead -> "stored by the writer (pantry migration 272)"
+  .calibration_gaps: "<absent>" -> []
+  .scores.dam_comparable.caiso_dam.lead_max: "<absent>" -> null
+  .scores.dam_comparable.caiso_dam.lead_min: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_max: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_min: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_max: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_min: "<absent>" -> null
+  .scores.h01_06.calibrated.lead_max: "<absent>" -> 6
+  .scores.h01_06.calibrated.lead_min: "<absent>" -> 1
+  .scores.h01_06.registry.lead_max: "<absent>" -> 6
+  .scores.h01_06.registry.lead_min: "<absent>" -> 1
+  .scores.h07_24.calibrated.lead_max: "<absent>" -> 24
+  .scores.h07_24.calibrated.lead_min: "<absent>" -> 7
+  .scores.h07_24.registry.lead_max: "<absent>" -> 24
+  .scores.h07_24.registry.lead_min: "<absent>" -> 7
+  .scores.h25_48.calibrated.lead_max: "<absent>" -> 48
+  .scores.h25_48.calibrated.lead_min: "<absent>" -> 25
+  .scores.h25_48.registry.lead_max: "<absent>" -> 48
+  .scores.h25_48.registry.lead_min: "<absent>" -> 25
+  .scores.h49_120.calibrated.lead_max: "<absent>" -> 66
+  .scores.h49_120.calibrated.lead_min: "<absent>" -> 49
+  .scores.h49_120.registry.lead_max: "<absent>" -> 66
+  .scores.h49_120.registry.lead_min: "<absent>" -> 49
+
+## wind CISO: 30 differences, 0 of them in hours[]
+  .calibration.h01_06.fit_issuances: 28 -> "<absent>"
+  .calibration.h01_06.fit_leads_source: "derived" -> "stored"
+  .calibration.h07_24.fit_issuances: 28 -> "<absent>"
+  .calibration.h07_24.fit_leads_source: "derived" -> "stored"
+  .calibration.h25_48.fit_issuances: 28 -> "<absent>"
+  .calibration.h25_48.fit_leads_source: "derived" -> "stored"
+  .calibration.h49_120.fit_issuances: 29 -> "<absent>"
+  .calibration.h49_120.fit_leads_source: "derived" -> "stored"
+  .calibration_fit_leads_basis: "derived by this route: implied_gen_calibration holds no lead columns, so fit_lead_min/fit_lead_max are the min/max lead -> "stored by the writer (pantry migration 272)"
+  .calibration_gaps: "<absent>" -> []
+  .scores.dam_comparable.calibrated.lead_max: "<absent>" -> null
+  .scores.dam_comparable.calibrated.lead_min: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_max: "<absent>" -> null
+  .scores.dam_comparable.registry.lead_min: "<absent>" -> null
+  .scores.h01_06.calibrated.lead_max: "<absent>" -> 6
+  .scores.h01_06.calibrated.lead_min: "<absent>" -> 1
+  .scores.h01_06.registry.lead_max: "<absent>" -> 6
+  .scores.h01_06.registry.lead_min: "<absent>" -> 1
+  .scores.h07_24.calibrated.lead_max: "<absent>" -> 24
+  .scores.h07_24.calibrated.lead_min: "<absent>" -> 7
+  .scores.h07_24.registry.lead_max: "<absent>" -> 24
+  .scores.h07_24.registry.lead_min: "<absent>" -> 7
+  .scores.h25_48.calibrated.lead_max: "<absent>" -> 48
+  .scores.h25_48.calibrated.lead_min: "<absent>" -> 25
+  .scores.h25_48.registry.lead_max: "<absent>" -> 48
+  .scores.h25_48.registry.lead_min: "<absent>" -> 25
+  .scores.h49_120.calibrated.lead_max: "<absent>" -> 66
+  .scores.h49_120.calibrated.lead_min: "<absent>" -> 49
+  .scores.h49_120.registry.lead_max: "<absent>" -> 66
+  .scores.h49_120.registry.lead_min: "<absent>" -> 49
+

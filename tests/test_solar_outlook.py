@@ -122,9 +122,24 @@ def hour_rows(n=30, *, calibrated=False, prev=True):
             "source_posted_ts": INIT + timedelta(hours=4), "method_version": "solar_pv_v1",
             "prev_registry_mw": (reg - 100.0) if prev else None,
             "prev_calibrated_mw": (round((reg - 100.0) * 0.8, 3) if calibrated else None) if prev else None,
+            "prev_calibration_id": (10 + so.LEAD_BANDS.index(band)) if calibrated and prev else None,
+            "prev_lead_h": lead if prev else None,
             "prev_method_version": "solar_pv_v1" if prev else None,
         })
     return out
+
+
+def fitted_lines(area="SP15"):
+    """d091608 (D-09-25-136): a calibrated figure is served only where its own
+    line's stored fitted leads hold the hour's lead. One line per band, fitted
+    on the whole band, ids as hour_rows(calibrated=True) carries them."""
+    bounds = {"h01_06": (1, 6), "h07_24": (7, 24), "h25_48": (25, 48),
+              "h49_120": (49, 120), "h121_240": (121, 240)}
+    return [{"calibration_id": 10 + i, "area": area, "lead_band": b, "intercept_mw": 1.0,
+             "slope": 0.85, "fit_start": date(2026, 9, 4), "fit_end": date(2026, 9, 30),
+             "n_hours": 300, "n_days": 27, "fitted_at": INIT, "method_version": "solar_pv_v1",
+             "fit_lead_min": bounds[b][0], "fit_lead_max": bounds[b][1], "fit_rows": 300}
+            for i, b in enumerate(so.LEAD_BANDS)]
 
 
 def score_row(band, who, *, scored=True, n_days=20, mae=123.0, area_kind="hub"):
@@ -295,7 +310,8 @@ def test_G3_route_serves_the_previous_hour_like_for_like(client, monkeypatch):
 
 
 def test_G3_calibrated_hours_compare_calibrated_to_calibrated(client, monkeypatch):
-    pool = outlook_pool(hours=hour_rows(calibrated=True))
+    # d091608: the fake carries the lines its rows name (the gate reads them)
+    pool = outlook_pool(hours=hour_rows(calibrated=True), lines=fitted_lines())
     h = get(client, monkeypatch, pool,
             "/api/generation/solar/outlook?area_kind=hub&area=SP15").json()["hours"][0]
     assert h["previous_mw"] == h["previous_calibrated_mw"] != h["previous_registry_mw"]
@@ -340,11 +356,8 @@ def test_G4_a_line_the_rows_do_not_carry_is_not_reported(client, monkeypatch):
 
 
 def test_G4_calibrated_rows_name_their_line(client, monkeypatch):
-    lines = [{"calibration_id": 10 + i, "area": "SP15", "lead_band": b, "intercept_mw": 1.0,
-              "slope": 0.85, "fit_start": date(2026, 9, 4), "fit_end": date(2026, 9, 30),
-              "n_hours": 300, "n_days": 27, "fitted_at": INIT, "method_version": "solar_pv_v1"}
-             for i, b in enumerate(so.LEAD_BANDS)]
-    pool = outlook_pool(hours=hour_rows(calibrated=True), lines=lines)
+    # d091608: the lines carry their stored fitted leads (migration 272)
+    pool = outlook_pool(hours=hour_rows(calibrated=True), lines=fitted_lines())
     body = get(client, monkeypatch, pool,
                "/api/generation/solar/outlook?area_kind=hub&area=SP15").json()
     assert body["unscaled"] is False
@@ -478,6 +491,7 @@ CREATE TABLE implied_gen_scores (
     n_days integer NOT NULL, scored boolean NOT NULL, bias_mw double precision,
     mae_mw double precision, mae_pct_installed double precision, rmse_mw double precision,
     r double precision, method_version text NOT NULL, scored_at timestamptz NOT NULL DEFAULT now(),
+    lead_min smallint, lead_max smallint,             -- pantry migration 272 (d091608 reads them)
     PRIMARY KEY (tech, area, lead_band, who, window_end, method_version));
 CREATE TABLE timeseries_values (
     ts timestamptz NOT NULL, dataset text NOT NULL, series text NOT NULL, value numeric,
@@ -608,30 +622,68 @@ def test_PG_G2_actual_reads_name_their_series_and_window(pg):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# P1 — production's rows (banked 2026-10-03), through the route
+# P1 — production's rows (re-banked 2026-10-05 by d091608), through the route
 # ═══════════════════════════════════════════════════════════════════════════
 
-def test_P1_production_hubsum_bank(client, monkeypatch):
+def _sample():
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "solar_sample", pathlib.Path(__file__).resolve().parents[1]
         / "docs" / "receipts" / "solar-outlook-api-d091568" / "sample.py")
     sample = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sample)
+    return sample
+
+
+def test_P1_production_hubsum_bank(client, monkeypatch):
+    sample = _sample()
     b = sample.load()
-    body = get(client, monkeypatch, sample.pool(b),
+    body = get(client, monkeypatch, sample.pool(b, "HUBSUM"),
                "/api/generation/solar/outlook?area_kind=hub_sum").json()
-    assert body["issuance"]["init_ts"] == "2026-10-01T12:00:00+00:00"
-    assert body["issuance"]["previous_init_ts"] == "2026-09-30T06:00:00+00:00"
-    assert len(body["hours"]) == 66 and body["hours"][-1]["lead_h"] == 66
-    # the backfill applied no line: every hour is the registry figure, unscaled,
-    # although lines exist for HUBSUM (finding: handback §5.1)
-    assert body["unscaled"] is True and len(b["lines_existing"]) == 4
-    assert body["calibration"] == {band: None for band in so.LEAD_BANDS}
-    # the previous issuance (06Z, 30 h earlier) reaches target hours up to lead 36 only
-    assert [h["previous_mw"] is None for h in body["hours"]].index(True) == 36
-    assert body["scores"]["h121_240"] == {"registry": "not yet scored",
-                                          "calibrated": "not yet scored"}
-    assert body["scores"][so.DAM]["caiso_dam"]["n_days"] == 22
-    assert len(body["caiso_dam"]) == 66 and len(body["actuals"]) == 39
-    assert body["fleet"]["registry_units"] == 0           # implied_gen_sites is empty
+    assert body["issuance"]["init_ts"] == "2026-10-04T18:00:00+00:00"
+    assert body["issuance"]["previous_init_ts"] == "2026-10-04T12:00:00+00:00"
+    assert len(body["hours"]) == 240 and body["hours"][-1]["lead_h"] == 240
+    h = {x["lead_h"]: x for x in body["hours"]}
+    # the writer stored a calibrated figure on all of leads 1-120 (ungated until
+    # pantry d091607); the route serves it only inside each line's fitted leads
+    raw = {r["lead_h"]: r for r in b["areas"]["HUBSUM"]["hours"]}
+    assert all(raw[l]["calibrated_mw"] is not None for l in range(1, 121))
+    for lead in (1, 6, 21, 26, 45, 50):
+        assert h[lead]["calibrated_mw"] == raw[lead]["calibrated_mw"], lead
+    for lead in (22, 24, 25, 46, 49, 67, 120):
+        assert h[lead]["calibrated_mw"] is None, lead
+        assert h[lead]["calibrated_absent_reason"] == "beyond_fitted_leads"
+    assert h[121]["calibrated_absent_reason"] == "no_line"
+    assert round(h[22]["registry_mw"]) == 15928 and round(raw[22]["calibrated_mw"]) > 0
+    c = body["calibration"]
+    assert [(c[b_]["fit_lead_min"], c[b_]["fit_lead_max"]) for b_ in so.LEAD_BANDS[:4]] == [
+        (1, 6), (7, 21), (26, 45), (50, 66)]
+    assert all(c[b_]["fit_rows"] == c[b_]["n_hours"] for b_ in so.LEAD_BANDS[:4])
+    assert c["h121_240"] is None and body["unscaled"] is False
+    assert body["seams"]["calibration"]["last_calibrated_lead"] == 21
+    assert [(g["first_lead"], g["last_lead"], g["band"]) for g in body["calibration_gaps"]] == [
+        (22, 24, "h07_24"), (25, 25, "h25_48"), (46, 48, "h25_48"), (49, 49, "h49_120"),
+        (68, 120, "h49_120")]
+    sc = body["scores"]
+    assert (sc["h49_120"]["calibrated"]["lead_min"], sc["h49_120"]["calibrated"]["lead_max"]) == (49, 66)
+    assert sc["h121_240"] == {"registry": "not yet scored", "calibrated": "not yet scored"}
+    assert sc[so.DAM]["caiso_dam"]["n_days"] == 23 and sc[so.DAM]["caiso_dam"]["lead_min"] is None
+    assert len(body["caiso_dam"]) == 37 and body["actuals"] == []
+    assert body["fleet"]["registry_units"] == 1027
+
+
+def test_P1_production_every_calibrated_area(client, monkeypatch):
+    sample = _sample()
+    b = sample.load()
+    for area, q in sample.QUERY.items():
+        main._solar_outlook_cache.clear()
+        body = get(client, monkeypatch, sample.pool(b, area),
+                   f"/api/generation/solar/outlook?{q}").json()
+        raw = {r["lead_h"]: r for r in b["areas"][area]["hours"]}
+        lines = {int(l["calibration_id"]): l for l in b["areas"][area]["lines"]}
+        for x in body["hours"]:
+            r = raw[x["lead_h"]]
+            ln = lines.get(r["calibration_id"]) if r["calibration_id"] is not None else None
+            inside = ln is not None and ln["fit_lead_min"] <= x["lead_h"] <= ln["fit_lead_max"]
+            assert x["calibrated_mw"] == (r["calibrated_mw"] if inside else None), (area, x["lead_h"])
+        assert len(body["calibration_gaps"]) == 5, area

@@ -6,14 +6,15 @@
   W2  previous_mw is like for like with what each issuance may SHOW
   W3  the days block never adds a calibrated hour to a registry hour
   W4  both seams are read off the rows and named with their leads
-  W5  the fitted leads are derived by the writer's fit rule (CALIBRATION_SQL)
+  W5  the fitted leads are the writer's, stored on the line (pantry migration
+      272); d091608 deleted the route's derivation (CALIBRATION_SQL is solar's)
   W6  hub areas pair with hub actuals, CISO with fuel-mix wind; CAISO's
       day-ahead and its issue-time sentence for hub areas only
   W7  ZP26 has no score row (clause 7): no score read, scores null, said why
   W8  the label, the attribution notice and the CAISO sentence, verbatim
   W9  /sites: one lateral per plant, facts with bases, capacity factor
   S   solar's payload is unchanged by the sharing (its own suite, plus here)
-  P1  production's live cycle (init 2026-10-04 12Z) through the route
+  P1  production's cycle (init 2026-10-05 00Z, re-banked by d091608) through the route
 
 Route tests run main.py against test_solar_outlook's FakePool (answers by
 substring). PG tests run wind_outlook's SQL on a real Postgres; they skip where
@@ -201,8 +202,9 @@ def test_W1_the_boundary_moves_with_the_fit_and_nothing_is_hard_coded(client, mo
     assert body["calibration"]["h49_120"]["fit_lead_max"] == fit_max
 
 
-def test_W1_no_constant_for_todays_boundary_in_the_module():
-    src = pathlib.Path(wo.__file__).read_text()
+@pytest.mark.parametrize("mod", [wo, so])        # d091608: the gate now lives in solar_outlook
+def test_W1_no_constant_for_todays_boundary_in_the_module(mod):
+    src = pathlib.Path(mod.__file__).read_text()
     code = "\n".join(l.split("#")[0] for l in src.splitlines())
     code = re.sub(r'"""[\s\S]*?"""', "", code)
     assert not re.search(r"\b66\b", code)
@@ -223,7 +225,7 @@ def test_W1_each_line_states_its_fitted_and_applied_leads(client, monkeypatch):
     c = hubsum(client, monkeypatch)["calibration"]
     assert c["h49_120"]["fit_lead_min"] == 49 and c["h49_120"]["fit_lead_max"] == 66
     assert c["h49_120"]["applied_lead_min"] == 49 and c["h49_120"]["applied_lead_max"] == 120
-    assert c["h49_120"]["fit_leads_source"] == "derived"
+    assert c["h49_120"]["fit_leads_source"] == "stored"
     assert c["h121_240"] is None
 
 
@@ -295,18 +297,18 @@ def test_W4_unscaled_area_has_no_calibration_seam(client, monkeypatch):
 # W5 — the derivation of the fitted leads
 # ═══════════════════════════════════════════════════════════════════════════
 
-def test_W5_derivation_follows_the_writers_fit_rule_and_stays_on_the_key():
+def test_W5_the_fitted_leads_are_read_from_the_line_not_derived():
+    # d091608 (D-09-25-136 clause 1): was "the derivation follows the writer's
+    # fit rule"; the derivation is deleted and the line's stored columns read.
     sql = " ".join(wo.CALIBRATION_SQL.split())
-    for clause in ("r.tech = c.tech", "r.area_kind = %(area_kind)s", "r.area = c.area",
-                   "r.model = %(model)s", "r.lead_band = c.lead_band",
-                   "r.method_version = c.method_version", "r.scored_registry_mw > 0",
-                   "r.written_at <= c.fitted_at",
-                   "r.target_ts >= (c.fit_start::timestamp AT TIME ZONE 'America/Los_Angeles')",
-                   "r.target_ts < ((c.fit_end + 1)::timestamp AT TIME ZONE 'America/Los_Angeles')",
-                   "r.init_ts >= (c.fit_start::timestamp AT TIME ZONE 'America/Los_Angeles') - interval",
-                   "c.calibration_id = ANY(%(ids)s)"):
-        assert clause in sql, clause
-    assert not re.search(r"DISTINCT\s+ON", sql, re.I)
+    assert wo.CALIBRATION_SQL is so.CALIBRATION_SQL
+    assert "fit_lead_min, fit_lead_max, fit_rows FROM implied_gen_calibration" in sql
+    assert "calibration_id = ANY(%(ids)s) AND tech = %(tech)s AND area = %(area)s" in sql
+    for gone in ("implied_gen_area_hourly", "LATERAL", "written_at", "AT TIME ZONE"):
+        assert gone not in sql, gone
+    assert "derived" not in wo.FIT_LEADS_BASIS
+    assert wo.FIT_LEADS_BASIS == "stored by the writer (pantry migration 272)"
+    assert not hasattr(wo, "_MAX_LEAD_H")
 
 
 def test_W5_previous_issuances_lines_are_read_too(client, monkeypatch):
@@ -314,7 +316,7 @@ def test_W5_previous_issuances_lines_are_read_too(client, monkeypatch):
     get(client, monkeypatch, pool, "/api/generation/wind/outlook?area_kind=hub_sum")
     (_q, params), = [(q, p) for q, p in pool.calls if "FROM implied_gen_calibration" in q]
     assert params["ids"] == [1, 2, 3, 4]
-    assert params["area_kind"] == "hub_sum" and params["model"] == "hrrr_gfs"
+    assert params["tech"] == "wind" and params["area"] == "HUBSUM"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -532,7 +534,8 @@ CREATE TABLE implied_gen_calibration (
     calibration_id bigint PRIMARY KEY, tech text NOT NULL, area text NOT NULL,
     lead_band text NOT NULL, intercept_mw double precision NOT NULL, slope double precision NOT NULL,
     fit_start date NOT NULL, fit_end date NOT NULL, n_hours integer NOT NULL, n_days integer NOT NULL,
-    fitted_at timestamptz NOT NULL DEFAULT now(), method_version text NOT NULL);
+    fitted_at timestamptz NOT NULL DEFAULT now(), method_version text NOT NULL,
+    fit_lead_min smallint, fit_lead_max smallint, fit_rows integer);   -- pantry migration 272
 CREATE TABLE implied_gen_wind_sites (
     plant_code integer PRIMARY KEY, plant_name text, nameplate_mw numeric, turbine_model text,
     turbine_model_basis text, n_turbines integer, n_turbines_basis text, rotor_m numeric,
@@ -621,8 +624,8 @@ def _seed(conn):
     with conn.cursor() as cur:
         cur.executemany(ins, rows)
         cur.execute("INSERT INTO implied_gen_calibration VALUES "
-                    "(676,'wind','HUBSUM','h49_120',1551.8214,0.644592,'2026-09-05','2026-10-02',499,28,%s,'wind_v1'),"
-                    "(675,'wind','HUBSUM','h25_48',82.2611,0.638316,'2026-09-05','2026-10-02',667,28,%s,'wind_v1')",
+                    "(676,'wind','HUBSUM','h49_120',1551.8214,0.644592,'2026-09-05','2026-10-02',499,28,%s,'wind_v1',49,66,499),"
+                    "(675,'wind','HUBSUM','h25_48',82.2611,0.638316,'2026-09-05','2026-10-02',667,28,%s,'wind_v1',25,48,667)",
                     (FITTED_AT, FITTED_AT))
         cur.executemany(
             "INSERT INTO implied_gen_wind_sites (plant_code, plant_name, nameplate_mw, hub, ba_code, state, "
@@ -635,16 +638,15 @@ def _seed(conn):
              for code in (1, 2) for k in range(0, 72)])
 
 
-def test_PG_W5_derived_fit_leads_are_the_leads_the_fit_used(pg):
+def test_PG_W5_fit_leads_are_the_lines_stored_columns(pg):
+    # d091608: was "derived fit leads are the leads the fit used" (504 rows
+    # counted by the LATERAL); now the line's own columns, whatever the rows say
     rows = pg.execute(wo.CALIBRATION_SQL, {"tech": "wind", "area_kind": "hub_sum", "area": "HUBSUM",
                                            "model": "hrrr_gfs", "ids": [675, 676]}).fetchall()
     by = {r["lead_band"]: r for r in rows}
-    # the backfill's 06Z issuances reach lead 66; the live cycle's 67-240 were
-    # written after the fit and target days after fit_end; every trap is excluded
     assert (by["h49_120"]["fit_lead_min"], by["h49_120"]["fit_lead_max"]) == (49, 66)
     assert (by["h25_48"]["fit_lead_min"], by["h25_48"]["fit_lead_max"]) == (25, 48)
-    # 28 Pacific days 09-05..10-02 of 06Z issuances x 18 leads, by target day
-    assert by["h49_120"]["fit_rows"] == 28 * 18
+    assert by["h49_120"]["fit_rows"] == by["h49_120"]["n_hours"] == 499
 
 
 def test_PG_W5_hours_and_issuance_read_the_live_cycle(pg):
@@ -689,29 +691,32 @@ def test_P1_production_hubsum(client, monkeypatch):
     b = s.load()
     body = get(client, monkeypatch, s.outlook_pool(b, "HUBSUM"),
                "/api/generation/wind/outlook?area_kind=hub_sum").json()
-    assert body["issuance"]["init_ts"] == "2026-10-04T12:00:00+00:00"
+    assert body["issuance"]["init_ts"] == "2026-10-05T00:00:00+00:00"
+    assert body["issuance"]["previous_init_ts"] == "2026-10-04T18:00:00+00:00"
     assert len(body["hours"]) == 240
     h = {x["lead_h"]: x for x in body["hours"]}
-    # the addendum's §0, to the MW
-    assert round(h[48]["registry_mw"]) == 3405 and round(h[48]["calibrated_mw"]) == 2256
-    assert round(h[49]["registry_mw"]) == 1702 and round(h[49]["calibrated_mw"]) == 2649
-    assert round(h[120]["registry_mw"]) == 6
-    # the writer stored ~1,556 MW calibrated at lead 120; it is not shown
-    raw120 = next(r for r in b["areas"]["HUBSUM"]["hours"] if r["lead_h"] == 120)
-    assert round(raw120["calibrated_mw"]) == 1556
-    assert h[120]["calibrated_mw"] is None and h[120]["calibrated_absent_reason"] == "beyond_fitted_leads"
+    assert round(h[48]["registry_mw"]) == 947 and round(h[48]["calibrated_mw"]) == 712
+    assert round(h[49]["registry_mw"]) == 681 and round(h[49]["calibrated_mw"]) == 1959
+    # the wind writer is gated (pantry d091599): beyond lead 66 it stores no
+    # figure and no line, so the hour says no_line and nothing is withheld here
+    raw = {r["lead_h"]: r for r in b["areas"]["HUBSUM"]["hours"]}
+    assert raw[67]["calibrated_mw"] is None and raw[67]["calibration_id"] is None
+    assert h[67]["calibrated_mw"] is None and h[67]["calibrated_absent_reason"] == "no_line"
+    assert body["calibration_gaps"] == []
     c = body["calibration"]["h49_120"]
-    assert (c["intercept_mw"], c["slope"], c["n_hours"]) == (1551.8214, 0.644592, 499)
-    assert (c["fit_lead_min"], c["fit_lead_max"]) == (49, 66)
+    assert (c["calibration_id"], c["intercept_mw"], c["slope"], c["n_hours"]) == (696, 1483.7487, 0.699056, 499)
+    assert (c["fit_lead_min"], c["fit_lead_max"], c["fit_rows"]) == (49, 66, 499)
+    assert c["fit_leads_source"] == "stored" and "fit_issuances" not in c
     assert body["seams"]["weather"]["last_lead"] == WRITER["SEAM_LEAD (implied_gen/wind_method.py)"] == 48
     assert body["seams"]["calibration"]["last_calibrated_lead"] == 66
+    assert body["seams"]["calibration"]["reason"] == "no_line"
     sc = body["scores"]
     assert [sc[b_]["calibrated"]["mae_pct_installed"] for b_ in ("h01_06", "h07_24", "h25_48")] == [
-        5.1817, 6.0636, 7.3998]
-    assert round(sc["dam_comparable"]["calibrated"]["mae_pct_installed"], 2) == 7.51
-    assert round(sc["dam_comparable"]["caiso_dam"]["mae_pct_installed"], 2) == 4.84
+        5.1817, 6.0636, 7.1714]
+    assert (sc["h49_120"]["calibrated"]["lead_min"], sc["h49_120"]["calibrated"]["lead_max"]) == (49, 66)
+    assert round(sc["dam_comparable"]["caiso_dam"]["mae_pct_installed"], 2) == 4.73
     crossing = [d for d in body["days"] if d["crosses_calibration_seam"]]
-    assert [d["day"] for d in crossing] == ["2026-10-06"] and crossing[0]["energy_mwh"] is None
+    assert [d["day"] for d in crossing] == ["2026-10-07"] and crossing[0]["energy_mwh"] is None
     assert body["fleet"]["export_caps"][0]["export_cap_mw"] == 2131.0
 
 
@@ -729,14 +734,15 @@ def test_P1_production_ciso_and_zp26(client, monkeypatch):
     zp = get(client, monkeypatch, s.outlook_pool(b, "ZP26"),
              "/api/generation/wind/outlook?area_kind=hub&area=ZP26").json()
     assert zp["scores"] is None and zp["unscaled"] is True and zp["seams"]["calibration"] is None
+    assert zp["calibration_gaps"] == []
 
 
 def test_P1_production_sites(client, monkeypatch):
     s = _sample()
     b = s.load()
-    body = get(client, monkeypatch, s.sites_pool(b, "target_2026_10_04T20Z"),
-               "/api/generation/wind/sites?target=2026-10-04T20:00:00Z").json()
-    assert body["plant_count"] == 323 and body["init_ts"] == "2026-10-04T12:00:00+00:00"
+    body = get(client, monkeypatch, s.sites_pool(b, "target_2026_10_05T20Z"),
+               "/api/generation/wind/sites?target=2026-10-05T20:00:00Z").json()
+    assert body["plant_count"] == 323 and body["init_ts"] == "2026-10-05T00:00:00+00:00"
     sz = [p for p in body["plants"] if p["export_cap_group"] == "sunzia"]
     assert [p["plant_code"] for p in sz] == [66923, 66924]
     assert all(p["export_cap_mw"] == 2131.0 and p["export_cap_basis"] for p in sz)

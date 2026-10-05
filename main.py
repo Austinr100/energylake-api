@@ -15997,6 +15997,12 @@ class _DDCacheEntry:
 class _DDCache:
     """In-process cache with single-flight builds and optional stale-serving.
 
+    `max_stale_s` (D-09-25-138) bounds the stale serve: an entry older than
+    ttl + max_stale_s is not served; the request waits on the single-flight
+    build, and its state is "miss". Stale-while-revalidate holds inside that
+    window only. None (the default) keeps the unbounded stale serve, which the
+    degree-day cumulative board keeps on purpose (a ~52 s build).
+
     ONE lock per cache, not per key. For the cumulative board that is deliberate:
     the underlying read is a ~52 s full-view derivation, and letting two of them
     run concurrently would tie up two of the pool's five connections for a minute
@@ -16005,11 +16011,13 @@ class _DDCache:
     """
 
     def __init__(self, name: str, ttl: float, *, max_entries: int = 16,
-                 allow_stale: bool = False, build_timeout: float | None = None):
+                 allow_stale: bool = False, build_timeout: float | None = None,
+                 max_stale_s: float | None = None):
         self.name = name
         self.ttl = ttl
         self.max_entries = max_entries
         self.allow_stale = allow_stale
+        self.max_stale_s = max_stale_s
         self.build_timeout = build_timeout
         self._entries: dict = {}
         self._lock = asyncio.Lock()
@@ -16075,14 +16083,16 @@ class _DDCache:
         """(payload, state, entry) — the whole policy in one place.
 
         state is "fresh" | "stale" | "miss". A stale entry is returned as-is and
-        a refresh is started behind it; a miss blocks on the build.
+        a refresh is started behind it; a miss blocks on the build. An entry
+        older than ttl + max_stale_s is never served: that request is a miss.
         """
         entry = self._entries.get(key)
         if entry is not None:
             age = time.monotonic() - entry.built_mono
             if age < self.ttl:
                 return entry.payload, "fresh", entry
-            if self.allow_stale:
+            if self.allow_stale and (self.max_stale_s is None
+                                     or age < self.ttl + self.max_stale_s):
                 self._spawn_refresh(key, builder)
                 return entry.payload, "stale", entry
         entry = await self._locked_build(key, builder)
@@ -19657,14 +19667,20 @@ import solar_outlook as _so
 SOLAR_MEMO_TTL = 300.0                # four cycles a day; a score once a day
 SOLAR_STATEMENT_TIMEOUT = "5s"        # production 2026-10-03: <= 31 ms cold, ~1 ms warm
 SOLAR_BUILD_TIMEOUT = 15.0            # checkout wait + the reads, as a backstop
+# D-09-25-138: an outlook is never served more than 15 minutes stale. Past
+# ttl + this, the request waits on the build (2.57 s outlook, 3.13 s sites,
+# measured 2026-10-05) rather than serve the last thing anyone asked for.
+OUTLOOK_MAX_STALE_S = 900.0
 
 _solar_outlook_cache = _DDCache(
     "generation/solar/outlook", SOLAR_MEMO_TTL, max_entries=64,
     allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
 )
 _solar_sites_cache = _DDCache(
     "generation/solar/sites", SOLAR_MEMO_TTL, max_entries=32,
     allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
 )
 
 
@@ -19720,7 +19736,7 @@ async def _solar_outlook_build(area_kind: str, area: str, model: str,
                 lines: list = []
                 ids = _so.calibration_ids(hours)
                 if ids:
-                    await cur.execute(_so.CALIBRATION_SQL, {"ids": ids})
+                    await cur.execute(_so.CALIBRATION_SQL, {**key, "ids": ids})
                     lines = await cur.fetchall()
                 actual_rows: list = []
                 actuals_sql = _so.ACTUALS_SQL.get((area_kind, area))
@@ -19757,15 +19773,22 @@ async def solar_outlook(
                       previous_method_version, source_posted_ts,
                       lead_h_first, lead_h_last } | null,
           hours: [ { target_ts, lead_h, lead_band, weather_step_h,
-                     registry_mw, calibrated_mw, calibration_id,
-                     outage_mw_subtracted, previous_mw,
+                     registry_mw, calibrated_mw, calibrated_absent_reason,
+                     calibration_id, outage_mw_subtracted, previous_mw,
                      previous_registry_mw, previous_calibrated_mw } ],
-          unscaled,                      # true when no hour carries calibrated_mw
+          unscaled,                      # true when no hour SERVES calibrated_mw
+          seams: { calibration: { last_calibrated_lead, first_registry_lead,
+                                  reason, ... } | null },
+          calibration_gaps: [ { first_lead, last_lead, band, reason,
+                                fit_lead_min, fit_lead_max } ],
           calibration: { <lead band>: { slope, intercept_mw, fit_start, fit_end,
-                                        n_hours, n_days, ... } | null },
+                                        n_hours, n_days, fit_lead_min,
+                                        fit_lead_max, fit_rows, ... } | null },
+          calibration_fit_leads_basis,
           scores: { <band>: { registry, calibrated[, caiso_dam]:
                               {window_start, window_end, n_hours, n_days,
-                               bias_mw, mae_mw, mae_pct_installed, rmse_mw, r}
+                               bias_mw, mae_mw, mae_pct_installed, rmse_mw, r,
+                               lead_min, lead_max[, hours_rule]}
                               | "not yet scored" } },
           score_progress: { <band>: { <who>: {n_days, n_hours, window_end,
                                               min_days} | null } },
@@ -19774,6 +19797,12 @@ async def solar_outlook(
           fleet: { ac_mw_total, n_sites, by_mount_basis, by_dc_basis,
                    registry_units, registry_ac_mw },
           absence, cache }
+
+    D-09-25-136: `calibrated_mw` is served only where the hour's own line's
+    stored fitted leads (pantry migration 272) hold its lead; beyond, null with
+    `calibrated_absent_reason` "beyond_fitted_leads" ("no_line" where the row
+    names no line). `seams.calibration` and `calibration_gaps` are read over lit
+    hours only (registry_mw > 0). Each score names the leads it covers.
 
     `label` is spec §3.3 verbatim (D-09-25-109). Every hour carries its lead
     and its band, and a band's score is only ever that band's own newest row:
@@ -19787,8 +19816,9 @@ async def solar_outlook(
 
     A valid area with nothing banked -> 200 with `absence`; an `init` that is
     not banked -> 404; bad params -> 400; DB unavailable -> 503. Memoised 300 s
-    per (area, model, init), single-flight, served stale while it rebuilds;
-    every read under a 5 s statement timeout.
+    per (area, model, init), single-flight, served stale while it rebuilds for
+    at most 900 s more (D-09-25-138), then rebuilt before answering; every read
+    under a 5 s statement timeout.
     """
     try:
         area_kind, area = _so.parse_area(area_kind, area)
@@ -19895,10 +19925,12 @@ import wind_outlook as _wo
 _wind_outlook_cache = _DDCache(
     "generation/wind/outlook", SOLAR_MEMO_TTL, max_entries=64,
     allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
 )
 _wind_sites_cache = _DDCache(
     "generation/wind/sites", SOLAR_MEMO_TTL, max_entries=32,
     allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
 )
 
 
@@ -19979,6 +20011,8 @@ async def wind_outlook(
           seams: { weather: { last_lead, first_lead, before, after, ... } | null,
                    calibration: { last_calibrated_lead, first_registry_lead,
                                   reason, ... } | null },
+          calibration_gaps: [ { first_lead, last_lead, band, reason,
+                                fit_lead_min, fit_lead_max } ],
           calibration: { <lead band>: { slope, intercept_mw, fit_start, fit_end,
                                         fit_lead_min, fit_lead_max, fit_rows,
                                         ... } | null },
@@ -19996,18 +20030,18 @@ async def wind_outlook(
           caiso_dam, caiso_dam_issued,     # hub and hub_sum ONLY; absent otherwise
           weather_height_m, fleet, absence, cache }
 
-    D-09-25-127: `calibrated_mw` is served only where the hour's line was
+    D-09-25-127 / -136: `calibrated_mw` is served only where the hour's line was
     fitted on its lead; beyond, it is null with `calibrated_absent_reason`
     "beyond_fitted_leads" and the hour shows the registry figure. The fitted
-    leads are derived from the rows the line was fitted on
-    (`calibration_fit_leads_basis`). A day across the calibration seam is two
-    parts and never one total. Hub areas pair with hub actuals, CISO with the
+    leads are the writer's, stored on the line (pantry migration 272); solar's
+    gate, seam and gaps are this route's too (solar_outlook). A day across the
+    calibration seam is two parts and never one total. Hub areas pair with hub actuals, CISO with the
     fuel mix's wind; ZP26 has no score row (it is in HUBSUM).
 
     A valid area with nothing banked -> 200 with `absence`; an `init` that is
     not banked -> 404; bad params -> 400; DB unavailable -> 503. Memoised 300 s
-    per (area, model, init), single-flight, served stale while it rebuilds;
-    every read under a 5 s statement timeout.
+    per (area, model, init), single-flight, served stale while it rebuilds for
+    at most 900 s more (D-09-25-138); every read under a 5 s statement timeout.
     """
     try:
         area_kind, area = _wo.parse_area(area_kind, area)
