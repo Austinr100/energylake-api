@@ -27,6 +27,7 @@ Endpoints:
     GET /api/load/outlook?area=            CAISO's own load forecast per area, today..D+7, each day its freshest product (DAM/2DA/7DA) with issue time; the BA's EIA-930 DF; scores vs a usable actual (d091611, D-09-25-139)
     GET /api/load/areas                    the 36 SLD_FCST areas: kind, EIA counterpart, whether scored, the EIA-930 D usability verdict (d091611)
     GET /api/load/net-demand?area=CISO     CAISO load - calibrated solar - calibrated wind, null where any part is not scored; CAISO's DA reference, truth, day-ahead backtest (d091611, D-09-25-140)
+    GET /api/mjo/status                    the MJO now from mjo_index_daily: newest day (phase, amplitude, active, source), the last 40 days with RMM1/RMM2, frontier age, the OMI->ROMI seam; nothing statistical; 300 s memo, stale <= 900 s (d091614, D-09-25-141)
     GET /api/timeseries/caiso-hub-lmp      CAISO trading-hub LMP (DA/RTPD/RTD + DART), prev+current PT day
     GET /api/almanac/lmp-shape             LMP shape overlay (M2 — added May 29). NOTE: a literal path inside the Almanac prefix; it wins over /api/almanac/{series} only because it is registered first
     GET /api/almanac                       The Almanac v0: the shelf — every published issue as a card, newest first, ?series= filter; bare array, read_minutes derived (2026-08-07)
@@ -20326,6 +20327,81 @@ async def load_net_demand(
         _solar_400(e)
     return await _solar_serve(_net_demand_cache, area,
                               lambda: _net_demand_build(area), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# /api/mjo/status — the MJO status, read-only (d091614, D-09-25-141 clause 3)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The banked index (mjo_index_daily), its newest day, the last 40 days and the
+# OMI → ROMI seam. Nothing statistical. The SQL and the shaping are in
+# mjo_status.py. Three reads, each one (dataset, series) per index scan with a
+# ts range (d091551), inside conn.transaction() under SET LOCAL
+# statement_timeout (D-09-25-75). Memoised 300 s, single-flight, stale behind
+# one refresh for at most 900 s (D-09-25-138, _DDCache.max_stale_s).
+# Plans: docs/receipts/mjo-status-api-d091614/plans.txt.
+
+import mjo_status as _mjo
+
+MJO_MEMO_TTL = 300.0
+MJO_MAX_STALE_S = 900.0               # D-09-25-138
+MJO_STATEMENT_TIMEOUT = "3s"
+
+_mjo_status_cache = _DDCache(
+    "mjo/status", MJO_MEMO_TTL, max_entries=1, allow_stale=True,
+    build_timeout=SOLAR_BUILD_TIMEOUT, max_stale_s=MJO_MAX_STALE_S,
+)
+
+
+async def _mjo_status_build() -> dict:
+    assert _pool is not None
+    now = _utcnow()
+    w = _mjo.windows(now)
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{MJO_STATEMENT_TIMEOUT}'")
+                await cur.execute(_mjo.NEWEST_SQL, {
+                    "dataset": _mjo.DATASET, "lo": w["newest_lo"], "hi": w["newest_hi"]})
+                frontier = _mjo.frontier_of(await cur.fetchall())
+                if frontier is None:
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"no rows banked for {_mjo.DATASET} in the "
+                               f"{_mjo.NEWEST_LOOKBACK_DAYS} days to {w['today']}")
+                await cur.execute(_mjo.WALK_SQL, {
+                    "dataset": _mjo.DATASET, **_mjo.walk_range(frontier)})
+                walk_rows = await cur.fetchall()
+                await cur.execute(_mjo.SEAM_SQL, {
+                    "dataset": _mjo.DATASET, "series": _mjo.SEAM_SERIES,
+                    "lo": w["seam_lo"], "hi": w["seam_hi"]})
+                seam_row = await cur.fetchone()
+    return _mjo.build_status(now=now, frontier=frontier, walk_rows=walk_rows,
+                             seam_row=seam_row)
+
+
+@app.get("/api/mjo/status")
+async def mjo_status(response: Response):
+    """The MJO now, from the bank (mjo_index_daily), nothing statistical.
+
+        { label, dataset,
+          today: {date, phase, amplitude, active, index_source},     # newest banked day
+          frontier: {date, age_days, as_of},
+          walk: [ {date, pc1, pc2, rmm1, rmm2, phase, amplitude, active, source} ],
+          walk_window: {first, last, days, served, missing, missing_dates,
+                        incomplete: [ {date, lacking} ]},
+          active_threshold, active_rule, phase_convention,
+          sources: {omi_last, romi_first, seam, note, names, rule},
+          attribution: {text, url}, cache }
+
+    The walk is the 40 calendar days ending on the frontier, oldest first; a
+    day with no row is absent and counted, never invented. rmm1 = pc2,
+    rmm2 = -pc1. phase and active are served as banked. No rows in the last
+    366 days or DB unavailable -> 503. Memoised 300 s, stale <= 900 s, 3 s
+    statement timeout.
+    """
+    return await _solar_serve(_mjo_status_cache, "status", _mjo_status_build, response)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)

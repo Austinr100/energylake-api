@@ -1,0 +1,35 @@
+# d091614 reds — each break must turn its tests red; the clean tree must be green
+
+T1     RED   today is the oldest walk day, not the newest
+       -k 'test_T1': 3 failed, 27 deselected in 0.73s
+T1     RED   the frontier is the oldest series' newest day
+       -k 'test_T1': 1 failed, 2 passed, 27 deselected in 0.64s
+T2     RED   the walk is served newest first
+       -k 'test_T2': 2 failed, 7 passed, 21 deselected in 0.62s
+T2     RED   each day's source is dropped
+       -k 'test_T2': 2 failed, 7 passed, 21 deselected in 0.89s
+T2     RED   the seam names OMI's last day as ROMI's first
+       -k 'test_T2': 2 failed, 7 passed, 21 deselected in 0.63s
+T2r    RED   rmm is the unrotated pair (PC1, PC2)
+       -k 'test_T2r': 3 failed, 2 passed, 25 deselected in 0.62s
+T2r    RED   RMM2 = +PC1 (the sign flip dropped)
+       -k 'test_T2r': 3 failed, 2 passed, 25 deselected in 0.57s
+T3     RED   the threshold drifts from pantry's (0.9)
+       -k 'test_T3': 4 failed, 26 deselected in 0.70s
+T3     RED   active is recomputed from amplitude > 1.03 instead of served from the bank
+       -k 'test_T3': 1 failed, 3 passed, 26 deselected in 0.57s
+T4     RED   a missing day is carried forward from the day before
+       -k 'test_T4': 1 failed, 3 passed, 26 deselected in 0.61s
+T4     RED   a missing day is dropped but not counted
+       -k 'test_T4': 1 failed, 3 passed, 26 deselected in 0.75s
+P1     RED   the walk reads the whole dataset (no series predicate)
+       -k 'test_P1': 1 failed, 4 passed, 25 deselected in 0.63s
+P1     RED   the statement timeout is not set
+       -k 'test_P1': 1 failed, 4 passed, 25 deselected in 0.77s
+memo   RED   the D-09-25-138 stale cap is dropped
+       -k 'test_memo': 1 failed, 1 passed, 28 deselected in 0.67s
+
+clean  GREEN   30 passed in 0.78s
+
+before the build (main @ 5de4e89, no mjo_status.py, no route):
+       tests/test_mjo_status.py: 1 error during collection (ModuleNotFoundError: mjo_status) — every test red
