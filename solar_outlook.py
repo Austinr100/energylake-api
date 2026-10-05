@@ -63,6 +63,16 @@ SCORE_BANDS = LEAD_BANDS + (DAM,)
 OURS = ("registry", "calibrated")
 MIN_SCORED_DAYS = 14                    # D-09-25-109 clause 5, the writer's MIN_DAYS
 
+# D-09-25-136 (both routes): a calibrated figure is served only where the
+# hour's own line was fitted on its lead.
+BEYOND_FIT = "beyond_fitted_leads"
+NO_LINE = "no_line"
+FIT_LEADS_BASIS = "stored by the writer (pantry migration 272)"
+
+# The score row's hours rule (pantry d091607, D-09-25-137), passed through
+# untouched where the row has one; null until that column exists.
+HOURS_RULE = "hours_rule"
+
 
 def score_pairs(area_kind: str) -> list[tuple[str, str]]:
     """Every (lead_band, who) the score card shows for this kind of area.
@@ -136,7 +146,9 @@ def pacific_day_bounds(d: date) -> tuple[datetime, datetime]:
 #   HOURS      that issuance's rows, each beside the previous issuance's row
 #              for the same target hour (one PK range + one PK probe per hour)
 #   SCORES     newest score row per (lead_band, who), one LIMIT 1 lateral each
-#   CALIBRATION the lines the rows carry, by calibration_id (skipped when none)
+#   CALIBRATION the lines the rows carry (this issuance's and the previous
+#              one's), by calibration_id, with their stored fitted leads
+#              (skipped when none)
 #   ACTUALS    one lateral per (dataset, series) over the issuance's hours
 #              (skipped for areas with no actual)
 #   FLEET      MW by mount_basis and dc_basis for the area's registry units
@@ -182,6 +194,8 @@ HOURS_SQL = f"""
            c.source_posted_ts, c.method_version,
            p.registry_mw    AS prev_registry_mw,
            p.calibrated_mw  AS prev_calibrated_mw,
+           p.calibration_id AS prev_calibration_id,
+           p.lead_h         AS prev_lead_h,
            p.method_version AS prev_method_version
       FROM implied_gen_area_hourly c
       LEFT JOIN implied_gen_area_hourly p
@@ -197,20 +211,28 @@ HOURS_SQL = f"""
 
 def _scores_sql(area_kind: str, extra_cols: tuple = ()) -> str:
     """`extra_cols`: further implied_gen_scores columns a tech's rows carry
-    (wind: actual_source and the MW by class). Solar passes none."""
+    (wind: actual_source and the MW by class). Solar passes none.
+
+    Every row carries `lead_min` / `lead_max` (pantry migration 272: the leads
+    its hours cover; null where the row covers none, and on dam_comparable /
+    caiso_dam rows until the scorer's next run). The hours rule (pantry
+    d091607, D-09-25-137) is read through to_jsonb, so the statement is valid
+    before that column exists and passes it through untouched once it does."""
     values = ",\n            ".join(f"('{b}', '{w}')" for b, w in score_pairs(area_kind))
     outer = "".join(f", s.{c}" for c in extra_cols)
     return f"""
     SELECT v.lead_band, v.who, s.area_kind, s.window_start, s.window_end,
            s.n_hours, s.n_days, s.scored, s.bias_mw, s.mae_mw,
-           s.mae_pct_installed, s.rmse_mw, s.r, s.scored_at{outer}
+           s.mae_pct_installed, s.rmse_mw, s.r, s.scored_at,
+           s.lead_min, s.lead_max, s.{HOURS_RULE}{outer}
       FROM (VALUES
             {values}
            ) AS v(lead_band, who)
      CROSS JOIN LATERAL (
         SELECT s.area_kind, s.window_start, s.window_end, s.n_hours, s.n_days,
                s.scored, s.bias_mw, s.mae_mw, s.mae_pct_installed, s.rmse_mw,
-               s.r, s.scored_at{outer}
+               s.r, s.scored_at, s.lead_min, s.lead_max,
+               to_jsonb(s) -> '{HOURS_RULE}' AS {HOURS_RULE}{outer}
           FROM implied_gen_scores s
          WHERE s.tech = %(tech)s AND s.area = %(area)s
            AND s.lead_band = v.lead_band AND s.who = v.who
@@ -225,11 +247,16 @@ def _scores_sql(area_kind: str, extra_cols: tuple = ()) -> str:
 # Built once, from constants only: the VALUES list is never request text.
 SCORES_SQL = {kind: _scores_sql(kind) for kind in AREA_KINDS}
 
+# D-09-25-136: the fitted leads are the writer's, stored on the line (pantry
+# migration 272). A PK lookup of at most ten lines (this issuance's and the
+# previous one's), each named with its tech and area. Wind reads the same.
 CALIBRATION_SQL = """
     SELECT calibration_id, area, lead_band, intercept_mw, slope,
-           fit_start, fit_end, n_hours, n_days, fitted_at, method_version
+           fit_start, fit_end, n_hours, n_days, fitted_at, method_version,
+           fit_lead_min, fit_lead_max, fit_rows
       FROM implied_gen_calibration
      WHERE calibration_id = ANY(%(ids)s)
+       AND tech = %(tech)s AND area = %(area)s
 """
 
 
@@ -341,7 +368,13 @@ def _score_obj(r: dict, extra: tuple = ()) -> dict:
         "rmse_mw": _f(r.get("rmse_mw")),
         "r": _f(r.get("r")),
         "scored_at": _iso(r.get("scored_at")),
+        # D-09-25-136 (5): the leads this score's hours cover, so the page can
+        # set a band's score beside the figure drawn on those leads
+        "lead_min": r.get("lead_min"),
+        "lead_max": r.get("lead_max"),
         **{c: r.get(c) for c in extra},
+        # D-09-25-136 (6): the hours rule, untouched, where the row has one
+        **({HOURS_RULE: r[HOURS_RULE]} if r.get(HOURS_RULE) is not None else {}),
     }
 
 
@@ -374,10 +407,15 @@ def build_scores(area_kind: str, rows: list[dict], extra: tuple = ()) -> tuple[d
 
 
 def calibration_ids(hours: list[dict]) -> list[int]:
-    return sorted({int(h["calibration_id"]) for h in hours if h.get("calibration_id") is not None})
+    """The lines this issuance's rows carry, and the previous issuance's
+    (so its calibrated figure can be gated by its own line)."""
+    ids = {int(h["calibration_id"]) for h in hours if h.get("calibration_id") is not None}
+    ids |= {int(h["prev_calibration_id"]) for h in hours
+            if h.get("prev_calibration_id") is not None}
+    return sorted(ids)
 
 
-def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
+def _lines_on_rows(hours: list[dict], lines: list[dict]) -> dict:
     """Per lead band, the line these rows were scaled by, or null.
 
     Only a line a row actually carries is reported: a line that exists in
@@ -393,7 +431,20 @@ def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
         used = [by_id[i] for i in ids if i in by_id and by_id[i]["lead_band"] == band]
         if not used:
             continue
-        l = max(used, key=lambda x: (x["fit_end"], x["calibration_id"]))
+        out[band] = (max(used, key=lambda x: (x["fit_end"], x["calibration_id"])), len(used))
+    return out
+
+
+def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
+    """Per lead band, the line the rows carry, with the leads it was fitted on
+    (stored by the writer) and the leads it was applied to."""
+    out: dict = {}
+    for band, found in _lines_on_rows(hours, lines).items():
+        if found is None:
+            out[band] = None
+            continue
+        l, n_used = found
+        band_hours = [h for h in hours if h["lead_band"] == band]
         out[band] = {
             "calibration_id": int(l["calibration_id"]),
             "slope": _f(l["slope"]),
@@ -403,9 +454,107 @@ def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
             "n_hours": l["n_hours"],
             "n_days": l["n_days"],
             "fitted_at": _iso(l.get("fitted_at")),
-            "lines_on_rows": len(used),
+            "lines_on_rows": n_used,
+            "fit_lead_min": l.get("fit_lead_min"),
+            "fit_lead_max": l.get("fit_lead_max"),
+            "fit_rows": l.get("fit_rows"),
+            "fit_leads_source": "stored",
+            "applied_lead_min": min(h["lead_h"] for h in band_hours) if band_hours else None,
+            "applied_lead_max": max(h["lead_h"] for h in band_hours) if band_hours else None,
         }
     return out
+
+
+# ── The gate (D-09-25-136): one function, both techs ───────────────────────
+
+def _fitted(line: Optional[dict], lead: Optional[int]) -> bool:
+    """Is `lead` inside the leads `line` was fitted on? A line with null
+    fitted leads covers nothing (D-09-25-136 clause 3)."""
+    if line is None or lead is None:
+        return False
+    lo, hi = line.get("fit_lead_min"), line.get("fit_lead_max")
+    return lo is not None and hi is not None and lo <= lead <= hi
+
+
+def gate(hours: list[dict], lines: list[dict]) -> list[dict]:
+    """Each hour with the calibrated figure it may SHOW.
+
+    `calibrated_mw` survives only where the hour's own line holds its lead in
+    fit_lead_min..fit_lead_max; otherwise null, with the reason. The previous
+    issuance's calibrated figure is gated the same way, by ITS line at ITS
+    lead, so `previous_mw` is like for like with what each issuance may show."""
+    by_id = {int(l["calibration_id"]): l for l in lines}
+    out = []
+    for h in hours:
+        cid = h.get("calibration_id")
+        line = by_id.get(int(cid)) if cid is not None else None
+        cal, reason = None, None
+        if line is None:
+            reason = NO_LINE
+        elif not _fitted(line, h["lead_h"]):
+            # also where a gated writer stored no figure but kept the line's id
+            reason = BEYOND_FIT
+        elif h.get("calibrated_mw") is None:
+            reason = NO_LINE
+        else:
+            cal = _f(h["calibrated_mw"])
+        pid = h.get("prev_calibration_id")
+        pline = by_id.get(int(pid)) if pid is not None else None
+        prev_cal = (_f(h.get("prev_calibrated_mw"))
+                    if h.get("prev_calibrated_mw") is not None and _fitted(pline, h.get("prev_lead_h"))
+                    else None)
+        out.append({**h, "shown_calibrated_mw": cal, "calibrated_absent_reason": reason,
+                    "shown_prev_calibrated_mw": prev_cal, "line": line})
+    return out
+
+
+def _lit(h: dict) -> bool:
+    """D-09-25-136 clause 4: a lit hour is one with registry_mw > 0. Only lit
+    hours open or close a seam or a gap."""
+    return h["registry_mw"] is not None and h["registry_mw"] > 0
+
+
+def calibration_seam(hours: list[dict]) -> Optional[dict]:
+    """Over LIT hours: the last lead of the calibrated run that opens the
+    issuance, and why the next lit hour is the registry figure. None when no
+    lit hour is calibrated, when the first lit hour is not, or when every
+    lit hour is. `hours` are served hours (calibrated_mw already gated)."""
+    lit = [h for h in hours if _lit(h)]
+    if not lit or lit[0]["calibrated_mw"] is None:
+        return None
+    for a, b in zip(lit, lit[1:]):
+        if b["calibrated_mw"] is None:
+            return {"last_calibrated_lead": a["lead_h"], "first_registry_lead": b["lead_h"],
+                    "target_ts_before": a["target_ts"], "target_ts_after": b["target_ts"],
+                    "band_before": a["lead_band"], "band_after": b["lead_band"],
+                    "reason": b["calibrated_absent_reason"]}
+    return None
+
+
+def calibration_gaps(gated: list[dict]) -> list[dict]:
+    """Every run of LIT hours withheld beyond their line's fitted leads, as
+    {first_lead, last_lead, band, reason, fit_lead_min, fit_lead_max}.
+
+    A dark hour neither opens nor closes a run; a lit hour that is not
+    withheld beyond the fit (served calibrated, or with no line) closes it;
+    so does a change of line, since a gap names one line's fitted leads."""
+    gaps: list = []
+    run: Optional[dict] = None
+    for h in gated:
+        if not _lit(h):
+            continue
+        if h["calibrated_absent_reason"] != BEYOND_FIT:
+            run = None
+            continue
+        cid = int(h["line"]["calibration_id"])
+        if run is not None and run["_cid"] == cid:
+            run["last_lead"] = h["lead_h"]
+            continue
+        run = {"first_lead": h["lead_h"], "last_lead": h["lead_h"], "band": h["lead_band"],
+               "reason": BEYOND_FIT, "fit_lead_min": h["line"].get("fit_lead_min"),
+               "fit_lead_max": h["line"].get("fit_lead_max"), "_cid": cid}
+        gaps.append(run)
+    return [{k: v for k, v in g.items() if k != "_cid"} for g in gaps]
 
 
 def build_actuals(area_kind: str, area: str, rows: list[dict],
@@ -459,11 +608,12 @@ def build_fleet(hours: list[dict], fleet_rows: list[dict]) -> dict:
 
 
 def _previous_mw(h: dict) -> Optional[float]:
-    """Like for like with the figure this hour shows: calibrated against
-    calibrated where this hour is calibrated, registry against registry where
-    it is not. Never a calibrated number set against an unscaled one."""
-    if h["calibrated_mw"] is not None:
-        return _f(h["prev_calibrated_mw"])
+    """Like for like with the figure the hour SHOWS, after the gate:
+    calibrated against calibrated where this hour shows calibrated, registry
+    against registry where it does not. Never a calibrated number set against
+    an unscaled one."""
+    if h["shown_calibrated_mw"] is not None:
+        return h["shown_prev_calibrated_mw"]
     return _f(h["prev_registry_mw"])
 
 
@@ -482,7 +632,10 @@ def build_outlook(*, area_kind: str, area: str, model: str,
         "issuance": None,
         "hours": [],
         "unscaled": True,
+        "seams": {"calibration": None},
+        "calibration_gaps": [],
         "calibration": build_calibration(hours, lines),
+        "calibration_fit_leads_basis": FIT_LEADS_BASIS,
         "scores": scores,
         "score_progress": progress,
         "actuals": actuals,
@@ -496,6 +649,7 @@ def build_outlook(*, area_kind: str, area: str, model: str,
                            "detail": f"no {model} issuance is banked for "
                                      f"{area_kind}={area}"}
         return body
+    gated = gate(hours, lines)
     prev_mv = next((h["prev_method_version"] for h in hours
                     if h.get("prev_method_version") is not None), None)
     posted = [h["source_posted_ts"] for h in hours if h.get("source_posted_ts") is not None]
@@ -515,14 +669,17 @@ def build_outlook(*, area_kind: str, area: str, model: str,
         "lead_band": h["lead_band"],
         "weather_step_h": h["weather_step_h"],
         "registry_mw": _f(h["registry_mw"]),
-        "calibrated_mw": _f(h["calibrated_mw"]),
+        "calibrated_mw": h["shown_calibrated_mw"],
+        "calibrated_absent_reason": h["calibrated_absent_reason"],
         "calibration_id": h["calibration_id"],
         "outage_mw_subtracted": _f(h["outage_mw_subtracted"]),
         "previous_mw": _previous_mw(h),
         "previous_registry_mw": _f(h["prev_registry_mw"]),
-        "previous_calibrated_mw": _f(h["prev_calibrated_mw"]),
-    } for h in hours]
-    body["unscaled"] = all(h["calibrated_mw"] is None for h in hours)
+        "previous_calibrated_mw": h["shown_prev_calibrated_mw"],
+    } for h in gated]
+    body["unscaled"] = all(h["calibrated_mw"] is None for h in body["hours"])
+    body["seams"] = {"calibration": calibration_seam(body["hours"])}
+    body["calibration_gaps"] = calibration_gaps(gated)
     return body
 
 

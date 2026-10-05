@@ -4,11 +4,11 @@
  "tech": "wind",
  "model": "hrrr_gfs",
  "figure": "registry",
- "init_ts": "2026-10-04T12:00:00+00:00",
+ "init_ts": "2026-10-05T00:00:00+00:00",
  "method_version": "wind_v1",
- "target_ts": "2026-10-04T20:00:00+00:00",
- "day": null,
- "hours_expected": 1,
+ "target_ts": null,
+ "day": "2026-10-06",
+ "hours_expected": 24,
  "area_kind": null,
  "area": null,
  "weather_height_m": {
@@ -46,14 +46,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.701,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.356,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0594
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 6.854,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0476
   },
   {
    "plant_code": 7526,
@@ -83,14 +85,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.602,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2927.384,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.4059
   },
   {
    "plant_code": 7936,
@@ -120,14 +124,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.337,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.318,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0033
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 10.934,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0048
   },
   {
    "plant_code": 10005,
@@ -157,14 +163,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.205,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.224,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0129
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 19.587,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0469
   },
   {
    "plant_code": 10191,
@@ -194,14 +202,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.277,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.754,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2016
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 4.826,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0231
   },
   {
    "plant_code": 10586,
@@ -231,14 +241,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.903,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.8,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1476
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 58.535,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0409
   },
   {
    "plant_code": 10597,
@@ -268,14 +280,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.422,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.284,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1477
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 28.498,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0409
   },
   {
    "plant_code": 10718,
@@ -305,14 +319,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.71,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.038,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0887
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 6.385,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0227
   },
   {
    "plant_code": 50281,
@@ -342,14 +358,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.584,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.149,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1016
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 10.833,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0146
   },
   {
    "plant_code": 50532,
@@ -379,14 +397,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.418,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 6.585,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2523
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 4.655,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0074
   },
   {
    "plant_code": 50533,
@@ -416,14 +436,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.191,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 9.069,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1938
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 38.178,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.034
   },
   {
    "plant_code": 50535,
@@ -453,14 +475,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.418,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.318,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2439
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 17.787,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0247
   },
   {
    "plant_code": 50536,
@@ -490,14 +514,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.844,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 28.722,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4771
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.837,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.031
   },
   {
    "plant_code": 50552,
@@ -527,14 +553,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.473,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.628,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1961
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.185,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.012
   },
   {
    "plant_code": 50553,
@@ -564,14 +592,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.57,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.21,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0605
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.09,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0106
   },
   {
    "plant_code": 50690,
@@ -601,14 +631,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.46,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.834,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0883
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 23.628,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0227
   },
   {
    "plant_code": 50754,
@@ -638,14 +670,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.411,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.274,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0659
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 59.475,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0718
   },
   {
    "plant_code": 50820,
@@ -675,14 +709,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.544,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.177,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0589
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.792,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.011
   },
   {
    "plant_code": 50821,
@@ -712,14 +748,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.903,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.84,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.066
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 152.98,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.072
   },
   {
    "plant_code": 52142,
@@ -749,14 +787,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.428,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.111,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0548
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 105.803,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0588
   },
   {
    "plant_code": 52162,
@@ -786,14 +826,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.463,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.264,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.388
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.775,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.023
   },
   {
    "plant_code": 52163,
@@ -823,14 +865,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.485,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 9.766,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3875
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 13.91,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.023
   },
   {
    "plant_code": 54298,
@@ -860,14 +904,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.454,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.209,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1612
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 6.458,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0359
   },
   {
    "plant_code": 54299,
@@ -897,13 +943,15 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.581,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.483,
-   "cap_mw_subtracted": 0.0,
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.0,
+   "outage_mwh_subtracted": 2.58,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
    "capacity_factor": 0.0
   },
   {
@@ -934,14 +982,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.082,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.681,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.148
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 4.536,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0411
   },
   {
    "plant_code": 54453,
@@ -971,14 +1021,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.794,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.048,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0031
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 84.745,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2278
   },
   {
    "plant_code": 54454,
@@ -1008,14 +1060,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.618,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.897,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1191
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 36.211,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0305
   },
   {
    "plant_code": 54647,
@@ -1045,14 +1099,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.442,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.573,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0548
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 40.492,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0588
   },
   {
    "plant_code": 54686,
@@ -1082,14 +1138,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.325,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.941,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0347
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.236,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0173
   },
   {
    "plant_code": 54750,
@@ -1119,14 +1177,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.791,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.047,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1611
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.595,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0359
   },
   {
    "plant_code": 54909,
@@ -1156,14 +1216,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.645,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.812,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3887
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 10.394,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0215
   },
   {
    "plant_code": 54931,
@@ -1193,14 +1255,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.785,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 6.911,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1477
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 45.975,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0409
   },
   {
    "plant_code": 55125,
@@ -1230,14 +1294,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.655,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.06,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0024
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 29.815,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0497
   },
   {
    "plant_code": 55339,
@@ -1267,14 +1333,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.7,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.153,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0728
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.49,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0097
   },
   {
    "plant_code": 55560,
@@ -1304,14 +1372,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.626,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 153.798,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0362
   },
   {
    "plant_code": 55719,
@@ -1341,14 +1411,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.553,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.476,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1619
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 71.072,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0418
   },
   {
    "plant_code": 55739,
@@ -1378,14 +1450,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.426,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 8.313,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.007
   },
   {
    "plant_code": 55741,
@@ -1415,14 +1489,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.539,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 6.885,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2318
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 51.64,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0724
   },
   {
    "plant_code": 55989,
@@ -1452,14 +1528,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.484,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.597,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0049
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 92.109,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0313
   },
   {
    "plant_code": 56011,
@@ -1489,14 +1567,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.461,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.688,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2607
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 12.974,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0132
   },
   {
    "plant_code": 56012,
@@ -1526,14 +1606,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.729,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 6.244,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1015
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 21.474,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0145
   },
   {
    "plant_code": 56075,
@@ -1563,14 +1645,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.098,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.48,
-   "outage_mw_subtracted": 0.129,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.003
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 723.579,
+   "outage_mwh_subtracted": 180.895,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1861
   },
   {
    "plant_code": 56093,
@@ -1600,14 +1684,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.227,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.669,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.081
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 222.6,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0644
   },
   {
    "plant_code": 56097,
@@ -1637,14 +1723,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.757,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 9.481,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0465
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 486.466,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0994
   },
   {
    "plant_code": 56112,
@@ -1674,14 +1762,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.0,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.287,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1021
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 7.87,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0146
   },
   {
    "plant_code": 56173,
@@ -1711,14 +1801,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.747,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 9.233,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.057
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 327.164,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0841
   },
   {
    "plant_code": 56195,
@@ -1748,14 +1840,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.698,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.025,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0006
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.246,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0429
   },
   {
    "plant_code": 56255,
@@ -1785,14 +1879,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.536,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.339,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0022
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 388.932,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1035
   },
   {
    "plant_code": 56271,
@@ -1822,14 +1918,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.393,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 56.806,
+   "outage_mwh_subtracted": 21.849,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1315
   },
   {
    "plant_code": 56275,
@@ -1859,14 +1957,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.565,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.604,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2518
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.427,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0074
   },
   {
    "plant_code": 56276,
@@ -1896,14 +1996,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.565,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.404,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2522
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.285,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0074
   },
   {
    "plant_code": 56295,
@@ -1933,14 +2035,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.204,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.434,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1487
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 35.148,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0293
   },
   {
    "plant_code": 56301,
@@ -1970,14 +2074,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.622,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.239,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0037
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 144.439,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0933
   },
   {
    "plant_code": 56302,
@@ -2007,14 +2113,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.7,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.36,
-   "outage_mw_subtracted": 0.188,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1221
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 68.833,
+   "outage_mwh_subtracted": 1.756,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0476
   },
   {
    "plant_code": 56308,
@@ -2044,14 +2152,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.669,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.146,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0139
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.667,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0463
   },
   {
    "plant_code": 56320,
@@ -2081,14 +2191,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.07,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 21.43,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3572
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 161.3,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.112
   },
   {
    "plant_code": 56322,
@@ -2118,14 +2230,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.839,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 196.73,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0301
   },
   {
    "plant_code": 56336,
@@ -2155,14 +2269,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.406,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 21.233,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0904
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1758.079,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3117
   },
   {
    "plant_code": 56360,
@@ -2192,14 +2308,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.781,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 104.8,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0396
   },
   {
    "plant_code": 56362,
@@ -2229,14 +2347,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.589,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 896.917,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2491
   },
   {
    "plant_code": 56371,
@@ -2266,14 +2386,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.75,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 26.089,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0868
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 848.837,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1177
   },
   {
    "plant_code": 56377,
@@ -2303,14 +2425,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.433,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.942,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0218
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 282.61,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0872
   },
   {
    "plant_code": 56433,
@@ -2340,14 +2464,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.717,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 28.449,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2107
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 62.142,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0192
   },
   {
    "plant_code": 56434,
@@ -2377,14 +2503,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.513,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 57.066,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1116
   },
   {
    "plant_code": 56435,
@@ -2414,14 +2542,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.804,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 27.81,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0966
   },
   {
    "plant_code": 56437,
@@ -2451,14 +2581,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.458,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.062,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0942
   },
   {
    "plant_code": 56439,
@@ -2488,14 +2620,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.268,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.231,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0171
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 28.681,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0885
   },
   {
    "plant_code": 56440,
@@ -2525,14 +2659,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.991,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.144,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0137
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.527,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1013
   },
   {
    "plant_code": 56441,
@@ -2562,14 +2698,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.559,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.123,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0058
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 52.954,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1051
   },
   {
    "plant_code": 56442,
@@ -2599,14 +2737,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.876,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.205,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0171
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 21.047,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0731
   },
   {
    "plant_code": 56443,
@@ -2636,14 +2776,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.598,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.124,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0118
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 20.253,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0804
   },
   {
    "plant_code": 56446,
@@ -2673,14 +2815,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.6,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 99.189,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1088
   },
   {
    "plant_code": 56460,
@@ -2710,14 +2854,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.257,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.651,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1153
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 198.302,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1102
   },
   {
    "plant_code": 56466,
@@ -2747,14 +2893,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.46,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 360.676,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0642
   },
   {
    "plant_code": 56485,
@@ -2784,14 +2932,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.949,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 920.655,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0853
   },
   {
    "plant_code": 56487,
@@ -2821,14 +2971,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.512,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 7.903,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0016
   },
   {
    "plant_code": 56563,
@@ -2858,14 +3010,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.094,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 39.582,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1984
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 727.263,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1519
   },
   {
    "plant_code": 56570,
@@ -2895,14 +3049,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.54,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.803,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2436
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.069,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.006
   },
   {
    "plant_code": 56591,
@@ -2932,14 +3088,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.692,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 18.148,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.078
   },
   {
    "plant_code": 56613,
@@ -2969,14 +3127,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.089,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 50.621,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2518
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 533.013,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1105
   },
   {
    "plant_code": 56623,
@@ -3006,14 +3166,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.323,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 45.894,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4557
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 133.607,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0553
   },
   {
    "plant_code": 56636,
@@ -3043,14 +3205,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.234,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.092,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0996
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 22.679,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.045
   },
   {
    "plant_code": 56637,
@@ -3080,14 +3244,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.397,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.32,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1105
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 22.576,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0448
   },
   {
    "plant_code": 56654,
@@ -3117,14 +3283,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.994,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 21.562,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0089
   },
   {
    "plant_code": 56666,
@@ -3154,14 +3322,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.543,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.161,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0005
   },
   {
    "plant_code": 56702,
@@ -3191,14 +3361,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.533,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 9.541,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0029
   },
   {
    "plant_code": 56751,
@@ -3228,14 +3400,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.588,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 12.717,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.028
   },
   {
    "plant_code": 56752,
@@ -3265,14 +3439,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.213,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.736,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1268
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 141.669,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0968
   },
   {
    "plant_code": 56753,
@@ -3302,14 +3478,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.752,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.147,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1268
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 148.466,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0773
   },
   {
    "plant_code": 56791,
@@ -3339,14 +3517,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.817,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.533,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1007
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 12.701,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0118
   },
   {
    "plant_code": 56841,
@@ -3376,14 +3556,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.384,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 20.42,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1233
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 579.244,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1457
   },
   {
    "plant_code": 56842,
@@ -3413,14 +3595,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 2.085,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 13.375,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1155
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 419.681,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.151
   },
   {
    "plant_code": 56843,
@@ -3450,14 +3634,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.162,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 31.62,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2163
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 353.827,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1008
   },
   {
    "plant_code": 56854,
@@ -3487,14 +3673,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.586,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 59.707,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0242
   },
   {
    "plant_code": 56855,
@@ -3524,14 +3712,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.587,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 32.924,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0133
   },
   {
    "plant_code": 56858,
@@ -3561,14 +3751,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.442,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.189,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0019
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 482.06,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1995
   },
   {
    "plant_code": 56874,
@@ -3598,14 +3790,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.613,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.52,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0035
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 967.426,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2687
   },
   {
    "plant_code": 56933,
@@ -3635,14 +3829,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.517,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 10.463,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.044
   },
   {
    "plant_code": 56934,
@@ -3672,14 +3868,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.939,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.16,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.019
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 15.131,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0751
   },
   {
    "plant_code": 56935,
@@ -3709,14 +3907,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.127,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.472,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.025
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.394,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.056
   },
   {
    "plant_code": 56945,
@@ -3746,14 +3946,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.466,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 23.495,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.235
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 398.47,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.166
   },
   {
    "plant_code": 56952,
@@ -3783,14 +3985,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.801,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 92.042,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0533
   },
   {
    "plant_code": 56960,
@@ -3820,14 +4024,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.508,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.603,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0205
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 109.071,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1546
   },
   {
    "plant_code": 56967,
@@ -3857,14 +4063,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.698,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 10.361,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0863
   },
   {
    "plant_code": 56968,
@@ -3894,14 +4102,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.539,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3.377,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0828
   },
   {
    "plant_code": 56969,
@@ -3931,14 +4141,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.584,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.534,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0601
   },
   {
    "plant_code": 56970,
@@ -3968,14 +4180,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.918,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 19.816,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0826
   },
   {
    "plant_code": 56971,
@@ -4005,14 +4219,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.46,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 19.431,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0818
   },
   {
    "plant_code": 56972,
@@ -4042,14 +4258,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.258,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 15.31,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0769
   },
   {
    "plant_code": 56973,
@@ -4079,14 +4297,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.529,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 19.634,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0826
   },
   {
    "plant_code": 56974,
@@ -4116,14 +4336,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.271,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 6.552,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0827
   },
   {
    "plant_code": 56975,
@@ -4153,14 +4375,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.392,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 12.376,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0781
   },
   {
    "plant_code": 57039,
@@ -4190,14 +4414,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.589,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.272,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2066
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 43.227,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0512
   },
   {
    "plant_code": 57040,
@@ -4227,14 +4453,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.656,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 28.229,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2312
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 172.636,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0589
   },
   {
    "plant_code": 57049,
@@ -4264,14 +4492,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.32,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.122,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0011
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 925.688,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3622
   },
   {
    "plant_code": 57050,
@@ -4301,14 +4531,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.258,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 809.561,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3259
   },
   {
    "plant_code": 57079,
@@ -4338,14 +4570,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.869,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 384.826,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0788
   },
   {
    "plant_code": 57090,
@@ -4375,14 +4609,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.524,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.91,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1203
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 319.692,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1346
   },
   {
    "plant_code": 57091,
@@ -4412,14 +4648,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.697,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.632,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0389
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 171.603,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1702
   },
   {
    "plant_code": 57093,
@@ -4449,14 +4687,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.183,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.446,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.085
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 26.704,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0655
   },
   {
    "plant_code": 57098,
@@ -4486,14 +4726,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.012,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 13.09,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2078
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 159.311,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1054
   },
   {
    "plant_code": 57107,
@@ -4523,14 +4765,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.154,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 211.623,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0864
   },
   {
    "plant_code": 57124,
@@ -4560,14 +4804,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.214,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.36,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0172
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 46.187,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0916
   },
   {
    "plant_code": 57125,
@@ -4597,14 +4843,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.963,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.369,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0164
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 49.624,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0919
   },
   {
    "plant_code": 57126,
@@ -4634,14 +4882,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.885,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.177,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0084
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 51.424,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.102
   },
   {
    "plant_code": 57136,
@@ -4671,14 +4921,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.035,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.419,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.025
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 21.403,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0531
   },
   {
    "plant_code": 57137,
@@ -4708,14 +4960,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.698,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 91.154,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0575
   },
   {
    "plant_code": 57152,
@@ -4745,14 +4999,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.307,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3.833,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0016
   },
   {
    "plant_code": 57159,
@@ -4782,14 +5038,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.423,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.338,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0013
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 156.057,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0248
   },
   {
    "plant_code": 57174,
@@ -4819,14 +5077,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.234,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 38.357,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3991
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 170.428,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0739
   },
   {
    "plant_code": 57188,
@@ -4856,14 +5116,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.332,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 260.342,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1205
   },
   {
    "plant_code": 57192,
@@ -4893,14 +5155,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.544,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.235,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0549
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 196.322,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0545
   },
   {
    "plant_code": 57195,
@@ -4930,14 +5194,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.646,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 624.504,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0759
   },
   {
    "plant_code": 57201,
@@ -4967,14 +5233,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.57,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 257.819,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2919
   },
   {
    "plant_code": 57210,
@@ -5004,14 +5272,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.784,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 35.016,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.141
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 727.921,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1222
   },
   {
    "plant_code": 57211,
@@ -5041,14 +5311,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.871,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.26,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0021
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 280.448,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0939
   },
   {
    "plant_code": 57244,
@@ -5078,14 +5350,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.541,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 13.947,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2735
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 201.151,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1643
   },
   {
    "plant_code": 57282,
@@ -5115,14 +5389,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.413,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 19.841,
-   "outage_mw_subtracted": 0.684,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1323
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 240.632,
+   "outage_mwh_subtracted": 8.298,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0668
   },
   {
    "plant_code": 57290,
@@ -5152,14 +5428,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.727,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 61.453,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3526
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 496.356,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1187
   },
   {
    "plant_code": 57291,
@@ -5189,14 +5467,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.068,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.215,
-   "outage_mw_subtracted": 0.714,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0548
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 362.719,
+   "outage_mwh_subtracted": 31.541,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1008
   },
   {
    "plant_code": 57292,
@@ -5226,14 +5506,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.068,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.501,
-   "outage_mw_subtracted": 1.429,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.05
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 331.178,
+   "outage_mwh_subtracted": 63.082,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.092
   },
   {
    "plant_code": 57293,
@@ -5263,14 +5545,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.649,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.233,
-   "outage_mw_subtracted": 0.098,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0317
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 169.328,
+   "outage_mwh_subtracted": 5.131,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0692
   },
   {
    "plant_code": 57294,
@@ -5300,14 +5584,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.649,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.291,
-   "outage_mw_subtracted": 0.196,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0315
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 277.083,
+   "outage_mwh_subtracted": 10.262,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0687
   },
   {
    "plant_code": 57299,
@@ -5337,14 +5623,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.211,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 25.663,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1982
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 95.448,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0307
   },
   {
    "plant_code": 57302,
@@ -5374,14 +5662,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.961,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.977,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1503
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.289,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0147
   },
   {
    "plant_code": 57315,
@@ -5411,14 +5701,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.305,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 132.709,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.5266
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 697.163,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1153
   },
   {
    "plant_code": 57327,
@@ -5448,14 +5740,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.452,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 32.362,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1618
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 580.429,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1209
   },
   {
    "plant_code": 57357,
@@ -5485,14 +5779,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.181,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.728,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0755
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 111.632,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0454
   },
   {
    "plant_code": 57379,
@@ -5522,14 +5818,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.979,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 13.473,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.207
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 161.981,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1037
   },
   {
    "plant_code": 57427,
@@ -5559,14 +5857,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.124,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.213,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0962
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.152,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0456
   },
   {
    "plant_code": 57428,
@@ -5596,14 +5896,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.778,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.099,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0913
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.24,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0457
   },
   {
    "plant_code": 57429,
@@ -5633,14 +5935,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.411,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.206,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0959
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 24.545,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0445
   },
   {
    "plant_code": 57430,
@@ -5670,14 +5974,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.868,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.537,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1103
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 24.383,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0442
   },
   {
    "plant_code": 57431,
@@ -5707,14 +6013,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.359,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.112,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0918
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 27.23,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0493
   },
   {
    "plant_code": 57444,
@@ -5744,14 +6052,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.509,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.333,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1015
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 26.733,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0484
   },
   {
    "plant_code": 57459,
@@ -5781,14 +6091,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.318,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.372,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0892
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 27.429,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0233
   },
   {
    "plant_code": 57484,
@@ -5818,14 +6130,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.616,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 20.283,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1073
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 82.564,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0182
   },
   {
    "plant_code": 57514,
@@ -5855,14 +6169,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.476,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.203,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0008
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 35.23,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0055
   },
   {
    "plant_code": 57526,
@@ -5892,14 +6208,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.646,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 155.737,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0245
   },
   {
    "plant_code": 57530,
@@ -5929,14 +6247,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.481,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.061,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0006
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 156.955,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0621
   },
   {
    "plant_code": 57549,
@@ -5966,14 +6286,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.809,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 199.655,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0287
   },
   {
    "plant_code": 57550,
@@ -6003,14 +6325,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.465,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 250.971,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0361
   },
   {
    "plant_code": 57578,
@@ -6040,14 +6364,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.966,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 16.838,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.078
   },
   {
    "plant_code": 57586,
@@ -6077,14 +6403,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.508,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.356,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0035
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 659.324,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.268
   },
   {
    "plant_code": 57594,
@@ -6114,14 +6442,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.772,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.559,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1066
   },
   {
    "plant_code": 57621,
@@ -6151,14 +6481,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.866,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.395,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1439
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 100.972,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0531
   },
   {
    "plant_code": 57626,
@@ -6188,14 +6520,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.431,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 4.961,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1034
   },
   {
    "plant_code": 57635,
@@ -6225,14 +6559,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.197,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.946,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0025
   },
   {
    "plant_code": 57643,
@@ -6262,14 +6598,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.294,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.356,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1978
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3.402,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0788
   },
   {
    "plant_code": 57700,
@@ -6299,14 +6637,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.203,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 140.352,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0748
   },
   {
    "plant_code": 57701,
@@ -6336,14 +6676,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.375,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 550.592,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2934
   },
   {
    "plant_code": 57725,
@@ -6373,14 +6715,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.12,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.087,
-   "outage_mw_subtracted": 0.004,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0009
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 563.506,
+   "outage_mwh_subtracted": 28.898,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2291
   },
   {
    "plant_code": 57748,
@@ -6410,14 +6754,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.253,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.49,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2537
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 140.048,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3297
   },
   {
    "plant_code": 57749,
@@ -6447,14 +6793,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.936,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.649,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0736
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.762,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0479
   },
   {
    "plant_code": 57756,
@@ -6484,14 +6832,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.916,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.338,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0563
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 29.57,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2053
   },
   {
    "plant_code": 57757,
@@ -6521,14 +6871,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.366,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.437,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0688
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 90.4,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0248
   },
   {
    "plant_code": 57760,
@@ -6558,14 +6910,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.761,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 40.93,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0758
   },
   {
    "plant_code": 57761,
@@ -6595,14 +6949,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.92,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 48.437,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0897
   },
   {
    "plant_code": 57766,
@@ -6632,14 +6988,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.873,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.395,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.005
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 113.441,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0597
   },
   {
    "plant_code": 57774,
@@ -6669,14 +7027,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.149,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 26.163,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.218
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 140.587,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0488
   },
   {
    "plant_code": 57775,
@@ -6706,14 +7066,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.538,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.689,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0029
   },
   {
    "plant_code": 57791,
@@ -6743,14 +7105,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.418,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.052,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0345
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3.92,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1089
   },
   {
    "plant_code": 57792,
@@ -6780,14 +7144,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.131,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.011,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.011
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.536,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0223
   },
   {
    "plant_code": 57803,
@@ -6817,14 +7183,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.513,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.522,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.16
   },
   {
    "plant_code": 57833,
@@ -6854,14 +7222,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.607,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 16.688,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1113
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 357.115,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0992
   },
   {
    "plant_code": 57834,
@@ -6891,14 +7261,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.467,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.661,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0456
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 171.352,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0425
   },
   {
    "plant_code": 57835,
@@ -6928,14 +7300,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.034,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.282,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0485
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 282.475,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0785
   },
   {
    "plant_code": 57837,
@@ -6965,14 +7339,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.013,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 6.417,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0486
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 248.522,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0784
   },
   {
    "plant_code": 57890,
@@ -7002,14 +7378,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.373,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.57,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0099
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 18.905,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0137
   },
   {
    "plant_code": 57913,
@@ -7039,14 +7417,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.065,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 30.592,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2139
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 142.575,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0415
   },
   {
    "plant_code": 57947,
@@ -7076,14 +7456,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.765,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 13.008,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2581
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.0,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0
   },
   {
    "plant_code": 57962,
@@ -7113,14 +7495,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.571,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.332,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0327
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 174.473,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0713
   },
   {
    "plant_code": 57963,
@@ -7150,14 +7534,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.119,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 27.673,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1153
   },
   {
    "plant_code": 57965,
@@ -7187,14 +7573,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.119,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 27.673,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1153
   },
   {
    "plant_code": 57980,
@@ -7224,14 +7612,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.267,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.964,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2057
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 17.612,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0253
   },
   {
    "plant_code": 57995,
@@ -7261,14 +7651,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.485,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.596,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0614
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1300.915,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2868
   },
   {
    "plant_code": 58019,
@@ -7298,14 +7690,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.932,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.832,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0208
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 51.832,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.054
   },
   {
    "plant_code": 58098,
@@ -7335,14 +7729,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.682,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 73.943,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2481
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1083.462,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1515
   },
   {
    "plant_code": 58101,
@@ -7372,14 +7768,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.521,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.254,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0792
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.194,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0155
   },
   {
    "plant_code": 58102,
@@ -7409,14 +7807,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.439,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.974,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3247
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.113,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0155
   },
   {
    "plant_code": 58104,
@@ -7446,14 +7846,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.554,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.3,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0542
   },
   {
    "plant_code": 58105,
@@ -7483,14 +7885,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.956,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.956,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0815
   },
   {
    "plant_code": 58106,
@@ -7520,14 +7924,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.606,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 292.516,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1018
   },
   {
    "plant_code": 58112,
@@ -7557,14 +7963,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.89,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.018,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0177
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1.722,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0718
   },
   {
    "plant_code": 58113,
@@ -7594,14 +8002,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.715,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.066,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.5332
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.956,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0199
   },
   {
    "plant_code": 58114,
@@ -7631,14 +8041,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.528,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.383,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4673
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.889,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0236
   },
   {
    "plant_code": 58126,
@@ -7668,14 +8080,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.712,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 93.033,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4652
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 820.084,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1709
   },
   {
    "plant_code": 58127,
@@ -7705,14 +8119,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.191,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 91.106,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4555
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 865.557,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1803
   },
   {
    "plant_code": 58154,
@@ -7742,14 +8158,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.916,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 50.65,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3127
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 139.268,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0358
   },
   {
    "plant_code": 58155,
@@ -7779,14 +8197,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.663,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 26.011,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2622
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 34.318,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0144
   },
   {
    "plant_code": 58218,
@@ -7816,14 +8236,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.975,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.588,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0147
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 197.459,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2057
   },
   {
    "plant_code": 58233,
@@ -7853,14 +8275,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.545,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.678,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1131
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3.979,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0276
   },
   {
    "plant_code": 58324,
@@ -7890,14 +8314,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.88,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 141.742,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0577
   },
   {
    "plant_code": 58394,
@@ -7927,14 +8353,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.891,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 12.692,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.092
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 198.226,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0599
   },
   {
    "plant_code": 58395,
@@ -7964,14 +8392,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.594,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 33.168,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3685
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 90.188,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0418
   },
   {
    "plant_code": 58441,
@@ -8001,14 +8431,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.599,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.093,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0217
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 19.912,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1929
   },
   {
    "plant_code": 58548,
@@ -8038,14 +8470,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.644,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 1.321,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1651
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.032,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0262
   },
   {
    "plant_code": 58571,
@@ -8075,14 +8509,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.586,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1263.732,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1974
   },
   {
    "plant_code": 58769,
@@ -8112,14 +8548,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.604,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 28.557,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4562
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 226.376,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1507
   },
   {
    "plant_code": 58833,
@@ -8149,14 +8587,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.563,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 26.63,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.8877
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 167.337,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2324
   },
   {
    "plant_code": 58966,
@@ -8186,14 +8626,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.569,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 40.507,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1688
   },
   {
    "plant_code": 59003,
@@ -8223,14 +8665,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.456,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.227,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2296
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 73.003,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3136
   },
   {
    "plant_code": 59076,
@@ -8260,14 +8704,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.164,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 17.785,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0741
   },
   {
    "plant_code": 59083,
@@ -8297,14 +8743,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.877,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 115.497,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.5758
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1229.696,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2554
   },
   {
    "plant_code": 59235,
@@ -8334,14 +8782,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.052,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.849,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1439
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 25.207,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.053
   },
   {
    "plant_code": 59236,
@@ -8371,14 +8821,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.857,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.104,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1021
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 248.456,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1046
   },
   {
    "plant_code": 59328,
@@ -8408,14 +8860,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.911,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.344,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3445
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.061,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0859
   },
   {
    "plant_code": 59329,
@@ -8445,14 +8899,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.631,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.097,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0974
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.935,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1223
   },
   {
    "plant_code": 59330,
@@ -8482,14 +8938,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.497,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.07,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0701
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.426,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1011
   },
   {
    "plant_code": 59331,
@@ -8519,14 +8977,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.454,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.073,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0459
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.733,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1493
   },
   {
    "plant_code": 59490,
@@ -8556,14 +9016,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.377,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.631,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0631
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.05,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1835
   },
   {
    "plant_code": 59491,
@@ -8593,14 +9055,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.468,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.185,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0185
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.945,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1873
   },
   {
    "plant_code": 59492,
@@ -8630,14 +9094,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.316,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.039,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0039
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 46.356,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1932
   },
   {
    "plant_code": 59493,
@@ -8667,14 +9133,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.957,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.633,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0633
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 44.346,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1848
   },
   {
    "plant_code": 59494,
@@ -8704,14 +9172,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.391,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 49.307,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2054
   },
   {
    "plant_code": 59757,
@@ -8741,14 +9211,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.456,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.734,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0364
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1144.848,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1989
   },
   {
    "plant_code": 59817,
@@ -8778,14 +9250,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.241,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.056,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0174
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.716,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0354
   },
   {
    "plant_code": 59965,
@@ -8815,14 +9289,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.86,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 46.929,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0315
   },
   {
    "plant_code": 59974,
@@ -8852,14 +9328,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.003,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 64.897,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2596
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1097.535,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1829
   },
   {
    "plant_code": 59975,
@@ -8889,14 +9367,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.45,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 53.866,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3591
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 877.332,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2437
   },
   {
    "plant_code": 60049,
@@ -8926,14 +9406,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.263,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.768,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0671
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 169.39,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0822
   },
   {
    "plant_code": 60143,
@@ -8963,14 +9445,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.073,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 19.464,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3201
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 107.444,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0736
   },
   {
    "plant_code": 60259,
@@ -9000,14 +9484,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.044,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 16.659,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2082
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 292.517,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1524
   },
   {
    "plant_code": 60317,
@@ -9037,14 +9523,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.756,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.282,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.033
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1656.791,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3131
   },
   {
    "plant_code": 60486,
@@ -9074,14 +9562,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.563,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 101.283,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1688
   },
   {
    "plant_code": 60594,
@@ -9111,14 +9601,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.813,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 16.169,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1233
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 401.891,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1277
   },
   {
    "plant_code": 60619,
@@ -9148,14 +9640,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.902,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 266.88,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4448
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3154.791,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2191
   },
   {
    "plant_code": 61040,
@@ -9185,14 +9679,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.333,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 8.893,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1186
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 325.322,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1807
   },
   {
    "plant_code": 61044,
@@ -9222,14 +9718,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.574,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 90.659,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2961
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 348.304,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0474
   },
   {
    "plant_code": 61066,
@@ -9259,14 +9757,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.366,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 0.727,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0159
   },
   {
    "plant_code": 61067,
@@ -9296,14 +9796,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.65,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.072,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0381
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.476,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1201
   },
   {
    "plant_code": 61155,
@@ -9333,14 +9835,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.302,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 80.016,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1334
   },
   {
    "plant_code": 61222,
@@ -9370,14 +9874,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.715,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 292.09,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2646
   },
   {
    "plant_code": 61442,
@@ -9407,14 +9913,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.581,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.228,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1266
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.001,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1158
   },
   {
    "plant_code": 61443,
@@ -9444,14 +9952,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.495,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.128,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0709
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 4.43,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1025
   },
   {
    "plant_code": 61444,
@@ -9481,14 +9991,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.829,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.228,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1267
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5.037,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1166
   },
   {
    "plant_code": 61582,
@@ -9518,14 +10030,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.147,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 29.67,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2305
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 272.568,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0882
   },
   {
    "plant_code": 61583,
@@ -9555,14 +10069,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.749,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.365,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1242
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 132.104,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1274
   },
   {
    "plant_code": 61584,
@@ -9592,14 +10108,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.157,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.731,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1727
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 41.33,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0797
   },
   {
    "plant_code": 61858,
@@ -9629,14 +10147,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.905,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 492.135,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2573
   },
   {
    "plant_code": 61925,
@@ -9666,14 +10186,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.749,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.374,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0859
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 395.627,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3239
   },
   {
    "plant_code": 62113,
@@ -9703,14 +10225,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.146,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 26.466,
-   "outage_mw_subtracted": 1.114,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2777
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 406.224,
+   "outage_mwh_subtracted": 17.102,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1776
   },
   {
    "plant_code": 62445,
@@ -9740,14 +10264,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.628,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 17.763,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.299
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 88.484,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0621
   },
   {
    "plant_code": 62489,
@@ -9777,14 +10303,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.631,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 43.898,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4221
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 543.712,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2178
   },
   {
    "plant_code": 62516,
@@ -9814,14 +10342,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.462,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 95.374,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1895
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 504.976,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0418
   },
   {
    "plant_code": 62591,
@@ -9851,14 +10381,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.715,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 70.238,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2799
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 518.776,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0862
   },
   {
    "plant_code": 62654,
@@ -9888,14 +10420,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.098,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.68,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1214
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 12.497,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.093
   },
   {
    "plant_code": 62745,
@@ -9925,14 +10459,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.033,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.059,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0003
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 402.39,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0838
   },
   {
    "plant_code": 62840,
@@ -9962,14 +10498,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.781,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 27.608,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1608
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 740.527,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1797
   },
   {
    "plant_code": 62935,
@@ -9999,14 +10537,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.185,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 23.451,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0977
   },
   {
    "plant_code": 62936,
@@ -10036,14 +10576,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.618,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 21.552,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0062
   },
   {
    "plant_code": 62939,
@@ -10073,14 +10615,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.656,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.636,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.008
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 321.427,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1674
   },
   {
    "plant_code": 62952,
@@ -10110,14 +10654,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.576,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 159.715,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3205
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3236.306,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2706
   },
   {
    "plant_code": 63114,
@@ -10147,14 +10693,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.95,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 15.402,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.044
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 451.583,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0538
   },
   {
    "plant_code": 63133,
@@ -10184,14 +10732,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.988,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 15.064,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0667
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1322.822,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2439
   },
   {
    "plant_code": 63205,
@@ -10221,14 +10771,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.262,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 146.661,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0449
   },
   {
    "plant_code": 63436,
@@ -10258,14 +10810,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.589,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 2.331,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0444
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 315.421,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2503
   },
   {
    "plant_code": 63482,
@@ -10295,14 +10849,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.071,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 25.253,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3915
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 31.825,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0206
   },
   {
    "plant_code": 63502,
@@ -10332,14 +10888,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.286,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.651,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0426
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 455.131,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0759
   },
   {
    "plant_code": 63803,
@@ -10369,14 +10927,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.286,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 128.261,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4275
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1644.82,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2284
   },
   {
    "plant_code": 63914,
@@ -10406,14 +10966,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.028,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 16.724,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0836
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 810.111,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1688
   },
   {
    "plant_code": 63915,
@@ -10443,14 +11005,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.317,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 15.557,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0778
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 893.364,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1861
   },
   {
    "plant_code": 63916,
@@ -10480,14 +11044,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.369,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 11.088,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0834
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 674.374,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2113
   },
   {
    "plant_code": 63941,
@@ -10517,14 +11083,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.837,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.333,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2315
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 30.77,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.089
   },
   {
    "plant_code": 63981,
@@ -10554,14 +11122,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.771,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 97.229,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2778
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2769.515,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3297
   },
   {
    "plant_code": 64051,
@@ -10591,14 +11161,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.185,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 23.451,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0977
   },
   {
    "plant_code": 64052,
@@ -10628,14 +11200,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.185,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 23.451,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0977
   },
   {
    "plant_code": 64053,
@@ -10665,14 +11239,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.185,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 23.451,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0977
   },
   {
    "plant_code": 64054,
@@ -10702,14 +11278,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.363,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 93.078,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2864
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2576.782,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3304
   },
   {
    "plant_code": 64057,
@@ -10739,14 +11317,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.033,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.03,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0003
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 201.195,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0838
   },
   {
    "plant_code": 64065,
@@ -10776,14 +11356,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.492,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 32.414,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3087
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 776.104,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.308
   },
   {
    "plant_code": 64066,
@@ -10813,14 +11395,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.305,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 77.888,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2864
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2158.338,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3306
   },
   {
    "plant_code": 64323,
@@ -10850,14 +11434,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.911,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 9.877,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1614
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 61.129,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0416
   },
   {
    "plant_code": 64326,
@@ -10887,14 +11473,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.529,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 3.81,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0663
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 92.304,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0669
   },
   {
    "plant_code": 64332,
@@ -10924,14 +11512,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.287,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 11.542,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2672
   },
   {
    "plant_code": 64638,
@@ -10961,14 +11551,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.43,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 69.275,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.6928
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 49.612,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0207
   },
   {
    "plant_code": 64872,
@@ -10998,14 +11590,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.047,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 21.493,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1482
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 605.54,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.174
   },
   {
    "plant_code": 65019,
@@ -11035,14 +11629,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.372,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1474.098,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2477
   },
   {
    "plant_code": 65059,
@@ -11072,14 +11668,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.798,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 107.398,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.5224
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 328.655,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0666
   },
   {
    "plant_code": 65311,
@@ -11109,14 +11707,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.133,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 150.644,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0392
   },
   {
    "plant_code": 65403,
@@ -11146,14 +11746,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.45,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 65.272,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1979
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 333.187,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0421
   },
   {
    "plant_code": 65577,
@@ -11183,14 +11785,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.564,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 28.675,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0785
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 3110.545,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3546
   },
   {
    "plant_code": 65737,
@@ -11220,14 +11824,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.822,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 20.95,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1091
   },
   {
    "plant_code": 66001,
@@ -11257,14 +11863,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.025,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 76.315,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3204
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 312.986,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0547
   },
   {
    "plant_code": 66014,
@@ -11294,14 +11902,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.474,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 82.928,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.4146
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1097.427,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2286
   },
   {
    "plant_code": 66110,
@@ -11331,14 +11941,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.799,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 87.606,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.5375
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 101.701,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.026
   },
   {
    "plant_code": 66167,
@@ -11368,14 +11980,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.564,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.778,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2881
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 13.282,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0205
   },
   {
    "plant_code": 66183,
@@ -11405,14 +12019,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.676,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 33.689,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.162
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1652.861,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3313
   },
   {
    "plant_code": 66184,
@@ -11442,14 +12058,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.445,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.367,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1008
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 810.993,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3287
   },
   {
    "plant_code": 66560,
@@ -11479,14 +12097,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.295,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.0,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 319.471,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0666
   },
   {
    "plant_code": 66811,
@@ -11516,14 +12136,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.445,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 10.084,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1008
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 788.904,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.3287
   },
   {
    "plant_code": 66923,
@@ -11553,14 +12175,16 @@
    "export_cap_basis": "SunZia HVDC delivers 2,131 MW of its 3,021 MW line to California via Palo Verde (EIA Today in Energy 67766); lower all-hours error than the 3,021 MW line cap on September 2026 (d091589 Step 1)",
    "hrrr_dist_km": 0.726,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 845.921,
-   "outage_mw_subtracted": 18.013,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3303
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 15221.605,
+   "outage_mwh_subtracted": 324.122,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2476
   },
   {
    "plant_code": 66924,
@@ -11590,14 +12214,16 @@
    "export_cap_basis": "SunZia HVDC delivers 2,131 MW of its 3,021 MW line to California via Palo Verde (EIA Today in Energy 67766); lower all-hours error than the 3,021 MW line cap on September 2026 (d091589 Step 1)",
    "hrrr_dist_km": 0.726,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 362.783,
-   "outage_mw_subtracted": 4.554,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3331
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 5899.753,
+   "outage_mwh_subtracted": 710.156,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2257
   },
   {
    "plant_code": 67026,
@@ -11627,14 +12253,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.427,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 5.553,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0525
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 705.617,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2782
   },
   {
    "plant_code": 67160,
@@ -11664,14 +12292,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.12,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 0.009,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.0062
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2.237,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0621
   },
   {
    "plant_code": 67176,
@@ -11701,14 +12331,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.889,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 69.204,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3204
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 283.835,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0548
   },
   {
    "plant_code": 67193,
@@ -11738,14 +12370,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.408,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 14.499,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1166
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 320.845,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1076
   },
   {
    "plant_code": 67247,
@@ -11775,14 +12409,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.418,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 7.318,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2439
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 17.787,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0247
   },
   {
    "plant_code": 67289,
@@ -11812,14 +12448,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.649,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 42.484,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1088
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1934.756,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.2065
   },
   {
    "plant_code": 67769,
@@ -11849,14 +12487,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.82,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 217.508,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.3687
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 2425.492,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1713
   },
   {
    "plant_code": 67916,
@@ -11886,14 +12526,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 1.465,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 40.225,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2984
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 521.759,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.1613
   },
   {
    "plant_code": 68844,
@@ -11923,14 +12565,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.225,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 4.342,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.1848
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 54.065,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.0959
   },
   {
    "plant_code": 69451,
@@ -11960,14 +12604,16 @@
    "export_cap_basis": null,
    "hrrr_dist_km": 0.442,
    "weather_sources": [
+    "gfs_100m",
     "hrrr_80m"
    ],
-   "lead_h_min": 9,
-   "lead_h_max": 9,
-   "implied_mw": 105.759,
-   "outage_mw_subtracted": 0.0,
-   "cap_mw_subtracted": 0.0,
-   "capacity_factor": 0.2115
+   "lead_h_min": 32,
+   "lead_h_max": 55,
+   "implied_mwh": 1332.221,
+   "outage_mwh_subtracted": 0.0,
+   "cap_mwh_subtracted": 0.0,
+   "hours_covered": 24,
+   "capacity_factor": 0.111
   }
  ],
  "absence": null,

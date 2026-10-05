@@ -12,23 +12,16 @@ code rather than copying it: the parameter parsers, the issuance statements
 (both are keyed on %(tech)s), the score statement and its shaping
 (`_scores_sql` / `build_scores` with wind's extra columns), the actuals
 statement and its HUBSUM rule (`_actuals_sql` / `build_actuals` with wind's
-pairs). What is wind's own is below, and only that:
+pairs), and, since d091608 (D-09-25-136), the calibration read, the gate, the
+calibration seam and the calibration gaps: the fitted leads are the writer's,
+stored on the line (pantry migration 272), and nothing here derives them.
+Nothing is hard-coded to the lead that is true today (66). What is wind's own
+is below, and only that:
 
   * every hour carries `weather_source` (hrrr_80m leads 1-48, gfs_100m 49-240)
     and `cap_mw_subtracted`; the payload names the WEATHER SEAM, read off the
     rows, never a constant;
-  * D-09-25-127: a calibrated number is shown only where its fit has data.
-    Each line carries `fit_lead_min` / `fit_lead_max`, the leads of the rows
-    it was fitted on. implied_gen_calibration does not hold them, so
-    CALIBRATION_SQL derives them from implied_gen_area_hourly by the writer's
-    own rule (pantry implied_gen/scoring.py `fit_line`, scripts/implied_wind.py
-    `score_day`): the area's rows of that band whose target's Pacific day is
-    inside [fit_start, fit_end], with scored_registry_mw > 0, written before
-    the line was fitted. An hour outside its line's fitted leads carries
-    `calibrated_mw: null` and `calibrated_absent_reason: "beyond_fitted_leads"`.
-    Nothing is hard-coded to the lead that is true today (66);
-  * the payload names the CALIBRATION SEAM (the last calibrated lead), and the
-    days block never adds a calibrated hour to a registry hour: a day across
+  * the days block never adds a calibrated hour to a registry hour: a day across
     that seam is served in parts, the way the solar page serves its lead-120
     day (dashboard solarOutlook.dayCells);
   * scores carry `actual_source` and the MW by `counts_in_hub_actual` class;
@@ -45,7 +38,10 @@ from typing import Optional
 
 import solar_outlook as so
 from solar_outlook import (_f, _iso, pacific_day_bounds, parse_area,  # noqa: F401 (re-exported)
-                           parse_day, parse_instant, PT)
+                           parse_day, parse_instant, PT,
+                           BEYOND_FIT, NO_LINE, FIT_LEADS_BASIS, _fitted, gate,
+                           build_calibration, calibration_ids, calibration_seam,
+                           calibration_gaps, _previous_mw)
 
 TECH = "wind"
 
@@ -79,20 +75,6 @@ WEATHER_HEIGHT_M = {"hrrr_80m": 80, "gfs_100m": 100}
 NO_SCORE_AREAS = ("ZP26",)          # clause 7: a footnote, inside HUBSUM
 SCORE_EXTRA = ("actual_source", "mw_yes", "mw_unknown", "mw_no")
 
-BEYOND_FIT = "beyond_fitted_leads"
-NO_LINE = "no_line"
-FIT_LEADS_BASIS = (
-    "derived by this route: implied_gen_calibration holds no lead columns, so "
-    "fit_lead_min/fit_lead_max are the min/max lead_h of the area's rows of the "
-    "line's band whose target falls on a Pacific day in [fit_start, fit_end], with "
-    "scored_registry_mw > 0, written before fitted_at (the writer's fit rule). "
-    "fit_rows counts them; the line's n_hours is fewer where an hour had no actual.")
-
-# The furthest lead any issuance carries: bounds the init_ts range of the
-# derivation so it stays a primary-key range. Not a calibration fact.
-_MAX_LEAD_H = 240
-
-
 def parse_model(model: Optional[str]) -> str:
     model = model or DEFAULT_MODEL
     if model not in MODELS:
@@ -106,7 +88,7 @@ def parse_model(model: Optional[str]) -> str:
 # HOURS       the issuance's rows beside the previous issuance's same target
 #             hour, with wind's columns and the previous row's line and lead
 # SCORES      solar's statement with wind's extra columns
-# CALIBRATION the lines the rows carry, with their fitted leads derived
+# CALIBRATION solar's statement: the lines the rows carry, fitted leads stored
 # ACTUALS     solar's statement over wind's (dataset, series) pairs
 # FLEET       the area's plants from implied_gen_wind_sites (323 rows)
 
@@ -138,34 +120,7 @@ HOURS_SQL = f"""
 
 SCORES_SQL = {kind: so._scores_sql(kind, SCORE_EXTRA) for kind in so.AREA_KINDS}
 
-# One lateral per line (at most ten: five bands, this issuance's and the
-# previous one's). Each names the full (tech, area_kind, area, model) key and
-# an init_ts range, so it is a range of the primary key, never a walk.
-_PT_DAY_LO = "(c.fit_start::timestamp AT TIME ZONE 'America/Los_Angeles')"
-_PT_DAY_HI = "((c.fit_end + 1)::timestamp AT TIME ZONE 'America/Los_Angeles')"
-CALIBRATION_SQL = f"""
-    SELECT c.calibration_id, c.area, c.lead_band, c.intercept_mw, c.slope,
-           c.fit_start, c.fit_end, c.n_hours, c.n_days, c.fitted_at, c.method_version,
-           f.fit_lead_min, f.fit_lead_max, f.fit_rows, f.fit_issuances
-      FROM implied_gen_calibration c
-     CROSS JOIN LATERAL (
-        SELECT min(r.lead_h) AS fit_lead_min, max(r.lead_h) AS fit_lead_max,
-               count(*) AS fit_rows, count(DISTINCT r.init_ts) AS fit_issuances
-          FROM implied_gen_area_hourly r
-         WHERE r.tech = c.tech AND r.area_kind = %(area_kind)s AND r.area = c.area
-           AND r.model = %(model)s
-           AND r.init_ts >= {_PT_DAY_LO} - interval '{_MAX_LEAD_H} hours'
-           AND r.init_ts <  {_PT_DAY_HI}
-           AND r.target_ts >= {_PT_DAY_LO}
-           AND r.target_ts <  {_PT_DAY_HI}
-           AND r.lead_band = c.lead_band
-           AND r.method_version = c.method_version
-           AND r.scored_registry_mw > 0
-           AND r.written_at <= c.fitted_at
-     ) AS f
-     WHERE c.calibration_id = ANY(%(ids)s)
-       AND c.tech = %(tech)s AND c.area = %(area)s
-"""
+CALIBRATION_SQL = so.CALIBRATION_SQL
 
 
 def actual_pairs(area_kind: str, area: str) -> list[tuple[str, str, str]]:
@@ -238,75 +193,6 @@ SITES_SQL = f"""
 """
 
 
-# ── Shaping: calibration (D-09-25-127) ──────────────────────────────────────
-
-def calibration_ids(hours: list[dict]) -> list[int]:
-    ids = set(so.calibration_ids(hours))
-    ids |= {int(h["prev_calibration_id"]) for h in hours
-            if h.get("prev_calibration_id") is not None}
-    return sorted(ids)
-
-
-def _fitted(line: Optional[dict], lead: Optional[int]) -> bool:
-    """Is `lead` inside the leads `line` was fitted on? A line whose fitted
-    leads could not be derived (no rows) covers nothing."""
-    if line is None or lead is None:
-        return False
-    lo, hi = line.get("fit_lead_min"), line.get("fit_lead_max")
-    return lo is not None and hi is not None and lo <= lead <= hi
-
-
-def gate(hours: list[dict], lines: list[dict]) -> list[dict]:
-    """Each hour with the calibrated figure it may SHOW, by D-09-25-127.
-
-    `calibrated_mw` survives only where the hour's own line was fitted on its
-    lead; otherwise null, with the reason. The previous issuance's calibrated
-    figure is gated the same way, by ITS line at ITS lead, so `previous_mw`
-    is like for like with what each issuance may show."""
-    by_id = {int(l["calibration_id"]): l for l in lines}
-    out = []
-    for h in hours:
-        cid = h.get("calibration_id")
-        line = by_id.get(int(cid)) if cid is not None else None
-        cal, reason = None, None
-        if h.get("calibrated_mw") is None or line is None:
-            reason = NO_LINE
-        elif _fitted(line, h["lead_h"]):
-            cal = _f(h["calibrated_mw"])
-        else:
-            reason = BEYOND_FIT
-        pid = h.get("prev_calibration_id")
-        pline = by_id.get(int(pid)) if pid is not None else None
-        prev_cal = (_f(h.get("prev_calibrated_mw"))
-                    if h.get("prev_calibrated_mw") is not None and _fitted(pline, h.get("prev_lead_h"))
-                    else None)
-        out.append({**h, "shown_calibrated_mw": cal, "calibrated_absent_reason": reason,
-                    "shown_prev_calibrated_mw": prev_cal})
-    return out
-
-
-def build_calibration(hours: list[dict], lines: list[dict]) -> dict:
-    """solar's block (the line the rows carry, per lead band), with each
-    line's fitted leads and how many of the band's hours they cover."""
-    base = so.build_calibration(hours, lines)
-    by_id = {int(l["calibration_id"]): l for l in lines}
-    for band, entry in base.items():
-        if entry is None:
-            continue
-        l = by_id[entry["calibration_id"]]
-        band_hours = [h for h in hours if h["lead_band"] == band]
-        entry.update({
-            "fit_lead_min": l.get("fit_lead_min"),
-            "fit_lead_max": l.get("fit_lead_max"),
-            "fit_rows": l.get("fit_rows"),
-            "fit_issuances": l.get("fit_issuances"),
-            "fit_leads_source": "derived",
-            "applied_lead_min": min(h["lead_h"] for h in band_hours) if band_hours else None,
-            "applied_lead_max": max(h["lead_h"] for h in band_hours) if band_hours else None,
-        })
-    return base
-
-
 # ── Shaping: seams and days ─────────────────────────────────────────────────
 
 def _figure(h: dict) -> str:
@@ -322,21 +208,6 @@ def weather_seam(hours: list[dict]) -> Optional[dict]:
                     "before": a["weather_source"], "after": b["weather_source"],
                     "target_ts_before": a["target_ts"], "target_ts_after": b["target_ts"],
                     "band_before": a["lead_band"], "band_after": b["lead_band"]}
-    return None
-
-
-def calibration_seam(hours: list[dict]) -> Optional[dict]:
-    """The last lead of the calibrated run that opens the issuance, and why
-    the next hour is the registry figure. None when no hour is calibrated, or
-    when every hour is."""
-    if not hours or hours[0]["calibrated_mw"] is None:
-        return None
-    for a, b in zip(hours, hours[1:]):
-        if b["calibrated_mw"] is None:
-            return {"last_calibrated_lead": a["lead_h"], "first_registry_lead": b["lead_h"],
-                    "target_ts_before": a["target_ts"], "target_ts_after": b["target_ts"],
-                    "band_before": a["lead_band"], "band_after": b["lead_band"],
-                    "reason": b["calibrated_absent_reason"]}
     return None
 
 
@@ -453,13 +324,6 @@ def build_fleet(hours: list[dict], site_rows: list[dict], area_kind: str, area: 
 
 # ── The outlook ─────────────────────────────────────────────────────────────
 
-def _previous_mw(h: dict) -> Optional[float]:
-    """Like for like with the figure the hour SHOWS (after D-09-25-127)."""
-    if h["shown_calibrated_mw"] is not None:
-        return h["shown_prev_calibrated_mw"]
-    return _f(h["prev_registry_mw"])
-
-
 def build_outlook(*, area_kind: str, area: str, model: str,
                   issuance: Optional[dict], hours: list[dict], score_rows: list[dict],
                   lines: list[dict], actual_rows: list[dict],
@@ -477,6 +341,7 @@ def build_outlook(*, area_kind: str, area: str, model: str,
         "hours": [],
         "unscaled": True,
         "seams": {"weather": None, "calibration": None},
+        "calibration_gaps": [],
         "calibration": build_calibration(hours, lines),
         "calibration_fit_leads_basis": FIT_LEADS_BASIS,
         "days": [],
@@ -529,6 +394,7 @@ def build_outlook(*, area_kind: str, area: str, model: str,
     body["unscaled"] = all(h["calibrated_mw"] is None for h in body["hours"])
     body["seams"] = {"weather": weather_seam(body["hours"]),
                      "calibration": calibration_seam(body["hours"])}
+    body["calibration_gaps"] = calibration_gaps(gated)
     body["days"] = build_days(body["hours"])
     return body
 
