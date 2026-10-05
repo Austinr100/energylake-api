@@ -315,3 +315,11 @@ d091611 (load and net-demand routes, PR #100) merged first. It added `_DDCache.m
 - `load/outlook`, `load/areas` and `load/net-demand`.
 
 **Tests on the merged tree:** the full suite, `tests/`, is **2361 passed**.
+
+## Architect's addendum 2 (2026-10-05 ~23:10Z): merged with main after d091614
+
+d091614 (`GET /api/mjo/status`, PR #101) merged after addendum 1. Its memo `_mjo_status_cache` ("mjo/status", 300 s fresh, stale ≤ 900 s) is bounded under D-09-25-138 on purpose, so `test_A7_no_other_cache_is_bounded`'s exact set gains `"mjo/status"`. That is the only change: no conflict, no other assertion moved.
+
+**Tests on the merged tree:** the full suite, `tests/`, is **2389 passed, 2 skipped** (the 2 are d091614's pantry-checkout tests).
+
+**Merge order is unchanged:** with d091607 part 2, after migrations 276 and 275 are applied and d091609 is live.
