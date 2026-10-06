@@ -28,8 +28,8 @@ def _ts(s):
     return datetime.fromisoformat(s)
 
 
-def load() -> dict:
-    b = json.loads(FIX.read_text())
+def load(path: pathlib.Path = FIX) -> dict:
+    b = json.loads(path.read_text())
     out = {"now": _ts(b["now"]), "usability": b["usability"], "lines": [], "fcst": {},
            "series": {}, "hub": [], "truth": [], "newest": {}, "gen": {}, "bt": {}}
     for k, v in b.items():

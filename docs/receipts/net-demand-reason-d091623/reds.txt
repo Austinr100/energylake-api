@@ -1,0 +1,16 @@
+# d091623 reds — each break must turn its tests red; the clean tree must be green
+
+R1   RED   the old first branch restored: no figure reads registry_only before the line
+     -k 'test_R1 or test_R2': 9 failed, 6 passed, 78 deselected, 1 warning in 1.23s
+R3   RED   clause (b) dropped: the newest unscored day and its parts
+     -k 'test_R3': 5 failed, 2 passed, 86 deselected, 1 warning in 1.11s
+R3   RED   clause (c) dropped: the most frequent stop
+     -k 'test_R3': 5 failed, 2 passed, 86 deselected, 1 warning in 1.16s
+R3   RED   a reason on a scored cell
+     -k 'test_R3': 1 failed, 6 passed, 86 deselected, 1 warning in 1.16s
+R3   RED   the stop's PT hour, lead and hours absent dropped
+     -k 'test_R3': 3 failed, 4 passed, 86 deselected, 1 warning in 1.08s
+R3   RED   ties go by reason code before part order
+     -k 'test_R3': 2 failed, 5 passed, 86 deselected, 1 warning in 1.11s
+
+clean tree: GREEN  93 passed, 1 warning in 3.61s

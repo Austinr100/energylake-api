@@ -1,0 +1,1236 @@
+{
+ "label": "CAISO's load forecast as CAISO publishes it (OASIS), with its measured error. Not a forecast of ours.",
+ "count": 36,
+ "window_start": "2026-09-08",
+ "window_end": "2026-10-05",
+ "usability_rule": {
+  "window_days": 28,
+  "min_coverage": 0.95,
+  "dropout_fraction_of_median": 0.5,
+  "max_dropout_share": 0.005,
+  "min_r_vs_caiso_dam": 0.9,
+  "clock_shifts_h": [
+   -1,
+   0,
+   1
+  ],
+  "scale_min": 0.9,
+  "scale_max": 1.1
+ },
+ "groups": {
+  "caiso": "CAISO",
+  "tac": "CAISO TAC areas",
+  "western": "Western balancing areas"
+ },
+ "areas": [
+  {
+   "code": "CA ISO-TAC",
+   "name": "CAISO system",
+   "kind": "system",
+   "group": "caiso",
+   "parent": null,
+   "eia": "CISO",
+   "eia_name": "California Independent System Operator",
+   "df_available": false,
+   "actual_source": "caiso_native",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": null
+  },
+  {
+   "code": "PGE-TAC",
+   "name": "PG&E transmission access charge area",
+   "kind": "tac",
+   "group": "tac",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "CAISO publishes no actual load by TAC area that is banked",
+   "usability": null
+  },
+  {
+   "code": "SCE-TAC",
+   "name": "SCE transmission access charge area",
+   "kind": "tac",
+   "group": "tac",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "CAISO publishes no actual load by TAC area that is banked",
+   "usability": null
+  },
+  {
+   "code": "SDGE-TAC",
+   "name": "SDG&E transmission access charge area",
+   "kind": "tac",
+   "group": "tac",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "CAISO publishes no actual load by TAC area that is banked",
+   "usability": null
+  },
+  {
+   "code": "VEA-TAC",
+   "name": "Valley Electric transmission access charge area",
+   "kind": "tac",
+   "group": "tac",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "CAISO publishes no actual load by TAC area that is banked",
+   "usability": null
+  },
+  {
+   "code": "MWD-TAC",
+   "name": "Metropolitan Water District transmission access charge area",
+   "kind": "tac",
+   "group": "tac",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "CAISO publishes no actual load by TAC area that is banked",
+   "usability": null
+  },
+  {
+   "code": "AVA",
+   "name": "Avista",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "AVA",
+   "eia_name": "Avista Corporation",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for AVA fails the usability rule: its median is outside 90-110% of CAISO's forecast for the area (a different footprint)",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "scale"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9788,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9286,
+       "0": 0.9788,
+       "+1": 0.9283
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.8412,
+      "d_median_mw": 1286.0,
+      "dam_median_mw": 1081.76,
+      "pass": false
+     }
+    }
+   }
+  },
+  {
+   "code": "AVRN",
+   "name": "Avangrid Renewables",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "no EIA-930 respondent is banked for this area",
+   "usability": null
+  },
+  {
+   "code": "AZPS",
+   "name": "Arizona Public Service",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "AZPS",
+   "eia_name": "Arizona Public Service Company",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for AZPS fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90; its median is outside 90-110% of CAISO's forecast for the area (a different footprint)",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "dropouts",
+     "agreement",
+     "scale"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.012,
+      "hours": 8,
+      "pass": false
+     },
+     "agreement": {
+      "value": 0.7123,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.7025,
+       "0": 0.7123,
+       "+1": 0.6964
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.8902,
+      "d_median_mw": 5674.0,
+      "dam_median_mw": 5050.75,
+      "pass": false
+     }
+    }
+   }
+  },
+  {
+   "code": "BANC",
+   "name": "Balancing Authority of Northern California",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "BANC",
+   "eia_name": "Balancing Authority of Northern California",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9529,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9222,
+       "0": 0.9529,
+       "+1": 0.9245
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9318,
+      "d_median_mw": 2015.0,
+      "dam_median_mw": 1877.585,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "BANCMID",
+   "name": "BANC: Modesto Irrigation District",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "BANC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "BANCRDNG",
+   "name": "BANC: Redding",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "BANC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "BANCRSVL",
+   "name": "BANC: Roseville",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "BANC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "BANCSMUD",
+   "name": "BANC: SMUD",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "BANC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "BANCWASN",
+   "name": "BANC: WAPA Sierra Nevada",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "BANC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "BHBA",
+   "name": "BHBA",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "no EIA-930 respondent is banked for this area",
+   "usability": null
+  },
+  {
+   "code": "BPAT",
+   "name": "Bonneville Power Administration",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "BPAT",
+   "eia_name": "Bonneville Power Administration",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0015,
+      "hours": 1,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9325,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.8839,
+       "0": 0.9325,
+       "+1": 0.8767
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9713,
+      "d_median_mw": 6694.5,
+      "dam_median_mw": 6502.125,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "EPE",
+   "name": "El Paso Electric",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "EPE",
+   "eia_name": "El Paso Electric Company",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9775,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9527,
+       "0": 0.9775,
+       "+1": 0.9587
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9742,
+      "d_median_mw": 1137.0,
+      "dam_median_mw": 1107.72,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "GWA",
+   "name": "GWA",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "no EIA-930 respondent is banked for this area",
+   "usability": null
+  },
+  {
+   "code": "IPCO",
+   "name": "Idaho Power",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "IPCO",
+   "eia_name": "Idaho Power Company",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9675,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9384,
+       "0": 0.9675,
+       "+1": 0.924
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.0191,
+      "d_median_mw": 2018.0,
+      "dam_median_mw": 2056.5600000000004,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "LADWP",
+   "name": "Los Angeles Department of Water and Power",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "LDWP",
+   "eia_name": "Los Angeles Department of Water and Power",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for LDWP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "dropouts",
+     "agreement"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.033,
+      "hours": 22,
+      "pass": false
+     },
+     "agreement": {
+      "value": 0.7976,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.7777,
+       "0": 0.7976,
+       "+1": 0.7849
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9579,
+      "d_median_mw": 3325.0,
+      "dam_median_mw": 3185.0,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "NEVP",
+   "name": "NV Energy (Nevada Power)",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "NEVP",
+   "eia_name": "Nevada Power Company",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for NEVP fails the usability rule: it lines up best with CAISO's forecast shifted by an hour",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "clock"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9353,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.8693,
+       "0": 0.9353,
+       "+1": 0.9527
+      },
+      "pass": false
+     },
+     "scale": {
+      "value": 0.9383,
+      "d_median_mw": 5521.5,
+      "dam_median_mw": 5180.585,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "NWMT",
+   "name": "NorthWestern Energy (Montana)",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "NWMT",
+   "eia_name": "NorthWestern Corporation",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9336,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.8912,
+       "0": 0.9336,
+       "+1": 0.8638
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.0079,
+      "d_median_mw": 1224.0,
+      "dam_median_mw": 1233.69,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "PACE",
+   "name": "PacifiCorp East",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "PACE",
+   "eia_name": "PacifiCorp East",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for PACE fails the usability rule: its correlation with CAISO's DAM forecast is under 0.90; it lines up best with CAISO's forecast shifted by an hour",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "agreement",
+     "clock"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.7881,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.6741,
+       "0": 0.7881,
+       "+1": 0.8632
+      },
+      "pass": false
+     },
+     "scale": {
+      "value": 1.0205,
+      "d_median_mw": 5824.5,
+      "dam_median_mw": 5944.0,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "PACW",
+   "name": "PacifiCorp West",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "PACW",
+   "eia_name": "PacifiCorp West",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9854,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9265,
+       "0": 0.9854,
+       "+1": 0.9434
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.0023,
+      "d_median_mw": 2222.0,
+      "dam_median_mw": 2227.0,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "PGE",
+   "name": "Portland General Electric",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "PGE",
+   "eia_name": "Portland General Electric Company",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9756,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9188,
+       "0": 0.9756,
+       "+1": 0.9243
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.009,
+      "d_median_mw": 2553.5,
+      "dam_median_mw": 2576.4,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "PNM",
+   "name": "Public Service Company of New Mexico",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "PNM",
+   "eia_name": "Public Service Company of New Mexico",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9645,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9304,
+       "0": 0.9645,
+       "+1": 0.9506
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9537,
+      "d_median_mw": 1672.5,
+      "dam_median_mw": 1595.125,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "PSEI",
+   "name": "Puget Sound Energy",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "PSEI",
+   "eia_name": "Puget Sound Energy, Inc.",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9896,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9265,
+       "0": 0.9896,
+       "+1": 0.9343
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.998,
+      "d_median_mw": 2554.0,
+      "dam_median_mw": 2548.95,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "SCL",
+   "name": "Seattle City Light",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "SCL",
+   "eia_name": "Seattle City Light",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9644,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9158,
+       "0": 0.9644,
+       "+1": 0.9143
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9796,
+      "d_median_mw": 979.0,
+      "dam_median_mw": 958.98,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "SRP",
+   "name": "Salt River Project",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "SRP",
+   "eia_name": "Salt River Project Agricultural Improvement and Power District",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for SRP fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "dropouts",
+     "agreement"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0255,
+      "hours": 17,
+      "pass": false
+     },
+     "agreement": {
+      "value": 0.8654,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.8478,
+       "0": 0.8654,
+       "+1": 0.8448
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.0957,
+      "d_median_mw": 4471.5,
+      "dam_median_mw": 4899.48,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "TEPC",
+   "name": "Tucson Electric Power",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "TEPC",
+   "eia_name": "Tucson Electric Power",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for TEPC fails the usability rule: its median is outside 90-110% of CAISO's forecast for the area (a different footprint)",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "scale"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9455,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.9335,
+       "0": 0.9455,
+       "+1": 0.9069
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.7811,
+      "d_median_mw": 1810.0,
+      "dam_median_mw": 1413.7350000000001,
+      "pass": false
+     }
+    }
+   }
+  },
+  {
+   "code": "TIDC",
+   "name": "Turlock Irrigation District",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "TIDC",
+   "eia_name": "Turlock Irrigation District",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for TIDC fails the usability rule: more than 0.5% of its hours fall below half its median; its correlation with CAISO's DAM forecast is under 0.90",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "dropouts",
+     "agreement"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0165,
+      "hours": 11,
+      "pass": false
+     },
+     "agreement": {
+      "value": 0.807,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.7811,
+       "0": 0.807,
+       "+1": 0.79
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 1.009,
+      "d_median_mw": 350.0,
+      "dam_median_mw": 353.155,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "TPWR",
+   "name": "Tacoma Power",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "TPWR",
+   "eia_name": "City of Tacoma, Department of Public Utilities, Light Division",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": true,
+   "not_scored_reason": null,
+   "usability": {
+    "usable": true,
+    "failed": [],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.9718,
+      "pass": true
+     },
+     "clock": {
+      "value": {
+       "-1": 0.8739,
+       "0": 0.9718,
+       "+1": 0.9699
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.9748,
+      "d_median_mw": 447.5,
+      "dam_median_mw": 436.245,
+      "pass": true
+     }
+    }
+   }
+  },
+  {
+   "code": "WALC",
+   "name": "WAPA Desert Southwest",
+   "kind": "weim_ba",
+   "group": "western",
+   "parent": null,
+   "eia": "WALC",
+   "eia_name": "Western Area Power Administration - Desert Southwest Region",
+   "df_available": true,
+   "actual_source": "eia930_d",
+   "scored": false,
+   "not_scored_reason": "EIA-930 D for WALC fails the usability rule: its correlation with CAISO's DAM forecast is under 0.90; its median is outside 90-110% of CAISO's forecast for the area (a different footprint)",
+   "usability": {
+    "usable": false,
+    "failed": [
+     "agreement",
+     "scale"
+    ],
+    "tests": {
+     "coverage": {
+      "value": 0.9911,
+      "hours": 666,
+      "hours_expected": 672,
+      "pass": true
+     },
+     "dropouts": {
+      "value": 0.0,
+      "hours": 0,
+      "pass": true
+     },
+     "agreement": {
+      "value": 0.7327,
+      "pass": false
+     },
+     "clock": {
+      "value": {
+       "-1": 0.7317,
+       "0": 0.7327,
+       "+1": 0.6994
+      },
+      "pass": true
+     },
+     "scale": {
+      "value": 0.7985,
+      "d_median_mw": 1019.0,
+      "dam_median_mw": 813.71,
+      "pass": false
+     }
+    }
+   }
+  },
+  {
+   "code": "WALCAEPCO",
+   "name": "WALC: Arizona Electric Power Cooperative",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "WALC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  },
+  {
+   "code": "WALCDSW",
+   "name": "WALC: Desert Southwest",
+   "kind": "sub_area",
+   "group": "western",
+   "parent": "WALC",
+   "eia": null,
+   "eia_name": null,
+   "df_available": false,
+   "actual_source": null,
+   "scored": false,
+   "not_scored_reason": "EIA-930 reports only the whole balancing authority, not this sub-area, and CAISO publishes no actual for it that is banked",
+   "usability": null
+  }
+ ]
+}

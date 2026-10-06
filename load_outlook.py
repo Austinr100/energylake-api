@@ -48,7 +48,7 @@ import math
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from solar_outlook import PT, _f, _iso, pacific_day_bounds
+from solar_outlook import PT, _f, _fitted, _iso, pacific_day_bounds
 
 UTC = timezone.utc
 
@@ -838,13 +838,20 @@ def gate(row: dict, lines: dict) -> tuple[Optional[float], Optional[str]]:
     """(calibrated MW the hour may show, or None with the reason). The line the
     row carries must have been fitted on the row's lead (D-09-25-127). An hour
     whose sites imply nothing (registry 0: night for solar) is the line's 0 by
-    the writer's rule (apply_line) wherever the line reaches that far."""
+    the writer's rule (apply_line) wherever the line reaches that far.
+
+    The writer applies a line only inside its fitted leads and keeps the id
+    without a figure outside them (pantry implied_gen/scoring.in_fitted_leads,
+    migration 276), so a row with a line and no figure reads the line first
+    (d091623, as solar_outlook.gate reads it)."""
     cal, cid = row.get("calibrated_mw"), row.get("calibration_id")
-    if cal is None or cid is None:
+    if cid is None:
         return None, "registry_only"
     line = lines.get(int(cid))
     if line is None:
         return None, "no_line"
+    if cal is None:
+        return None, ("registry_only" if _fitted(line, row["lead_h"]) else "beyond_fitted_leads")
     lo, hi, lead = line.get("fit_lead_min"), line.get("fit_lead_max"), row["lead_h"]
     if lo is None or hi is None:
         return None, "beyond_fitted_leads"
@@ -1043,9 +1050,51 @@ def backtest(*, days: list[date], dam_load: dict, caiso_net: dict, truth: dict,
             return {"status": "not_yet_scored", "text": NOT_YET_SCORED, **base}
         return {"status": "scored", **base, **_nd_metrics(pairs)}
 
-    return {"ours": _score(ours_pairs, ours_days),
+    ours = _score(ours_pairs, ours_days)
+    if ours["status"] != "scored":
+        ours["reason"] = not_scored_reason(ours, unscored)
+    return {"ours": ours,
             "caiso_da": {**_score(caiso_pairs, caiso_days), "scope_note": REFERENCE_SCOPE_NOTE},
             "unscored_days": unscored}
+
+
+STOP_PART_ORDER = ("load", "solar", "wind", "truth")
+
+
+def _stop_words(s: dict) -> str:
+    """One part's stop: its detail and, where the stop serves them, the hours
+    absent from its first hour in PT, and that hour's lead."""
+    out = f"{s['part']}: {s['detail'] or s['reason']}"
+    bits = []
+    if s.get("first_ts") is not None:
+        first = datetime.fromisoformat(s["first_ts"]).astimezone(PT).strftime("%H:%M")
+        bits.append(f"{s['hours_absent']} h from {first} PT" if s.get("hours_absent") is not None
+                    else f"from {first} PT")
+    elif s.get("hours_absent") is not None:
+        bits.append(f"{s['hours_absent']} h")
+    if s.get("lead_h") is not None:
+        bits.append(f"lead {s['lead_h']} h")
+    return out + (f" ({', '.join(bits)})" if bits else "")
+
+
+def not_scored_reason(score: dict, unscored: list[dict]) -> str:
+    """Why ours is not yet scored, in one sentence from the backtest's own
+    fields (d091623). The page prints it after "not yet scored: "."""
+    out = [f"{score['n_days']} of {score['min_days']} days scored"]
+    if unscored:
+        u = unscored[-1]                                   # unscored_days run oldest first
+        out.append(f"the newest unscored day, {u['day']}, stopped on "
+                   + " and ".join(_stop_words(s) for s in u["stopped_by"]))
+        tally: dict = {}
+        for d in unscored:
+            for k in {(s["part"], s["reason"]) for s in d["stopped_by"]}:
+                tally[k] = tally.get(k, 0) + 1
+        (part, why), k = min(tally.items(), key=lambda kv: (
+            -kv[1], STOP_PART_ORDER.index(kv[0][0]) if kv[0][0] in STOP_PART_ORDER
+            else len(STOP_PART_ORDER), kv[0][1]))
+        out.append(f"most often {part}: {ABSENT.get(why, why)}, "
+                   f"on {k} of {len(unscored)} unscored days")
+    return "; ".join(out)
 
 
 def build_net_demand(*, area: str, now: datetime, fcst_rows: list[dict],
