@@ -1,36 +1,36 @@
 # d091611 reds — each break must turn its tests red; the clean tree must be green
 
 L1          RED   each day takes the longest horizon (7DA) instead of the freshest product
-            -k 'test_L1': 3 failed, 1 passed, 36 deselected in 1.11s
+            -k 'test_L1': 3 failed, 1 passed, 36 deselected, 1 warning in 1.04s
 L1          RED   the hours lose their issue time
-            -k 'test_L1_production': 1 failed, 39 deselected in 0.91s
+            -k 'test_L1_production': 1 failed, 39 deselected, 1 warning in 0.95s
 L1          RED   D+3..D+6 stop saying their age (D-09-25-139 clause 3)
-            -k 'test_L1_D3': 1 failed, 39 deselected in 0.88s
+            -k 'test_L1_D3': 1 failed, 39 deselected, 1 warning in 0.93s
 L2          RED   a BA whose EIA-930 D fails the rule is scored anyway
-            -k 'test_L2': 3 failed, 3 passed, 34 deselected in 0.99s
+            -k 'test_L2': 3 failed, 3 passed, 34 deselected, 1 warning in 1.00s
 L2          RED   the footprint (scale) test is dropped from the rule
-            -k 'test_L2 or test_L3_areas': 3 failed, 4 passed, 33 deselected in 1.00s
+            -k 'test_L2 or test_L3_areas': 3 failed, 4 passed, 33 deselected, 1 warning in 1.00s
 L3          RED   every area with an EIA code gets a DF line, the system included
-            -k 'test_L3': 3 failed, 37 deselected in 1.13s
+            -k 'test_L3': 3 failed, 37 deselected, 1 warning in 1.01s
 L4          RED   days past D+7 are drawn
-            -k 'test_L4': 1 failed, 2 passed, 37 deselected in 0.98s
+            -k 'test_L4': 1 failed, 2 passed, 37 deselected, 1 warning in 0.93s
 N1          RED   a registry figure stands in for a missing calibrated one
-            -k 'test_N1': 3 failed, 1 passed, 36 deselected in 1.05s
+            -k 'test_N1': 3 failed, 1 passed, 36 deselected, 1 warning in 1.05s
 N1          RED   the fitted-lead gate is ignored (D-09-25-127)
-            -k 'test_N1': 2 failed, 2 passed, 36 deselected in 1.02s
+            -k 'test_N1': 2 failed, 2 passed, 36 deselected, 1 warning in 1.04s
 N2          RED   the backtest pairs D with the 06Z issuance of D-1
-            -k 'test_N2': 3 failed, 1 passed, 36 deselected in 0.95s
+            -k 'test_N2': 3 failed, 1 passed, 36 deselected, 1 warning in 1.00s
 N3          RED   CAISO's DA net demand is drawn with a hub missing
-            -k 'test_N3': 1 failed, 2 passed, 37 deselected in 0.97s
+            -k 'test_N3': 1 failed, 2 passed, 37 deselected, 1 warning in 0.94s
 N4          RED   13 days score
-            -k 'test_N4': 2 failed, 1 passed, 37 deselected in 0.84s
+            -k 'test_N4': 2 failed, 1 passed, 37 deselected, 1 warning in 0.93s
 P1          RED   the shifted hour is inlined again (the 6.8 s plan)
-            -k 'test_P1': 1 failed, 3 passed, 36 deselected in 0.83s
+            -k 'test_P1': 1 failed, 3 passed, 36 deselected, 1 warning in 0.89s
 P1          RED   a timeseries read that names no series
-            -k 'test_P1': 1 failed, 3 passed, 36 deselected in 0.81s
+            -k 'test_P1': 1 failed, 3 passed, 36 deselected, 1 warning in 0.88s
 D-09-25-138 RED   the 15-minute stale cap is ignored
-            -k 'test_stale_cap': 1 failed, 39 deselected in 0.83s
+            -k 'test_stale_cap': 1 failed, 39 deselected, 1 warning in 0.88s
 D-09-25-75  RED   the statement timeout dropped from /outlook
-            -k 'test_reads_run_after_the_statement_timeout': 1 failed, 39 deselected in 0.89s
+            -k 'test_reads_run_after_the_statement_timeout': 1 failed, 39 deselected, 1 warning in 0.90s
 
-clean tree: GREEN  40 passed in 1.22s
+clean tree: GREEN  40 passed, 1 warning in 1.19s

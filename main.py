@@ -20344,14 +20344,21 @@ async def load_net_demand(
                         gaps: [ same, for runs the part comes back from ]}},
           net_demand_stop: {first_ts, last_ts, stop: {..., parts: [{part,
                             reason, detail}]} | null, gaps, sentence},
-          scores: {ours, caiso_da}, unscored_days: [ {day, stopped_by} ],
+          scores: {ours: {status, text?, n_days, n_hours, min_days,
+                          window_start, window_end, reason?, ...metrics},
+                   caiso_da},
+          unscored_days: [ {day, stopped_by} ],
           pairing_rule, reference_scope_note, attributions, issue_sentence,
           absence, cache }
 
     D-09-25-140: a part is drawn only where it has a scored figure (CAISO's
     load product; the calibrated line fitted on the hour's lead). Where any
     part is absent, net demand is null and the hour names the part. Scored at
-    day-ahead by `pairing_rule`. Area other than CISO -> 400; DB unavailable
+    day-ahead by `pairing_rule`. While ours is not scored, `scores.ours.reason`
+    says why in one sentence (d091623): the days scored of the days needed,
+    the newest unscored day and every part that stopped it, and the most
+    frequent stop; it reads after "not yet scored: ". A scored cell has no
+    `reason`. Area other than CISO -> 400; DB unavailable
     -> 503. Memoised 300 s, stale <= 900 s, 5 s statement timeout.
     """
     try:
