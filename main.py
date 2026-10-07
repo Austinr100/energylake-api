@@ -16934,7 +16934,7 @@ async def dd_forecast_region_vintages(
                        issuances: [ { issued_ts, d0,
                                       hdd: [..], cdd: [..],          # to 0.01
                                       basis_complete: [..],
-                                      spacing_h: [..] } ] } ],     # oldest first
+                                      sample_step_h: [..] } ] } ], # oldest first
           absence: null | { reason, detail }, cache }
 
     Index i of each array is target_date d0 + i days. A day the issuance does
@@ -16942,8 +16942,9 @@ async def dd_forecast_region_vintages(
     view serves it (its values null, pantry 202) with basis_complete false;
     the page decides what to draw. For the NWS leg (gridpoints_raw; its label
     is degree_days.SOURCE_LABELS's) an issuance is a fold: the view's
-    issued_ts, the newest member stamp of one fold. `spacing_h` is the view's
-    sample_spacing_hours (null where members differ).
+    issued_ts, the newest member stamp of one fold. `sample_step_h` is the
+    view's sample_spacing_hours, the model's step that day (null where
+    members differ), not the hours between issuances.
 
     D-09-25-167: no change, sum or spacing between issuances; the page does
     the arithmetic. Unknown region or weighting -> 400 naming the field; a

@@ -77,7 +77,7 @@ Made by `sample.py`: the routes are served through `TestClient` over the md5-che
 | `/api/generation/wind/vintages` ba/CISO | 4 | 960 | 9,935 | 3,127 |
 | | 12 | 2,880 | 28,965 | 8,483 |
 | | 28 | 4,110 | 37,907 | 11,511 |
-| `/api/weather/dd/forecast/regions/vintages` pnw/population | all 40 | 603 days | 15,099 | 2,526 |
+| `/api/weather/dd/forecast/regions/vintages` pnw/population | all 40 | 603 days | 15,259 | 2,535 |
 
 These include the `cache` block and every key. The recon's 26.7 KB raw / 8.2 KB gz at N = 28 was the `reg` array alone; with `cal`, the keys and the stamps the body is 39.6 KB / 8.5 KB gz. Wind compresses worse than solar because it has no run of night zeros.
 

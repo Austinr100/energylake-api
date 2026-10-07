@@ -701,7 +701,7 @@ def test_D1_values_equal_the_region_views_for_the_same_key(client, monkeypatch):
             assert i["hdd"][k] == dd01_ref(r["hdd"]), (src, r)
             assert i["cdd"][k] == dd01_ref(r["cdd"]), (src, r)
             assert i["basis_complete"][k] is r["basis_complete"]
-            assert i["spacing_h"][k] == r["sample_spacing_hours"]
+            assert i["sample_step_h"][k] == r["sample_spacing_hours"]
             n += 1
     assert n == sum(len(v) for v in bank.values())
     assert sum(len(i["hdd"]) for s in body["sources"] for i in s["issuances"]) == n   # no gaps held
@@ -738,7 +738,7 @@ def test_D2_an_incomplete_day_keeps_the_views_value_and_its_false(client, monkey
     assert i["basis_complete"] == [False, True, None, True, False]
     assert i["hdd"] == [None, 5.13, None, 6.99, None]
     assert i["cdd"] == [None, -0.13, None, 0.0, None]
-    assert i["spacing_h"] == [6, 6, None, None, 6]          # the view's, complete or not
+    assert i["sample_step_h"] == [6, 6, None, None, 6]      # the view's, complete or not
 
 
 def test_dd_one_read_per_source_each_after_the_statement_timeout(client, monkeypatch):

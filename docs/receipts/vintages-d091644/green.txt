@@ -51,7 +51,7 @@ PASSED tests/test_vintages_d091644.py::test_dd_bad_params_are_400s_naming_the_fi
 PASSED tests/test_vintages_d091644.py::test_dd_bad_params_are_400s_naming_the_field[region=pnw&weighting=hdd_share-weighting]
 PASSED tests/test_vintages_d091644.py::test_dd_weighting_defaults_to_population_and_memo_keys_on_it
 PASSED tests/test_vintages_d091644.py::test_dd_banked_body_is_what_the_route_serves
-51 passed, 1 warning in 2.87s
+51 passed, 1 warning in 2.88s
 
 # the whole suite on this branch
-2511 passed, 2 skipped, 1 warning in 63.29s (0:01:03)
+2511 passed, 2 skipped, 1 warning in 61.73s (0:01:01)

@@ -209,15 +209,15 @@ def _dd_issuance(rows: list[dict]) -> dict:
     hdd: list = [None] * width
     cdd: list = [None] * width
     complete: list = [None] * width
-    spacing: list = [None] * width
+    step: list = [None] * width
     for r in rows:
         i = (_as_date(r["target_date"]) - d0).days
         hdd[i] = dd01(r["hdd"])
         cdd[i] = dd01(r["cdd"])
         complete[i] = r["basis_complete"]
-        spacing[i] = r["sample_spacing_hours"]
+        step[i] = r["sample_spacing_hours"]
     return {"issued_ts": so._iso(rows[0]["issued_ts"]), "d0": d0.isoformat(),
-            "hdd": hdd, "cdd": cdd, "basis_complete": complete, "spacing_h": spacing}
+            "hdd": hdd, "cdd": cdd, "basis_complete": complete, "sample_step_h": step}
 
 
 def build_dd_vintages(*, region: str, weighting: str,

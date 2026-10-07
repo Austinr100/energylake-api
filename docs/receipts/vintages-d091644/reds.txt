@@ -1,38 +1,38 @@
 # d091644 reds — each break must turn its tests red; the clean tree must be green
 
 V1          RED   lead0 counted from 0 (lead_h - 1)
-            -k 'test_V1_66h': 1 failed, 50 deselected, 1 warning in 0.89s
+            -k 'test_V1_66h': 1 failed, 50 deselected, 1 warning in 1.25s
 V1          RED   whole MW by banker's rounding (half to even)
-            -k 'test_V1_whole_mw': 1 failed, 50 deselected, 1 warning in 0.94s
+            -k 'test_V1_whole_mw': 1 failed, 50 deselected, 1 warning in 0.90s
 V2          RED   cal ungated: the stored calibrated figure at every lead
-            -k 'test_V2_cal_is_null_at_hours or test_V2_cal_equals or test_PG_V2': 3 failed, 48 deselected, 1 warning in 2.20s
+            -k 'test_V2_cal_is_null_at_hours or test_V2_cal_equals or test_PG_V2': 3 failed, 48 deselected, 1 warning in 2.79s
 V2          RED   an issuance no line covers ships a list of nulls, not null
-            -k 'test_V2_cal_is_null_for_an_issuance': 1 failed, 50 deselected, 1 warning in 0.96s
+            -k 'test_V2_cal_is_null_for_an_issuance': 1 failed, 50 deselected, 1 warning in 0.91s
 V3          RED   a missing hour is served as 0
-            -k 'test_V3 or test_PG_V1_V3': 2 failed, 49 deselected, 1 warning in 2.44s
+            -k 'test_V3 or test_PG_V1_V3': 2 failed, 49 deselected, 1 warning in 2.51s
 V4          RED   newest first
             -k 'test_V4_oldest_first or test_PG_V4': 2 failed, 49 deselected, 1 warning in 2.32s
 V4          RED   n above 120 accepted
-            -k 'test_V4_n_out_of_range': 2 failed, 4 passed, 45 deselected, 1 warning in 0.96s
+            -k 'test_V4_n_out_of_range': 2 failed, 4 passed, 45 deselected, 1 warning in 1.03s
 V4          RED   the walk steps over another model's run (the d091557 mistake)
-            -k 'test_PG_V4': 1 failed, 50 deselected, 1 warning in 2.79s
+            -k 'test_PG_V4': 1 failed, 50 deselected, 1 warning in 2.33s
 V4          RED   n never reaches the read (always the default)
-            -k 'test_V4_n_reaches': 1 failed, 50 deselected, 1 warning in 0.97s
+            -k 'test_V4_n_reaches': 1 failed, 50 deselected, 1 warning in 0.90s
 V5          RED   no absence for an area with nothing banked
-            -k 'test_V5_unknown or test_PG_V5': 4 failed, 47 deselected, 1 warning in 2.73s
+            -k 'test_V5_unknown or test_PG_V5': 4 failed, 47 deselected, 1 warning in 2.35s
 V6          RED   reg carries the shown (calibrated) figure where there is one
-            -k 'test_V6_newest or test_V6_the_banked_outlook': 4 failed, 47 deselected, 1 warning in 1.27s
+            -k 'test_V6_newest or test_V6_the_banked_outlook': 4 failed, 47 deselected, 1 warning in 1.24s
 D1          RED   degree days to 0.1, not 0.01
-            -k 'test_D1_values': 1 failed, 50 deselected, 1 warning in 1.03s
+            -k 'test_D1_values': 1 failed, 50 deselected, 1 warning in 1.07s
 D1          RED   the 08-29 orphans dropped as noise (an NWS fold lost)
-            -k 'test_D1_nws': 1 failed, 50 deselected, 1 warning in 1.10s
+            -k 'test_D1_nws': 1 failed, 50 deselected, 1 warning in 1.02s
 D2          RED   an incomplete day is dropped
-            -k 'test_D2': 1 failed, 50 deselected, 1 warning in 0.91s
+            -k 'test_D2': 1 failed, 50 deselected, 1 warning in 1.01s
 D-09-25-75  RED   the statement timeout dropped from the vintages read
-            -k 'test_one_read_after_the_statement_timeout': 2 failed, 49 deselected, 1 warning in 1.10s
+            -k 'test_one_read_after_the_statement_timeout': 2 failed, 49 deselected, 1 warning in 0.95s
 memo        RED   the memo key drops n (n = 4 would serve n = 12's body)
-            -k 'test_memo_is_keyed_on_n': 1 failed, 50 deselected, 1 warning in 0.96s
+            -k 'test_memo_is_keyed_on_n': 1 failed, 50 deselected, 1 warning in 0.90s
 one series  RED   the degree-day read stops naming its source
-            -k 'test_dd_one_read_per_source': 1 failed, 50 deselected, 1 warning in 0.94s
+            -k 'test_dd_one_read_per_source': 1 failed, 50 deselected, 1 warning in 0.90s
 
-clean tree: GREEN  51 passed, 1 warning in 3.15s
+clean tree: GREEN  51 passed, 1 warning in 3.02s
