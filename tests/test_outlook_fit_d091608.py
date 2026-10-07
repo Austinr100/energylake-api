@@ -465,11 +465,12 @@ def test_A7_no_other_cache_is_bounded():
     # The three load memos are bounded too, on purpose: d091611 (merged before
     # this lane) put them under the same D-09-25-138 cap. So is the MJO status
     # memo: d091614 (merged before this lane) serves it at 300 s fresh, stale
-    # <= 900 s. Still an exact set.
+    # <= 900 s. And the asset page's two memos (d091635), which reuse the
+    # outlook section's plumbing and its D-09-25-138 cap. Still an exact set.
     assert bounded == {"generation/solar/outlook", "generation/solar/sites",
                        "generation/wind/outlook", "generation/wind/sites",
                        "load/outlook", "load/areas", "load/net-demand",
-                       "mjo/status"}
+                       "mjo/status", "generation/asset", "generation/assets"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

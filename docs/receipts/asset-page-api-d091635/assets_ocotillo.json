@@ -1,0 +1,51 @@
+{
+ "q": "ocotillo",
+ "max": 20,
+ "count": 3,
+ "truncated": false,
+ "results": [
+  {
+   "plant_code": 57514,
+   "plant_name": "Ocotillo Express LLC",
+   "tech": "wind",
+   "county": "Imperial",
+   "state": "CA",
+   "hub": "SP15",
+   "ba_code": "CISO",
+   "mw": 265.4,
+   "mw_kind": "nameplate",
+   "latitude": 32.752778,
+   "longitude": -116.0447,
+   "matched": "name_prefix"
+  },
+  {
+   "plant_code": 65820,
+   "plant_name": "Ocotillo Wells",
+   "tech": "solar",
+   "county": "San Diego",
+   "state": "CA",
+   "hub": "SP15",
+   "ba_code": "CISO",
+   "mw": 50,
+   "mw_kind": "ac",
+   "latitude": 33.074673,
+   "longitude": -116.0912,
+   "matched": "name_prefix"
+  },
+  {
+   "plant_code": 60822,
+   "plant_name": "Intel - Ocotillo Campus Solar",
+   "tech": "solar",
+   "county": "Maricopa",
+   "state": "AZ",
+   "hub": null,
+   "ba_code": "AZPS",
+   "mw": 4.2,
+   "mw_kind": "ac",
+   "latitude": 33.243261,
+   "longitude": -111.8924,
+   "matched": "name"
+  }
+ ],
+ "source": "implied_gen_sites (solar) and implied_gen_wind_sites (wind): the writers' registries. Not /atlas's box, which indexes CAISO pnodes."
+}
