@@ -1,0 +1,8 @@
+{
+ "read_at": "2026-10-07, Neon production, read-only",
+ "sql": "SELECT l.fold_ts, max(l.issued_ts), count(*) FROM station_degree_days_forecast_folds l JOIN degree_day_region_weights w ON w.station_id = l.station_id WHERE w.region='pnw' AND w.basis='population' AND l.source_product='gridpoints_raw' GROUP BY l.fold_ts ORDER BY l.fold_ts",
+ "fold_ts": ["2026-08-29T20:47:45.155+00:00", "2026-10-02T19:04:23.87+00:00", "2026-10-04T18:13:41.58+00:00", "2026-10-05T17:28:20.522+00:00", "2026-10-06T17:26:37.102+00:00"],
+ "fold_count": 5,
+ "fold_issued_ts": ["2026-08-29T16:41:20+00:00", "2026-10-02T18:41:09+00:00", "2026-10-04T08:41:14+00:00", "2026-10-05T12:41:01+00:00", "2026-10-06T00:41:06+00:00"],
+ "members_per_fold": 4
+}

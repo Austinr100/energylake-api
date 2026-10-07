@@ -1,0 +1,1246 @@
+=== G01 | solar_pv ba/CISO n=4 first | run at 2026-10-07T16:43Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=1.228..1.269 rows=960 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 90kB
+  Buffers: shared hit=28 read=37
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.063..0.156 rows=4 loops=1)
+          Buffers: shared hit=13 read=8
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.062..0.063 rows=1 loops=1)
+                Buffers: shared hit=3 read=3
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.061..0.062 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=3 read=3
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.022..0.022 rows=1 loops=4)
+                Filter: ((init_ts IS NOT NULL) AND (k < 4))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=10 read=5
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.026..0.026 rows=1 loops=3)
+                        Buffers: shared hit=10 read=5
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.026..0.026 rows=1 loops=3)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=10 read=5
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.101..0.927 rows=960 loops=1)
+        Buffers: shared hit=28 read=37
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.065..0.158 rows=4 loops=1)
+              Buffers: shared hit=13 read=8
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.027..0.123 rows=240 loops=4)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=15 read=29
+Planning:
+  Buffers: shared hit=7 read=1
+Planning Time: 0.382 ms
+Execution Time: 1.355 ms
+
+=== G02 | solar_pv ba/CISO n=4 warm | run at 2026-10-07T16:43Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=0.834..0.875 rows=960 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 90kB
+  Buffers: shared hit=65
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.038..0.099 rows=4 loops=1)
+          Buffers: shared hit=21
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.036..0.036 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.015..0.015 rows=1 loops=4)
+                Filter: ((init_ts IS NOT NULL) AND (k < 4))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=15
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.017..0.017 rows=1 loops=3)
+                        Buffers: shared hit=15
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.017..0.017 rows=1 loops=3)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=15
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.062..0.547 rows=960 loops=1)
+        Buffers: shared hit=65
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.039..0.101 rows=4 loops=1)
+              Buffers: shared hit=21
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.016..0.067 rows=240 loops=4)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=44
+Planning Time: 0.256 ms
+Execution Time: 0.955 ms
+
+=== G03 | solar_pv ba/CISO n=12 first | run at 2026-10-07T16:44Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=2.605..2.731 rows=2880 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 293kB
+  Buffers: shared hit=199 read=18
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.038..0.320 rows=12 loops=1)
+          Buffers: shared hit=51 read=2
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.036..0.036 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.023..0.023 rows=1 loops=12)
+                Filter: ((init_ts IS NOT NULL) AND (k < 12))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=45 read=2
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.024..0.024 rows=1 loops=11)
+                        Buffers: shared hit=45 read=2
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.023..0.023 rows=1 loops=11)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=45 read=2
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.061..1.743 rows=2880 loops=1)
+        Buffers: shared hit=199 read=18
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.039..0.324 rows=12 loops=1)
+              Buffers: shared hit=51 read=2
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.017..0.074 rows=240 loops=12)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=148 read=16
+Planning Time: 0.261 ms
+Execution Time: 2.890 ms
+
+=== G04 | solar_pv ba/CISO n=12 warm | run at 2026-10-07T16:44Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=2.681..2.806 rows=2880 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 293kB
+  Buffers: shared hit=217
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.038..0.238 rows=12 loops=1)
+          Buffers: shared hit=53
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.036..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.016..0.016 rows=1 loops=12)
+                Filter: ((init_ts IS NOT NULL) AND (k < 12))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=47
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.016..0.016 rows=1 loops=11)
+                        Buffers: shared hit=47
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.016..0.016 rows=1 loops=11)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=47
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.062..1.818 rows=2880 loops=1)
+        Buffers: shared hit=217
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.039..0.241 rows=12 loops=1)
+              Buffers: shared hit=53
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.015..0.070 rows=240 loops=12)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=164
+Planning Time: 0.256 ms
+Execution Time: 2.965 ms
+
+=== G05 | solar_pv ba/CISO n=28 first | run at 2026-10-07T16:44Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=4.090..4.286 rows=4632 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 505kB
+  Buffers: shared hit=424
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.039..0.433 rows=28 loops=1)
+          Buffers: shared hit=117
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.036..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.013..0.014 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=111
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.013..0.013 rows=1 loops=27)
+                        Buffers: shared hit=111
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.013..0.013 rows=1 loops=27)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=111
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.061..2.689 rows=4632 loops=1)
+        Buffers: shared hit=424
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.439 rows=28 loops=1)
+              Buffers: shared hit=117
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.013..0.048 rows=165 loops=28)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=307
+Planning Time: 0.257 ms
+Execution Time: 4.518 ms
+
+=== G06 | solar_pv ba/CISO n=28 warm | run at 2026-10-07T16:44Z ===
+Sort  (cost=2807.64..2809.85 rows=883 width=52) (actual time=4.064..4.261 rows=4632 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 505kB
+  Buffers: shared hit=424
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.89 rows=31 width=12) (actual time=0.038..0.457 rows=28 loops=1)
+          Buffers: shared hit=117
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1150.44 rows=2107 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.26 rows=3 width=12) (actual time=0.014..0.014 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=111
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.014..0.014 rows=1 loops=27)
+                        Buffers: shared hit=111
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..412.61 rows=702 width=8) (actual time=0.014..0.014 rows=1 loops=27)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=111
+  ->  Nested Loop  (cost=0.42..2730.54 rows=883 width=52) (actual time=0.062..2.705 rows=4632 loops=1)
+        Buffers: shared hit=424
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.463 rows=28 loops=1)
+              Buffers: shared hit=117
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.013..0.050 rows=165 loops=28)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=307
+Planning Time: 0.255 ms
+Execution Time: 4.493 ms
+
+=== G07 | wind ba/CISO n=4 first | run at 2026-10-07T16:45Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=1.154..1.196 rows=960 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 83kB
+  Buffers: shared hit=32 read=43
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.106..0.204 rows=4 loops=1)
+          Buffers: shared hit=14 read=8
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.105..0.106 rows=1 loops=1)
+                Buffers: shared hit=4 read=2
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.104..0.105 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=4 read=2
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.023..0.023 rows=1 loops=4)
+                Filter: ((init_ts IS NOT NULL) AND (k < 4))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=10 read=6
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.028..0.028 rows=1 loops=3)
+                        Buffers: shared hit=10 read=6
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.027..0.027 rows=1 loops=3)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=10 read=6
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.140..0.861 rows=960 loops=1)
+        Buffers: shared hit=32 read=43
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.108..0.206 rows=4 loops=1)
+              Buffers: shared hit=14 read=8
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.026..0.119 rows=240 loops=4)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=18 read=35
+Planning Time: 0.296 ms
+Execution Time: 1.280 ms
+
+=== G08 | wind ba/CISO n=4 warm | run at 2026-10-07T16:45Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=0.981..1.023 rows=960 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 83kB
+  Buffers: shared hit=75
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.045..0.113 rows=4 loops=1)
+          Buffers: shared hit=22
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.043..0.044 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.042..0.043 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.016..0.016 rows=1 loops=4)
+                Filter: ((init_ts IS NOT NULL) AND (k < 4))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=16
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.018..0.018 rows=1 loops=3)
+                        Buffers: shared hit=16
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.018..0.018 rows=1 loops=3)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=16
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.069..0.658 rows=960 loops=1)
+        Buffers: shared hit=75
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.047..0.115 rows=4 loops=1)
+              Buffers: shared hit=22
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.017..0.081 rows=240 loops=4)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=53
+Planning Time: 0.317 ms
+Execution Time: 1.115 ms
+
+=== G09 | wind ba/CISO n=12 first | run at 2026-10-07T16:45Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=3.140..3.263 rows=2880 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 269kB
+  Buffers: shared hit=193 read=9
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.039..0.671 rows=12 loops=1)
+          Buffers: shared hit=53 read=1
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.038..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.052..0.052 rows=1 loops=12)
+                Filter: ((init_ts IS NOT NULL) AND (k < 12))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=47 read=1
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.055..0.055 rows=1 loops=11)
+                        Buffers: shared hit=47 read=1
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.054..0.054 rows=1 loops=11)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=47 read=1
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.062..2.212 rows=2880 loops=1)
+        Buffers: shared hit=193 read=9
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.675 rows=12 loops=1)
+              Buffers: shared hit=53 read=1
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.023..0.077 rows=240 loops=12)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=140 read=8
+Planning Time: 0.259 ms
+Execution Time: 3.425 ms
+
+=== G10 | wind ba/CISO n=12 warm | run at 2026-10-07T16:45Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=2.395..2.518 rows=2880 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 269kB
+  Buffers: shared hit=202
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.038..0.228 rows=12 loops=1)
+          Buffers: shared hit=54
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.036..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.015..0.015 rows=1 loops=12)
+                Filter: ((init_ts IS NOT NULL) AND (k < 12))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=48
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.015..0.016 rows=1 loops=11)
+                        Buffers: shared hit=48
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.015..0.015 rows=1 loops=11)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=48
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.061..1.558 rows=2880 loops=1)
+        Buffers: shared hit=202
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.231 rows=12 loops=1)
+              Buffers: shared hit=54
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.015..0.064 rows=240 loops=12)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=148
+Planning Time: 0.257 ms
+Execution Time: 2.678 ms
+
+=== G11 | wind ba/CISO n=28 first | run at 2026-10-07T16:46Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=3.760..3.938 rows=4110 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 434kB
+  Buffers: shared hit=374
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.039..0.411 rows=28 loops=1)
+          Buffers: shared hit=118
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.038..0.039 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.013..0.013 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=112
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.012..0.013 rows=1 loops=27)
+                        Buffers: shared hit=112
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.012..0.012 rows=1 loops=27)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=112
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.061..2.473 rows=4110 loops=1)
+        Buffers: shared hit=374
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.417 rows=28 loops=1)
+              Buffers: shared hit=118
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.012..0.046 rows=147 loops=28)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=256
+Planning Time: 0.263 ms
+Execution Time: 4.152 ms
+
+=== G12 | wind ba/CISO n=28 warm | run at 2026-10-07T16:46Z ===
+Sort  (cost=2360.42..2362.19 rows=709 width=52) (actual time=3.761..3.938 rows=4110 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 434kB
+  Buffers: shared hit=374
+  CTE inits
+    ->  Recursive Union  (cost=0.42..34.21 rows=31 width=12) (actual time=0.039..0.411 rows=28 loops=1)
+          Buffers: shared hit=118
+          ->  Limit  (cost=0.42..0.98 rows=1 width=12) (actual time=0.038..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..945.18 rows=1693 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.29 rows=3 width=12) (actual time=0.013..0.013 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=112
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.02 rows=1 width=8) (actual time=0.012..0.013 rows=1 loops=27)
+                        Buffers: shared hit=112
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..337.40 rows=564 width=8) (actual time=0.012..0.012 rows=1 loops=27)
+                              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 3
+                              Buffers: shared hit=112
+  ->  Nested Loop  (cost=0.42..2292.63 rows=709 width=52) (actual time=0.062..2.504 rows=4110 loops=1)
+        Buffers: shared hit=374
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.417 rows=28 loops=1)
+              Buffers: shared hit=118
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..73.71 rows=23 width=52) (actual time=0.015..0.047 rows=147 loops=28)
+              Index Cond: ((tech = 'wind'::text) AND (area_kind = 'ba'::text) AND (area = 'CISO'::text) AND (model = 'hrrr_gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=256
+Planning Time: 0.254 ms
+Execution Time: 4.149 ms
+
+=== G13 | solar_pv ba/AZPS n=28 first (cold proxy) | run at 2026-10-07T16:46Z ===
+Sort  (cost=2806.34..2808.48 rows=859 width=52) (actual time=36.226..36.424 rows=4632 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 482kB
+  Buffers: shared hit=190 read=179 dirtied=100
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.93 rows=31 width=12) (actual time=2.688..7.984 rows=28 loops=1)
+          Buffers: shared hit=103 read=14
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=2.687..2.688 rows=1 loops=1)
+                Buffers: shared hit=3 read=3
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1123.59 rows=2051 width=12) (actual time=2.685..2.686 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=3 read=3
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.27 rows=3 width=12) (actual time=0.187..0.187 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=100 read=11
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.191..0.191 rows=1 loops=27)
+                        Buffers: shared hit=100 read=11
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..402.92 rows=684 width=8) (actual time=0.190..0.190 rows=1 loops=27)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=100 read=11
+  ->  Nested Loop  (cost=0.42..2730.54 rows=859 width=52) (actual time=3.300..34.699 rows=4632 loops=1)
+        Buffers: shared hit=190 read=179 dirtied=100
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=2.690..8.002 rows=28 loops=1)
+              Buffers: shared hit=103 read=14
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.430..0.919 rows=165 loops=28)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=87 read=165 dirtied=100
+Planning Time: 0.269 ms
+Execution Time: 36.658 ms
+
+=== G14 | solar_pv ba/AZPS n=28 warm (cold proxy) | run at 2026-10-07T16:46Z ===
+Sort  (cost=2806.34..2808.48 rows=859 width=52) (actual time=4.038..4.235 rows=4632 loops=1)
+  Sort Key: h.init_ts, h.target_ts
+  Sort Method: quicksort  Memory: 482kB
+  Buffers: shared hit=369
+  CTE inits
+    ->  Recursive Union  (cost=0.42..33.93 rows=31 width=12) (actual time=0.038..0.384 rows=28 loops=1)
+          Buffers: shared hit=117
+          ->  Limit  (cost=0.42..0.97 rows=1 width=12) (actual time=0.037..0.038 rows=1 loops=1)
+                Buffers: shared hit=6
+                ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly i  (cost=0.42..1123.59 rows=2051 width=12) (actual time=0.037..0.037 rows=1 loops=1)
+                      Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text))
+                      Heap Fetches: 1
+                      Buffers: shared hit=6
+          ->  WorkTable Scan on inits w_1  (cost=0.00..3.27 rows=3 width=12) (actual time=0.012..0.012 rows=1 loops=28)
+                Filter: ((init_ts IS NOT NULL) AND (k < 28))
+                Rows Removed by Filter: 0
+                Buffers: shared hit=111
+                SubPlan 1
+                  ->  Limit  (cost=0.42..1.01 rows=1 width=8) (actual time=0.012..0.012 rows=1 loops=27)
+                        Buffers: shared hit=111
+                        ->  Index Only Scan Backward using implied_gen_area_hourly_pkey on implied_gen_area_hourly p  (cost=0.42..402.92 rows=684 width=8) (actual time=0.011..0.011 rows=1 loops=27)
+                              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text) AND (init_ts < w_1.init_ts))
+                              Heap Fetches: 2
+                              Buffers: shared hit=111
+  ->  Nested Loop  (cost=0.42..2730.54 rows=859 width=52) (actual time=0.061..2.653 rows=4632 loops=1)
+        Buffers: shared hit=369
+        ->  CTE Scan on inits w  (cost=0.00..0.62 rows=31 width=8) (actual time=0.040..0.391 rows=28 loops=1)
+              Buffers: shared hit=117
+        ->  Index Scan using implied_gen_area_hourly_pkey on implied_gen_area_hourly h  (cost=0.42..87.78 rows=28 width=52) (actual time=0.011..0.050 rows=165 loops=28)
+              Index Cond: ((tech = 'solar_pv'::text) AND (area_kind = 'ba'::text) AND (area = 'AZPS'::text) AND (model = 'gfs'::text) AND (init_ts = w.init_ts))
+              Buffers: shared hit=252
+Planning Time: 0.261 ms
+Execution Time: 4.468 ms
+
+=== G15 | solar_pv CISO lines for the n=28 ids first (CALIBRATION_SQL, the gate's lines) | run at 2026-10-07T16:47Z ===
+Index Scan using implied_gen_calibration_pkey on implied_gen_calibration  (cost=0.28..31.30 rows=3 width=78) (actual time=0.844..0.876 rows=18 loops=1)
+  Index Cond: (calibration_id = ANY ('{386,387,388,389,407,408,409,717,718,719,720,753,754,755,773,774,775,776}'::bigint[]))
+  Filter: ((tech = 'solar_pv'::text) AND (area = 'CISO'::text))
+  Buffers: shared hit=1 read=6 dirtied=2
+Planning Time: 0.104 ms
+Execution Time: 0.899 ms
+
+=== G16 | solar_pv CISO lines for the n=28 ids warm (CALIBRATION_SQL, the gate's lines) | run at 2026-10-07T16:47Z ===
+Index Scan using implied_gen_calibration_pkey on implied_gen_calibration  (cost=0.28..31.30 rows=3 width=78) (actual time=0.024..0.040 rows=18 loops=1)
+  Index Cond: (calibration_id = ANY ('{386,387,388,389,407,408,409,717,718,719,720,753,754,755,773,774,775,776}'::bigint[]))
+  Filter: ((tech = 'solar_pv'::text) AND (area = 'CISO'::text))
+  Buffers: shared hit=7
+Planning Time: 0.106 ms
+Execution Time: 0.062 ms
+
+=== G17 | wind CISO lines for the n=28 ids first (CALIBRATION_SQL, the gate's lines) | run at 2026-10-07T16:47Z ===
+Bitmap Heap Scan on implied_gen_calibration  (cost=18.13..22.15 rows=1 width=78) (actual time=0.087..0.101 rows=10 loops=1)
+  Recheck Cond: ((tech = 'wind'::text) AND (area = 'CISO'::text) AND (calibration_id = ANY ('{677,678,683,684,733,734,736,789,790,791}'::bigint[])))
+  Heap Blocks: exact=2
+  Buffers: shared hit=3 read=3 dirtied=1
+  ->  BitmapAnd  (cost=18.11..18.11 rows=1 width=0) (actual time=0.078..0.078 rows=0 loops=1)
+        Buffers: shared hit=2 read=2
+        ->  Bitmap Index Scan on implied_gen_calibration_tech_area_lead_band_fit_end_method__key  (cost=0.00..4.97 rows=69 width=0) (actual time=0.066..0.066 rows=84 loops=1)
+              Index Cond: ((tech = 'wind'::text) AND (area = 'CISO'::text))
+              Buffers: shared read=2
+        ->  Bitmap Index Scan on implied_gen_calibration_pkey  (cost=0.00..12.89 rows=10 width=0) (actual time=0.010..0.010 rows=10 loops=1)
+              Index Cond: (calibration_id = ANY ('{677,678,683,684,733,734,736,789,790,791}'::bigint[]))
+              Buffers: shared hit=2
+Planning Time: 0.104 ms
+Execution Time: 0.141 ms
+
+=== G18 | wind CISO lines for the n=28 ids warm (CALIBRATION_SQL, the gate's lines) | run at 2026-10-07T16:47Z ===
+Bitmap Heap Scan on implied_gen_calibration  (cost=18.13..22.15 rows=1 width=78) (actual time=0.043..0.048 rows=10 loops=1)
+  Recheck Cond: ((tech = 'wind'::text) AND (area = 'CISO'::text) AND (calibration_id = ANY ('{677,678,683,684,733,734,736,789,790,791}'::bigint[])))
+  Heap Blocks: exact=2
+  Buffers: shared hit=6
+  ->  BitmapAnd  (cost=18.11..18.11 rows=1 width=0) (actual time=0.036..0.036 rows=0 loops=1)
+        Buffers: shared hit=4
+        ->  Bitmap Index Scan on implied_gen_calibration_tech_area_lead_band_fit_end_method__key  (cost=0.00..4.97 rows=69 width=0) (actual time=0.024..0.024 rows=84 loops=1)
+              Index Cond: ((tech = 'wind'::text) AND (area = 'CISO'::text))
+              Buffers: shared hit=2
+        ->  Bitmap Index Scan on implied_gen_calibration_pkey  (cost=0.00..12.89 rows=10 width=0) (actual time=0.009..0.009 rows=10 loops=1)
+              Index Cond: (calibration_id = ANY ('{677,678,683,684,733,734,736,789,790,791}'::bigint[]))
+              Buffers: shared hit=2
+Planning Time: 0.098 ms
+Execution Time: 0.087 ms
+
+=== D19 | pnw/population GFS first (every held issuance) | run at 2026-10-07T16:47Z ===
+Sort  (cost=464.03..464.07 rows=19 width=79) (actual time=13.177..13.192 rows=192 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 34kB
+  Buffers: shared hit=5064
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=462.15..463.62 rows=19 width=79) (actual time=12.545..13.147 rows=192 loops=1)
+        Buffers: shared hit=5064
+        ->  Subquery Scan on agg  (cost=462.15..463.43 rows=19 width=415) (actual time=12.544..13.127 rows=192 loops=1)
+              Buffers: shared hit=5064
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.012..0.095 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=449.75..450.84 rows=19 width=333) (actual time=12.542..13.093 rows=192 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=5064
+                    ->  Sort  (cost=449.75..449.80 rows=19 width=138) (actual time=12.531..12.572 rows=768 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 91kB
+                          Buffers: shared hit=5064
+                          ->  Result  (cost=133.28..449.35 rows=19 width=138) (actual time=1.924..12.256 rows=768 loops=1)
+                                Buffers: shared hit=5064
+                                ->  Append  (cost=133.28..449.16 rows=19 width=138) (actual time=1.923..12.139 rows=768 loops=1)
+                                      Buffers: shared hit=5064
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=133.28..422.80 rows=18 width=137) (actual time=1.922..12.054 rows=768 loops=1)
+                                            Buffers: shared hit=5064
+                                            ->  Nested Loop Left Join  (cost=133.28..422.62 rows=18 width=205) (actual time=1.921..11.939 rows=768 loops=1)
+                                                  Buffers: shared hit=5064
+                                                  ->  Nested Loop Left Join  (cost=132.99..272.95 rows=18 width=156) (actual time=1.907..9.312 rows=768 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1160
+                                                        Buffers: shared hit=2760
+                                                        ->  Nested Loop  (cost=132.71..139.19 rows=18 width=145) (actual time=1.894..3.057 rows=768 loops=1)
+                                                              Buffers: shared hit=165
+                                                              ->  Unique  (cost=132.71..132.84 rows=18 width=81) (actual time=1.891..2.068 rows=192 loops=1)
+                                                                    Buffers: shared hit=165
+                                                                    ->  Sort  (cost=132.71..132.75 rows=18 width=81) (actual time=1.890..1.955 rows=768 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 67kB
+                                                                          Buffers: shared hit=165
+                                                                          ->  Nested Loop  (cost=0.29..132.33 rows=18 width=81) (actual time=0.040..1.545 rows=768 loops=1)
+                                                                                Buffers: shared hit=165
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.019..0.122 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..124.64 rows=169 width=29) (actual time=0.032..0.335 rows=192 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'GFS'::text))
+                                                                                      Heap Fetches: 133
+                                                                                      Buffers: shared hit=164
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=192)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.42 rows=1 width=40) (actual time=0.002..0.007 rows=3 loops=768)
+                                                              Index Cond: ((source_product = 'GFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2595
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=768)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2304
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.004..0.006 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.004..0.005 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.003..0.005 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.003..0.004 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.003 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'GFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'GFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning:
+  Buffers: shared hit=2
+Planning Time: 1.263 ms
+Execution Time: 13.333 ms
+
+=== D20 | pnw/population GFS warm (every held issuance) | run at 2026-10-07T16:47Z ===
+Sort  (cost=464.03..464.07 rows=19 width=79) (actual time=11.907..11.923 rows=192 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 34kB
+  Buffers: shared hit=5064
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=462.15..463.62 rows=19 width=79) (actual time=11.271..11.878 rows=192 loops=1)
+        Buffers: shared hit=5064
+        ->  Subquery Scan on agg  (cost=462.15..463.43 rows=19 width=415) (actual time=11.270..11.858 rows=192 loops=1)
+              Buffers: shared hit=5064
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.016..0.023 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=449.75..450.84 rows=19 width=333) (actual time=11.268..11.823 rows=192 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=5064
+                    ->  Sort  (cost=449.75..449.80 rows=19 width=138) (actual time=11.258..11.299 rows=768 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 91kB
+                          Buffers: shared hit=5064
+                          ->  Result  (cost=133.28..449.35 rows=19 width=138) (actual time=1.054..10.993 rows=768 loops=1)
+                                Buffers: shared hit=5064
+                                ->  Append  (cost=133.28..449.16 rows=19 width=138) (actual time=1.053..10.887 rows=768 loops=1)
+                                      Buffers: shared hit=5064
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=133.28..422.80 rows=18 width=137) (actual time=1.052..10.800 rows=768 loops=1)
+                                            Buffers: shared hit=5064
+                                            ->  Nested Loop Left Join  (cost=133.28..422.62 rows=18 width=205) (actual time=1.052..10.688 rows=768 loops=1)
+                                                  Buffers: shared hit=5064
+                                                  ->  Nested Loop Left Join  (cost=132.99..272.95 rows=18 width=156) (actual time=1.038..8.142 rows=768 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1160
+                                                        Buffers: shared hit=2760
+                                                        ->  Nested Loop  (cost=132.71..139.19 rows=18 width=145) (actual time=1.027..2.084 rows=768 loops=1)
+                                                              Buffers: shared hit=165
+                                                              ->  Unique  (cost=132.71..132.84 rows=18 width=81) (actual time=1.024..1.203 rows=192 loops=1)
+                                                                    Buffers: shared hit=165
+                                                                    ->  Sort  (cost=132.71..132.75 rows=18 width=81) (actual time=1.024..1.088 rows=768 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 67kB
+                                                                          Buffers: shared hit=165
+                                                                          ->  Nested Loop  (cost=0.29..132.33 rows=18 width=81) (actual time=0.049..0.697 rows=768 loops=1)
+                                                                                Buffers: shared hit=165
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.022..0.040 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..124.64 rows=169 width=29) (actual time=0.013..0.144 rows=192 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'GFS'::text))
+                                                                                      Heap Fetches: 133
+                                                                                      Buffers: shared hit=164
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=192)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.42 rows=1 width=40) (actual time=0.002..0.007 rows=3 loops=768)
+                                                              Index Cond: ((source_product = 'GFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2595
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=768)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2304
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.005..0.007 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.004..0.006 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.004..0.005 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.003..0.005 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.003 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'GFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'GFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning Time: 1.234 ms
+Execution Time: 12.054 ms
+
+=== D21 | pnw/population IFS first (every held issuance) | run at 2026-10-07T16:48Z ===
+Sort  (cost=481.24..481.29 rows=20 width=79) (actual time=11.280..11.294 rows=192 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 34kB
+  Buffers: shared hit=5223
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=479.25..480.80 rows=20 width=79) (actual time=10.641..11.249 rows=192 loops=1)
+        Buffers: shared hit=5223
+        ->  Subquery Scan on agg  (cost=479.25..480.60 rows=20 width=415) (actual time=10.641..11.229 rows=192 loops=1)
+              Buffers: shared hit=5223
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.014..0.020 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=466.85..468.00 rows=20 width=333) (actual time=10.639..11.195 rows=192 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=5223
+                    ->  Sort  (cost=466.85..466.90 rows=20 width=138) (actual time=10.628..10.671 rows=768 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 91kB
+                          Buffers: shared hit=5223
+                          ->  Result  (cost=137.67..466.42 rows=20 width=138) (actual time=0.903..10.292 rows=768 loops=1)
+                                Buffers: shared hit=5223
+                                ->  Append  (cost=137.67..466.22 rows=20 width=138) (actual time=0.903..10.187 rows=768 loops=1)
+                                      Buffers: shared hit=5223
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=137.67..439.86 rows=19 width=137) (actual time=0.902..10.101 rows=768 loops=1)
+                                            Buffers: shared hit=5223
+                                            ->  Nested Loop Left Join  (cost=137.67..439.67 rows=19 width=205) (actual time=0.902..9.993 rows=768 loops=1)
+                                                  Buffers: shared hit=5223
+                                                  ->  Nested Loop Left Join  (cost=137.38..281.69 rows=19 width=156) (actual time=0.889..7.267 rows=768 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1336
+                                                        Buffers: shared hit=2919
+                                                        ->  Nested Loop  (cost=137.10..143.61 rows=19 width=145) (actual time=0.878..1.912 rows=768 loops=1)
+                                                              Buffers: shared hit=194
+                                                              ->  Unique  (cost=137.10..137.24 rows=19 width=81) (actual time=0.875..1.045 rows=192 loops=1)
+                                                                    Buffers: shared hit=194
+                                                                    ->  Sort  (cost=137.10..137.14 rows=19 width=81) (actual time=0.875..0.937 rows=768 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 67kB
+                                                                          Buffers: shared hit=194
+                                                                          ->  Nested Loop  (cost=0.29..136.69 rows=19 width=81) (actual time=0.047..0.553 rows=768 loops=1)
+                                                                                Buffers: shared hit=194
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.020..0.035 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..128.85 rows=184 width=29) (actual time=0.012..0.109 rows=192 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'IFS'::text))
+                                                                                      Heap Fetches: 164
+                                                                                      Buffers: shared hit=193
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=192)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.25 rows=1 width=40) (actual time=0.002..0.006 rows=3 loops=768)
+                                                              Index Cond: ((source_product = 'IFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2725
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=768)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2304
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.005..0.006 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.004..0.006 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.004..0.005 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.004..0.005 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.003 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'IFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'IFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning Time: 1.194 ms
+Execution Time: 11.453 ms
+
+=== D22 | pnw/population IFS warm (every held issuance) | run at 2026-10-07T16:48Z ===
+Sort  (cost=481.24..481.29 rows=20 width=79) (actual time=11.340..11.354 rows=192 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 34kB
+  Buffers: shared hit=5223
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=479.25..480.80 rows=20 width=79) (actual time=10.706..11.309 rows=192 loops=1)
+        Buffers: shared hit=5223
+        ->  Subquery Scan on agg  (cost=479.25..480.60 rows=20 width=415) (actual time=10.705..11.288 rows=192 loops=1)
+              Buffers: shared hit=5223
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.015..0.022 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=466.85..468.00 rows=20 width=333) (actual time=10.703..11.252 rows=192 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=5223
+                    ->  Sort  (cost=466.85..466.90 rows=20 width=138) (actual time=10.691..10.732 rows=768 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 91kB
+                          Buffers: shared hit=5223
+                          ->  Result  (cost=137.67..466.42 rows=20 width=138) (actual time=1.096..10.405 rows=768 loops=1)
+                                Buffers: shared hit=5223
+                                ->  Append  (cost=137.67..466.22 rows=20 width=138) (actual time=1.095..10.295 rows=768 loops=1)
+                                      Buffers: shared hit=5223
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=137.67..439.86 rows=19 width=137) (actual time=1.094..10.204 rows=768 loops=1)
+                                            Buffers: shared hit=5223
+                                            ->  Nested Loop Left Join  (cost=137.67..439.67 rows=19 width=205) (actual time=1.094..10.098 rows=768 loops=1)
+                                                  Buffers: shared hit=5223
+                                                  ->  Nested Loop Left Join  (cost=137.38..281.69 rows=19 width=156) (actual time=1.080..7.593 rows=768 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1336
+                                                        Buffers: shared hit=2919
+                                                        ->  Nested Loop  (cost=137.10..143.61 rows=19 width=145) (actual time=1.068..2.133 rows=768 loops=1)
+                                                              Buffers: shared hit=194
+                                                              ->  Unique  (cost=137.10..137.24 rows=19 width=81) (actual time=1.064..1.233 rows=192 loops=1)
+                                                                    Buffers: shared hit=194
+                                                                    ->  Sort  (cost=137.10..137.14 rows=19 width=81) (actual time=1.064..1.124 rows=768 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 67kB
+                                                                          Buffers: shared hit=194
+                                                                          ->  Nested Loop  (cost=0.29..136.69 rows=19 width=81) (actual time=0.048..0.733 rows=768 loops=1)
+                                                                                Buffers: shared hit=194
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.022..0.039 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..128.85 rows=184 width=29) (actual time=0.013..0.152 rows=192 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'IFS'::text))
+                                                                                      Heap Fetches: 164
+                                                                                      Buffers: shared hit=193
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=192)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.25 rows=1 width=40) (actual time=0.002..0.006 rows=3 loops=768)
+                                                              Index Cond: ((source_product = 'IFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2725
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=768)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2304
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.005..0.007 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.005..0.006 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.004..0.005 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.003..0.005 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.003 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'IFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'IFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning Time: 1.235 ms
+Execution Time: 11.502 ms
+
+=== D23 | pnw/population AIFS first (every held issuance) | run at 2026-10-07T16:49Z ===
+Sort  (cost=425.97..426.01 rows=17 width=79) (actual time=11.064..11.079 rows=176 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=4854
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=424.31..425.62 rows=17 width=79) (actual time=10.495..11.039 rows=176 loops=1)
+        Buffers: shared hit=4854
+        ->  Subquery Scan on agg  (cost=424.31..425.45 rows=17 width=415) (actual time=10.494..11.020 rows=176 loops=1)
+              Buffers: shared hit=4854
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.014..0.020 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=411.91..412.88 rows=17 width=333) (actual time=10.492..10.986 rows=176 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=4854
+                    ->  Sort  (cost=411.91..411.95 rows=17 width=138) (actual time=10.467..10.505 rows=704 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 85kB
+                          Buffers: shared hit=4854
+                          ->  Result  (cost=124.87..411.56 rows=17 width=138) (actual time=0.986..10.233 rows=704 loops=1)
+                                Buffers: shared hit=4854
+                                ->  Append  (cost=124.87..411.39 rows=17 width=138) (actual time=0.985..10.137 rows=704 loops=1)
+                                      Buffers: shared hit=4854
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=124.87..385.05 rows=16 width=137) (actual time=0.984..10.055 rows=704 loops=1)
+                                            Buffers: shared hit=4854
+                                            ->  Nested Loop Left Join  (cost=124.87..384.89 rows=16 width=205) (actual time=0.984..9.960 rows=704 loops=1)
+                                                  Buffers: shared hit=4854
+                                                  ->  Nested Loop Left Join  (cost=124.58..251.84 rows=16 width=156) (actual time=0.970..7.624 rows=704 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1496
+                                                        Buffers: shared hit=2742
+                                                        ->  Nested Loop  (cost=124.29..130.72 rows=16 width=145) (actual time=0.957..1.974 rows=704 loops=1)
+                                                              Buffers: shared hit=161
+                                                              ->  Unique  (cost=124.29..124.41 rows=16 width=81) (actual time=0.950..1.115 rows=176 loops=1)
+                                                                    Buffers: shared hit=161
+                                                                    ->  Sort  (cost=124.29..124.33 rows=16 width=81) (actual time=0.949..1.010 rows=704 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 63kB
+                                                                          Buffers: shared hit=161
+                                                                          ->  Nested Loop  (cost=0.29..123.97 rows=16 width=81) (actual time=0.044..0.653 rows=704 loops=1)
+                                                                                Buffers: shared hit=161
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.020..0.036 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..116.43 rows=154 width=29) (actual time=0.012..0.135 rows=176 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'AIFS'::text))
+                                                                                      Heap Fetches: 128
+                                                                                      Buffers: shared hit=160
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=176)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.56 rows=1 width=40) (actual time=0.002..0.007 rows=3 loops=704)
+                                                              Index Cond: ((source_product = 'AIFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2581
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=704)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2112
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.005..0.007 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.005..0.007 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.005..0.006 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.004..0.005 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.004..0.005 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'AIFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'AIFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning Time: 1.263 ms
+Execution Time: 11.206 ms
+
+=== D24 | pnw/population AIFS warm (every held issuance) | run at 2026-10-07T16:49Z ===
+Sort  (cost=425.97..426.01 rows=17 width=79) (actual time=11.443..11.471 rows=176 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=4854
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=424.31..425.62 rows=17 width=79) (actual time=10.858..11.427 rows=176 loops=1)
+        Buffers: shared hit=4854
+        ->  Subquery Scan on agg  (cost=424.31..425.45 rows=17 width=415) (actual time=10.857..11.407 rows=176 loops=1)
+              Buffers: shared hit=4854
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.016..0.024 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=411.91..412.88 rows=17 width=333) (actual time=10.856..11.373 rows=176 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=4854
+                    ->  Sort  (cost=411.91..411.95 rows=17 width=138) (actual time=10.844..10.897 rows=704 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 85kB
+                          Buffers: shared hit=4854
+                          ->  Result  (cost=124.87..411.56 rows=17 width=138) (actual time=1.308..10.614 rows=704 loops=1)
+                                Buffers: shared hit=4854
+                                ->  Append  (cost=124.87..411.39 rows=17 width=138) (actual time=1.307..10.510 rows=704 loops=1)
+                                      Buffers: shared hit=4854
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=124.87..385.05 rows=16 width=137) (actual time=1.306..10.422 rows=704 loops=1)
+                                            Buffers: shared hit=4854
+                                            ->  Nested Loop Left Join  (cost=124.87..384.89 rows=16 width=205) (actual time=1.305..10.326 rows=704 loops=1)
+                                                  Buffers: shared hit=4854
+                                                  ->  Nested Loop Left Join  (cost=124.58..251.84 rows=16 width=156) (actual time=1.289..8.087 rows=704 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Rows Removed by Join Filter: 1496
+                                                        Buffers: shared hit=2742
+                                                        ->  Nested Loop  (cost=124.29..130.72 rows=16 width=145) (actual time=1.271..2.281 rows=704 loops=1)
+                                                              Buffers: shared hit=161
+                                                              ->  Unique  (cost=124.29..124.41 rows=16 width=81) (actual time=1.265..1.453 rows=176 loops=1)
+                                                                    Buffers: shared hit=161
+                                                                    ->  Sort  (cost=124.29..124.33 rows=16 width=81) (actual time=1.263..1.323 rows=704 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 63kB
+                                                                          Buffers: shared hit=161
+                                                                          ->  Nested Loop  (cost=0.29..123.97 rows=16 width=81) (actual time=0.048..0.765 rows=704 loops=1)
+                                                                                Buffers: shared hit=161
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.022..0.041 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..116.43 rows=154 width=29) (actual time=0.015..0.161 rows=176 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'AIFS'::text))
+                                                                                      Heap Fetches: 128
+                                                                                      Buffers: shared hit=160
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.004 rows=4 loops=176)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                    Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..7.56 rows=1 width=40) (actual time=0.002..0.007 rows=3 loops=704)
+                                                              Index Cond: ((source_product = 'AIFS'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                              Buffers: shared hit=2581
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=704)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                                        Buffers: shared hit=2112
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=0.58..26.26 rows=1 width=147) (actual time=0.008..0.010 rows=0 loops=1)
+                                            ->  Nested Loop Left Join  (cost=0.58..26.25 rows=1 width=215) (actual time=0.007..0.009 rows=0 loops=1)
+                                                  ->  Nested Loop Left Join  (cost=0.29..17.93 rows=1 width=174) (actual time=0.005..0.006 rows=0 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        ->  Nested Loop Left Join  (cost=0.00..9.61 rows=1 width=163) (actual time=0.004..0.005 rows=0 loops=1)
+                                                              Join Filter: ((l.fold_ts = fold_ts) AND (l.station_id = w_2.station_id))
+                                                              ->  Nested Loop  (cost=0.00..6.02 rows=1 width=155) (actual time=0.004..0.005 rows=0 loops=1)
+                                                                    ->  HashAggregate  (cost=0.00..0.01 rows=1 width=91) (actual time=0.003..0.004 rows=0 loops=1)
+                                                                          Group Key: fold_ts, target_date
+                                                                          Batches: 1  Memory Usage: 24kB
+                                                                          ->  Result  (cost=0.00..0.00 rows=0 width=91) (actual time=0.001..0.001 rows=0 loops=1)
+                                                                                One-Time Filter: false
+                                                                    ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                          Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=1 width=43) (never executed)
+                                                                    Filter: (source_product = 'AIFS'::text)
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'AIFS'::text) AND (target_date = target_date) AND (issued_ts = l.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM target_date))::smallint) AND (day = (EXTRACT(day FROM target_date))::smallint))
+Planning Time: 1.331 ms
+Execution Time: 11.607 ms
+
+=== D25 | pnw/population gridpoints_raw first (every held issuance) | run at 2026-10-07T16:50Z ===
+Sort  (cost=225.27..225.29 rows=6 width=79) (actual time=8.256..8.269 rows=43 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=1231
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=224.73..225.20 rows=6 width=79) (actual time=8.108..8.254 rows=43 loops=1)
+        Buffers: shared hit=1231
+        ->  Subquery Scan on agg  (cost=224.73..225.14 rows=6 width=415) (actual time=8.107..8.248 rows=43 loops=1)
+              Buffers: shared hit=1231
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.018..0.029 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=212.33..212.68 rows=6 width=334) (actual time=8.105..8.237 rows=43 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=1231
+                    ->  Sort  (cost=212.33..212.35 rows=6 width=139) (actual time=8.091..8.108 rows=172 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 42kB
+                          Buffers: shared hit=1231
+                          ->  Result  (cost=74.17..212.25 rows=6 width=139) (actual time=7.056..8.026 rows=172 loops=1)
+                                Buffers: shared hit=1231
+                                ->  Append  (cost=74.17..212.19 rows=6 width=139) (actual time=7.055..8.004 rows=172 loops=1)
+                                      Buffers: shared hit=1231
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=74.17..162.94 rows=5 width=137) (actual time=5.727..5.731 rows=0 loops=1)
+                                            Buffers: shared hit=37
+                                            ->  Nested Loop Left Join  (cost=74.17..162.89 rows=5 width=205) (actual time=5.726..5.730 rows=0 loops=1)
+                                                  Buffers: shared hit=37
+                                                  ->  Nested Loop Left Join  (cost=73.87..121.32 rows=5 width=156) (actual time=5.725..5.728 rows=0 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Buffers: shared hit=37
+                                                        ->  Nested Loop  (cost=73.59..79.72 rows=5 width=145) (actual time=5.725..5.728 rows=0 loops=1)
+                                                              Buffers: shared hit=37
+                                                              ->  Unique  (cost=73.59..73.63 rows=5 width=81) (actual time=5.724..5.726 rows=0 loops=1)
+                                                                    Buffers: shared hit=37
+                                                                    ->  Sort  (cost=73.59..73.60 rows=5 width=81) (actual time=5.724..5.725 rows=0 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 25kB
+                                                                          Buffers: shared hit=37
+                                                                          ->  Nested Loop  (cost=0.29..73.53 rows=5 width=81) (actual time=5.721..5.722 rows=0 loops=1)
+                                                                                Buffers: shared hit=37
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.025..0.049 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..67.04 rows=49 width=29) (actual time=1.416..1.416 rows=0 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'gridpoints_raw'::text))
+                                                                                      Filter: (source_product <> 'gridpoints_raw'::text)
+                                                                                      Rows Removed by Filter: 52
+                                                                                      Heap Fetches: 30
+                                                                                      Buffers: shared hit=36
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'gridpoints_raw'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=28.62..49.22 rows=1 width=147) (actual time=1.326..2.254 rows=172 loops=1)
+                                            Buffers: shared hit=1194
+                                            ->  Nested Loop Left Join  (cost=28.62..49.21 rows=1 width=215) (actual time=1.325..2.232 rows=172 loops=1)
+                                                  Buffers: shared hit=1194
+                                                  ->  Nested Loop Left Join  (cost=28.33..40.90 rows=1 width=174) (actual time=1.308..1.784 rows=172 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        Buffers: shared hit=678
+                                                        ->  Hash Right Join  (cost=28.05..32.58 rows=1 width=163) (actual time=1.291..1.362 rows=172 loops=1)
+                                                              Hash Cond: ((l.fold_ts = l_1.fold_ts) AND (l.station_id = w_2.station_id))
+                                                              Buffers: shared hit=164
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=126 width=43) (actual time=0.011..0.026 rows=105 loops=1)
+                                                                    Filter: (source_product = 'gridpoints_raw'::text)
+                                                                    Buffers: shared hit=2
+                                                              ->  Hash  (cost=28.03..28.03 rows=1 width=155) (actual time=1.263..1.266 rows=172 loops=1)
+                                                                    Buckets: 1024  Batches: 1  Memory Usage: 25kB
+                                                                    Buffers: shared hit=162
+                                                                    ->  Nested Loop  (cost=22.01..28.03 rows=1 width=155) (actual time=1.032..1.230 rows=172 loops=1)
+                                                                          Buffers: shared hit=162
+                                                                          ->  Unique  (cost=22.01..22.02 rows=1 width=91) (actual time=1.025..1.055 rows=43 loops=1)
+                                                                                Buffers: shared hit=162
+                                                                                ->  Sort  (cost=22.01..22.02 rows=1 width=91) (actual time=1.024..1.034 rows=170 loops=1)
+                                                                                      Sort Key: l_1.fold_ts, f_3.target_date
+                                                                                      Sort Method: quicksort  Memory: 35kB
+                                                                                      Buffers: shared hit=162
+                                                                                      ->  Nested Loop  (cost=6.30..22.00 rows=1 width=91) (actual time=0.043..0.946 rows=170 loops=1)
+                                                                                            Buffers: shared hit=162
+                                                                                            ->  Hash Join  (cost=6.01..10.07 rows=1 width=139) (actual time=0.031..0.069 rows=20 loops=1)
+                                                                                                  Hash Cond: (l_1.station_id = w_3.station_id)
+                                                                                                  Buffers: shared hit=2
+                                                                                                  ->  Seq Scan on station_degree_days_forecast_folds l_1  (cost=0.00..3.58 rows=126 width=43) (actual time=0.013..0.032 rows=105 loops=1)
+                                                                                                        Filter: (source_product = 'gridpoints_raw'::text)
+                                                                                                        Buffers: shared hit=2
+                                                                                                  ->  Hash  (cost=6.00..6.00 rows=1 width=96) (actual time=0.010..0.011 rows=4 loops=1)
+                                                                                                        Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                                                                        ->  CTE Scan on wt w_3  (cost=0.00..6.00 rows=1 width=96) (actual time=0.004..0.007 rows=4 loops=1)
+                                                                                                              Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                                              Rows Removed by Filter: 35
+                                                                                            ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_3  (cost=0.29..11.92 rows=1 width=29) (actual time=0.007..0.042 rows=8 loops=20)
+                                                                                                  Index Cond: ((station_id = l_1.station_id) AND (issued_ts = l_1.issued_ts) AND (source_product = 'gridpoints_raw'::text))
+                                                                                                  Heap Fetches: 30
+                                                                                                  Buffers: shared hit=160
+                                                                          ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.003 rows=4 loops=43)
+                                                                                Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (actual time=0.002..0.002 rows=1 loops=172)
+                                                              Index Cond: ((source_product = 'gridpoints_raw'::text) AND (target_date = f_3.target_date) AND (issued_ts = l.issued_ts))
+                                                              Buffers: shared hit=514
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=172)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM f_3.target_date))::smallint) AND (day = (EXTRACT(day FROM f_3.target_date))::smallint))
+                                                        Buffers: shared hit=516
+Planning Time: 1.367 ms
+Execution Time: 8.427 ms
+
+=== D26 | pnw/population gridpoints_raw warm (every held issuance) | run at 2026-10-07T16:50Z ===
+Sort  (cost=225.27..225.29 rows=6 width=79) (actual time=2.734..2.743 rows=43 loops=1)
+  Sort Key: v_degree_days_region_forecast.issued_ts, v_degree_days_region_forecast.target_date
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=1231
+  ->  Subquery Scan on v_degree_days_region_forecast  (cost=224.73..225.20 rows=6 width=79) (actual time=2.583..2.728 rows=43 loops=1)
+        Buffers: shared hit=1231
+        ->  Subquery Scan on agg  (cost=224.73..225.14 rows=6 width=415) (actual time=2.582..2.722 rows=43 loops=1)
+              Buffers: shared hit=1231
+              CTE wt
+                ->  Seq Scan on degree_day_region_weights  (cost=0.00..12.40 rows=240 width=128) (actual time=0.015..0.021 rows=39 loops=1)
+                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=212.33..212.68 rows=6 width=334) (actual time=2.581..2.712 rows=43 loops=1)
+                    Group Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date
+                    Buffers: shared hit=1231
+                    ->  Sort  (cost=212.33..212.35 rows=6 width=139) (actual time=2.567..2.583 rows=172 loops=1)
+                          Sort Key: "*SELECT* 1".fold_key, "*SELECT* 1".target_date, "*SELECT* 1".sample_spacing_hours
+                          Sort Method: quicksort  Memory: 42kB
+                          Buffers: shared hit=1231
+                          ->  Result  (cost=74.17..212.25 rows=6 width=139) (actual time=1.482..2.496 rows=172 loops=1)
+                                Buffers: shared hit=1231
+                                ->  Append  (cost=74.17..212.19 rows=6 width=139) (actual time=1.482..2.472 rows=172 loops=1)
+                                      Buffers: shared hit=1231
+                                      ->  Subquery Scan on "*SELECT* 1"  (cost=74.17..162.94 rows=5 width=137) (actual time=0.259..0.261 rows=0 loops=1)
+                                            Buffers: shared hit=37
+                                            ->  Nested Loop Left Join  (cost=74.17..162.89 rows=5 width=205) (actual time=0.258..0.261 rows=0 loops=1)
+                                                  Buffers: shared hit=37
+                                                  ->  Nested Loop Left Join  (cost=73.87..121.32 rows=5 width=156) (actual time=0.258..0.260 rows=0 loops=1)
+                                                        Join Filter: (f.station_id = w.station_id)
+                                                        Buffers: shared hit=37
+                                                        ->  Nested Loop  (cost=73.59..79.72 rows=5 width=145) (actual time=0.258..0.259 rows=0 loops=1)
+                                                              Buffers: shared hit=37
+                                                              ->  Unique  (cost=73.59..73.63 rows=5 width=81) (actual time=0.258..0.259 rows=0 loops=1)
+                                                                    Buffers: shared hit=37
+                                                                    ->  Sort  (cost=73.59..73.60 rows=5 width=81) (actual time=0.257..0.258 rows=0 loops=1)
+                                                                          Sort Key: f_1.issued_ts, f_1.target_date
+                                                                          Sort Method: quicksort  Memory: 25kB
+                                                                          Buffers: shared hit=37
+                                                                          ->  Nested Loop  (cost=0.29..73.53 rows=5 width=81) (actual time=0.255..0.256 rows=0 loops=1)
+                                                                                Buffers: shared hit=37
+                                                                                ->  CTE Scan on wt w_1  (cost=0.00..6.00 rows=1 width=96) (actual time=0.022..0.035 rows=4 loops=1)
+                                                                                      Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                      Rows Removed by Filter: 35
+                                                                                      Buffers: shared hit=1
+                                                                                ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_1  (cost=0.29..67.04 rows=49 width=29) (actual time=0.054..0.054 rows=0 loops=4)
+                                                                                      Index Cond: ((station_id = w_1.station_id) AND (source_product = 'gridpoints_raw'::text))
+                                                                                      Filter: (source_product <> 'gridpoints_raw'::text)
+                                                                                      Rows Removed by Filter: 52
+                                                                                      Heap Fetches: 30
+                                                                                      Buffers: shared hit=36
+                                                              ->  CTE Scan on wt w  (cost=0.00..6.00 rows=1 width=128) (never executed)
+                                                                    Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f  (cost=0.29..8.31 rows=1 width=40) (never executed)
+                                                              Index Cond: ((source_product = 'gridpoints_raw'::text) AND (target_date = f_1.target_date) AND (issued_ts = f_1.issued_ts))
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n  (cost=0.29..8.31 rows=1 width=21) (never executed)
+                                                        Index Cond: ((station_id = w.station_id) AND (month = (EXTRACT(month FROM f_1.target_date))::smallint) AND (day = (EXTRACT(day FROM f_1.target_date))::smallint))
+                                      ->  Subquery Scan on "*SELECT* 2"  (cost=28.62..49.22 rows=1 width=147) (actual time=1.222..2.189 rows=172 loops=1)
+                                            Buffers: shared hit=1194
+                                            ->  Nested Loop Left Join  (cost=28.62..49.21 rows=1 width=215) (actual time=1.221..2.166 rows=172 loops=1)
+                                                  Buffers: shared hit=1194
+                                                  ->  Nested Loop Left Join  (cost=28.33..40.90 rows=1 width=174) (actual time=1.208..1.700 rows=172 loops=1)
+                                                        Join Filter: (f_2.station_id = w_2.station_id)
+                                                        Buffers: shared hit=678
+                                                        ->  Hash Right Join  (cost=28.05..32.58 rows=1 width=163) (actual time=1.195..1.261 rows=172 loops=1)
+                                                              Hash Cond: ((l.fold_ts = l_1.fold_ts) AND (l.station_id = w_2.station_id))
+                                                              Buffers: shared hit=164
+                                                              ->  Seq Scan on station_degree_days_forecast_folds l  (cost=0.00..3.58 rows=126 width=43) (actual time=0.007..0.020 rows=105 loops=1)
+                                                                    Filter: (source_product = 'gridpoints_raw'::text)
+                                                                    Buffers: shared hit=2
+                                                              ->  Hash  (cost=28.03..28.03 rows=1 width=155) (actual time=1.178..1.181 rows=172 loops=1)
+                                                                    Buckets: 1024  Batches: 1  Memory Usage: 25kB
+                                                                    Buffers: shared hit=162
+                                                                    ->  Nested Loop  (cost=22.01..28.03 rows=1 width=155) (actual time=0.946..1.144 rows=172 loops=1)
+                                                                          Buffers: shared hit=162
+                                                                          ->  Unique  (cost=22.01..22.02 rows=1 width=91) (actual time=0.942..0.973 rows=43 loops=1)
+                                                                                Buffers: shared hit=162
+                                                                                ->  Sort  (cost=22.01..22.02 rows=1 width=91) (actual time=0.941..0.952 rows=170 loops=1)
+                                                                                      Sort Key: l_1.fold_ts, f_3.target_date
+                                                                                      Sort Method: quicksort  Memory: 35kB
+                                                                                      Buffers: shared hit=162
+                                                                                      ->  Nested Loop  (cost=6.30..22.00 rows=1 width=91) (actual time=0.042..0.868 rows=170 loops=1)
+                                                                                            Buffers: shared hit=162
+                                                                                            ->  Hash Join  (cost=6.01..10.07 rows=1 width=139) (actual time=0.035..0.067 rows=20 loops=1)
+                                                                                                  Hash Cond: (l_1.station_id = w_3.station_id)
+                                                                                                  Buffers: shared hit=2
+                                                                                                  ->  Seq Scan on station_degree_days_forecast_folds l_1  (cost=0.00..3.58 rows=126 width=43) (actual time=0.006..0.022 rows=105 loops=1)
+                                                                                                        Filter: (source_product = 'gridpoints_raw'::text)
+                                                                                                        Buffers: shared hit=2
+                                                                                                  ->  Hash  (cost=6.00..6.00 rows=1 width=96) (actual time=0.008..0.008 rows=4 loops=1)
+                                                                                                        Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                                                                        ->  CTE Scan on wt w_3  (cost=0.00..6.00 rows=1 width=96) (actual time=0.002..0.005 rows=4 loops=1)
+                                                                                                              Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                                              Rows Removed by Filter: 35
+                                                                                            ->  Index Only Scan using station_degree_days_forecast_pkey on station_degree_days_forecast f_3  (cost=0.29..11.92 rows=1 width=29) (actual time=0.007..0.039 rows=8 loops=20)
+                                                                                                  Index Cond: ((station_id = l_1.station_id) AND (issued_ts = l_1.issued_ts) AND (source_product = 'gridpoints_raw'::text))
+                                                                                                  Heap Fetches: 30
+                                                                                                  Buffers: shared hit=160
+                                                                          ->  CTE Scan on wt w_2  (cost=0.00..6.00 rows=1 width=128) (actual time=0.001..0.003 rows=4 loops=43)
+                                                                                Filter: ((region = 'pnw'::text) AND (weighting = 'population'::text))
+                                                                                Rows Removed by Filter: 35
+                                                        ->  Index Scan using idx_sddf_product_target on station_degree_days_forecast f_2  (cost=0.29..8.31 rows=1 width=40) (actual time=0.002..0.002 rows=1 loops=172)
+                                                              Index Cond: ((source_product = 'gridpoints_raw'::text) AND (target_date = f_3.target_date) AND (issued_ts = l.issued_ts))
+                                                              Buffers: shared hit=514
+                                                  ->  Index Scan using station_normals_daily_pkey on station_normals_daily n_1  (cost=0.29..8.31 rows=1 width=21) (actual time=0.002..0.002 rows=1 loops=172)
+                                                        Index Cond: ((station_id = w_2.station_id) AND (month = (EXTRACT(month FROM f_3.target_date))::smallint) AND (day = (EXTRACT(day FROM f_3.target_date))::smallint))
+                                                        Buffers: shared hit=516
+Planning Time: 1.336 ms
+Execution Time: 2.894 ms
+
