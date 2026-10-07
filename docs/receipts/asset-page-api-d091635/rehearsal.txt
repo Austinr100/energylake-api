@@ -1,0 +1,13 @@
+RED   drivers assumed present instead of read off the catalog
+      FAILED tests/test_asset_page_d091635.py::test_A4_before_280_no_driver_column_is_selected_and_each_is_named
+RED   the plant set beside the hub's CALIBRATED score (not like for like)
+      FAILED tests/test_asset_page_d091635.py::test_A5_the_hubs_registry_score_band_by_band
+RED   an older cycle's hours mixed into the newest
+      FAILED tests/test_asset_page_d091635.py::test_A1_only_the_newest_cycle_is_served
+RED   LIKE wildcards in the query read as patterns
+      FAILED tests/test_asset_page_d091635.py::test_A6_wildcards_are_the_querys_own_characters
+RED   ZP26 wind quoted a score row it does not have
+      FAILED tests/test_asset_page_d091635.py::test_A5_zp26_wind_has_no_score_row
+RED   the asset read loses its statement timeout
+      FAILED tests/test_asset_page_d091635.py::test_C_timeout_first_then_memoised[/api/generation/asset?plant_code=58388&tech=solar-solar_pool]
+tree restored byte for byte: True {'asset_page.py': '574c88bfa2772d6b2c298bb9c702b733776b6f3b48d9284c61c205360bbcecca', 'main.py': 'bad9209708667e0780aa06663925301748d89dc01bb5c48fe705ce8e1d91a86b'}
