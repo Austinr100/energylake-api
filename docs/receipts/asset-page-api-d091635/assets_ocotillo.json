@@ -47,5 +47,13 @@
    "matched": "name"
   }
  ],
- "source": "implied_gen_sites (solar) and implied_gen_wind_sites (wind): the writers' registries. Not /atlas's box, which indexes CAISO pnodes."
+ "source": "implied_gen_sites (solar) and implied_gen_wind_sites (wind): the writers' registries. Not /atlas's box, which indexes CAISO pnodes.",
+ "cache": {
+  "state": "miss",
+  "built_at": "2026-10-07T01:37:36.215112+00:00",
+  "age_seconds": 0.0,
+  "ttl_seconds": 300.0,
+  "build_seconds": 0.0,
+  "refreshing": false
+ }
 }

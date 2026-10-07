@@ -2432,5 +2432,13 @@
    ]
   }
  },
- "absence": null
+ "absence": null,
+ "cache": {
+  "state": "miss",
+  "built_at": "2026-10-07T01:37:36.183245+00:00",
+  "age_seconds": 0.0,
+  "ttl_seconds": 300.0,
+  "build_seconds": 0.001,
+  "refreshing": false
+ }
 }

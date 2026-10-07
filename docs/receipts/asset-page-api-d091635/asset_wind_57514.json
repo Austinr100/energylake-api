@@ -2379,5 +2379,13 @@
   }
  },
  "absence": null,
- "attribution": "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/"
+ "attribution": "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/",
+ "cache": {
+  "state": "miss",
+  "built_at": "2026-10-07T01:37:36.197922+00:00",
+  "age_seconds": 0.0,
+  "ttl_seconds": 300.0,
+  "build_seconds": 0.002,
+  "refreshing": false
+ }
 }

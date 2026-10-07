@@ -5,7 +5,9 @@
 The reads are tests/fixtures/asset_page_d091635/bank_2026_10_07.json: every
 statement the two routes run, rendered with its parameters and run as ONE
 statement through the Neon connector (bank.sql beside it), 2026-10-07 01:17Z.
-The payloads written here are what the routes answer for those reads; the
+The payloads written here are what the routes answer for those reads, as
+served (the `cache` block included: the page's guard draws nothing that cannot
+state its age; its timestamps are the banking run's, not production's); the
 dashboard banks them as its test vector (D-09-05-T), and
 tests/test_asset_page_d091635.py V holds the route to them.
 """
@@ -29,8 +31,7 @@ def write(name, pool, path):
     main._asset_cache.clear()
     main._assets_search_cache.clear()
     main._pool = pool
-    body = TestClient(main.app).get(path).json()
-    body.pop("cache")
+    body = TestClient(main.app).get(path).json()     # as served, `cache` and all
     (OUT / f"{name}.json").write_text(json.dumps(body, indent=1, ensure_ascii=False) + "\n")
     print(name, len(json.dumps(body)))
 
