@@ -20134,6 +20134,181 @@ async def wind_sites(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# THE ASSET PAGE — d091635 (API half), D-09-25-157, D-09-25-109
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/generation/asset?plant_code=&tech=   one plant: identity, equipment
+#                                                 with bases, the newest cycle's
+#                                                 hours, d091634's drivers when
+#                                                 present, the hub's measured error
+#   GET /api/generation/assets?q=                 solar and wind plants by name,
+#                                                 code or county (at most 20)
+#
+# READ-ONLY. The SQL and the shaping are in asset_page.py; this section is the
+# routes and their memos, on the solar section's plumbing (_solar_serve,
+# SOLAR_STATEMENT_TIMEOUT, SOLAR_BUILD_TIMEOUT), not a copy of it. Every read
+# names one (tech, plant_code) and walks its primary key (D-09-25-75), inside
+# one transaction under SET LOCAL statement_timeout. The driver columns are
+# read off the catalog on every build, so the memo picks up pantry migration
+# 280 within one ttl of it being applied. Plans (EXPLAIN ANALYZE, BUFFERS) are
+# in docs/receipts/asset-page-api-d091635/plans.md.
+
+import asset_page as _ap
+
+_asset_cache = _DDCache(
+    "generation/asset", SOLAR_MEMO_TTL, max_entries=256,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
+)
+_assets_search_cache = _DDCache(
+    "generation/assets", SOLAR_MEMO_TTL, max_entries=256,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
+)
+
+
+async def _asset_build(tech: str, plant_code: int) -> dict:
+    assert _pool is not None
+    db_tech = _ap.TECHS[tech]
+    key = {"tech": db_tech, "plant_code": plant_code}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_ap.COLUMNS_SQL, _ap.columns_params(tech))
+                found = _ap.detect(tech, await cur.fetchall())
+                if tech == "solar":
+                    await cur.execute(_ap.SOLAR_UNITS_SQL, key)
+                else:
+                    await cur.execute(_ap.wind_site_sql(found["curve"]), key)
+                site_rows = await cur.fetchall()
+                if not site_rows:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"no {tech} plant with plant_code={plant_code} in the registry")
+                await cur.execute(_ap.hours_sql(found["hour"]),
+                                  {**key, "model": _ap.MODELS[tech]})
+                hour_rows = await cur.fetchall()
+                hub = site_rows[0]["hub"]
+                newest = max((r["init_ts"] for r in hour_rows), default=None)
+                mv = next((r["method_version"] for r in hour_rows if r["init_ts"] == newest), None)
+                score_rows: list = []
+                if hub is not None and mv is not None and not (
+                        tech == "wind" and hub in _wo.NO_SCORE_AREAS):
+                    await cur.execute(_ap.SCORES_SQL[tech], {
+                        "tech": db_tech, "area_kind": "hub", "area": hub,
+                        "method_version": mv})
+                    score_rows = await cur.fetchall()
+    return _ap.build_asset(tech=tech, plant_code=plant_code, found=found,
+                           site_rows=site_rows, hour_rows=hour_rows, score_rows=score_rows)
+
+
+@app.get("/api/generation/asset")
+async def generation_asset(
+    response: Response,
+    plant_code: Optional[str] = Query(None, description="EIA plant code."),
+    tech: Optional[str] = Query(None, description="solar | wind"),
+):
+    """One plant's weather-implied generation, through the run that made it.
+
+        { label, tech, plant_code, attribution (wind),
+          plant: { plant_code, plant_name, tech, latitude, longitude, county,
+                   state, ba_code, hub, hub_method, mw, mw_kind ("ac" | "nameplate"),
+                   solar: dc_mw, units: [ {generator_id, ac_mw, dc_mw, dc_basis,
+                          mount, mount_basis, tilt_deg, tilt_basis, azimuth_deg,
+                          azimuth_basis, bifacial} ], equipment_vintage,
+                          registry_vintage
+                   wind:  turbine_model(+_basis), n_turbines(+_basis),
+                          rotor_m(+_basis), hub_height_m(+_basis),
+                          curve: {turbine_type, hub_height_m, basis, cut_in_ms,
+                                  rated_ms, cut_out_ms}, counts_in_hub_actual(+_basis),
+                          export_cap_group, export_cap_mw, export_cap_basis,
+                          hrrr_dist_km, op_year_mw_wtd
+                   outage_resource_ids },
+          run: { model, init_ts, method_version, figure: "registry",
+                 lead_h_first, lead_h_last, weather_sources, weather_seam,
+                 weather_height_m, hours_of_other_cycles_dropped,
+                 outage_mw_max, cap_mw_max } | null,
+          hours: [ { target_ts, lead_h, lead_band, weather_source, implied_mw,
+                     outage_mw_subtracted, cap_mw_subtracted,
+                     + each PRESENT driver: solar ghi_wm2, clearsky_ghi_wm2,
+                       clearsky_mw, tcc_pct, precip_mm; wind hub_ws_ms, gust_ms } ],
+          drivers: { expected, present, absent: [ {driver, reason} ], lane,
+                     absence: {reason, detail} | null, gust_null_sources (wind) },
+          curve_absence (wind): { missing, reason, detail } | null,
+          trust: { per_plant, area_kind: "hub", area, who: "registry",
+                   method_version, scores: { <band>: {...} | "not yet scored" },
+                   score_progress, band_leads, absence },
+          absence, cache }
+
+    D-09-25-157: every driver is the run's own column (d091634, pantry migration
+    280), read only where the catalog has it; an absent driver is named with
+    its reason ("column_absent" or "all_null") and the curve still answers. The
+    plant figure is the registry figure (no line is fitted per plant), so the
+    hub's score beside it is the hub's registry score, band by band; there is
+    no per-plant score and `trust.per_plant` says why. D-09-25-109: `label` is
+    the outlook routes' verbatim.
+
+    A plant not in the registry -> 404; a plant with no hours -> 200 with
+    `absence`; bad params -> 400; DB unavailable -> 503. Memoised 300 s per
+    (tech, plant_code), single-flight, served stale at most 900 s more
+    (D-09-25-138); every read under a 5 s statement timeout.
+    """
+    try:
+        t = _ap.parse_tech(tech)
+        code = _ap.parse_plant_code(plant_code)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_asset_cache, (t, code),
+                              lambda: _asset_build(t, code), response)
+
+
+async def _assets_search_build(q: str) -> dict:
+    assert _pool is not None
+    params = _ap.search_params(q)
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_ap.SEARCH_SOLAR_SQL, {**params, "tech": _so.TECH})
+                solar_rows = await cur.fetchall()
+                await cur.execute(_ap.SEARCH_WIND_SQL, params)
+                wind_rows = await cur.fetchall()
+    return _ap.build_search(q, solar_rows, wind_rows)
+
+
+@app.get("/api/generation/assets")
+async def generation_assets(
+    response: Response,
+    q: Optional[str] = Query(None, description="A plant name, an EIA plant code or a county."),
+):
+    """Solar and wind plants matching `q`, best first, at most 20.
+
+        { q, max, count, truncated, source,
+          results: [ { plant_code, plant_name, tech, county, state, hub, ba_code,
+                       mw, mw_kind, latitude, longitude,
+                       matched: "plant_code" | "name_prefix" | "name"
+                                | "county" } ],
+          cache }
+
+    Ranked: an exact plant code, then a name that starts with `q`, then a name
+    that contains it, then a county; then MW, largest first. /atlas's search box
+    was measured and not reused: it indexes CAISO pnodes in the browser and
+    carries no EIA plant code, county or tech (asset_page.py's header). `q`
+    shorter than 2 or longer than 64 characters -> 400; DB unavailable -> 503.
+    Memoised 300 s per lower-cased `q`, 5 s statement timeout.
+    """
+    try:
+        qq = _ap.parse_query(q).lower()       # ILIKE: the case is not the query
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_assets_search_cache, qq,
+                              lambda: _assets_search_build(qq), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # LOAD OUTLOOK AND CAISO NET DEMAND — d091611 (API half), D-09-25-139, D-09-25-140
 # ═══════════════════════════════════════════════════════════════════════════
 #
