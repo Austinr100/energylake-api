@@ -16902,6 +16902,92 @@ async def dd_forecast_regions(
     return _dd_envelope(payload, state, entry, _dd_region_fc_cache, response)
 
 
+# ── /forecast/regions/vintages (d091644, D-09-25-167) ───────────────────────
+#
+# Every held issuance of every source for one (region, weighting), as arrays,
+# for the vintage player. One read per source_product (vintages.DD_SOURCES),
+# concurrently, each under the board's 2 s statement timeout (_dd_timed_read).
+# The view cannot push an issued_ts filter, so a read costs ~400 buffers per
+# issuance held (recon d091639 §2.3); measured warm in
+# docs/receipts/vintages-d091644/plans.md against the 500 ms STOP-V line.
+
+import vintages as _vt
+
+_dd_region_vintages_cache = _DDCache(
+    "dd/forecast/regions/vintages", _DD_REGION_FC_TTL, max_entries=32,
+    build_timeout=_DD_REGION_FC_BUILD_TIMEOUT,
+)
+_DD_CACHES = _DD_CACHES + (_dd_region_vintages_cache,)
+
+
+@app.get(f"{DD_PREFIX}/forecast/regions/vintages")
+async def dd_forecast_region_vintages(
+    response: Response,
+    region: Optional[str] = Query(None, description="One region id (required)."),
+    weighting: Optional[str] = Query(
+        None, description="population (default) or load_share_365d."),
+):
+    """Every held issuance of every source for one region, oldest first.
+
+        { region, weighting,
+          sources: [ { source_product, label,
+                       issuances: [ { issued_ts, d0,
+                                      hdd: [..], cdd: [..],          # to 0.01
+                                      basis_complete: [..],
+                                      spacing_h: [..] } ] } ],     # oldest first
+          absence: null | { reason, detail }, cache }
+
+    Index i of each array is target_date d0 + i days. A day the issuance does
+    not hold is null in all four arrays. An incomplete day is served as the
+    view serves it (its values null, pantry 202) with basis_complete false;
+    the page decides what to draw. For the NWS leg (gridpoints_raw; its label
+    is degree_days.SOURCE_LABELS's) an issuance is a fold: the view's
+    issued_ts, the newest member stamp of one fold. `spacing_h` is the view's
+    sample_spacing_hours (null where members differ).
+
+    D-09-25-167: no change, sum or spacing between issuances; the page does
+    the arithmetic. Unknown region or weighting -> 400 naming the field; a
+    region with nothing held -> 200 with `absence`; DB unavailable or a read
+    over the timeout -> 503. Cached 5 min, single-flight.
+    """
+    assert _pool is not None
+    try:
+        vectors, _, _ = await _dd_region_vectors_cache.serve(
+            "vectors", lambda: _dd_timed_read(_DD_REGION_FC_VECTORS_SQL, {}))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="db unavailable: vectors read timed out")
+    by_weighting: dict[str, set[str]] = {}
+    for v in vectors:
+        by_weighting.setdefault(v["weighting"], set()).add(v["region"])
+    w = weighting if weighting not in (None, "") else _DD_REGION_FC_DEFAULT_WEIGHTING
+    if w not in by_weighting:
+        raise _dd_400("weighting", f"unknown weighting {w!r}. one of "
+                                   f"{sorted(by_weighting)}")
+    known = sorted(by_weighting[w])
+    if region in (None, ""):
+        raise _dd_400("region", f"is required. one of {known}")
+    if region not in known:
+        raise _dd_400("region", f"unknown region {region!r} under weighting "
+                                f"{w!r}. one of {known}")
+
+    async def _build():
+        reads = await asyncio.gather(*(
+            _dd_timed_read(_vt.DD_VINTAGES_SQL,
+                           {"region": region, "weighting": w, "source": src})
+            for src in _vt.DD_SOURCES))
+        return _vt.build_dd_vintages(region=region, weighting=w,
+                                     by_source=dict(zip(_vt.DD_SOURCES, reads)))
+
+    try:
+        payload, state, entry = await _dd_region_vintages_cache.serve((region, w), _build)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"db unavailable: the vintages did not build within "
+                   f"{_DD_REGION_FC_BUILD_TIMEOUT:g} s")
+    return _dd_envelope(payload, state, entry, _dd_region_vintages_cache, response)
+
+
 # ── Startup warm ────────────────────────────────────────────────────────────
 
 async def _dd_warm_cumulative() -> None:
@@ -20131,6 +20217,133 @@ async def wind_sites(
     return await _solar_serve(
         _wind_sites_cache, key,
         lambda: _wind_sites_build(model, t, d, lo, hi, ak, ar), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SOLAR AND WIND VINTAGES — d091644, D-09-25-167
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/generation/solar/vintages   one area's n newest issuances as arrays
+#   GET /api/generation/wind/vintages    the same, wind
+#
+# READ-ONLY. The SQL and the shaping are in vintages.py. One read for the
+# curves (recon d091639 §2.1 a), naming one (tech, area_kind, area, model),
+# then the outlook's own line lookup for the gate, in one transaction under
+# SET LOCAL statement_timeout (D-09-25-75). The memo is the outlook routes'
+# _DDCache, keyed (tech, area_kind, area, model, n). Its lock is one per
+# cache, not per key, and is left so: cold builds of different areas queue
+# behind each other (measured <= 0.11 s each, docs/receipts/vintages-d091644).
+# Plans: docs/receipts/vintages-d091644/plans.md.
+
+import vintages as _vt
+
+_solar_vintages_cache = _DDCache(
+    "generation/solar/vintages", SOLAR_MEMO_TTL, max_entries=64,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
+)
+_wind_vintages_cache = _DDCache(
+    "generation/wind/vintages", SOLAR_MEMO_TTL, max_entries=64,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
+)
+
+
+async def _gen_vintages_build(tech: str, area_kind: str, area: str, model: str,
+                              n: int) -> dict:
+    assert _pool is not None
+    key = {"tech": tech, "area_kind": area_kind, "area": area, "model": model}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_vt.VINTAGES_SQL, {**key, "n": n})
+                rows = await cur.fetchall()
+                lines: list = []
+                ids = _vt.calibration_ids(rows)
+                if ids:
+                    await cur.execute(_vt.CALIBRATION_SQL, {**key, "ids": ids})
+                    lines = await cur.fetchall()
+    return _vt.build_vintages(tech=tech, area_kind=area_kind, area=area, model=model,
+                              rows=rows, lines=lines)
+
+
+_VINTAGES_DOC = """
+
+        { tech, area_kind, area, model, unit: "MW", step_h: 1,
+          issuances: [ { init, t0, lead0,          # oldest first; newest last
+                         reg: [int MW | null],     # one per hour from t0
+                         cal: [int MW | null] | null,
+                         method_version } ],
+          absence: null | { reason, detail }, cache }
+
+    Index i of `reg` and `cal` is target_ts t0 + i h and lead_h lead0 + i. A
+    66-hour issuance (the once-a-day backfill) has 66 entries, a 240-hour one
+    240. An hour the issuance does not hold is null, never 0. Whole MW,
+    rounded half away from zero. `cal` is the calibrated figure the outlook
+    route would show for the hour (its gate, D-09-25-136): null at an hour its
+    own line was not fitted on, and null for an issuance with none.
+
+    D-09-25-167: no change, sum, score, actual or fleet; the page does the
+    arithmetic. `n` 1-120, default 28; above 120 is refused (400), never
+    trimmed. A valid area with nothing banked -> 200 with `absence` and an
+    empty list; bad params -> 400; DB unavailable -> 503. Memoised 300 s per
+    (tech, area_kind, area, model, n), single-flight, stale for at most 900 s
+    more (D-09-25-138); every read under a 5 s statement timeout.
+    """
+
+
+@app.get("/api/generation/solar/vintages",
+         description="Every held solar run of one area, newest last." + _VINTAGES_DOC)
+async def solar_vintages(
+    response: Response,
+    area_kind: Optional[str] = Query(None, description="hub | hub_sum | ba | state"),
+    area: Optional[str] = Query(
+        None, description="NP15/ZP26/SP15 for hub; HUBSUM (or omit) for hub_sum; "
+                          "a BA code (CISO, ...) or a state (CA, ...)."),
+    model: Optional[str] = Query(
+        None, description=f"One of {list(_so.MODELS)}. Default {_so.DEFAULT_MODEL}."),
+    n: Optional[str] = Query(
+        None, description=f"Newest issuances to serve, 1-{_vt.N_MAX}. "
+                          f"Default {_vt.N_DEFAULT}."),
+):
+    try:
+        area_kind, area = _so.parse_area(area_kind, area)
+        model = _so.parse_model(model)
+        n_ = _vt.parse_n(n)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(
+        _solar_vintages_cache, (_so.TECH, area_kind, area, model, n_),
+        lambda: _gen_vintages_build(_so.TECH, area_kind, area, model, n_), response)
+
+
+
+@app.get("/api/generation/wind/vintages",
+         description="Every held wind run of one area, newest last." + _VINTAGES_DOC)
+async def wind_vintages(
+    response: Response,
+    area_kind: Optional[str] = Query(None, description="hub | hub_sum | ba | state"),
+    area: Optional[str] = Query(
+        None, description="NP15/ZP26/SP15 for hub; HUBSUM (or omit) for hub_sum; "
+                          "a BA code (CISO, ...) or a state (CA, ...)."),
+    model: Optional[str] = Query(
+        None, description=f"One of {list(_wo.MODELS)}. Default {_wo.DEFAULT_MODEL}."),
+    n: Optional[str] = Query(
+        None, description=f"Newest issuances to serve, 1-{_vt.N_MAX}. "
+                          f"Default {_vt.N_DEFAULT}."),
+):
+    try:
+        area_kind, area = _wo.parse_area(area_kind, area)
+        model = _wo.parse_model(model)
+        n_ = _vt.parse_n(n)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(
+        _wind_vintages_cache, (_wo.TECH, area_kind, area, model, n_),
+        lambda: _gen_vintages_build(_wo.TECH, area_kind, area, model, n_), response)
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
