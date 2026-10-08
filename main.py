@@ -45,6 +45,10 @@ Endpoints:
     GET /api/weather/dd/socalgas-grade     Degree Day Ledger: our composite vs SoCalGas's published composite + the delta, with window and all-time summaries over arbiter_present days only (2026-08-10)
     GET /api/weather/dd/forecast           Degree Day Ledger: newest forecast issuance per target date PLUS the run-over-run delta against the prior issuance; board is honestly empty until the builder's maiden run (2026-08-10)
     GET /api/weather/dd/forecast/regions   Degree-day forecast board per region off pantry's three region views: each source's newest run per day, its change against its OWN prior run, the spread between models, and d01-05/06-10/11-15 sums only where every day is complete (d091576, D-09-25-120)
+    GET /api/weather/dd/scores             Degree-day member scores by place, member and lead day, as v_dd_member_scores_current states them; unscored cells ride with null metrics (d091666)
+    GET /api/weather/dd/blend              The EnergyLake blend per station from v_dd_blend_drawable only; what is not drawable is not served, and the payload says so (d091666)
+    GET /api/weather/dd/band               The GEFS degree-day band: a stated absence, no member values banked at our places (d091666, STOP-B)
+    GET /api/weather/dd/desk               The Forecast desk's morning numbers: one source per region, the board's levels, the delta view's change, the score cell by lead (d091666)
     GET /api/regulatory/board             regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
@@ -16823,7 +16827,17 @@ async def dd_forecast_regions(
     the timeout -> 503.
     """
     assert _pool is not None
+    payload, state, entry = await _dd_region_board(region, weighting, from_, days)
+    return _dd_envelope(payload, state, entry, _dd_region_fc_cache, response)
 
+
+def _dd_today_pt() -> _date:
+    """Today in Pacific time: the region board's and the blend's default `from`."""
+    return _datetime.now(ZoneInfo(MARKET_TZ)).date()
+
+
+def _dd_window_params(from_: Optional[str], days: Optional[str]) -> tuple[_date, int]:
+    """(from_date, n_days) under the region board's caps, or a 400 naming the field."""
     # days
     if days is None or days == "":
         n_days = _DD_REGION_FC_DEFAULT_DAYS
@@ -16839,7 +16853,7 @@ async def dd_forecast_regions(
                                   "This endpoint never silently truncates.")
 
     # from
-    today_pt = _datetime.now(ZoneInfo(MARKET_TZ)).date()
+    today_pt = _dd_today_pt()
     if from_ is None or from_ == "":
         from_date = today_pt
     else:
@@ -16851,6 +16865,17 @@ async def dd_forecast_regions(
             raise _dd_400("from", f"must be within {_DD_REGION_FC_FROM_MAX_OFFSET_DAYS} "
                                   f"days of today ({today_pt.isoformat()}, Pacific), "
                                   f"got {from_date.isoformat()}")
+    return from_date, n_days
+
+
+async def _dd_region_board(region: Optional[str], weighting: Optional[str],
+                           from_: Optional[str], days: Optional[str]):
+    """The region board through its memo: (payload, state, entry), or a 400.
+
+    /forecast/regions and /desk both serve through here, so a page polling
+    both pays for one build of the same three reads.
+    """
+    from_date, n_days = _dd_window_params(from_, days)
 
     # weighting, region — against the vectors, not the window
     try:
@@ -16892,14 +16917,12 @@ async def dd_forecast_regions(
             from_date=from_date, days=n_days, members=members)
 
     try:
-        payload, state, entry = await _dd_region_fc_cache.serve(
-            (r_param, w, from_date, n_days), _build)
+        return await _dd_region_fc_cache.serve((r_param, w, from_date, n_days), _build)
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=503,
             detail=f"db unavailable: the region board did not build within "
                    f"{_DD_REGION_FC_BUILD_TIMEOUT:g} s")
-    return _dd_envelope(payload, state, entry, _dd_region_fc_cache, response)
 
 
 # ── /forecast/regions/vintages (d091644, D-09-25-167) ───────────────────────
@@ -16987,6 +17010,256 @@ async def dd_forecast_region_vintages(
             detail=f"db unavailable: the vintages did not build within "
                    f"{_DD_REGION_FC_BUILD_TIMEOUT:g} s")
     return _dd_envelope(payload, state, entry, _dd_region_vintages_cache, response)
+
+
+# ── /scores, /blend, /band, /desk (d091666) ─────────────────────────────────
+#
+# The degree-day board's scoreboard, its blend source, its GEFS band and the
+# Forecast desk's morning numbers. SQL and shaping in dd_board.py. Every read
+# goes through _dd_timed_read (2 s statement timeout, D-09-25-75) and every
+# route through a single-flight memo. Measured on Neon 2026-10-08
+# (docs/receipts/dd-board-d091666/plans.md): the scores reads 3-6 ms, the
+# blend read 0.2-11 ms.
+#
+# TTLs, against the writers' cadence. scripts/dd_member_scores.py writes the
+# scores and the blend once a day (scheduled 18:41Z; the first run committed
+# 18:53:52Z on 2026-10-08), so 15 minutes is the longest a new day's scores
+# or blend wait to be seen, and it is one 5 ms read per quarter hour. The desk
+# rides the region board's 5-minute memo, whose folds land hourly (NWS, NBM)
+# and every 6 h (the models); its own memo is the same 5 minutes. The band
+# reads nothing (STOP-B) and so has no memo.
+
+import dd_board as _db
+
+_DD_SCORES_TTL = 900.0
+_DD_BLEND_TTL = 900.0
+_DD_DESK_TTL = _DD_REGION_FC_TTL
+_DD_STATION_RE = re.compile(r"^[A-Z0-9]{11}$")      # a GHCN station id
+
+_dd_scores_cache = _DDCache("dd/scores", _DD_SCORES_TTL, max_entries=4,
+                            build_timeout=_DD_REGION_FC_BUILD_TIMEOUT)
+_dd_blend_cache = _DDCache("dd/blend", _DD_BLEND_TTL, max_entries=32,
+                           build_timeout=_DD_REGION_FC_BUILD_TIMEOUT)
+_dd_desk_cache = _DDCache("dd/desk", _DD_DESK_TTL, max_entries=32,
+                          build_timeout=2 * _DD_REGION_FC_BUILD_TIMEOUT)
+_DD_CACHES = _DD_CACHES + (_dd_scores_cache, _dd_blend_cache, _dd_desk_cache)
+
+
+def _dd_503_on_timeout(what: str, timeout: float):
+    return HTTPException(status_code=503,
+                         detail=f"db unavailable: {what} did not build within {timeout:g} s")
+
+
+async def _dd_scores(place_kinds: tuple[str, ...]):
+    """The scores through their memo: one read per place_kind, concurrently."""
+    async def _build():
+        reads = await asyncio.gather(*(
+            _dd_timed_read(_db.SCORES_SQL, {"place_kind": k}) for k in place_kinds))
+        return _db.scores_payload(dict(zip(place_kinds, reads)), place_kinds=place_kinds)
+    try:
+        return await _dd_scores_cache.serve(place_kinds, _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the scores", _DD_REGION_FC_BUILD_TIMEOUT)
+
+
+@app.get(f"{DD_PREFIX}/scores")
+async def dd_scores(
+    response: Response,
+    place_kind: Optional[str] = Query(
+        None, description="station or region. Omit for both."),
+):
+    """Every current member score, by place, member and lead day.
+
+        { place_kinds, sources: {tables, scorer_versions, scorer_hashes,
+                                 blend_method_versions},
+          lead_rule, vintages: [ {vintage, as_of_date, ghcn_frontier,
+                                  window_start, window_end, min_target_days,
+                                  scorer_version, scorer_hash,
+                                  blend_method_version, created_at} ],
+          source_labels, members: [ {member, label} ],
+          cell_count, scored_count,
+          places: [ { place_kind, place, weighting,
+                      cells: [ { member, lead_day, vintage, n_target_days,
+                                 n_pairs, n_provisional_days, scored,
+                                 bias_tavg_f, mae_tavg_f, rmse_tavg_f,
+                                 mae_hdd, mae_cdd, excluded } ] } ],
+          absence, cache }
+
+    v_dd_member_scores_current as written: an unscored cell is served with
+    `scored: false` and null metrics (pantry's CHECK), never a MAE; EL_BLEND
+    is a member like the others. `weighting` is '' at a station. A cell's
+    shared fields are in `vintages`, named by index. One read per place_kind
+    under a 2 s statement timeout; cached 15 min, single-flight. Unknown
+    place_kind -> 400; DB unavailable -> 503.
+    """
+    assert _pool is not None
+    if place_kind in (None, ""):
+        kinds = _db.PLACE_KINDS
+    elif place_kind in _db.PLACE_KINDS:
+        kinds = (place_kind,)
+    else:
+        raise _dd_400("place_kind", f"unknown place_kind {place_kind!r}. one of "
+                                    f"{list(_db.PLACE_KINDS)}")
+    payload, state, entry = await _dd_scores(kinds)
+    return _dd_envelope(payload, state, entry, _dd_scores_cache, response)
+
+
+@app.get(f"{DD_PREFIX}/blend")
+async def dd_blend(
+    response: Response,
+    station: Optional[str] = Query(None, description="One GHCN station id. Omit for all."),
+    from_: Optional[str] = Query(
+        None, alias="from",
+        description="ISO date, first target date. Defaults to today in Pacific time."),
+    days: Optional[str] = Query(
+        None, description=f"Target dates to serve, 1-{_DD_REGION_FC_MAX_DAYS}. "
+                          f"Default {_DD_REGION_FC_DEFAULT_DAYS}."),
+):
+    """The EnergyLake blend per station, where it is drawable.
+
+        { from, days, station, served_from, sources: {tables, method_versions,
+          method_hashes}, stations_present, newest_issue_date, computed_ts[],
+          row_count,
+          rows: [ { station_id, target_date, issue_date, lead_day, tavg_f, hdd,
+                    cdd, n_members_used, blend_mae, best_member,
+                    best_member_label, best_member_mae, blend_n_target_days,
+                    method_version, method_hash, computed_ts } ],
+          not_served: {rows, fields, why, pantry_proposal},
+          region_blend: {banked: false, why},
+          absence, cache }
+
+    Read from v_dd_blend_drawable only, as pantry requires (migrations
+    282/283): every row is drawable, of the served method, with the values
+    and errors as stored. A blend that is not drawable is not in that view,
+    so it is not served, and neither are no_blend_reason, members, scored or
+    beats_best_member; `not_served` says so and names the view pantry would
+    add. There is no region blend in the bank; `region_blend` says so. One
+    target-date window, every issue date that reaches it; the page picks.
+    Caps as the region board: `days` 1-30, `from` within 60 days of today.
+    Cached 15 min, single-flight, 2 s statement timeout. Bad parameter ->
+    400 naming it; DB unavailable -> 503.
+    """
+    assert _pool is not None
+    if station not in (None, "") and not _DD_STATION_RE.match(station):
+        raise _dd_400("station", f"must be a GHCN station id (11 capitals and digits, "
+                                 f"e.g. USW00024233), got {station!r}")
+    st = station or None
+    from_date, n_days = _dd_window_params(from_, days)
+    params = {"station": st, "from_date": from_date,
+              "to_date": from_date + _timedelta(days=n_days)}
+
+    async def _build():
+        rows = await _dd_timed_read(_db.BLEND_SQL, params)
+        return _db.blend_payload(rows, from_date=from_date, days=n_days, station=st)
+
+    try:
+        payload, state, entry = await _dd_blend_cache.serve((st, from_date, n_days), _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the blend", _DD_REGION_FC_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, _dd_blend_cache, response)
+
+
+@app.get(f"{DD_PREFIX}/band")
+async def dd_band():
+    """The GEFS degree-day band: a stated absence (STOP-B, d091666).
+
+        { band: null, percentile_rule: null, absence: {reason, detail},
+          banked: {table, datasets, places, statistics, degree_days, cycles},
+          requires: [..] }
+
+    forecasts_gefs holds GEFS statistics already reduced over its 31 members,
+    per balancing authority; no member value is banked at our stations or
+    region vectors, so no P5-P95 band can be formed from members, and the
+    banked p10/p90 are not relabelled as one. Nothing is read at request time.
+    """
+    return _db.band_payload()
+
+
+@app.get(f"{DD_PREFIX}/desk")
+async def dd_desk(
+    response: Response,
+    source: Optional[str] = Query(
+        None, description=f"source_product as banked: one of {list(_db.DESK_SOURCES)}."),
+    region: Optional[str] = Query(
+        None, description="One region id. Omit for every region the weighting has."),
+    weighting: Optional[str] = Query(
+        None, description="population (default) or load_share_365d."),
+    from_: Optional[str] = Query(
+        None, alias="from",
+        description="ISO date, first target date. Defaults to today in Pacific time."),
+    days: Optional[str] = Query(
+        None, description=f"Target dates to serve, 1-{_DD_REGION_FC_MAX_DAYS}. "
+                          f"Default {_DD_REGION_FC_DEFAULT_DAYS}."),
+):
+    """The Forecast desk's morning numbers: one source, per region, today and
+    each day out.
+
+        { source_product, label, weighting, from, days, tz, period_rule,
+          lead_rule, sources: {tables, scorer_versions, ...}, vintages,
+          region_count,
+          regions: [ { region, weighting, newest_issued_ts, prior_issued_ts,
+                       period_anchor_issued_ts,
+                       days: [ { target_date, issued_ts, lead_day, hdd, cdd,
+                                 basis_complete, normal,
+                                 change: {hdd, cdd, prior_issued_ts,
+                                          spacing_comparable,
+                                          prior_sample_spacing_hours} | null,
+                                 change_absence,
+                                 score: { state: scored | not_yet_scored |
+                                                 no_score_cell,
+                                          n_target_days, n_pairs,
+                                          n_provisional_days, bias_tavg_f,
+                                          mae_tavg_f, rmse_tavg_f, mae_hdd,
+                                          mae_cdd, vintage } | null,
+                                 absence } ],
+                       periods: [ { window, from, to, hdd, cdd, hdd_normal,
+                                    cdd_normal, issued_ts, days_present,
+                                    days_required, complete } ] } ],
+          inputs: {board: {built_at, state}, scores: {built_at, state}},
+          cache }
+
+    A projection of /forecast/regions (the same memo, so a page polling both
+    pays one build) and /scores (place_kind region). The levels, normals and
+    period sums are the board's (degree_days.PERIOD_RULE); the change is
+    v_degree_days_model_delta's row for the served issuance (D-09-25-167);
+    the score cell is v_dd_member_scores_current's at (region, weighting,
+    source, lead_day), lead_day being the scorer's own key (lead_rule).
+    EL_BLEND is refused: no region blend is banked. Bad parameter -> 400
+    naming it; DB unavailable -> 503. Cached 5 min, single-flight.
+    """
+    assert _pool is not None
+    if source in (None, ""):
+        raise _dd_400("source", f"is required. one of {list(_db.DESK_SOURCES)}")
+    if source == "EL_BLEND":
+        raise _dd_400("source", "EL_BLEND has no region forecast in the bank: "
+                                "dd_blend_forecast is per station. See "
+                                f"{DD_PREFIX}/blend for stations and {DD_PREFIX}/scores "
+                                "for its region scores.")
+    if source not in _db.DESK_SOURCES:
+        raise _dd_400("source", f"unknown source {source!r}. one of "
+                                f"{list(_db.DESK_SOURCES)}")
+    # Validate (and resolve the board's key) before anything is built.
+    from_date, n_days = _dd_window_params(from_, days)
+    w = weighting if weighting not in (None, "") else _DD_REGION_FC_DEFAULT_WEIGHTING
+
+    async def _build():
+        board, b_state, b_entry = await _dd_region_board(region, weighting, from_, days)
+        scores, s_state, s_entry = await _dd_scores(_db.PLACE_KINDS)
+        out = _db.desk_payload(board, scores, source=source)
+        out["inputs"] = {
+            "board": {"built_at": b_entry.built_at.isoformat(), "state": b_state},
+            "scores": {"built_at": s_entry.built_at.isoformat(), "state": s_state}}
+        return out
+
+    # The board's own 400s (unknown region or weighting) surface here, before
+    # the desk memo is touched, by resolving the board once up front.
+    await _dd_region_board(region, weighting, from_, days)
+    try:
+        payload, state, entry = await _dd_desk_cache.serve(
+            (source, region or None, w, from_date, n_days), _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the desk", 2 * _DD_REGION_FC_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, _dd_desk_cache, response)
 
 
 # ── Startup warm ────────────────────────────────────────────────────────────

@@ -1,0 +1,29 @@
+{
+ "band": null,
+ "percentile_rule": null,
+ "absence": {
+  "reason": "not_banked",
+  "detail": "no GEFS member value is banked at our stations or region vectors, so a P5-P95 degree-day band cannot be formed from members (D-09-25-163: a band is members or history, never a guess). forecasts_gefs holds statistics already reduced over 31 members, per balancing authority, not the members."
+ },
+ "banked": {
+  "table": "forecasts_gefs",
+  "datasets": [
+   "gefs_dd_region_daily",
+   "gefs_t2m_region_6h"
+  ],
+  "places": "17 balancing authorities (AZPS, BANC, BPAT, ...), not the 21 stations or the 5 region vectors",
+  "statistics": [
+   "mean",
+   "p10",
+   "p50",
+   "p90"
+  ],
+  "degree_days": "cdd and gwdd per BA day; no hdd; day boundary 06Z from four 6-hourly samples, not 24 local-standard hours",
+  "cycles": "00, 06, 12, 18Z; 49 cycles 2026-09-26 00Z to 2026-10-08 12Z"
+ },
+ "requires": [
+  "per-member daily tavg_f, hdd and cdd for each of the 31 GEFS members, per (cycle, member, station_id, target_date), on the 24 local-standard-hour day the scorer pairs against (D-09-25-165), with hours_covered and basis_complete",
+  "the same per region vector (degree_day_region_weights), or a view that weights the station rows",
+  "a score for the band (coverage of P5-P95 against truth by lead) before it is shown (D-09-25-163: nothing is shown before it is scored)"
+ ]
+}

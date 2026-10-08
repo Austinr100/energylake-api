@@ -1,0 +1,184 @@
+# d091666 plans, verbatim. Neon fancy-block-96153928 production, one read-only transaction at 2026-10-08 20:43:24.906781+00.
+
+== S01 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT as_of_date, ghcn_frontier, member, lead_day, place_kind, place, weighting, window_start, window_end, min_target_days, n_target_days, n_pairs, n_provisional_days, scored, bias_tavg_f, mae_tavg_f, rmse_tavg_f, mae_hdd, mae_cdd, excluded, scorer_version, scorer_hash, blend_method_version, created_at FROM v_dd_member_scores_current WHERE place_kind = 'station' ORDER BY place, weighting, member, lead_day
+
+Sort  (cost=269.82..270.54 rows=288 width=182) (actual time=13.842..13.937 rows=2016 loops=1)
+  Sort Key: dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.member, dd_member_scores.lead_day
+  Sort Method: quicksort  Memory: 452kB
+  Buffers: shared hit=3 read=79 dirtied=1
+  ->  Unique  (cost=232.85..258.05 rows=288 width=182) (actual time=11.261..11.788 rows=2016 loops=1)
+        Buffers: shared hit=3 read=79 dirtied=1
+        ->  Sort  (cost=232.85..237.89 rows=2016 width=182) (actual time=11.259..11.356 rows=2016 loops=1)
+              Sort Key: dd_member_scores.member, dd_member_scores.lead_day, dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.as_of_date DESC, dd_member_scores.ghcn_frontier DESC, dd_member_scores.created_at DESC
+              Sort Method: quicksort  Memory: 452kB
+              Buffers: shared hit=3 read=79 dirtied=1
+              ->  Seq Scan on dd_member_scores  (cost=0.00..122.20 rows=2016 width=182) (actual time=0.814..8.960 rows=2016 loops=1)
+                    Filter: ((scorer_version = 'dd_member_scores_v2'::text) AND (place_kind = 'station'::text))
+                    Rows Removed by Filter: 864
+                    Buffers: shared read=79 dirtied=1
+Planning:
+  Buffers: shared hit=144 read=6
+Planning Time: 2.015 ms
+Execution Time: 14.055 ms
+
+== S02 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT as_of_date, ghcn_frontier, member, lead_day, place_kind, place, weighting, window_start, window_end, min_target_days, n_target_days, n_pairs, n_provisional_days, scored, bias_tavg_f, mae_tavg_f, rmse_tavg_f, mae_hdd, mae_cdd, excluded, scorer_version, scorer_hash, blend_method_version, created_at FROM v_dd_member_scores_current WHERE place_kind = 'station' ORDER BY place, weighting, member, lead_day
+
+Sort  (cost=269.82..270.54 rows=288 width=182) (actual time=5.599..5.689 rows=2016 loops=1)
+  Sort Key: dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.member, dd_member_scores.lead_day
+  Sort Method: quicksort  Memory: 452kB
+  Buffers: shared hit=79
+  ->  Unique  (cost=232.85..258.05 rows=288 width=182) (actual time=3.006..3.551 rows=2016 loops=1)
+        Buffers: shared hit=79
+        ->  Sort  (cost=232.85..237.89 rows=2016 width=182) (actual time=3.005..3.108 rows=2016 loops=1)
+              Sort Key: dd_member_scores.member, dd_member_scores.lead_day, dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.as_of_date DESC, dd_member_scores.ghcn_frontier DESC, dd_member_scores.created_at DESC
+              Sort Method: quicksort  Memory: 452kB
+              Buffers: shared hit=79
+              ->  Seq Scan on dd_member_scores  (cost=0.00..122.20 rows=2016 width=182) (actual time=0.014..0.751 rows=2016 loops=1)
+                    Filter: ((scorer_version = 'dd_member_scores_v2'::text) AND (place_kind = 'station'::text))
+                    Rows Removed by Filter: 864
+                    Buffers: shared hit=79
+Planning Time: 0.133 ms
+Execution Time: 5.811 ms
+
+== S03 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT as_of_date, ghcn_frontier, member, lead_day, place_kind, place, weighting, window_start, window_end, min_target_days, n_target_days, n_pairs, n_provisional_days, scored, bias_tavg_f, mae_tavg_f, rmse_tavg_f, mae_hdd, mae_cdd, excluded, scorer_version, scorer_hash, blend_method_version, created_at FROM v_dd_member_scores_current WHERE place_kind = 'region' ORDER BY place, weighting, member, lead_day
+
+Sort  (cost=186.52..187.22 rows=280 width=182) (actual time=2.964..3.002 rows=864 loops=1)
+  Sort Key: dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.member, dd_member_scores.lead_day
+  Sort Method: quicksort  Memory: 184kB
+  Buffers: shared hit=79
+  ->  Unique  (cost=164.34..175.14 rows=280 width=182) (actual time=1.489..1.696 rows=864 loops=1)
+        Buffers: shared hit=79
+        ->  Sort  (cost=164.34..166.50 rows=864 width=182) (actual time=1.488..1.528 rows=864 loops=1)
+              Sort Key: dd_member_scores.member, dd_member_scores.lead_day, dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.as_of_date DESC, dd_member_scores.ghcn_frontier DESC, dd_member_scores.created_at DESC
+              Sort Method: quicksort  Memory: 184kB
+              Buffers: shared hit=79
+              ->  Seq Scan on dd_member_scores  (cost=0.00..122.20 rows=864 width=182) (actual time=0.016..0.576 rows=864 loops=1)
+                    Filter: ((scorer_version = 'dd_member_scores_v2'::text) AND (place_kind = 'region'::text))
+                    Rows Removed by Filter: 2016
+                    Buffers: shared hit=79
+Planning Time: 0.140 ms
+Execution Time: 3.097 ms
+
+== S04 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT as_of_date, ghcn_frontier, member, lead_day, place_kind, place, weighting, window_start, window_end, min_target_days, n_target_days, n_pairs, n_provisional_days, scored, bias_tavg_f, mae_tavg_f, rmse_tavg_f, mae_hdd, mae_cdd, excluded, scorer_version, scorer_hash, blend_method_version, created_at FROM v_dd_member_scores_current WHERE place_kind = 'region' ORDER BY place, weighting, member, lead_day
+
+Sort  (cost=186.52..187.22 rows=280 width=182) (actual time=2.884..2.922 rows=864 loops=1)
+  Sort Key: dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.member, dd_member_scores.lead_day
+  Sort Method: quicksort  Memory: 184kB
+  Buffers: shared hit=79
+  ->  Unique  (cost=164.34..175.14 rows=280 width=182) (actual time=1.440..1.648 rows=864 loops=1)
+        Buffers: shared hit=79
+        ->  Sort  (cost=164.34..166.50 rows=864 width=182) (actual time=1.440..1.480 rows=864 loops=1)
+              Sort Key: dd_member_scores.member, dd_member_scores.lead_day, dd_member_scores.place, dd_member_scores.weighting, dd_member_scores.as_of_date DESC, dd_member_scores.ghcn_frontier DESC, dd_member_scores.created_at DESC
+              Sort Method: quicksort  Memory: 184kB
+              Buffers: shared hit=79
+              ->  Seq Scan on dd_member_scores  (cost=0.00..122.20 rows=864 width=182) (actual time=0.013..0.576 rows=864 loops=1)
+                    Filter: ((scorer_version = 'dd_member_scores_v2'::text) AND (place_kind = 'region'::text))
+                    Rows Removed by Filter: 2016
+                    Buffers: shared hit=79
+Planning Time: 0.125 ms
+Execution Time: 2.987 ms
+
+== B01 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-10-08' AND target_date < '2026-10-24' AND (NULL::text::text IS NULL OR station_id = NULL::text) ORDER BY station_id, target_date, lead_day
+
+Sort  (cost=2354.95..2355.15 rows=80 width=108) (actual time=5.695..5.702 rows=154 loops=1)
+  Sort Key: dd_blend_forecast.station_id, dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Sort Method: quicksort  Memory: 45kB
+  Buffers: shared read=430 dirtied=1
+  ->  Bitmap Heap Scan on dd_blend_forecast  (cost=41.51..2352.42 rows=80 width=108) (actual time=2.907..5.629 rows=154 loops=1)
+        Recheck Cond: ((target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date))
+        Filter: (drawable AND (method_version = 'el_blend_v2'::text))
+        Rows Removed by Filter: 2366
+        Heap Blocks: exact=425
+        Buffers: shared read=430 dirtied=1
+        ->  Bitmap Index Scan on idx_dbf_target  (cost=0.00..41.48 rows=2520 width=0) (actual time=2.730..2.731 rows=2520 loops=1)
+              Index Cond: ((target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date))
+              Buffers: shared read=5
+Planning:
+  Buffers: shared hit=99 read=3
+Planning Time: 1.485 ms
+Execution Time: 5.763 ms
+
+== B02 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-10-08' AND target_date < '2026-10-24' AND (NULL::text::text IS NULL OR station_id = NULL::text) ORDER BY station_id, target_date, lead_day
+
+Sort  (cost=2354.95..2355.15 rows=80 width=108) (actual time=0.972..0.979 rows=154 loops=1)
+  Sort Key: dd_blend_forecast.station_id, dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Sort Method: quicksort  Memory: 45kB
+  Buffers: shared hit=430
+  ->  Bitmap Heap Scan on dd_blend_forecast  (cost=41.51..2352.42 rows=80 width=108) (actual time=0.192..0.911 rows=154 loops=1)
+        Recheck Cond: ((target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date))
+        Filter: (drawable AND (method_version = 'el_blend_v2'::text))
+        Rows Removed by Filter: 2366
+        Heap Blocks: exact=425
+        Buffers: shared hit=430
+        ->  Bitmap Index Scan on idx_dbf_target  (cost=0.00..41.48 rows=2520 width=0) (actual time=0.092..0.092 rows=2520 loops=1)
+              Index Cond: ((target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date))
+              Buffers: shared hit=5
+Planning Time: 0.131 ms
+Execution Time: 1.028 ms
+
+== B03 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-10-08' AND target_date < '2026-10-24' AND ('USW00024233'::text IS NULL OR station_id = 'USW00024233') ORDER BY station_id, target_date, lead_day
+
+Incremental Sort  (cost=56.47..225.15 rows=4 width=108) (actual time=1.819..1.820 rows=10 loops=1)
+  Sort Key: dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Presorted Key: dd_blend_forecast.target_date
+  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+  Buffers: shared hit=29 read=3
+  ->  Index Scan using dd_blend_forecast_pkey on dd_blend_forecast  (cost=0.29..224.97 rows=4 width=108) (actual time=1.231..1.806 rows=10 loops=1)
+        Index Cond: ((station_id = 'USW00024233'::text) AND (target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date) AND (method_version = 'el_blend_v2'::text))
+        Filter: drawable
+        Rows Removed by Filter: 110
+        Buffers: shared hit=29 read=3
+Planning Time: 0.103 ms
+Execution Time: 1.856 ms
+
+== B04 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-10-08' AND target_date < '2026-10-24' AND ('USW00024233'::text IS NULL OR station_id = 'USW00024233') ORDER BY station_id, target_date, lead_day
+
+Incremental Sort  (cost=56.47..225.15 rows=4 width=108) (actual time=0.085..0.086 rows=10 loops=1)
+  Sort Key: dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Presorted Key: dd_blend_forecast.target_date
+  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+  Buffers: shared hit=32
+  ->  Index Scan using dd_blend_forecast_pkey on dd_blend_forecast  (cost=0.29..224.97 rows=4 width=108) (actual time=0.029..0.076 rows=10 loops=1)
+        Index Cond: ((station_id = 'USW00024233'::text) AND (target_date >= '2026-10-08'::date) AND (target_date < '2026-10-24'::date) AND (method_version = 'el_blend_v2'::text))
+        Filter: drawable
+        Rows Removed by Filter: 110
+        Buffers: shared hit=32
+Planning Time: 0.112 ms
+Execution Time: 0.109 ms
+
+== B05 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-09-08' AND target_date < '2026-10-08' AND (NULL::text::text IS NULL OR station_id = NULL::text) ORDER BY station_id, target_date, lead_day
+
+Sort  (cost=2401.11..2401.84 rows=294 width=108) (actual time=123.404..123.417 rows=264 loops=1)
+  Sort Key: dd_blend_forecast.station_id, dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Sort Method: quicksort  Memory: 60kB
+  Buffers: shared hit=425 read=1734 dirtied=1
+  ->  Seq Scan on dd_blend_forecast  (cost=0.00..2389.05 rows=294 width=108) (actual time=7.854..123.229 rows=264 loops=1)
+        Filter: (drawable AND (target_date >= '2026-09-08'::date) AND (target_date < '2026-10-08'::date) AND (method_version = 'el_blend_v2'::text))
+        Rows Removed by Filter: 12882
+        Buffers: shared hit=425 read=1734 dirtied=1
+Planning Time: 0.084 ms
+Execution Time: 123.449 ms
+
+== B06 ==
+EXPLAIN (ANALYZE, BUFFERS) SELECT station_id, target_date, issue_date, lead_day, method_version, method_hash, tavg_f, hdd, cdd, n_members_used, blend_mae, best_member, best_member_mae, blend_n_target_days, computed_ts FROM v_dd_blend_drawable WHERE target_date >= '2026-09-08' AND target_date < '2026-10-08' AND (NULL::text::text IS NULL OR station_id = NULL::text) ORDER BY station_id, target_date, lead_day
+
+Sort  (cost=2401.11..2401.84 rows=294 width=108) (actual time=4.015..4.027 rows=264 loops=1)
+  Sort Key: dd_blend_forecast.station_id, dd_blend_forecast.target_date, dd_blend_forecast.lead_day
+  Sort Method: quicksort  Memory: 60kB
+  Buffers: shared hit=2159
+  ->  Seq Scan on dd_blend_forecast  (cost=0.00..2389.05 rows=294 width=108) (actual time=0.120..3.915 rows=264 loops=1)
+        Filter: (drawable AND (target_date >= '2026-09-08'::date) AND (target_date < '2026-10-08'::date) AND (method_version = 'el_blend_v2'::text))
+        Rows Removed by Filter: 12882
+        Buffers: shared hit=2159
+Planning Time: 0.109 ms
+Execution Time: 4.061 ms
+

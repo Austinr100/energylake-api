@@ -1,0 +1,37 @@
+# d091666 reds — each break must turn its tests red; the clean tree must be green
+
+S1          RED   an unscored cell is given a MAE of 0
+            -k 'test_S1_nothing_unscored': 1 failed, 43 deselected, 1 warning in 1.44s
+S1          RED   unscored cells dropped from the scoreboard
+            -k 'test_S1_a_scored or test_S1_nothing_unscored': 2 failed, 42 deselected, 1 warning in 1.68s
+D-09-25-75  RED   the scores read loses its statement timeout
+            -k 'test_S1_one_read_per_place_kind': 1 failed, 43 deselected, 1 warning in 1.58s
+D-09-25-75  RED   the scores read stops naming its place_kind
+            -k 'test_S1_place_kind or test_S6_every': 1 failed, 1 passed, 42 deselected, 1 warning in 1.42s
+TTL         RED   the scores memo held an hour past the daily write
+            -k 'test_S1_scores_memo': 1 failed, 43 deselected, 1 warning in 1.20s
+S2          RED   the blend read goes to dd_blend_forecast
+            -k 'test_S2_the_blend_never or test_S6_every': 2 failed, 42 deselected, 1 warning in 1.19s
+S2          RED   what is not served is no longer stated
+            -k 'test_S2_a_row_the_view': 1 failed, 43 deselected, 1 warning in 1.31s
+S2          RED   an empty window is served as a bare empty list
+            -k 'test_S2_no_drawable': 1 failed, 43 deselected, 1 warning in 1.19s
+S3          RED   a member label made outside SOURCE_LABELS
+            -k 'test_S3_every_label': 1 failed, 43 deselected, 1 warning in 1.24s
+S3          RED   best_member printed as stored, not labelled
+            -k 'test_S3_labels_reach': 1 failed, 43 deselected, 1 warning in 1.48s
+S4          RED   the banked p10/p90 served as a band
+            -k 'test_S4': 2 failed, 42 deselected, 1 warning in 1.23s
+S5          RED   the desk serves a level where the change belongs
+            -k 'test_S5_the_desks_change or test_S5_the_change_is_never': 6 failed, 38 deselected, 1 warning in 1.78s
+S5          RED   the score cell keyed by the Pacific date of the issuance
+            -k 'test_S5_the_score_cell': 1 failed, 43 deselected, 1 warning in 1.24s
+S5          RED   not yet scored read off n_target_days, not the view's flag
+            -k 'test_S5_the_score_cell or test_S5_not_yet or test_S5_the_state_is': 1 failed, 2 passed, 41 deselected, 1 warning in 1.37s
+S5          RED   EL_BLEND accepted at the desk (a region blend invented)
+            -k 'test_S5_desk_params': 1 failed, 4 passed, 39 deselected, 1 warning in 1.38s
+S7          RED   the blend added to the region board's sources
+            -k 'test_S7': 1 failed, 43 deselected, 1 warning in 1.20s
+
+clean tree: GREEN  44 passed, 1 warning in 3.80s
+tree restored byte for byte: True (dd_board.py 97618abc, main.py 64941b3d, degree_days.py 11b2b55a, tests/test_dd_board_d091666.py 70a9f5f4)
