@@ -20391,11 +20391,13 @@ async def _asset_build(tech: str, plant_code: int) -> dict:
                 await cur.execute(
                     f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
                 await cur.execute(_ap.COLUMNS_SQL, _ap.columns_params(tech))
-                found = _ap.detect(tech, await cur.fetchall())
+                catalog = await cur.fetchall()
+                found = _ap.detect(tech, catalog)
                 if tech == "solar":
                     await cur.execute(_ap.SOLAR_UNITS_SQL, key)
                 else:
-                    await cur.execute(_ap.wind_site_sql(found["curve"]), key)
+                    await cur.execute(_ap.wind_site_sql(
+                        found["curve"], _ap.detect_equipment_source(catalog)), key)
                 site_rows = await cur.fetchall()
                 if not site_rows:
                     raise HTTPException(
@@ -20520,6 +20522,105 @@ async def generation_assets(
         _solar_400(e)
     return await _solar_serve(_assets_search_cache, qq,
                               lambda: _assets_search_build(qq), response)
+
+
+# ── /asset/runs (d091667, D-09-25-167, D-09-25-171, D-09-25-173) ────────────
+#
+# One plant's newest runs from implied_gen_site_history (pantry migration 287),
+# for the asset page's run-by-run panel. Its own route, not a block on
+# /asset: /asset's body is the dashboard's pinned vector and stays as it was
+# for every key it had; the runs body is 2-2.3x its size (90-113 KB at 8
+# runs against 46-49 KB raw); and a failed runs
+# read must not blank the plant card. The page fetches both at open, in
+# parallel; stepping between runs needs no further round trip (D-09-09-P).
+#
+# The memo is TTL 300 s, stale <= 900 s more (D-09-25-138), keyed (tech,
+# plant_code, n). The writers land one run per tech per 6 h (wind ~3 h after
+# its cycle, solar ~5.5 h; ledger landed_at, 2026-10-08), so 300 s puts a new
+# run on the page within 5 minutes of landing and is the asset route's own
+# TTL, so the card's newest cycle and the panel's newest run disagree for at
+# most one TTL (the history is copied after the latest table commits).
+
+_asset_runs_cache = _DDCache(
+    "generation/asset/runs", SOLAR_MEMO_TTL, max_entries=64,
+    allow_stale=True, build_timeout=SOLAR_BUILD_TIMEOUT,
+    max_stale_s=OUTLOOK_MAX_STALE_S,
+)
+
+
+async def _asset_runs_build(tech: str, plant_code: int, n: int) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{SOLAR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_ap.RUNS_PLANT_SQL[tech],
+                                  {"tech": _ap.TECHS[tech], "plant_code": plant_code})
+                plant = await cur.fetchall()
+                if not plant:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"no {tech} plant with plant_code={plant_code} in the registry")
+                await cur.execute(_ap.runs_sql(tech), _ap.runs_params(tech, plant_code, n))
+                rows = await cur.fetchall()
+    return _ap.build_runs(tech=tech, plant_code=plant_code,
+                          plant_name=plant[0]["plant_name"], n=n, rows=rows)
+
+
+@app.get("/api/generation/asset/runs")
+async def generation_asset_runs(
+    response: Response,
+    plant_code: Optional[str] = Query(None, description="EIA plant code."),
+    tech: Optional[str] = Query(None, description="solar | wind"),
+    n: Optional[str] = Query(None, description=f"Newest cycles, 1-{_ap.RUNS_N_MAX}. "
+                                               f"Default {_ap.RUNS_N_DEFAULT}."),
+):
+    """One plant's newest runs, run by run, from the run history.
+
+        { label, tech, plant_code, plant_name, model, figure: "registry",
+          unit: "MW", step_h: 1, run_step_h: 6, n, drivers: [names],
+          attribution (wind), weather_height_m (wind),
+          ledger: { table, held, keep: 8, full, oldest_init_ts, newest_init_ts },
+          issuances: [ { init_ts, model, method_version, landed_at, n_plants,
+                         weather_sources: [..],
+                         series: [ { weather_source, t0, lead0, n_hours,
+                                     implied_mw: [..], outage_mw_subtracted: [..],
+                                     cap_mw_subtracted: [..],
+                                     + each driver: solar ghi_wm2, clearsky_ghi_wm2,
+                                       clearsky_mw, tcc_pct, precip_mm;
+                                       wind hub_ws_ms, gust_ms } ] } ],
+          absent: [ { init_ts, reason, detail } ],
+          before_oldest: { reason, init_ts, detail } | null,
+          absence, cache }
+
+    `issuances` is oldest first. D-09-25-167: the run before issuances[k] is
+    issuances[k-1] (the next older run of this plant, same tech and model),
+    as on the area vintages route, and nothing here computes a change, sum or
+    gap; the page does. D-09-25-173: each run's hours are one series per
+    weather_source (wind: hrrr_80m to the seam, gfs_100m beyond); compare
+    series with the same weather_source only. Index i of each array is
+    target_ts t0 + i h and lead_h lead0 + i; a missing hour is null.
+
+    The window is the newest n 6-hourly cycles ending at the newest run the
+    ledger holds. A cycle in it that is not served is in `absent` with its
+    reason: not_in_ledger, plant_not_in_run, before_history, evicted; the
+    next cycle is listed as not_yet_landed. `before_oldest` says why the
+    oldest issuance has no run before it.
+
+    A plant not in the registry -> 404; nothing held -> 200 with `absence`;
+    bad params -> 400 (n above 8 refused, never trimmed); DB unavailable ->
+    503. Memoised 300 s per (tech, plant_code, n), single-flight, served stale
+    at most 900 s more (D-09-25-138); every read under a 5 s statement timeout.
+    """
+    try:
+        t = _ap.parse_tech(tech)
+        code = _ap.parse_plant_code(plant_code)
+        n_ = _ap.parse_runs_n(n)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_asset_runs_cache, (t, code, n_),
+                              lambda: _asset_runs_build(t, code, n_), response)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

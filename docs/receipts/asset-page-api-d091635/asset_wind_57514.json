@@ -38,7 +38,106 @@
   "export_cap_basis": null,
   "hrrr_dist_km": 0.476,
   "op_year_mw_wtd": 2012,
-  "outage_resource_ids": []
+  "outage_resource_ids": [],
+  "equipment": {
+   "source_table": "implied_gen_wind_sites",
+   "turbine_model": {
+    "value": "Siemens SWT-2.3-108",
+    "unit": null,
+    "basis": {
+     "token": "eia860_sch3",
+     "status": "known",
+     "label": "EIA-860 Schedule 3: the predominant model of the plant's largest generator"
+    },
+    "absence": null
+   },
+   "n_turbines": {
+    "value": 112,
+    "unit": null,
+    "basis": {
+     "token": "eia860_sch3",
+     "status": "known",
+     "label": "EIA-860 Schedule 3: summed over the plant's generators"
+    },
+    "absence": null
+   },
+   "rotor_m": {
+    "value": 108.0,
+    "unit": "m",
+    "basis": {
+     "token": "uswtdb",
+     "status": "known",
+     "label": "USWTDB: the capacity-weighted mean rotor of the turbines listed at the plant's EIA id (a blend where they differ)"
+    },
+    "absence": null
+   },
+   "hub_height_m": {
+    "value": 80.0,
+    "unit": "m",
+    "basis": {
+     "token": "eia860_sch3",
+     "status": "known",
+     "label": "EIA-860 Schedule 3: MW-weighted over the plant's generators"
+    },
+    "absence": null
+   },
+   "curve": {
+    "turbine_type": "V90/2000",
+    "hub_height_m": 80.0,
+    "basis": {
+     "token": "vintage_band",
+     "status": "known",
+     "label": "the named power curve of the plant's vintage band, at the band's hub height: the curve the figure is converted with"
+    },
+    "cut_in_ms": null,
+    "rated_ms": null,
+    "cut_out_ms": null,
+    "speed_band_of": "the converting curve (curve.turbine_type at curve.hub_height_m, nominal density), not the stated turbine",
+    "cut_out_note": "cut_out_ms is where this curve's table ends, not the maker's cut-out",
+    "absence": {
+     "missing": [
+      "cut_in_ms",
+      "rated_ms",
+      "cut_out_ms"
+     ],
+     "reason": "column_absent",
+     "detail": "the curve's speed band arrives with d091634 (pantry migration 280)"
+    }
+   },
+   "equipment_source": null,
+   "equipment_source_absence": {
+    "reason": "column_absent",
+    "detail": "equipment_source arrives with d091647 (pantry migration 284)"
+   },
+   "fleet": {
+    "parts": [
+     {
+      "turbine_model": "Siemens SWT-2.3-108",
+      "n_turbines": 112,
+      "rotor_m": 108.0,
+      "hub_height_m": 80.0
+     }
+    ],
+    "stated_as": "one_machine",
+    "detail": "implied_gen_wind_sites holds one machine per plant: one model, one count, one rotor, one hub height. The bank states no plant's fleet as parts (pantry d091647 §4 proposes a per-machine table; not built). Where rotor_basis is 'uswtdb' the rotor is USWTDB's capacity-weighted mean, a blend at a plant whose turbines differ."
+   },
+   "animate": {
+    "can": false,
+    "needs": [
+     "rotor_m",
+     "cut_in_ms",
+     "rated_ms",
+     "cut_out_ms"
+    ],
+    "missing": [
+     "cut_in_ms",
+     "rated_ms",
+     "cut_out_ms"
+    ],
+    "why_not": "no speed band (column_absent: cut_in_ms, rated_ms, cut_out_ms)",
+    "speed_band_of": "the converting curve (curve.turbine_type at curve.hub_height_m, nominal density), not the stated turbine"
+   }
+  }
  },
  "run": {
   "model": "hrrr_gfs",
