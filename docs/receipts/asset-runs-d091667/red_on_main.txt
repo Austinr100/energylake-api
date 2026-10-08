@@ -1,0 +1,51 @@
+# d091667 red on main, run 1: main at cdd1cf1 plus tests/test_asset_runs_d091667.py, its fixture and the bank scripts only
+ERROR tests/test_asset_runs_d091667.py - AttributeError: module 'asset_page' ...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 warning, 1 error in 0.65s
+
+# run 2: as run 1, plus this branch's asset_page.py alone (main.py, vintages.py and the receipts as on main)
+FAILED tests/test_asset_runs_d091667.py::test_H1_sunzia_serves_every_held_run_oldest_first
+FAILED tests/test_asset_runs_d091667.py::test_H1_every_served_value_is_the_banked_row
+FAILED tests/test_asset_runs_d091667.py::test_H1_the_run_before_move_is_the_hand_difference[wind-2-hrrr_80m-2026-10-09-24-1129.2529]
+FAILED tests/test_asset_runs_d091667.py::test_H1_the_run_before_move_is_the_hand_difference[wind-1-hrrr_80m-2026-10-08-18--854.9087]
+FAILED tests/test_asset_runs_d091667.py::test_H1_the_run_before_move_is_the_hand_difference[wind-2-gfs_100m-2026-10-13-24--8137.3389]
+FAILED tests/test_asset_runs_d091667.py::test_H1_the_run_before_move_is_the_hand_difference[solar-2-None-2026-10-11-24-672.4618]
+FAILED tests/test_asset_runs_d091667.py::test_H1_the_run_before_move_is_the_hand_difference[solar-1-None-2026-10-10-24--331.953]
+FAILED tests/test_asset_runs_d091667.py::test_H1_no_change_sum_or_gap_is_computed_here
+FAILED tests/test_asset_runs_d091667.py::test_H1_eight_runs_the_default_and_the_cap
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_reaches_the_read_and_the_window
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[9]
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[100]
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[0]
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[-1]
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[abc]
+FAILED tests/test_asset_runs_d091667.py::test_H1_n_out_of_range_is_refused_not_trimmed[2.5]
+FAILED tests/test_asset_runs_d091667.py::test_H2_today_five_cycles_before_the_history_and_18z_not_yet_landed
+FAILED tests/test_asset_runs_d091667.py::test_H2_evicted_past_eight_is_named_once_the_ledger_is_full
+FAILED tests/test_asset_runs_d091667.py::test_H2_a_skipped_cycle_is_not_in_ledger_and_the_run_before_steps_over_it
+FAILED tests/test_asset_runs_d091667.py::test_H2_a_run_without_the_plant_is_plant_not_in_run_never_a_hole
+FAILED tests/test_asset_runs_d091667.py::test_H2_nothing_held_and_plant_in_no_run
+FAILED tests/test_asset_runs_d091667.py::test_H2_a_hole_inside_a_series_is_null_never_zero
+FAILED tests/test_asset_runs_d091667.py::test_H3_a_wind_run_is_two_series_split_at_the_seam
+FAILED tests/test_asset_runs_d091667.py::test_H3_hours_across_the_seam_never_pair
+FAILED tests/test_asset_runs_d091667.py::test_H3_solar_is_one_series_with_the_banks_null_source
+FAILED tests/test_asset_runs_d091667.py::test_H3_every_read_names_one_model_and_one_plant
+FAILED tests/test_asset_runs_d091667.py::test_H3_a_second_weather_source_in_one_run_is_its_own_series_wherever_it_sits
+FAILED tests/test_asset_runs_d091667.py::test_H4_the_asset_route_reads_the_catalog_and_serves_the_block
+FAILED tests/test_asset_runs_d091667.py::test_H7_the_sweep_covers_every_generation_asset_and_wind_route
+FAILED tests/test_asset_runs_d091667.py::test_H7_every_wind_payload_carries_the_notice[/api/generation/wind/vintages-_wind_vintages]
+FAILED tests/test_asset_runs_d091667.py::test_H7_every_wind_payload_carries_the_notice[/api/generation/asset/runs-_asset_runs_wind]
+FAILED tests/test_asset_runs_d091667.py::test_H7_every_wind_payload_carries_the_notice[/api/generation/asset/runs-_asset_runs_wind_empty]
+FAILED tests/test_asset_runs_d091667.py::test_H7_the_notice_is_one_text_everywhere
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/asset-page-api-d091635/asset_wind_57514.json-key0]
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/vintages-d091644/body_wind_ciso_n28.json-key1]
+FAILED tests/test_asset_runs_d091667.py::test_C_timeout_first_then_memoised_per_n
+FAILED tests/test_asset_runs_d091667.py::test_C_the_memo_is_bounded_like_the_asset_route
+FAILED tests/test_asset_runs_d091667.py::test_C_not_in_the_registry_is_404_before_the_history_is_read
+FAILED tests/test_asset_runs_d091667.py::test_C_bad_params_are_400[plant_code=66923]
+FAILED tests/test_asset_runs_d091667.py::test_C_bad_params_are_400[tech=wind]
+FAILED tests/test_asset_runs_d091667.py::test_C_bad_params_are_400[plant_code=66923&tech=hydro]
+FAILED tests/test_asset_runs_d091667.py::test_C_bad_params_are_400[plant_code=abc&tech=wind]
+FAILED tests/test_asset_runs_d091667.py::test_C_bad_params_are_400[plant_code=0&tech=wind]
+FAILED tests/test_asset_runs_d091667.py::test_C_db_down_is_503 - assert 404 =...
+44 failed, 46 passed, 1 warning in 3.20s

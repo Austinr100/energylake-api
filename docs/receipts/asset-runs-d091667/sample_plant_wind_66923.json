@@ -1,0 +1,130 @@
+{
+ "attribution": "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/",
+ "plant": {
+  "plant_code": 66923,
+  "plant_name": "SunZia Wind South",
+  "tech": "wind",
+  "latitude": 34.351782,
+  "longitude": -105.5925,
+  "county": "Lincoln",
+  "state": "NM",
+  "ba_code": "CISO",
+  "hub": "SP15",
+  "hub_method": "fnm_name",
+  "mw": 2561.2,
+  "mw_kind": "nameplate",
+  "turbine_model": "GE Vernova 3.6-154",
+  "turbine_model_basis": "public_record",
+  "n_turbines": 674,
+  "n_turbines_basis": "public_record",
+  "rotor_m": 154.0,
+  "rotor_basis": "public_record",
+  "hub_height_m": null,
+  "hub_height_basis": "none",
+  "curve": {
+   "turbine_type": "GE120/2750",
+   "hub_height_m": 95.0,
+   "basis": "vintage_band",
+   "cut_in_ms": 3.0,
+   "rated_ms": 12.0,
+   "cut_out_ms": 25.0
+  },
+  "counts_in_hub_actual": "yes",
+  "counts_in_hub_actual_basis": "hub ladder rung fnm_name: a CAISO market resource whose pnode is a member of TH_SP15_GEN-APND (OASIS ATL_PNODE); SunZia also carries d091585 §2's numeric test (SP15's actual follows its wind)",
+  "export_cap_group": "sunzia",
+  "export_cap_mw": 2131.0,
+  "export_cap_basis": "SunZia HVDC delivers 2,131 MW of its 3,021 MW line to California via Palo Verde (EIA Today in Energy 67766); lower all-hours error than the 3,021 MW line cap on September 2026 (d091589 Step 1)",
+  "hrrr_dist_km": 0.726,
+  "op_year_mw_wtd": 2026,
+  "outage_resource_ids": [
+   "SZWDS_3_SZWX14"
+  ],
+  "equipment": {
+   "source_table": "implied_gen_wind_sites",
+   "turbine_model": {
+    "value": "GE Vernova 3.6-154",
+    "unit": null,
+    "basis": {
+     "token": "public_record",
+     "status": "known",
+     "label": "a named public document (equipment_source quotes it)"
+    },
+    "absence": null
+   },
+   "n_turbines": {
+    "value": 674,
+    "unit": null,
+    "basis": {
+     "token": "public_record",
+     "status": "known",
+     "label": "a named public document (equipment_source quotes it)"
+    },
+    "absence": null
+   },
+   "rotor_m": {
+    "value": 154.0,
+    "unit": "m",
+    "basis": {
+     "token": "public_record",
+     "status": "known",
+     "label": "a named public document (equipment_source quotes it)"
+    },
+    "absence": null
+   },
+   "hub_height_m": {
+    "value": null,
+    "unit": "m",
+    "basis": {
+     "token": "none",
+     "status": "known",
+     "label": "no source the writer reads states it"
+    },
+    "absence": {
+     "reason": "not_stated",
+     "detail": "no source the writer reads states it"
+    }
+   },
+   "curve": {
+    "turbine_type": "GE120/2750",
+    "hub_height_m": 95.0,
+    "basis": {
+     "token": "vintage_band",
+     "status": "known",
+     "label": "the named power curve of the plant's vintage band, at the band's hub height: the curve the figure is converted with"
+    },
+    "cut_in_ms": 3.0,
+    "rated_ms": 12.0,
+    "cut_out_ms": 25.0,
+    "speed_band_of": "the converting curve (curve.turbine_type at curve.hub_height_m, nominal density), not the stated turbine",
+    "cut_out_note": null,
+    "absence": null
+   },
+   "equipment_source": "turbine_model: GE Vernova press release 'GE Vernova announces 2.4 GW order for Pattern Energy's SunZia Wind project', 2024-01-10, https://www.gevernova.com/news/press-releases/ge-vernova-announces-24-gw-order-pattern-energys-sunzia-wind-project: '674 3.6-154 wind turbines'; assigned to the southern part by count, EIA Today in Energy 67766, 'Largest wind farm in the United States slated to begin commercial operations', 2026-06-12, https://www.eia.gov/todayinenergy/detail.php?id=67766: 'the southern part ... has 674 turbines' || n_turbines: EIA Today in Energy 67766, 'Largest wind farm in the United States slated to begin commercial operations', 2026-06-12, https://www.eia.gov/todayinenergy/detail.php?id=67766: 'the southern part in Lincoln and Torrance counties has 674 turbines' || rotor_m: GE Vernova press release 'GE Vernova announces 2.4 GW order for Pattern Energy's SunZia Wind project', 2024-01-10, https://www.gevernova.com/news/press-releases/ge-vernova-announces-24-gw-order-pattern-energys-sunzia-wind-project: the 3.6-154's 154 m rotor (GE <MW>-<rotor m> designation)",
+   "equipment_source_absence": null,
+   "fleet": {
+    "parts": [
+     {
+      "turbine_model": "GE Vernova 3.6-154",
+      "n_turbines": 674,
+      "rotor_m": 154.0,
+      "hub_height_m": null
+     }
+    ],
+    "stated_as": "one_machine",
+    "detail": "implied_gen_wind_sites holds one machine per plant: one model, one count, one rotor, one hub height. The bank states no plant's fleet as parts (pantry d091647 §4 proposes a per-machine table; not built). Where rotor_basis is 'uswtdb' the rotor is USWTDB's capacity-weighted mean, a blend at a plant whose turbines differ."
+   },
+   "animate": {
+    "can": true,
+    "needs": [
+     "rotor_m",
+     "cut_in_ms",
+     "rated_ms",
+     "cut_out_ms"
+    ],
+    "missing": [],
+    "why_not": null,
+    "speed_band_of": "the converting curve (curve.turbine_type at curve.hub_height_m, nominal density), not the stated turbine"
+   }
+  }
+ }
+}

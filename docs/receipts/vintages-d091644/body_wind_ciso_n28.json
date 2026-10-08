@@ -7503,6 +7503,7 @@
   }
  ],
  "absence": null,
+ "attribution": "Contains information from the Wind Turbine Library (OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner Lemoine Institut), which is made available under the Open Database License (ODbL-1.0): https://opendatacommons.org/licenses/odbl/1-0/",
  "cache": {
   "state": "miss",
   "built_at": "2026-10-07T16:44:59.515510+00:00",

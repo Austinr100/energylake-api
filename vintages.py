@@ -35,6 +35,7 @@ from typing import Iterable, Optional
 
 import degree_days as _dd
 import solar_outlook as so
+import wind_outlook as wo
 
 # ── Rounding ────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,10 @@ def build_vintages(*, tech: str, area_kind: str, area: str, model: str,
         "issuances": [_issuance(by_init[i], lines) for i in sorted(by_init)],
         "absence": None,
     }
+    if tech == wo.TECH:
+        # ODbL-1.0 §4.3 (D-09-25-109): a wind figure is derived from the turbine
+        # library's curves, so its notice rides in the payload (d091667 rule 5).
+        body["attribution"] = wo.ATTRIBUTION
     if not body["issuances"]:
         body["absence"] = {"reason": "no_issuance",
                            "detail": f"no {model} issuance is banked for "
