@@ -1,0 +1,1 @@
+{"as_of_date": "2026-10-06", "ghcn_frontier": "2026-10-03", "window_start": "2026-09-09", "window_end": "2026-10-06", "min_target_days": 14, "scorer_version": "dd_member_scores_v2", "scorer_hash": "7a77ebf160c8", "blend_method_version": "el_blend_v2", "created_at": "2026-10-08T18:53:52.237446+00:00"}

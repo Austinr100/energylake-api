@@ -1,0 +1,623 @@
+{
+ "source_product": "GFS",
+ "label": "GFS",
+ "weighting": "population",
+ "from": "2026-10-08",
+ "days": 16,
+ "tz": "America/Los_Angeles",
+ "period_rule": "Day 1 is the Pacific calendar day after the Pacific date of the newest issuance served for the region (any source). d01_05 is days 1-5, d06_10 days 6-10, d11_15 days 11-15. A source's period sum is printed only when all five days are served, come from that source's newest issuance, and are basis_complete with a value; otherwise hdd/cdd are null and days_present says how many qualified. The normal sum is over the same days, and is null if any of them has no normal. Days outside the requested window are not served and so do not qualify.",
+ "lead_rule": "lead_day = target_date minus the issuance's UTC date, 0..15 (dd_member_scores, migration 282). A cell with fewer than min_target_days scored target days is not yet scored: scored is false and every metric is null.",
+ "sources": {
+  "tables": [
+   "v_degree_days_region_forecast",
+   "v_degree_days_model_delta",
+   "v_degree_days_model_spread",
+   "v_dd_member_scores_current"
+  ],
+  "scorer_versions": [
+   "dd_member_scores_v2"
+  ],
+  "scorer_hashes": [
+   "7a77ebf160c8"
+  ],
+  "blend_method_versions": [
+   "el_blend_v2"
+  ]
+ },
+ "vintages": [
+  {
+   "vintage": 0,
+   "as_of_date": "2026-10-06",
+   "ghcn_frontier": "2026-10-03",
+   "window_start": "2026-09-09",
+   "window_end": "2026-10-06",
+   "min_target_days": 14,
+   "scorer_version": "dd_member_scores_v2",
+   "scorer_hash": "7a77ebf160c8",
+   "blend_method_version": "el_blend_v2",
+   "created_at": "2026-10-08T18:53:52.237446+00:00"
+  }
+ ],
+ "region_count": 1,
+ "regions": [
+  {
+   "region": "pnw",
+   "weighting": "population",
+   "newest_issued_ts": "2026-10-08T06:00:00+00:00",
+   "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+   "period_anchor_issued_ts": "2026-10-08T13:00:00+00:00",
+   "days": [
+    {
+     "target_date": "2026-10-08",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 0,
+     "hdd": 2.047065535900533,
+     "cdd": 1.116240852702006,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 8.611732502177423,
+      "cdd": 0.1518632808288624
+     },
+     "change": {
+      "hdd": 0.0,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.5806896682408047,
+      "mae_tavg_f": 1.2297492618911203,
+      "rmse_tavg_f": 1.5208383654119575,
+      "mae_hdd": 1.0041001578404807,
+      "mae_cdd": 0.23839640578484264,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-09",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 1,
+     "hdd": 8.077377207253148,
+     "cdd": 0.744160568468004,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 8.8250499747431,
+      "cdd": 0.1943786499854031
+     },
+     "change": {
+      "hdd": -0.13317472565677,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.4154670865132312,
+      "mae_tavg_f": 1.2778516458690217,
+      "rmse_tavg_f": 1.6106914715996887,
+      "mae_hdd": 1.0330751603454045,
+      "mae_cdd": 0.2748127623572348,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-10",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 2,
+     "hdd": 13.550994831117952,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 8.963172799591044,
+      "cdd": 0.1200987986922135
+     },
+     "change": {
+      "hdd": 0.193618059955155,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.3346278583170158,
+      "mae_tavg_f": 1.4088437393086488,
+      "rmse_tavg_f": 1.7518509387588914,
+      "mae_hdd": 1.1954395764801247,
+      "mae_cdd": 0.2790814985379727,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-11",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 3,
+     "hdd": 13.535838995441644,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 9.169531142302338,
+      "cdd": 0.1076961225510801
+     },
+     "change": {
+      "hdd": -0.169314260033411,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": -0.0528216170680211,
+      "mae_tavg_f": 1.4634520462414973,
+      "rmse_tavg_f": 1.8885219272448173,
+      "mae_hdd": 1.193876599235907,
+      "mae_cdd": 0.34564298148052347,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-12",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 4,
+     "hdd": 12.491913552355674,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 9.288892948297855,
+      "cdd": 0.1076961225510801
+     },
+     "change": {
+      "hdd": 0.38723611991031,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.29990786726032653,
+      "mae_tavg_f": 1.4608733505358287,
+      "rmse_tavg_f": 1.8214559312465353,
+      "mae_hdd": 1.181423623879685,
+      "mae_cdd": 0.431055776475314,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-13",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 5,
+     "hdd": 12.030583985550871,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 9.544725790020072,
+      "cdd": 0.1076961225510801
+     },
+     "change": {
+      "hdd": -2.491604897294664,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.7064898551020588,
+      "mae_tavg_f": 1.6976099479823799,
+      "rmse_tavg_f": 2.097849635062676,
+      "mae_hdd": 1.292311986652866,
+      "mae_cdd": 0.49519535722981595,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-14",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 6,
+     "hdd": 14.29829549240052,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 9.900558631742289,
+      "cdd": 0.0759316404144312
+     },
+     "change": {
+      "hdd": -0.936416572887051,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 6
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.2644211099572425,
+      "mae_tavg_f": 2.4774452944553005,
+      "rmse_tavg_f": 3.2753461532063612,
+      "mae_hdd": 1.9800239122876933,
+      "mae_cdd": 0.6682598299005355,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-15",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 7,
+     "hdd": 13.336213064055617,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 10.313876104307967,
+      "cdd": 0.0565698344189157
+     },
+     "change": null,
+     "change_absence": {
+      "reason": "incomplete_basis",
+      "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "basis_complete": true,
+      "prior_basis_complete": false
+     },
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.6047163863892059,
+      "mae_tavg_f": 2.75939007226467,
+      "rmse_tavg_f": 3.7130486412816497,
+      "mae_hdd": 2.148319806168221,
+      "mae_cdd": 0.7369379690891549,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-16",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 8,
+     "hdd": 10.901911408244773,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 10.746869392150616,
+      "cdd": 0.0441671582777823
+     },
+     "change": {
+      "hdd": -1.130034632842206,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 1.3253407258723942,
+      "mae_tavg_f": 4.704808138415077,
+      "rmse_tavg_f": 5.547871376308951,
+      "mae_hdd": 3.3214017311056496,
+      "mae_cdd": 1.5422133644734153,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-17",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 9,
+     "hdd": 9.907919279675646,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 11.111627162129913,
+      "cdd": 0.0317644821366489
+     },
+     "change": {
+      "hdd": -0.202766024200591,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 0.7497348155329168,
+      "mae_tavg_f": 4.625520344912862,
+      "rmse_tavg_f": 5.765175464971571,
+      "mae_hdd": 3.200805131814366,
+      "mae_cdd": 1.5384761826311792,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-18",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 10,
+     "hdd": 8.789900389695184,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 11.395746738104727,
+      "cdd": 0.0317644821366489
+     },
+     "change": {
+      "hdd": -1.72628062171948,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 1.3214066111643639,
+      "mae_tavg_f": 4.260018258687758,
+      "rmse_tavg_f": 5.488588205368837,
+      "mae_hdd": 3.066244296431379,
+      "mae_cdd": 1.315219328355097,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-19",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 11,
+     "hdd": 7.209046209829719,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 11.702105080816022,
+      "cdd": 0.0317644821366489
+     },
+     "change": {
+      "hdd": -3.792731827448737,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 28,
+      "n_pairs": 28,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 2.1841788323473152,
+      "mae_tavg_f": 3.9031620184684277,
+      "rmse_tavg_f": 5.039701307477744,
+      "mae_hdd": 2.3326515989373933,
+      "mae_cdd": 1.5843376851804911,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-20",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 12,
+     "hdd": 9.373858321512458,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 11.980180323360996,
+      "cdd": 0.0317644821366489
+     },
+     "change": {
+      "hdd": -1.478227098896812,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 27,
+      "n_pairs": 27,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 1.9466526005095177,
+      "mae_tavg_f": 4.568094723490676,
+      "rmse_tavg_f": 6.180883740434183,
+      "mae_hdd": 2.776352982658364,
+      "mae_cdd": 1.8931245465523987,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-21",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 13,
+     "hdd": 10.065361464391405,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 12.263385102911267,
+      "cdd": 0.0124026761411334
+     },
+     "change": {
+      "hdd": -2.568838437003721,
+      "cdd": 0.0,
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "spacing_comparable": true,
+      "prior_sample_spacing_hours": 3
+     },
+     "change_absence": null,
+     "score": {
+      "state": "scored",
+      "n_target_days": 26,
+      "n_pairs": 26,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 1.6481626851834865,
+      "mae_tavg_f": 4.29991964010246,
+      "rmse_tavg_f": 5.7581252857507605,
+      "mae_hdd": 2.530127907723281,
+      "mae_cdd": 1.8703001783218187,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-22",
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "lead_day": 14,
+     "hdd": 12.998910258662148,
+     "cdd": 0.0,
+     "basis_complete": true,
+     "normal": {
+      "hdd": 12.569743445622562,
+      "cdd": 0.0
+     },
+     "change": null,
+     "change_absence": {
+      "reason": "incomplete_basis",
+      "message": "this issuance or the prior one is not basis_complete, so the view carries no value to difference",
+      "prior_issued_ts": "2026-10-08T00:00:00+00:00",
+      "basis_complete": true,
+      "prior_basis_complete": false
+     },
+     "score": {
+      "state": "scored",
+      "n_target_days": 25,
+      "n_pairs": 25,
+      "n_provisional_days": 3,
+      "bias_tavg_f": 2.151227887493537,
+      "mae_tavg_f": 3.8196766099305046,
+      "rmse_tavg_f": 5.238260205333848,
+      "mae_hdd": 2.2306410843144353,
+      "mae_cdd": 1.6771223269781244,
+      "vintage": 0
+     },
+     "absence": null
+    },
+    {
+     "target_date": "2026-10-23",
+     "issued_ts": null,
+     "lead_day": null,
+     "hdd": null,
+     "cdd": null,
+     "basis_complete": null,
+     "normal": null,
+     "change": null,
+     "change_absence": null,
+     "score": null,
+     "absence": {
+      "reason": "no_issuance",
+      "detail": "no GFS issuance holds this target date in the window"
+     }
+    }
+   ],
+   "periods": [
+    {
+     "window": "d01_05",
+     "from": "2026-10-09",
+     "to": "2026-10-13",
+     "hdd": 59.686709,
+     "cdd": 0.744161,
+     "hdd_normal": 45.791373,
+     "cdd_normal": 0.637566,
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "days_present": 5,
+     "days_required": 5,
+     "complete": true
+    },
+    {
+     "window": "d06_10",
+     "from": "2026-10-14",
+     "to": "2026-10-18",
+     "hdd": 57.23424,
+     "cdd": 0.0,
+     "hdd_normal": 53.468678,
+     "cdd_normal": 0.240198,
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "days_present": 5,
+     "days_required": 5,
+     "complete": true
+    },
+    {
+     "window": "d11_15",
+     "from": "2026-10-19",
+     "to": "2026-10-23",
+     "hdd": null,
+     "cdd": null,
+     "hdd_normal": null,
+     "cdd_normal": null,
+     "issued_ts": "2026-10-08T06:00:00+00:00",
+     "days_present": 4,
+     "days_required": 5,
+     "complete": false
+    }
+   ]
+  }
+ ],
+ "inputs": {
+  "board": {
+   "built_at": "2026-10-08T20:43:42.597925+00:00",
+   "state": "fresh"
+  },
+  "scores": {
+   "built_at": "2026-10-08T20:43:42.614310+00:00",
+   "state": "miss"
+  }
+ },
+ "cache": {
+  "state": "miss",
+  "built_at": "2026-10-08T20:43:42.614884+00:00",
+  "age_seconds": 0.0,
+  "ttl_seconds": 300.0,
+  "build_seconds": 0.017,
+  "refreshing": false
+ }
+}
