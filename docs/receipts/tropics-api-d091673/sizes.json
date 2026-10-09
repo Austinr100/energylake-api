@@ -1,0 +1,158 @@
+{
+ "what": "bytes of the full response body (compact JSON, with its cache block) and of gzip -6 of it, served from the bank at 2026-10-09T22:00:00+00:00",
+ "stop_z_gzip_bytes": 500000,
+ "al092026": {
+  "n1": {
+   "raw": 14930,
+   "gzip6": 2968,
+   "local_build_ms": 8.4
+  },
+  "n2": {
+   "raw": 72788,
+   "gzip6": 8509,
+   "local_build_ms": 19.1
+  },
+  "n3": {
+   "raw": 120418,
+   "gzip6": 13050,
+   "local_build_ms": 27.1
+  },
+  "n4": {
+   "raw": 174227,
+   "gzip6": 18139,
+   "local_build_ms": 41.4
+  },
+  "n5": {
+   "raw": 223336,
+   "gzip6": 22813,
+   "local_build_ms": 47.7
+  },
+  "n6": {
+   "raw": 280405,
+   "gzip6": 28145,
+   "local_build_ms": 74.4
+  },
+  "n7": {
+   "raw": 328939,
+   "gzip6": 32661,
+   "local_build_ms": 70.0
+  },
+  "n8": {
+   "raw": 388169,
+   "gzip6": 38132,
+   "local_build_ms": 91.4
+  },
+  "storm": {
+   "raw": 47669,
+   "gzip6": 4340
+  },
+  "odds": {
+   "raw": 35240,
+   "gzip6": 2826
+  }
+ },
+ "ep182026": {
+  "n1": {
+   "raw": 14210,
+   "gzip6": 2944,
+   "local_build_ms": 6.0
+  },
+  "n2": {
+   "raw": 56122,
+   "gzip6": 6658,
+   "local_build_ms": 13.4
+  },
+  "n3": {
+   "raw": 94563,
+   "gzip6": 10047,
+   "local_build_ms": 21.4
+  },
+  "n4": {
+   "raw": 139623,
+   "gzip6": 14056,
+   "local_build_ms": 32.8
+  },
+  "n5": {
+   "raw": 180446,
+   "gzip6": 17674,
+   "local_build_ms": 44.1
+  },
+  "n6": {
+   "raw": 232889,
+   "gzip6": 22287,
+   "local_build_ms": 54.7
+  },
+  "n7": {
+   "raw": 278742,
+   "gzip6": 26431,
+   "local_build_ms": 65.3
+  },
+  "n8": {
+   "raw": 335246,
+   "gzip6": 31282,
+   "local_build_ms": 75.0
+  },
+  "storm": {
+   "raw": 135649,
+   "gzip6": 6245
+  },
+  "odds": {
+   "raw": 22425,
+   "gzip6": 2477
+  }
+ },
+ "ep202026": {
+  "n1": {
+   "raw": 16208,
+   "gzip6": 3131,
+   "local_build_ms": 6.3
+  },
+  "n2": {
+   "raw": 69461,
+   "gzip6": 7947,
+   "local_build_ms": 19.1
+  },
+  "n3": {
+   "raw": 117665,
+   "gzip6": 12349,
+   "local_build_ms": 37.5
+  },
+  "n4": {
+   "raw": 174947,
+   "gzip6": 17759,
+   "local_build_ms": 39.6
+  },
+  "n5": {
+   "raw": 219444,
+   "gzip6": 21916,
+   "local_build_ms": 55.4
+  },
+  "n6": {
+   "raw": 274646,
+   "gzip6": 26946,
+   "local_build_ms": 65.0
+  },
+  "n7": {
+   "raw": 330121,
+   "gzip6": 32268,
+   "local_build_ms": 97.4
+  },
+  "n8": {
+   "raw": 394493,
+   "gzip6": 38223,
+   "local_build_ms": 87.0
+  },
+  "storm": {
+   "raw": 47470,
+   "gzip6": 4462
+  },
+  "odds": {
+   "raw": 24053,
+   "gzip6": 2593
+  }
+ },
+ "storms": {
+  "raw": 8808,
+  "gzip6": 2321
+ }
+}
