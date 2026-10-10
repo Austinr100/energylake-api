@@ -36,6 +36,9 @@ from test_solar_outlook import FakePool
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BANK = ROOT / "tests" / "fixtures" / "cpc_outlooks_d091679"
 RECEIPTS = ROOT / "docs" / "receipts" / "cpc-outlooks-d091679"
+# d091691 pinned the curve reads to one method version: their SQL pin and plans
+# are re-taken there. The bodies here (the dashboard lane's vectors) are not.
+PIN_RECEIPTS = ROOT / "docs" / "receipts" / "cpc-api-method-pin-d091691"
 
 KSAN = ("station", "USW00023188", "")
 KDEN = ("station", "USW00003017", "")
@@ -757,7 +760,7 @@ def flat(s):
 
 
 def test_T8_every_read_is_pinned():
-    want = json.loads((RECEIPTS / "pinned_sql.json").read_text())
+    want = json.loads((PIN_RECEIPTS / "pinned_sql.json").read_text())
     got = {n: flat(getattr(co, n)) for n in dir(co) if n.endswith("_SQL")}
     assert set(got) == set(PINNED) and got == want
 
@@ -767,21 +770,25 @@ def test_T8_the_plan_receipts_ran_the_pinned_sql():
     The pinned SQL with those literals substituted must be the statement that
     EXPLAIN (ANALYZE, BUFFERS) ran, and every read must have a plan with its
     execution time."""
-    text = (RECEIPTS / "explains.sql").read_text()
-    blocks = re.findall(r"^-- (\w+) (\w+_SQL) (\{.*?\})\n(.*?);\s*$", text, re.M | re.S)
-    assert blocks and {name for _t, name, _p, _s in blocks} == set(PINNED)
-
     def lit(v):
         if isinstance(v, list):
             return "ARRAY[" + ",".join(f"'{x}'" for x in v) + "]"
         return str(v) if isinstance(v, int) else f"'{v}'"
-    plans = (RECEIPTS / "plans_raw.txt").read_text()
-    for tag, name, params, stmt in blocks:
-        p = json.loads(params)
-        want = re.sub(r"%\((\w+)\)s", lambda m: lit(p[m.group(1)]), flat(getattr(co, name)))
-        assert flat(stmt) == "EXPLAIN (ANALYZE, BUFFERS) " + want, tag
-        seg = plans.split(f"== {tag} ")[1].split("\n== ")[0]
-        assert "Execution Time" in seg, tag
+    covered = set()
+    # d091691: the reads it pinned are planned there (tags Axx); the rest here
+    for where, keep in ((RECEIPTS, lambda t: True), (PIN_RECEIPTS, lambda t: t[0] == "A")):
+        text = (where / "explains.sql").read_text()
+        blocks = re.findall(r"^-- (\w+) (\w+_SQL) (\{.*?\})\n(.*?);\s*$", text, re.M | re.S)
+        plans = (where / "plans_raw.txt").read_text()
+        for tag, name, params, stmt in blocks:
+            p = json.loads(params)
+            want = re.sub(r"%\((\w+)\)s", lambda m: lit(p[m.group(1)]), flat(getattr(co, name)))
+            if not keep(tag) or flat(stmt) != "EXPLAIN (ANALYZE, BUFFERS) " + want:
+                continue
+            seg = plans.split(f"== {tag} ")[1].split("\n== ")[0]
+            assert "Execution Time" in seg, tag
+            covered.add(name)
+    assert covered == set(PINNED)
 
 
 def test_T8_body_bytes_are_the_banked_bodies():

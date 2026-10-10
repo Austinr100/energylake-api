@@ -1,0 +1,10 @@
+# d091691 green, 2026-10-10T14:29:51Z, tree at branch claude/cpc-api-method-pin-d091691
+
+## tests/test_cpc_method_pin_d091691.py
+48 passed, 1 warning in 6.77s
+
+## both CPC files
+129 passed, 1 warning in 9.38s
+
+## full suite (baseline on main 891de2e: 2904 passed)
+2952 passed, 1 warning in 140.67s (0:02:20)
