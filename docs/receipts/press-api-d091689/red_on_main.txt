@@ -1,0 +1,65 @@
+# d091689: the new tests, red on main
+
+## Run 1: main @ ce2522f + tests/test_press_d091689.py, tests/load_press_d091689.py, tests/fixtures/press_d091689/ and the receipts (no press.py, no routes)
+ERROR tests/test_press_d091689.py  (collection: ModuleNotFoundError, no module named press)
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 warning, 1 error in 1.24s
+
+## Run 2: as run 1 + this branch's press.py alone (no route in main.py)
+FAILED tests/test_press_d091689.py::test_A1_the_banked_daily_comes_back_from_front_key_for_key
+FAILED tests/test_press_d091689.py::test_A1_the_served_bytes_carry_the_vectors_non_ascii_unescaped
+FAILED tests/test_press_d091689.py::test_A1_the_edition_fields_are_the_rows_columns_and_nothing_inside_body
+FAILED tests/test_press_d091689.py::test_A2_the_banked_article_comes_back_from_edition_by_slug
+FAILED tests/test_press_d091689.py::test_A2_the_banked_article_is_among_fronts_article_headers
+FAILED tests/test_press_d091689.py::test_A2_front_headers_are_the_newest_weekly_monthly_and_five_articles
+FAILED tests/test_press_d091689.py::test_A3_revision_1_supersedes_revision_0_on_front_and_is_corrected
+FAILED tests/test_press_d091689.py::test_A3_a_correction_does_not_reset_the_dailys_age
+FAILED tests/test_press_d091689.py::test_A3_revision_0_by_number_is_served_and_not_in_force
+FAILED tests/test_press_d091689.py::test_A4_withdrawing_revision_1_puts_revision_0_back
+FAILED tests/test_press_d091689.py::test_A4_a_withdrawn_revision_asked_for_is_served_with_its_reason
+FAILED tests/test_press_d091689.py::test_A5_every_revision_withdrawn_is_a_404_that_says_so
+FAILED tests/test_press_d091689.py::test_A5_an_identity_never_held_is_a_404_that_says_that_instead
+FAILED tests/test_press_d091689.py::test_A5_front_with_every_daily_withdrawn_is_200_and_says_so
+FAILED tests/test_press_d091689.py::test_A5_a_withdrawn_identity_is_not_listed
+FAILED tests/test_press_d091689.py::test_A6_an_empty_table_is_200_with_edition_null
+FAILED tests/test_press_d091689.py::test_A6_front_carries_stale_after_h_and_the_dailys_age
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[kind:edition?kind=dailyy&date=2026-10-10]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[kind:edition?date=2026-10-10]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[date:edition?kind=daily&date=2026-13-01]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[date:edition?kind=daily&date=20261010]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[date:edition?kind=daily]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[slug:edition?kind=daily&date=2026-10-10&slug=x]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[slug:edition?kind=weekly&date=2026-10-05&slug=x]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[slug:edition?kind=article&date=2026-10-10]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[slug:edition?kind=article&date=2026-10-10&slug=a%20b]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[revision:edition?kind=daily&date=2026-10-10&revision=-1]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[revision:edition?kind=daily&date=2026-10-10&revision=one]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[n:editions?kind=daily&n=0]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[n:editions?kind=daily&n=61]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[n:editions?kind=daily&n=x]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[kind:editions?kind=bogus]
+FAILED tests/test_press_d091689.py::test_A7_a_bad_parameter_is_a_400_naming_it_with_no_read[kind:editions]
+FAILED tests/test_press_d091689.py::test_A7_n_is_1_to_60_default_14_and_60_is_served_not_trimmed
+FAILED tests/test_press_d091689.py::test_A7_editions_are_newest_first_one_per_identity_in_force
+FAILED tests/test_press_d091689.py::test_A8_the_press_routes_are_get_and_read_only_through_dd_timed_read
+FAILED tests/test_press_d091689.py::test_A8_nothing_in_the_press_names_joule_briefs
+FAILED tests/test_press_d091689.py::test_A8_no_existing_route_changed
+FAILED tests/test_press_d091689.py::test_C_every_read_runs_under_the_2s_statement_timeout[/api/press/front]
+FAILED tests/test_press_d091689.py::test_C_every_read_runs_under_the_2s_statement_timeout[/api/press/edition?kind=daily&date=2026-10-10]
+FAILED tests/test_press_d091689.py::test_C_every_read_runs_under_the_2s_statement_timeout[/api/press/edition?kind=daily&date=2026-10-10&revision=0]
+FAILED tests/test_press_d091689.py::test_C_every_read_runs_under_the_2s_statement_timeout[/api/press/editions?kind=daily]
+FAILED tests/test_press_d091689.py::test_C_front_runs_its_two_reads_concurrently
+FAILED tests/test_press_d091689.py::test_C_memoised_per_key_300s_never_stale_with_the_cache_block
+FAILED tests/test_press_d091689.py::test_C_twenty_concurrent_cold_requests_make_one_build
+FAILED tests/test_press_d091689.py::test_C_db_down_is_503[/api/press/front]
+FAILED tests/test_press_d091689.py::test_C_db_down_is_503[/api/press/edition?kind=daily&date=2026-10-10]
+FAILED tests/test_press_d091689.py::test_C_db_down_is_503[/api/press/edition?kind=daily&date=2026-10-10&revision=0]
+FAILED tests/test_press_d091689.py::test_C_db_down_is_503[/api/press/editions?kind=daily]
+FAILED tests/test_press_d091689.py::test_C_a_statement_timeout_is_503_and_not_memoised
+FAILED tests/test_press_d091689.py::test_C_a_404_is_not_memoised
+FAILED tests/test_press_d091689.py::test_V_the_banked_body_is_served_byte_for_byte[body_front.json]
+FAILED tests/test_press_d091689.py::test_V_the_banked_body_is_served_byte_for_byte[body_edition_article.json]
+FAILED tests/test_press_d091689.py::test_V_the_banked_body_is_served_byte_for_byte[body_editions_daily_n14.json]
+54 failed, 7 passed, 1 warning in 35.42s
+
+The 7 that pass in run 2 test press.py and the fixtures alone, not a route: T0 x3 (the vectors are pantry's; the table is the spec's), A8 no press statement writes, A9 x3 (the statements' plans, and the receipt is this press.py's).

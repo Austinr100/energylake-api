@@ -53,6 +53,9 @@ Endpoints:
     GET /api/weather/cpc/curves/vintages   One product's n newest issuances at a place, oldest first, n 1-14 (above the cap a 400), for the player (d091679)
     GET /api/weather/cpc/places            Every place with its CPC curve verdict per product, season and strength, and its newest curve (d091679)
     GET /api/weather/cpc/outlooks          The banked CPC outlook features of each family's newest issuance (6-10, 8-14, weeks 3-4, monthly, seasonal), stated absence where not banked (d091679)
+    GET /api/press/front                   The Joule Report's front page: the newest daily edition in force in full (body as written), headers of the newest weekly, monthly and five articles, the daily's age (d091689)
+    GET /api/press/edition                 One edition in full by kind, date[, slug][, revision]; in force without revision; a withdrawn revision served with its reason; all withdrawn -> 404 (d091689)
+    GET /api/press/editions                One kind's editions in force, headers only, newest first, n 1-60 (above the cap a 400) (d091689)
     GET /api/regulatory/board             regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
@@ -21514,6 +21517,172 @@ async def weather_tropics_odds(
         _solar_400(e)
     return await _solar_serve(_tropics_odds_cache, sid,
                               lambda: _tropics_odds_build(sid), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THE PRESS — d091689: the Joule Report's editions (D-09-25-184, D-09-25-185)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/press/front                       the newest daily in force, in full,
+#                                              and the headers of the newest weekly,
+#                                              monthly and five newest articles
+#   GET /api/press/edition?kind=&date=[&slug=][&revision=]
+#                                              one edition in full; without
+#                                              revision, the one in force
+#   GET /api/press/editions?kind=[&n=]         headers, newest first, n 1-60
+#
+# READ-ONLY, from pantry's press_editions (lane d091688). The Joule brief table
+# and its routes are untouched: an edition is a new table and new routes.
+# The SQL and the shaping are in press.py; this section is the routes and their
+# memos, on the degree-day plumbing the CPC routes use: every read is one
+# statement through _dd_timed_read (2 s statement timeout, any failure a 503),
+# the reads of a route run concurrently, and every route is a single-flight
+# _DDCache with the cache block and headers (_dd_envelope).
+#
+# THE MEMO: 300 s fresh, single-flight, NEVER served stale. An edition is
+# written once a day (daily) or less; a correction or a withdrawal is a new
+# row, and 300 s puts it on the page within five minutes. Every read is an
+# index probe (docs/receipts/press-api-d091689/plans.md), so a miss waits on
+# a fast read rather than a stale body hiding a withdrawal.
+
+import press as _pr
+
+PRESS_PREFIX = "/api/press"
+PRESS_MEMO_TTL = 300.0
+PRESS_BUILD_TIMEOUT = _DD_REGION_FC_BUILD_TIMEOUT
+
+_press_front_cache = _DDCache("press/front", PRESS_MEMO_TTL, max_entries=1,
+                              build_timeout=PRESS_BUILD_TIMEOUT)
+_press_edition_cache = _DDCache("press/edition", PRESS_MEMO_TTL, max_entries=64,
+                                build_timeout=PRESS_BUILD_TIMEOUT)
+_press_editions_cache = _DDCache("press/editions", PRESS_MEMO_TTL, max_entries=16,
+                                 build_timeout=PRESS_BUILD_TIMEOUT)
+_PRESS_CACHES = (_press_front_cache, _press_edition_cache, _press_editions_cache)
+
+
+def _press_400(e: "_pr.ParamError"):
+    raise _dd_400(e.field, e.message)
+
+
+async def _press_serve(cache: _DDCache, key, builder, response: Response) -> dict:
+    """The memo, the 503 contract, and the age on every response."""
+    try:
+        payload, state, entry = await cache.serve(key, builder)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the press read", PRESS_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, cache, response)
+
+
+async def _press_front_build() -> dict:
+    daily, headers = await asyncio.gather(
+        _dd_timed_read(_pr.FRONT_DAILY_SQL, {}),
+        _dd_timed_read(_pr.FRONT_HEADERS_SQL, {}))
+    return _pr.build_front(daily=daily[0] if daily else None, headers=headers, now=_utcnow())
+
+
+async def _press_edition_build(kind: str, d, slug: str, revision: Optional[int]) -> dict:
+    params = {"kind": kind, "date": d, "slug": slug}
+    if revision is None:
+        rows = await _dd_timed_read(_pr.EDITION_SQL, params)
+    else:
+        rows = await _dd_timed_read(_pr.EDITION_AT_SQL, {**params, "revision": revision})
+    try:
+        return _pr.build_edition(kind=kind, edition_date=d, slug=slug, revision=revision,
+                                 row=rows[0] if rows else None)
+    except _pr.EditionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+async def _press_editions_build(kind: str, n: int) -> dict:
+    rows = await _dd_timed_read(_pr.HEADERS_SQL, {"kind": kind, "n": n})
+    return _pr.build_editions(kind=kind, n=n, rows=rows)
+
+
+@app.get(f"{PRESS_PREFIX}/front")
+async def press_front(response: Response):
+    """The front page: the newest daily edition in force, in full, and the rest's headers.
+
+        { edition: EDITION | null, absence: { reason, detail } | null,
+          freshness: { edition_date, first_submitted_at, age_h, stale_after_h, stale,
+                       today_pacific, is_today, graded_at,
+                       newest_withdrawn: { edition_date, revision, withdrawn_at,
+                                           withdrawn_reason } | null, rule },
+          weekly: HEADER | null, weekly_absence, monthly: HEADER | null, monthly_absence,
+          articles: [ HEADER ], articles_absence, articles_n, order_rule,
+          body_rule, in_force_rule, sha256_rule, timestamps, cache }
+
+        EDITION = { kind, edition_date, slug, revision, schema, headline, sha256,
+                    submitted_at, writer, corrected, withdrawn, withdrawn_at,
+                    withdrawn_reason, in_force, in_force_revision, body }
+        HEADER  = { kind, edition_date, slug, headline, revision, submitted_at }
+
+    `body` is the row's el.edition.v1 document as written. No daily in force is a
+    200 with edition null and the absence's sentence, never a 404. Two reads,
+    concurrent, each one statement under the 2 s statement timeout; memoised
+    300 s, single-flight, never served stale. DB down or timed out -> 503.
+    """
+    assert _pool is not None
+    return await _press_serve(_press_front_cache, "front", _press_front_build, response)
+
+
+@app.get(f"{PRESS_PREFIX}/edition")
+async def press_edition(
+    response: Response,
+    kind: Optional[str] = Query(None, description="daily | weekly | monthly | article"),
+    date: Optional[str] = Query(None, description="the edition_date, YYYY-MM-DD"),
+    slug: Optional[str] = Query(None, description="an article's slug; no other kind has one"),
+    revision: Optional[str] = Query(None, description="a revision by number; omit for the "
+                                                      "one in force"),
+):
+    """One edition in full: the one in force, or a revision by its number.
+
+        { request: { kind, date, slug, revision }, edition: EDITION,
+          body_rule, in_force_rule, sha256_rule, timestamps, cache }
+
+    Without revision, the highest revision of the identity whose withdrawn_at is
+    null. With it, that revision in any state: a withdrawn one is served with
+    withdrawn true and its reason, and in_force_revision says which one is in
+    force. An identity whose every revision is withdrawn is a 404 that says so;
+    no such identity or revision is a 404. A bad kind, date, slug or revision is
+    a 400 naming it (a slug on any kind but article is a 400). One read, one
+    statement, 2 s statement timeout; memoised 300 s per identity and revision,
+    single-flight, never served stale. DB down or timed out -> 503.
+    """
+    try:
+        k = _pr.parse_kind(kind)
+        d = _pr.parse_date(date)
+        s = _pr.parse_slug(k, slug)
+        rev = _pr.parse_revision(revision)
+    except _pr.ParamError as e:
+        _press_400(e)
+    return await _press_serve(_press_edition_cache, (k, d, s, rev),
+                              lambda: _press_edition_build(k, d, s, rev), response)
+
+
+@app.get(f"{PRESS_PREFIX}/editions")
+async def press_editions(
+    response: Response,
+    kind: Optional[str] = Query(None, description="daily | weekly | monthly | article"),
+    n: Optional[str] = Query(None, description=f"Newest editions, 1-{_pr.EDITIONS_N_MAX}. "
+                                               f"Default {_pr.EDITIONS_N_DEFAULT}."),
+):
+    """One kind's newest editions in force, headers only, newest first.
+
+        { kind, n, count, editions: [ HEADER ], absence, order_rule, in_force_rule,
+          timestamps, cache }
+
+    An identity every revision of which is withdrawn is not listed. n above 60
+    is a 400, never trimmed; n of 0 is a 400. One read, one statement, 2 s
+    statement timeout; memoised 300 s per (kind, n), single-flight, never
+    served stale. DB down or timed out -> 503.
+    """
+    try:
+        k = _pr.parse_kind(kind)
+        n_ = _pr.parse_n(n)
+    except _pr.ParamError as e:
+        _press_400(e)
+    return await _press_serve(_press_editions_cache, (k, n_),
+                              lambda: _press_editions_build(k, n_), response)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

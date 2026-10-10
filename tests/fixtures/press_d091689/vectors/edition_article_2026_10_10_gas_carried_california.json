@@ -1,0 +1,446 @@
+{
+ "schema": "el.edition.v1",
+ "kind": "article",
+ "edition_date": "2026-10-10",
+ "slug": "gas-carried-california-october-2026",
+ "masthead": {
+  "title": "The Joule Report",
+  "strap": "Long read"
+ },
+ "lead": {
+  "desk": "Power and gas · California",
+  "headline": "Gas carried California through its biggest October demand on record",
+  "deck": "Solar output did not change all week. Imports fell when they were needed most. The extra power came from gas plants, and the gas came out of storage.",
+  "dateline": "EnergyLake desk · every figure tagged Bank was read from EnergyLake's database at 12:30 UTC, Oct. 10",
+  "numbers": [
+   {
+    "value": "45,719",
+    "label": "MW, CAISO peak hour on Oct. 5. The highest October hour in the bank, which reaches back to 2020."
+   },
+   {
+    "value": "2.8×",
+    "label": "Gas-fired output, Oct. 7 against Sept. 29, on daily average."
+   },
+   {
+    "value": "−56%",
+    "label": "Net imports over the same eight days."
+   },
+   {
+    "value": "$228.96",
+    "label": "Top day-ahead hour at SP15, 6 to 7 p.m. on Oct. 5."
+   }
+  ],
+  "blocks": [
+   {
+    "type": "p",
+    "text": "For eight days at the start of October, California used electricity as if it were August. Demand on the grid run by the California Independent System Operator rose every day from Sept. 28 and peaked at 45,719 megawatts on Monday, Oct. 5.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "That is the highest hourly demand for any October in EnergyLake's records, which begin in 2020. The previous high was 43,065 megawatts in October 2020. Last October the peak was 31,013.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "figure",
+    "title": "October has not looked like this before",
+    "sub": "Highest hourly CAISO demand in each October, GW",
+    "note": "Source: EnergyLake bank, CAISO hourly load. 2026 covers Oct. 1 to 9 only.",
+    "charts": [
+     {
+      "id": "october_peaks",
+      "kind": "bars",
+      "x": [
+       "2020",
+       "2021",
+       "2022",
+       "2023",
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "y": {
+       "unit": "GW",
+       "min": 0,
+       "max": 50
+      },
+      "series": [
+       {
+        "name": "Highest October hour",
+        "values": [
+         43.065,
+         32.983,
+         34.24,
+         36.715,
+         41.105,
+         31.013,
+         45.719
+        ]
+       }
+      ],
+      "highlight": 6,
+      "source": {
+       "bank": "timeseries_values",
+       "dataset": "caiso_load_hourly",
+       "series": "actual",
+       "read_at": "2026-10-10T12:10:00Z"
+      }
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The grid operator never declared an emergency. It asked plant owners to hold off on maintenance on three of the days and went no further. No Flex Alert was called.",
+    "standing": [
+     "reported"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "What follows is an account of how the system met the load, taken from the hourly record."
+   },
+   {
+    "type": "h",
+    "text": "Solar did its usual day's work, and no more"
+   },
+   {
+    "type": "p",
+    "text": "The sun was not the story. From Sept. 29 through Friday, solar output peaked between 20,956 and 21,668 megawatts every single day. A heat wave in October does not add daylight, and the fleet was already producing what it can at this time of year.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Batteries stretched. Their highest hourly discharge rose from 7,806 megawatts on Sept. 29 to 10,841 megawatts on Oct. 5, and they charged at up to 11,549 megawatts the next day. Batteries move energy from midday to evening. They do not make any.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "h",
+    "text": "Gas nearly tripled while imports halved"
+   },
+   {
+    "type": "p",
+    "text": "The power came from gas. Gas-fired plants on the CAISO system averaged 5,758 megawatts across Sept. 29. By Oct. 7 they averaged 16,403 megawatts, and in the top hour of Oct. 6 they produced 21,711.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Imports moved the other way. California's net imports averaged 4,759 megawatts on Sept. 29 and 2,076 megawatts on Oct. 7. On six of the seven days from Oct. 1 there were hours when California was a net exporter, by as much as 1,092 megawatts on Oct. 7.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "figure",
+    "title": "The plants inside the state did the work",
+    "sub": "Daily average output, GW: gas-fired generation and net imports",
+    "note": "Source: EnergyLake bank, CAISO hourly fuel mix. Net imports can be negative in single hours; the daily average stayed positive.",
+    "charts": [
+     {
+      "id": "gas_vs_imports",
+      "kind": "lines",
+      "x": [
+       "Sep 28",
+       "Sep 29",
+       "Sep 30",
+       "Oct 1",
+       "Oct 2",
+       "Oct 3",
+       "Oct 4",
+       "Oct 5",
+       "Oct 6",
+       "Oct 7",
+       "Oct 8",
+       "Oct 9"
+      ],
+      "y": {
+       "unit": "GW",
+       "min": 0,
+       "max": 18
+      },
+      "series": [
+       {
+        "name": "Gas-fired generation, daily average",
+        "values": [
+         6.272,
+         5.758,
+         7.471,
+         11.03,
+         12.729,
+         13.528,
+         13.263,
+         15.79,
+         16.118,
+         16.403,
+         14.725,
+         10.493
+        ],
+        "source": {
+         "bank": "timeseries_values",
+         "dataset": "caiso_fuel_mix_hourly",
+         "series": "natural_gas",
+         "read_at": "2026-10-10T12:10:00Z"
+        }
+       },
+       {
+        "name": "Net imports, daily average",
+        "values": [
+         4.563,
+         4.759,
+         4.72,
+         2.874,
+         3.474,
+         3.138,
+         3.215,
+         3.896,
+         2.882,
+         2.076,
+         2.42,
+         4.048
+        ],
+        "source": {
+         "bank": "timeseries_values",
+         "dataset": "caiso_fuel_mix_hourly",
+         "series": "imports",
+         "read_at": "2026-10-10T12:10:00Z"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The bank does not say why imports fell. Two things are known. The heat reached the desert Southwest too, where Phoenix was still forecast at 99 to 103 degrees on Friday. And from Oct. 6 a compressor failure on the Gas Transmission Northwest pipeline cut the flow of Canadian gas past Kingsgate, Idaho, to about 2.1 billion cubic feet a day from about 3.0. Whether either one explains the drop is a question the record cannot yet answer.",
+    "standing": [
+     "confirmed"
+    ]
+   },
+   {
+    "type": "h",
+    "text": "The evening hour cost five times the midday hour"
+   },
+   {
+    "type": "p",
+    "text": "Prices show where the strain was. In the day-ahead market for Oct. 5, power at the SP15 hub in Southern California cleared between $43 and $49 from 9 a.m. to 3 p.m., while solar was running. It cleared at $170.75 for the hour ending 6 p.m. and $228.96 for the hour ending 7 p.m.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "figure",
+    "title": "Monday, hour by hour",
+    "sub": "Day-ahead price at SP15 for Oct. 5, $/MWh, by hour ending (Pacific)",
+    "note": "Source: EnergyLake bank, CAISO day-ahead on-peak hub series. The 16 on-peak hours only.",
+    "charts": [
+     {
+      "id": "sp15_hourly_oct5",
+      "kind": "bars",
+      "x": [
+       "7",
+       "8",
+       "9",
+       "10",
+       "11",
+       "12",
+       "13",
+       "14",
+       "15",
+       "16",
+       "17",
+       "18",
+       "19",
+       "20",
+       "21",
+       "22"
+      ],
+      "x_label": "hour ending (Pacific)",
+      "y": {
+       "unit": "$/MWh",
+       "min": 0,
+       "max": 250
+      },
+      "series": [
+       {
+        "name": "SP15 day-ahead, Oct. 5",
+        "values": [
+         68.53,
+         61.19,
+         46.73,
+         44.31,
+         43.56,
+         43.54,
+         45.27,
+         43.3,
+         49.02,
+         61.31,
+         82.05,
+         170.75,
+         228.96,
+         196.35,
+         132.85,
+         130.4
+        ]
+       }
+      ],
+      "highlight": 12,
+      "source": {
+       "bank": "timeseries_values",
+       "dataset": "caiso_lmp_da_hourly",
+       "series": "TH_SP15_GEN_ONPEAK-APND",
+       "read_at": "2026-10-10T12:10:00Z"
+      }
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The day's on-peak average was $90.51, against $27.73 five days earlier. NP15 in the north cleared within about a dollar of it on average, with a top hour of $242.52.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Prices peaked on Monday and fell each day after, even though gas plants ran harder on Tuesday and Wednesday than they had on Monday. By Friday the on-peak average was $42.23.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "h",
+    "text": "The gas came out of storage"
+   },
+   {
+    "type": "p",
+    "text": "The gas system felt it a day later than the grid. Southern California Gas sent out 1.70 billion cubic feet on Sept. 29 and 2.91 billion on Oct. 6, as its own measure of system temperature rose from 75 to 86 degrees.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "figure",
+    "title": "Sendout rose by seven-tenths in a week",
+    "sub": "SoCalGas daily system sendout, Bcf, with the utility's system-average temperature beneath",
+    "note": "Source: EnergyLake bank, SoCalGas Envoy daily operations. Temperature is SoCalGas's composite weighted average, in degrees Fahrenheit.",
+    "charts": [
+     {
+      "id": "socalgas_sendout",
+      "kind": "bars",
+      "x_start": "2026-09-24",
+      "x_step": "day",
+      "y": {
+       "unit": "Bcf",
+       "min": 0,
+       "max": 3
+      },
+      "series": [
+       {
+        "name": "SoCalGas system sendout",
+        "values": [
+         1.807,
+         1.672,
+         1.487,
+         1.496,
+         1.593,
+         1.701,
+         1.869,
+         2.076,
+         2.312,
+         2.338,
+         2.426,
+         2.736,
+         2.912,
+         2.782,
+         2.501
+        ],
+        "source": {
+         "bank": "timeseries_values",
+         "dataset": "socalgas_daily_operations",
+         "series": "system_sendout",
+         "read_at": "2026-10-10T12:10:00Z"
+        }
+       }
+      ],
+      "annotation_row": {
+       "name": "System-average temperature, F",
+       "values": [
+        76,
+        76,
+        79,
+        78,
+        74,
+        75,
+        75,
+        77,
+        82,
+        85,
+        86,
+        87,
+        86,
+        84,
+        81
+       ],
+       "source": {
+        "bank": "timeseries_values",
+        "dataset": "socalgas_daily_operations",
+        "series": "composite_weighted_avg_temp",
+        "read_at": "2026-10-10T12:10:00Z"
+       }
+      },
+      "highlight": 12
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Storage had been filling almost every day since late August and reached 103.4 billion cubic feet on Oct. 3 and 4. It then fell for four straight days, to 101.7 billion on Oct. 8. October is normally still a month for putting gas in.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "On Thursday afternoon SoCalGas declared a High Operational Flow Order for Friday's gas day, an instruction to shippers to keep deliveries within 10% of what their customers burn. It came as demand was already falling, and with two storage fields under maintenance: Aliso Canyon through Oct. 30, and Honor Rancho from today.",
+    "standing": [
+     "confirmed",
+     "reported"
+    ]
+   },
+   {
+    "type": "h",
+    "text": "What comes next"
+   },
+   {
+    "type": "p",
+    "text": "The heat is over for now. Friday's peak was 37,094 megawatts, gas plants averaged 10,493 megawatts, and imports were back above 4,000. Tropical Storm Rachel is forecast to cross northern Baja tonight and bring rain to the Southwest on Sunday.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Three things in this record are worth watching through the winter. The first is that a record October load was met with no more solar than usual, which makes the evening the whole problem. The second is that imports shrank as the need grew. The third is that the gas system turned from filling to drawing within two days, in the middle of its maintenance season."
+   },
+   {
+    "type": "p",
+    "text": "The federal Climate Prediction Center's outlook for Oct. 15 to 19 favors above-normal temperatures along the West Coast again.",
+    "standing": [
+     "confirmed"
+    ]
+   }
+  ]
+ },
+ "limits": "What this article does not know. It does not measure how much of the gas drawn from storage was burned for power; that needs the gas utility's customer-class data. It does not explain the fall in imports. It has no temperature record of its own for the week, only SoCalGas's system figure and the forecasts the scouts cited. \"Record\" here means the highest in EnergyLake's bank since 2020, not an official CAISO record.",
+ "sources": "Sources. EnergyLake bank: CAISO hourly load, CAISO hourly fuel mix, CAISO day-ahead hub prices, SoCalGas daily operations and storage. Scout wire of Oct. 9 and 10 for the grid notices, the SoCalGas order, the GTN force majeure, the storage maintenance and the forecasts; those items carry the scouts' own standing and were not independently checked. Nothing here is advice.",
+ "disclaimer": "Nothing here is advice."
+}
