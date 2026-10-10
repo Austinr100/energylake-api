@@ -1,234 +1,274 @@
-# Handback d091682: the Tropics API on the rows in force — STOPPED at STOP-V
+# Handback d091682: the Tropics API reads the rows in force, and says when an advisory was corrected
 
 **Lane:** d091682 · **Repo:** energylake-api · **Branch:** `claude/tropics-revision-in-force-sxzqej`, from main at `c40c231` (d091673 merged).
+**Two firings:**
+1. **2026-10-10 10:37–10:50Z — stopped at STOP-V.** The reads through 294's views were whole-table seq scans (§3).
+2. **Re-fired on the architect's correction, 11:57–12:30Z,** after pantry migration 297 (§3's fix) was applied on Neon at 11:55:17Z.
+
 **Scope kept:**
 - Branch only. No PR, no merge, no deploy.
-- Nothing was written to Neon or R2: every Neon statement was a SELECT or an EXPLAIN (ANALYZE, BUFFERS) of one, 2026-10-10 10:37–10:50Z.
+- Nothing was written to Neon or R2: every Neon statement was a SELECT or an EXPLAIN (ANALYZE, BUFFERS) of one.
 
 **Read:**
 - in this repo: `CLAUDE.md`, `tropics.py`, the tropics routes in `main.py`, `tests/test_tropics_d091673.py`, `docs/handback_2026_10_09_tropics_api.md`;
-- in `energylake-pantry` at `c7779f2`, read only: `migrations/294_tropical_correction_revisions.sql`, `docs/handback_2026_10_09_corrected_advisory.md` §1–§5, and `ingesters/tropical_bank.py` (which files feed the official points and the odds).
+- in `energylake-pantry`, read only: migrations 294 and 297, `docs/handback_2026_10_09_corrected_advisory.md` §1–§5, and `ingesters/tropical_bank.py` (which ledger files feed the official points and the odds).
 
 ---
 
 ## 0. In ten lines
 
-1. **STOP-V fired.** Through pantry's views, `/tracks` and `/odds` each seq-scan a whole table on Neon: all of `tropical_track_points` (919 buffers, against d091673's 110) and all of `tropical_place_odds`.
-   - `/tracks` n = 8 goes 2.75 → 29–61 ms.
-   - `/storm`'s observed track goes 0.14 → 3.2 ms (23×), and its cycle census 11.5 → 86 ms (§2).
-2. **So the reads were not moved.** `tropics.py` and `main.py` are unchanged on this branch, and the API still reads the bare tables.
-   - The rewrite is finished and banked as `docs/receipts/tropics-api-d091682/draft_rows_in_force.patch`. It is the exact SQL the Neon plans were taken on.
-3. **What pantry's view would need** (§3): one redundant clause, `q.revision > 0`, in each view's NOT EXISTS, and a partial index of the revised rows (`WHERE revision > 0`).
-   - It changes no row in force; the rehearsal asserts that at both sizes.
-   - Locally it brings every statement back to an index read close to d091673's cost, at the bank's size and at 31×.
-4. **Measured on Neon:**
-   - 294 was applied at 00:39:06Z, and the three views match the file.
-   - **No advisory carries revision > 0**: no track point and no odds row.
-   - **7 file identities read `corrected` true**, all of them Rachel's advisory 052A.
-5. **NHC already corrected an advisory with identical rows:** Rachel 052A, at 06:44Z on 10-10. Pantry's receipt: "correction revision 2 parses identically to revision 0 — no new rows".
-   - That is the brief's R5, live.
-   - It makes R4's "false with revision 0 for **every** live advisory" untrue today (§6).
-6. **The payload fields are designed and drafted** (§4): `corrected` and `revision` sit on the official advisory objects of `/storms`, `/storm` and `/tracks`, and on `/odds`' `issuance`.
-   - **`corrected`** is the ledger's word on the files the rows were parsed from.
-   - **`revision`** is the revision of the rows served.
-7. **Not built, because STOP-V says stop:**
-   - the R1–R7 tests;
-   - the ledger fixture slice;
-   - the re-banked vectors;
-   - the mutation rehearsal.
+1. **Every read of track points and place odds is now of pantry's views** (`tropical_track_points_in_force`, `tropical_place_odds_in_force`). No page route names a bare table (R7).
+2. **The six reads through the 297 views are index reads on Neon,** none above 3.4× its d091673 receipt (§2), so STOP-V does not fire on the re-fire.
+   - The first firing's seq scans (`/tracks` 2.75 → 29–61 ms over all of `tropical_track_points`) are gone: `/tracks` n = 8 is 6.6 ms and `/odds` 0.29 ms.
+3. **`corrected` and `revision` ride on every official advisory and every odds issuance:**
+   - `/storms`' `newest_advisory`;
+   - `/storm`'s `official`;
+   - each `/tracks` cycle's `official[]`;
+   - `/odds`' `issuance`.
 
-   §5 is the re-fire checklist. R8, the plan receipts, is done: it is the evidence for the stop.
-8. **The whole suite on this branch** is main's: 2,733 passed, 1 failed. The failure is `test_R_no_existing_route_or_memo_changed`, which is **red on main at `c40c231` too**: since d091673 merged, its merge-base contains the routes it asserts are absent (§6).
-9. **The brief's R6 cannot hold as written.** The bodies gain two fields, so d091673's byte-for-byte vectors must be re-banked. And one d091673 test was already red before this lane started (§6).
-10. **Nothing here needs a decision from the API side before pantry acts.** It needs pantry's fix, a re-take of the Neon plans, and a re-fire of this lane with the patch.
+   `corrected` is the ledger's word (`tropical_file_vintage_in_force`) on the files the rows were parsed from. `revision` is the revision of the rows served (§4).
+4. **Nothing else in any body changed.** d091673's 11 vectors were re-banked, and each one minus the two fields is d091673's body byte for byte (R6, ruling 2).
+5. **Live, at the bank's cut, every advisory reads corrected false at revision 0,** true to the ledger (R4, ruling 1). On Neon today two advisories read otherwise (§1.2):
+   - **Rachel 052A:** corrected true, its rows at revision 0. This is R5's case, live.
+   - **Simon 012A:** corrected true at revision 1. NHC moved its tau-6 position; it is the first correction whose rows differ.
+6. **Production is serving Simon 012A wrong today.** `main` reads the bare table, so Simon's `/storm` official holds both revisions of 012A's tau 6. This branch fixes it (§8).
+7. **New tests:** 28 (R1–R8) in `tests/test_tropics_rows_in_force_d091682.py`; together with d091673's 87, all **115 pass**.
+   - On the base `tropics.py`, 23 are red: 11 new and 12 of d091673's (§5).
+   - Mutation rehearsal: **14 of 14 breaks red, tree restored byte for byte.**
+8. **`test_R_no_existing_route_or_memo_changed` is repaired** (ruling 3). Its base is pinned to `149e314`, the commit before d091673's routes. It was red on main since d091673 merged; it is green here.
+9. **The banked snapshot gained the ledger,** every `tropical_file_vintage` row at d091673's own cut (2,637 + the 31 heartbeats it had), each file's sha checked against Neon's.
+   - **Why the whole ledger:** with only the 36 rows the routes read, the local planner seq-scans a 4-page table and d091673's T10 goes red. At full size it plans as Neon does, through `tfv_identity`.
+10. **The whole suite:** 2,761 passed, 1 failed. The failure is a clock-dependent chart-brief test that fails identically without this lane (§5.4).
 
 ---
 
-## 1. Measured on Neon (`docs/receipts/tropics-api-d091682/neon_measured.json`)
+## 1. Measured on Neon (`docs/receipts/tropics-api-d091682/neon_measured.json`, `neon_plans_297.json`)
 
-### 1.1 The three views as they stand
+### 1.1 The views
 
-- **Applied:** `schema_migrations` 294 at 2026-10-10 00:39:06.036Z. `pg_get_viewdef` of each view equals the migration file's definition.
-- **Columns:**
-  - `tropical_track_points_in_force`: the table's 15 columns + `revision smallint`;
-  - `tropical_place_odds_in_force`: 16 + `revision smallint`;
-  - `tropical_file_vintage_in_force`: 15 ledger columns + `revision integer`, `corrected boolean`, `anomalies_held bigint`.
-- **The rules:**
-  - **Points:** no row of the same `(storm_id, source, init_ts, advisory)` with a higher revision.
-  - **Odds:** the same over `(storm_id, source, issued_ts, advisory)`.
-  - **Ledger:** `DISTINCT ON (source, product, storm_id, vintage_key)` over banked, non-anomaly rows, newest `fetch_ts`.
-- **`advisory`** is NOT NULL (default `''`) on both tables, so the views' `q.advisory = p.advisory` never meets a NULL. Model rows all share advisory `''`, so for them "per advisory" means per `(storm, source, init)`.
+- **294** was applied 00:39:06Z; **297** 11:55:17Z. Read back at 11:57:53Z, both views' definitions are 297's (with `q.revision > 0`).
+- **Indexes:** `ttp_revised` and `tpo_revised` exist, `WHERE revision > 0`.
+- **Columns:** each view carries every column of its table + `revision`. The file view carries 15 ledger columns + `revision`, `corrected`, `anomalies_held`.
+- **`advisory`** is NOT NULL (default `''`) on both tables, so "per advisory" never meets a NULL. For model rows (advisory `''`) it means per `(storm, source, init)`.
 
-### 1.2 Revisions and corrections today (10:37Z)
+### 1.2 Revisions and corrections
 
-| what | count |
-|---|---:|
-| track points / with revision > 0 | 36,523 / **0** |
-| place-odds rows / with revision > 0 | 4,046 / **0** |
-| advisories with any revision > 0 | **0** |
-| file identities in force / `corrected` true / `revision` > 0 | 3,593 / **7** / 7 |
-| file identities holding an anomaly copy (`anomalies_held` > 0) | 13 (the d091675 events: Rachel 050, Isaias 012, 012A, 013); every one reads `corrected` false |
+| read at | points with revision > 0 | odds with revision > 0 | file identities `corrected` |
+|---|---:|---:|---|
+| 10:37Z (first firing) | 0 | 0 | 7, all Rachel 052A |
+| 11:57Z (re-fire) | **6** | 0 | 8: Rachel 052A (7 files) and Simon 012A's 5-day zip |
 
-**The seven corrected identities** are Rachel `ep182026` advisory **052A**: `fcst_5day_zip`, `fcst_radii_zip`, `track_kmz`, `cone_kmz`, `ww_kmz`, `initialradii_kmz` and `forecastradii_kmz`.
-- Each is at file revision 1, fetched 07:10:33–37Z.
-- The signal: fileUpdateTime and Last-Modified (06:44:31–06:45:02Z) were newer than the copies banked at 06:25–06:27Z.
-- Pantry's `ingestion_log` at 07:10:31Z: `ep182026/nhc_official/052A: correction revision 2 parses identically to revision 0 (rows in force) -- no new rows`.
-- Rachel 052A's 4 official points are all revision 0, inserted at 06:34:39Z.
-- No PWS file has been corrected.
+**Rachel 052A (corrected 06:44Z, banked 07:10Z): corrected with identical rows.**
+- Pantry's log: "correction revision 2 parses identically to revision 0 (rows in force) -- no new rows".
+- Its 4 official points are revision 0. It reads `corrected: true, revision: 0` wherever served: `/tracks` while its 00Z cycle is among the newest n.
+
+**Simon 012A (banked 11:55:13Z, corrected 11:57:11Z): corrected with different rows.**
+- Pantry's log: "correction revision 1 wrote 6 rows; they are in force, revision 0's rows kept as history".
+- Revision 1 moves tau 6 from 17.2 N, 104.6 W, 125 kt, 942 hPa to 17.3 N, 104.8 W, 130 kt, 938 hPa; taus 12–60 are equal.
+- `OFFICIAL_NEWEST_SQL` through the view returns 24 of the 30 candidate rows: revision 0's six are gone.
+- It reads `corrected: true, revision: 1` on `/storms`, `/storm` and `/tracks` while 012A is Simon's newest advisory.
 
 ### 1.3 Which ledger files an advisory's rows come from (pantry `ingesters/tropical_bank.py`)
 
-- **Official points:** parsed from the advisory's `fcst_5day_zip` and `fcst_radii_zip` (`_official_points`). Their revision is the **sum** of the two files' correction counts: one correction of each makes revision 2.
-- **Odds:** parsed from the advisory's `pws` text (`_pws_odds`). The row revision is the file's.
-- The other five GIS files (cone, track, ww, initial and forecast radii KMZ) are banked, not parsed into any row.
+- **The official points** are parsed from the advisory's `fcst_5day_zip` and `fcst_radii_zip`. Their revision is the **sum** of the two files' correction counts, which is why pantry calls Rachel 052A "revision 2" while each file reads 1.
+- **The odds** are parsed from the advisory's `pws` text.
 
 ---
 
-## 2. The plans before and after (`docs/receipts/tropics-api-d091682/plans.md`)
+## 2. The plans
 
-| statement | before, re-taken 10-10 | after, through the views | STOP-V |
-|---|---:|---:|---|
-| `STORMS_SQL` | 0.140 ms, 25 buf | 0.608 ms, 95 buf | no (4.3×; index) |
-| `OFFICIAL_NEWEST_SQL` | 0.249 ms, 34 buf | 0.912 ms, 163 buf | no (3.7×; index) |
-| `OBSERVED_SQL` | 0.139 ms, 24 buf | 3.19 ms, 319 buf | **yes by the same-moment ratio (23×)**; index-only; 3.1× d091673's cold receipt |
-| `CYCLES_SQL` | 11.5 ms, 1,088 buf | 86.4 ms, 2,223 buf | 7.5×; index, but each cycle read twice |
-| `TRACKS_SQL` n = 8 | 2.75 ms, 110 buf | 29.2–61.5 ms, ~1,090 buf | **yes: seq scan of all of `tropical_track_points`** |
-| `ODDS_SQL` | 0.944 ms, 17 buf | 3.36 ms, 103 buf | **yes: seq scan of all of `tropical_place_odds`** |
+| statement | d091673 receipt | through 294's views (first firing) | **through 297's views (re-fire)** | ratio to d091673 |
+|---|---:|---:|---:|---:|
+| `STORMS_SQL` | 0.135 ms | 0.608 ms | **0.139 ms**, 31 buf | 1.0× |
+| `OFFICIAL_NEWEST_SQL` | 0.150 ms | 0.912 ms | **0.516 ms**, 155 buf | 3.4× |
+| `OBSERVED_SQL` | 1.02 ms | 3.19 ms (23× same-moment) | **0.242 ms**, 97 buf | 0.2× |
+| `CYCLES_SQL` | 10.3 ms | 86.4 ms | **15.9 ms**, 1,204 buf | 1.5× |
+| `TRACKS_SQL` n = 8 | 3.26 ms | 29–61 ms, **seq scan of all of `tropical_track_points`** | **6.6 ms**, 2,363 buf | 2.0× |
+| `ODDS_SQL` | 0.357 ms | 3.36 ms, **seq scan of all of `tropical_place_odds`** | **0.294 ms**, 19 buf | 0.8× |
 
-**Why.**
-- The NOT EXISTS is an anti-join against the whole table, restricted only by `storm_id` (and `source` where fixed).
-- For a statement returning thousands of rows, the planner hashes the storm's whole history instead of probing per row.
-- On Neon that history is 62 % of the points table, so it seq-scans.
-- At 31× (locally) it reads the storm's whole history by index: 7,906 buffers for /tracks n = 8 against 152.
-- Either way the cost now grows with the storm's age, which d091673's loose index scan was built to stop.
+**On 297, every anti-join's inner side is `ttp_revised` or `tpo_revised`.**
+- Those indexes hold 6 points today, and none of Rachel's.
+- Every ledger lookup is `tfv_identity`.
+- Not one plan scans a whole table.
 
-Full plans are in `plans.md`. The local three-way rehearsal is in `view_plans_local.txt` / `.json`.
+**Where the 297 plans stay dearer than d091673's:**
+- **`/tracks`** makes one 1-buffer probe of `ttp_revised` per point served: 2,218 of them.
+- **`/storm`'s census** probes once per cycle.
 
-## 3. What pantry's view would need (`proposed_pantry_view_fix.sql`)
+Full plans: `plans.md` (both firings) and `neon_plans_297.json` (the re-fire, pinned by R8).
 
-```sql
-CREATE INDEX ttp_revised ON tropical_track_points (storm_id, source, init_ts, advisory, revision) WHERE revision > 0;
-CREATE INDEX tpo_revised ON tropical_place_odds (storm_id, source, issued_ts, advisory, revision) WHERE revision > 0;
-CREATE OR REPLACE VIEW tropical_track_points_in_force AS
-SELECT p.* FROM tropical_track_points p
- WHERE NOT EXISTS (SELECT 1 FROM tropical_track_points q
-                    WHERE q.revision > 0
-                      AND q.storm_id = p.storm_id AND q.source = p.source AND q.init_ts = p.init_ts
-                      AND q.advisory = p.advisory AND q.revision > p.revision);
--- tropical_place_odds_in_force: the same, over (storm_id, source, issued_ts, advisory)
-```
+**Locally,** `test_R8_with_a_correction_in_the_bank_every_read_is_an_index_read` plans every statement on the bank with the constructed corrections in place. d091673's `test_T10_*` plan them at the bank's size and at 31×. All are index reads, and every anti-join reads 297's index.
 
-**Why it is safe.**
-- `q.revision > 0` follows from `q.revision > p.revision` and the CHECK `revision >= 0`, so the rows in force do not change.
-- `rehearse_view_plans.py` asserts that every statement returns the same rows on the fixed views as on 294's. It does so with a constructed correction in place (Simon 010 and Simon's newest PWS issuance at revision 1), at the bank's size and at 31×.
+## 3. The first firing's STOP-V, and what pantry did
 
-**Why it is fast.** The anti-join's inner side becomes an index of corrected rows only: empty today, and a handful per corrected advisory ever after.
+294's NOT EXISTS was planned as an anti-join against the whole table, restricted only by `storm_id`. That made `/tracks` and `/odds` seq-scan whole tables on Neon, with costs growing with a storm's age.
 
-**Locally, fixed vs before:**
+The first firing stopped there. It handed pantry `proposed_pantry_view_fix.sql`:
+- a redundant `q.revision > 0` in each view (no row in force changes);
+- partial indexes of the revised rows.
 
-| statement | bank | 31× |
+Pantry applied it, verbatim, as **migration 297** (11:55:17Z). Its post-check proves the rows in force unchanged.
+
+`tests/fixtures/tropics_d091682/ddl_294.sql` and `ddl_297.sql` are the two migrations' schema changes, cut verbatim with each file's sha-256. The local Postgres applies them after the bank's rows, as Neon did.
+
+## 4. The corrected-advisory fields, and where they sit in each body
+
+| route | object | fields, in this order |
 |---|---|---|
-| TRACKS n = 8 | 6.4 ms / 130 buf vs 3.0 / 119 | 5.8 / 163 vs 3.3 / 152 |
-| ODDS | 0.42 / 23 vs 0.26 / 19 | 1.5 / 781 vs 0.28 / 21 |
-| CYCLES | 17 / 1,106 vs 9.9 / 1,048 | 21 / 1,219 vs 14 / 1,161 |
-| OBSERVED | 0.11 / 21 vs 0.07 / 20 | — |
+| `/storms` | `storms[].newest_advisory` | `advisory, init_ts, position_valid_ts, position_tau_h,` **`corrected, revision`** |
+| `/storm` | `official` | `advisory, init_ts, position_valid_ts, position_tau_h,` **`corrected, revision`**`, points, label, same_init_advisories` |
+| `/tracks` | `cycles[].official[]` | `advisory, init_ts, position_valid_ts, position_tau_h,` **`corrected, revision`**`, points` |
+| `/odds` | `issuance` | `issued_ts, advisory,` **`corrected, revision`** |
 
-- **No seq scan of the points or odds table remains, at either size.** The 31× ODDS figure is 378 probes of an index padded with 6,944 constructed revised rows.
-- **Not yet planned on Neon** (this lane writes nothing there). Pantry's lane should apply it and re-take these six plans on Neon.
+**`revision`** (integer) is the revision of the rows served, read off the view. The view serves one revision per advisory, so the field cannot mix.
 
-**Also for pantry, not blocking.** `tropical_file_vintage_in_force` is `DISTINCT ON`, the form CLAUDE.md's d091551 rule bars for newest-row reads.
-- Through the API's lookups it is harmless: the identity quals are pushed into it, and Neon reads 1–2 rows by `tfv_identity`.
-- A reader that reads it unfiltered would build all 3,593 identities.
+**`corrected`** (true|false) is `bool_or(corrected)` over the copies in force of the files the rows were parsed from:
+- for the official, its `fcst_5day_zip` and `fcst_radii_zip`;
+- for the odds, its `pws`.
 
-## 4. The corrected-advisory fields, and where they sit in each body (as drafted)
+It is read in the same statement as the rows, by a LATERAL on `tropical_file_vintage_in_force` that probes `tfv_identity`. It is never inferred from the numbers. Where the ledger holds no copy, it is false.
 
-| route | where | fields |
+**What the combinations mean (ruling 1: true to the ledger for every advisory):**
+
+| corrected | revision | means | live example |
+|---|---|---|---|
+| false | 0 | the advisory as first published | every advisory at the bank's cut |
+| true | 0 | NHC corrected the files; no number we serve changed | Rachel 052A |
+| true | n > 0 | the numbers served are the n-th correction's | Simon 012A |
+
+**What did not change:**
+- **`main.py`.** The statement count per build, the memo keys and TTLs, the parameters and the status codes are as they were. The lookup rides inside the existing statements.
+- **The two fields are not on** `newest_position` or the A-deck `atcf:OFCL` series.
+
+## 5. Tests
+
+### 5.1 The fixtures
+
+**`tests/fixtures/tropics_d091682/` (`manifest.json`):**
+
+| file | what | rows | sha-256 (Neon's, re-checked on every load) |
+|---|---|---:|---|
+| `bank/ledger.jsonl.gz` | every `tropical_file_vintage` row at d091673's cut but the heartbeats, as `row_to_json` text | 2,637 | `2ab0c6057ae465dedea7b893a5b3663b64ffea1141ddfc37b458ee9d16000ffa` |
+| `bank/dataset.jsonl.gz` | the ledger's four datasets d091673's bank lacks | 4 | `31f70fc4fe3431e66684ada1e356c18aad670d49a836632c7991be7ab1331bfb` |
+
+- **The ledger rows:** all 2,637 are banked with `closed_ts` null; 13 are the d091675 anomaly copies; none carries `meta.correction`; 36 are of the three products the routes read.
+- **`ddl_294.sql`, `ddl_297.sql`:** the migrations, verbatim.
+- **`corrected.sql`:** the constructed corrections, applied only by the tests that ask for them, on their own cluster. Every ledger row it writes says `constructed`.
+  - **C1:** Simon 010's 5-day zip corrected. Revision 1 moves tau 24 (17.5 → 17.8 N, 125 → 130 kt) and drops tau 96, which exists in revision 0 only.
+  - **C2:** Simon's PWS 010 corrected. Revision 1 raises one value by 1 and drops MANZANILLO; the below-1 % cells are copied as is.
+  - **C3:** Isaias 013's 5-day zip and PWS corrected with identical rows; no row written.
+- **`vectors_d091673.json`:** the sha-256 and bytes of each of d091673's 11 vectors as merged (`c40c231`), and its `sizes.json`.
+
+**The loader.** `tests/load_bank_d091682.py`; `load_bank_d091673.load()` now calls its `in_force()` after the bank's rows (294, 297, the ledger).
+
+**d091673 files changed, and why:**
+
+| file | change | why |
 |---|---|---|
-| `/storms` | `storms[].newest_advisory`, after `position_tau_h` | `corrected`, `revision` |
-| `/storm` | `official`, after `position_tau_h`, before `points` | `corrected`, `revision` |
-| `/tracks` | each `cycles[].official[]` advisory, after `position_tau_h`, before `points` | `corrected`, `revision` |
-| `/odds` | `issuance`, after `advisory` | `corrected`, `revision` |
+| `tests/load_bank_d091673.py` | +5 lines: the `in_force()` call | the routes now read the views |
+| `tests/test_tropics_d091673.py` | `_base()` pinned to `149e314` | ruling 3 |
+| `tests/rehearse_tropics_d091673.py` | break 16's needle names the view | it names a table |
+| `tests/fixtures/tropics_d091673/bodies/*.json` | re-banked | ruling 2 |
+| `docs/receipts/tropics-api-d091673/sizes.json` | re-banked | each `/tracks` body is 31 bytes per official advisory larger; `test_T10_body_bytes` reads it. Re-banked by d091673's own `bank_bodies.py`, so its `local_build_ms` timings were re-taken too |
 
-**`revision`** (integer) is the revision of the rows served, read off the view: 0 for the original, n for the correction whose rows are in force. For the official this is pantry's sum of the 5-day and radii zips' corrections.
+Every other d091673 test is untouched.
 
-**`corrected`** (true|false) is the ledger's word on the files the rows were parsed from. Each is read from `tropical_file_vintage_in_force` as a LATERAL inside the same statement:
-- the official forecast: `bool_or(corrected)` over its `fcst_5day_zip` and `fcst_radii_zip`;
-- odds: the issuance's `pws`.
+### 5.2 R1–R8 (`tests/test_tropics_rows_in_force_d091682.py`, 28)
 
-It is never inferred from the numbers. When the ledger holds no copy, it reads false.
-
-**Three combinations, each with a meaning:**
-
-| corrected | revision | meaning |
+| | test | holds |
 |---|---|---|
-| false | 0 | the original advisory |
-| true | 0 | NHC corrected the files and the correction changed no number we serve (Rachel 052A today) |
-| true | n > 0 | the numbers served are the correction's |
+| R1 | `test_R1_*` (3) | C1 is what it says; `/storm` serves Simon 010 at revision 1 only, taus 3–72 (no 96), tau 24 = 17.8 N 130 kt; `/storms` names it corrected, revision 1 |
+| R2 | `test_R2_*` (2) | every `/tracks` official and series has one row per tau; the bare tables hold one mixed advisory and one mixed issuance (C1, C2); the views hold none |
+| R3 | `test_R3_*` (2) | `/odds` serves C2's revision 1 only: MANZANILLO gone, exactly one cell changed by +1, every below-1 % cell `value_pct: null, below_1pct: true` |
+| R4 | `test_R4_*` (3) | every `corrected`/`revision` in every body equals the ledger's word, computed in Python from the ledger rows (pantry's view rule), and the rows' max revision: all false/0 on the live bank, exactly the 8 objects C1–C3 touch on the constructed one; the d091675 anomaly copies never read as corrections |
+| R5 | `test_R5_*` (2) | C3: corrected true at revision 0, and the storm, tracks and odds bodies equal the live bank's minus the two fields; the Neon receipt records Rachel 052A |
+| R6 | `test_R6_*` (12) | each re-banked vector carries the fields on exactly the objects of §4, and minus them has d091673's sha; the fields sit after `position_tau_h` and `advisory` |
+| R7 | `test_R7_*` (2) | no `*_SQL` and no line of `main.py`'s tropics section names a bare points or odds table; every point/odds statement names its view; the three that serve advisories read `tropical_file_vintage_in_force` |
+| R8 | `test_R8_*` (2) | locally, with C1–C3 in the bank, no statement seq-scans the points, odds or ledger table, every anti-join reads `ttp_revised`/`tpo_revised` and the lookups `tfv_identity`; the Neon receipt holds every read an index read within 10× of d091673 |
 
-**What else does not change.** `main.py` is untouched, and so are the statement count per build, the memo keys, the TTLs, the parameters and the status codes. The lookups ride inside the existing statements, so FakePool-routed tests see no new statement.
+### 5.3 Red, then green
 
-**Not on these:**
-- **`newest_position`**, even when its source is the official: the page reads the advisory's state from `newest_advisory`.
-- **The A-deck `atcf:OFCL` series:** NHC's GIS correction is not an A-deck correction.
+**Red on the base `tropics.py`** (`red_on_base.txt`): 23 failed, with this lane's fixtures, loader and vectors in place.
+- **11 of the new tests:** every R1, R3, R4, R5 test, `test_R2_tracks_*`, `test_R7_no_statement_*` and the local R8.
+- **12 of d091673's:** the 11 vectors and the body-size receipt.
 
-## 5. Not done, and the re-fire checklist
+**Green on the branch:** 115 of 115 across both tropics modules.
 
-Held by STOP-V, in order:
+**The rehearsal** (`reds.txt`, `tests/rehearse_tropics_d091682.py`): 14 breaks, one per rule, applied in place and restored:
+- **Rule 1 (rows in force):** /tracks, the official and /odds each read a bare table.
+- **Rule 2 (`corrected` and `revision`):**
+  - the ledger lookup is dropped;
+  - corrected is inferred from changed numbers;
+  - the official reads only the radii zip's word;
+  - revision is served as 0;
+  - an anomaly copy is taken as the copy in force.
+- **Rule 3 (odds):** below_1pct is served as 0.
+- **Rule 4 (no other change to bodies):** a third field is added; the fields move before the position.
+- **Rule 5 (plans):** either view loses 297's clause.
+- **The repair:** `test_R`'s base is unpinned.
 
-1. **Pantry** applies §3, or its own equivalent, and re-takes the six plans on Neon.
-2. **This lane, re-fired:**
-   - Apply `draft_rows_in_force.patch` to `tropics.py`.
-   - Re-take `plans.md` on Neon against d091673's receipts. STOP-V is then a seq-scan or > 10× test on the new plans.
-3. **Fixtures:**
-   - Cut the ledger slice from Neon at d091673's cut (21:54:47.543942Z): every `tropical_file_vintage` row of products `fcst_5day_zip`, `fcst_radii_zip` and `pws`, as `row_to_json` text with Neon's sha-256. It includes the d091675 anomaly copies, which must read `corrected` false.
-   - In `load_bank_d091673.load()`, apply `tests/fixtures/tropics_d091682/ddl_294.sql` (already cut, verbatim from pantry, with the file's sha) **after** the rows, as on Neon, then pantry's fix.
-   - The constructed corrected advisory: Simon 010 revision 1, one tau moved and one dropped, with a `meta.correction` ledger row for its 5-day zip; Simon's newest PWS at revision 1, one value changed, one place dropped, a `below_1pct` cell kept; Isaias 013 corrected with identical rows for R5.
-4. **Re-bank the 11 `test_V` vectors.** The only allowed difference: the two added keys on the four objects in §4. Check it by deleting those keys from the new body and comparing with the old bytes.
-5. **Tests R1–R7** (red on this base, green with the patch), then the mutation rehearsal, then the whole suite.
+**Every break is red,** the clean tree is green before and after, and the tree hash is unchanged (`269d348a62a39902`).
 
-The rehearsal needs one break per rule:
-- read a bare table;
-- drop the ledger lookup;
-- take `revision` from the file instead of the rows;
-- serve a revision-0 tau beside revision 1;
-- serve `below_1pct` as 0;
-- `corrected` inferred from changed numbers.
+### 5.4 The whole suite
 
-## 6. What this brief got wrong
+**2,761 passed, 1 failed:** `tests/test_chart_brief.py::test_chart_brief_maps_contract`.
+- **It is not this lane's.** It fails identically with every change of this lane stashed.
+- **The cause:** it asserts a publication status of `overdue` from the wall clock, with no clock pinned. It passed in the first firing's run (~11:15Z) and reads `pending` at 12:25Z.
+- **Left for its own lane.** At the first firing the suite was 2,733 passed with `test_R_no_existing_route_or_memo_changed` red; that test is now green (ruling 3), and the 28 new tests are the rest of the difference.
 
-1. **"Re-take the plan receipts: a view must not turn an index read into a scan."** As pantry wrote them, the views do exactly that for `/tracks` and `/odds` on Neon. STOP-V is the brief's own tripwire, and it fired (§2).
-2. **R4: "false with revision 0 for every live advisory."**
-   - Since 07:10Z on 10-10, Rachel 052A reads `corrected` true at revision 0: NHC corrected it, and the correction parsed identically.
-   - So R5's case is live, not only constructed.
-   - Where it shows: `/tracks?storm_id=ep182026` carries it in the 00Z cycle's `official` list while that cycle is among the newest n. `/storm` and `/storms` show 053.
-   - At d091673's fixture cut (10-09 21:54Z) every advisory does read false, so R4 holds for the banked snapshot only.
-3. **"revision" names two different numbers.**
-   - The ledger's `revision` is per file.
-   - The rows' revision for the official is the **sum** of two files' revisions. Pantry's receipt calls 052A's "revision 2", while each file reads 1.
-   - Rows exist at that revision only if they differ.
-   - The draft serves the rows' revision and says so (§4). If the page should show the file count instead, that is a ruling.
-4. **"Where a route needs to know an advisory was corrected it reads `tropical_file_vintage_in_force`"** does not say which files.
-   - An official advisory has seven files; its rows come from two.
-   - The draft reads the two parsed files: a correction of only the cone or warnings KMZ would read false.
-   - That is a choice for the architect. 052A corrected all seven, so it cannot tell the two readings apart today.
-5. **R6: "every d091673 test still passes untouched except where it names a table."** Three things stop this:
-   - **The vectors:** rule 2 adds two fields to four objects, so the eleven byte-for-byte vectors in `test_V_*` must be re-banked. The test code can stay untouched; its fixtures cannot.
-   - **The loader:** `load_bank_d091673.load()` must apply 294 for the d091673 Postgres tests to run the new SQL.
-   - **An existing red:** `test_R_no_existing_route_or_memo_changed` is **already red on main at `c40c231`**. It diffs `main.py` against its merge-base with main and asserts the base has no `/api/weather/tropics`. Since d091673 merged, the base is main itself. It was left untouched; the one-line fix (pin the base to d091673's own base, `149e314`) is for the architect.
-6. **"Extend the banked snapshot with a constructed corrected advisory."** The banked snapshot holds only heartbeat rows of the ledger, so the corrected flag has nothing to read. The snapshot needs the ledger slice first (§5.3).
-7. **"Fire after d091673 merges (it edits that lane's module)."** It merged as `c40c231`, and the lane fired on it. But the d091673 test that pinned "the tropics routes are new" became red at that merge (5 above).
+## 6. What the dashboard lane must show
 
-## 7. Files
+**Where to read it:** `corrected` and `revision` from the four objects in §4. Never compare numbers across fetches to guess a correction.
+
+**What to print:**
+
+| state | label |
+|---|---|
+| `corrected: true` | "Corrected advisory" beside the advisory number, on the storm card (`/storm` official), the list (`/storms` newest_advisory), each cycle's official track in the player, and the odds table header (`/odds` issuance) |
+| `corrected: true`, `revision: 0` | the same label, with "NHC re-issued this advisory; no position, intensity or radius changed" (Rachel 052A today) |
+| `corrected: true`, `revision` > 0 | the same label: the numbers shown are the correction's. Do not draw the superseded revision anywhere: the API never serves it, and a "revisions of this advisory" read does not exist yet |
+| `corrected: false` | nothing |
+
+**Odds:** a corrected issuance can drop a place or a cell. Absence keeps its d091673 meaning (below NHC's print threshold), and `below_1pct` still prints "<1 %".
+
+**Vectors:** `tests/fixtures/tropics_d091673/bodies/*.json` are the re-banked bodies (all false/0 at the cut). The constructed cases live in `corrected.sql` and R1–R5.
+
+## 7. What this brief got wrong
+
+1. **"A view must not turn an index read into a scan."** As pantry first wrote them, the views did exactly that for `/tracks` and `/odds`. STOP-V fired, and pantry's 297 fixed the views (§3).
+2. **R4 as first written,** "false with revision 0 for every live advisory", was not true by the first firing (Rachel 052A).
+   - Ruling 1 restated it as "true to the ledger for every advisory", which R4 now holds.
+   - Since 11:57Z, Simon 012A is a live corrected-with-different-rows case too.
+3. **"revision" names two numbers.**
+   - The ledger's is per file.
+   - The official rows' is the sum over two files (pantry's "revision 2" for 052A).
+   - The payload serves the rows' (§4).
+4. **"Reads `tropical_file_vintage_in_force`" did not say which files.** The API reads the files the rows are parsed from:
+   - **The official:** the 5-day and radii zips.
+   - **The odds:** the PWS.
+   - **A correction of only the cone or warnings KMZ** reads false. Pantry wrote no rows for one, and no number we serve came from it. Simon 012A shows the line: only its 5-day zip is corrected in the ledger, and its rows changed.
+5. **R6 as written** ("every d091673 test passes untouched except where it names a table") could not hold. The vectors had to be re-banked, which ruling 2 restated, and one d091673 test was already red on main, which ruling 3 repaired. Two more d091673 files had to move:
+   - the loader, to apply 294 and 297;
+   - `sizes.json`, the bytes T10 holds the bodies to.
+6. **"Extend the banked snapshot"** needed the ledger first: d091673's bank held only its heartbeat rows. It also needed the **whole** ledger, not the 36 rows the routes read, or the local planner seq-scans a 4-page table and T10 cannot hold.
+7. **"Fire after d091673 merges"** was right, but that merge is also what turned `test_R_no_existing_route_or_memo_changed` red.
+
+## 8. Production, today
+
+`main` (d091673) reads the bare tables. Since pantry wrote Simon 012A's revision 1 at 11:57:26Z:
+- **`/storm?storm_id=ep202026`'s official** holds both revisions' points under 012A: two tau-6 points, 125 kt and 130 kt.
+- **`/tracks`** holds the same under the 06Z cycle's official.
+
+This branch serves revision 1 only. Until it merges, Simon's official on the page shows the doubled tau 6.
+
+## 9. Files
 
 | path | what |
 |---|---|
-| `docs/handback_2026_10_09_tropics_api_rows_in_force.md` | this |
-| `docs/receipts/tropics-api-d091682/plans.md` | Neon plans before and after, STOP-V verdicts, the local three-way table |
-| `docs/receipts/tropics-api-d091682/neon_measured.json` | the views, counts, corrected identities, the live 052A witness |
-| `docs/receipts/tropics-api-d091682/explains_before.sql`, `explains_after.sql` | the statements as planned on Neon, rendered by `render_explains.py` |
-| `docs/receipts/tropics-api-d091682/draft_rows_in_force.patch` | the rewrite of `tropics.py`, held back by STOP-V |
-| `docs/receipts/tropics-api-d091682/proposed_pantry_view_fix.sql` | §3 |
-| `docs/receipts/tropics-api-d091682/rehearse_view_plans.py`, `view_plans_local.txt`, `view_plans_local.json` | the local rehearsal: before / 294 / fixed, bank and 31×, row equality asserted |
-| `tests/fixtures/tropics_d091682/ddl_294.sql` | migration 294's sections 1–2 verbatim, for the local Postgres |
-
-`tropics.py`, `main.py` and every test file are unchanged.
+| `tropics.py` | every statement on the views; the ledger LATERAL; `correction()`; the two fields |
+| `tests/test_tropics_rows_in_force_d091682.py` | R1–R8 (28) |
+| `tests/load_bank_d091682.py` | `in_force`, `construct`, the ledger rule in Python, the R6 strip |
+| `tests/rehearse_tropics_d091682.py` | the mutation rehearsal (14 breaks) |
+| `tests/fixtures/tropics_d091682/` | ledger and datasets (Neon's, sha-checked), `ddl_294.sql`, `ddl_297.sql`, `corrected.sql`, `vectors_d091673.json`, `manifest.json` |
+| `tests/load_bank_d091673.py`, `tests/test_tropics_d091673.py`, `tests/rehearse_tropics_d091673.py`, `tests/fixtures/tropics_d091673/bodies/`, `docs/receipts/tropics-api-d091673/sizes.json` | §5.1 |
+| `docs/receipts/tropics-api-d091682/` | `plans.md` (both firings), `neon_plans_297.json`, `neon_measured.json`, `explains_before.sql` / `explains_after.sql`, `red_on_base.txt`, `reds.txt`, the first firing's `proposed_pantry_view_fix.sql`, `draft_rows_in_force.patch` (now applied), `rehearse_view_plans.py` and its outputs |

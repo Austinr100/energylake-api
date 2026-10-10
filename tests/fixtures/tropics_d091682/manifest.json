@@ -1,0 +1,36 @@
+{
+  "lane": "d091682",
+  "what": "The rest of tropical_file_vintage at the d091673 cut: every row but the heartbeats (which the d091673 bank already holds), as Postgres's own row_to_json(t)::text, one row per line, in vintage_id order; with the heartbeats it is the whole ledger at the cut. The routes read three of its products for `corrected` (fcst_5day_zip and fcst_radii_zip, the files the official points are parsed from, and pws, the odds; pantry ingesters/tropical_bank.py); the rest is banked so the local table is the size Neon's was and is planned as Neon plans it. Read-only through the Neon connector, 2026-10-10 12:00-12:07Z, in 10 reads by vintage_id range.",
+  "cut": "2026-10-09T21:54:47.543942+00:00",
+  "cut_rule": "fetch_ts <= cut AND product <> 'heartbeat': the d091673 bank's own cut, so the ledger and the points it describes are one instant. All 2,637 rows are status banked with closed_ts null (the only column the bank ever UPDATEs, and only on pending/absent rows); a banked row is never updated (pantry d091675), so reading it a day later returns what stood at the cut. 13 are anomaly copies (meta.anomaly_prior_sha, the d091675 events); none carries meta.correction. 36 rows are of the three products the routes read.",
+  "server": {
+    "server_version": "17",
+    "TimeZone": "GMT"
+  },
+  "files": {
+    "ledger": {
+      "path": "bank/ledger.jsonl.gz",
+      "rows": 2637,
+      "order": "vintage_id",
+      "sha256": "2ab0c6057ae465dedea7b893a5b3663b64ffea1141ddfc37b458ee9d16000ffa",
+      "table": "tropical_file_vintage",
+      "columns": "*",
+      "where": "fetch_ts <= cut AND product <> 'heartbeat'"
+    },
+    "dataset": {
+      "path": "bank/dataset.jsonl.gz",
+      "rows": 4,
+      "order": "dataset_code",
+      "sha256": "31f70fc4fe3431e66684ada1e356c18aad670d49a836632c7991be7ab1331bfb",
+      "table": "datasets",
+      "columns": "dataset_code, lifecycle_status, refresh_cron, freshness_mode, stale_after_override, enabled (the ledger rows' datasets the d091673 bank does not hold: atcf_deck_vintage, nhc_advisory_vintage, nhc_two_vintage, nhc_wsp_vintage)"
+    }
+  },
+  "ddl": {
+    "ddl_294.sql": "pantry migration 294 sections 1-2 (revision in both keys, the three views), applied after the rows",
+    "ddl_297.sql": "pantry migration 297 (ttp_revised, tpo_revised, the two views with q.revision > 0), applied after 294"
+  },
+  "constructed": "corrected.sql: the constructed corrections (R1-R5); applied only by the tests that ask for them, never by the bank load",
+  "sha256_rule": "as d091673's: Neon computed encode(sha256(convert_to(string_agg(row_to_json(t)::text, E'\\n' ORDER BY vintage_id), 'UTF8')), 'hex') in the statement that returned the rows; the suite recomputes it on every load. Written by tests/fixtures/tropics_d091673/bank_from_neon.py.",
+  "chunks": "ledger in 10 reads (vintage_id 10-274, 275-539, 540-808, 809-1073, 1074-1337, 1338-1603, 1604-1868, 1869-2131, 2132-2401, 2402-2677); the sha over the whole text was computed by Neon in one statement; bank_from_neon.py reassembled and checked it before writing"
+}

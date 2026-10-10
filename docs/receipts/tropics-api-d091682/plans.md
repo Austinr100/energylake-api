@@ -1,4 +1,26 @@
-# d091682 plan receipts: the Tropics reads moved onto the rows in force — STOP-V
+# d091682 plan receipts: the Tropics reads moved onto the rows in force
+
+**Two firings.**
+- **The first (below) stopped at STOP-V.** Through 294's views, /tracks and /odds were seq scans of whole tables.
+- **Pantry applied the fix proposed at the end of this file as migration 297** (2026-10-10 11:55:17Z).
+- **The re-fire** took the six statements again through 297's views, 11:58–12:00Z (`neon_plans_297.json`, pinned by `test_R8_the_neon_receipt_*`):
+
+| statement | d091673 receipt | 294 views (first firing) | **297 views** | ratio |
+|---|---:|---:|---:|---:|
+| STORMS_SQL | 0.135 ms | 0.608 ms | **0.139 ms**, 31 buf | 1.0× |
+| OFFICIAL_NEWEST_SQL | 0.150 ms | 0.912 ms | **0.516 ms**, 155 buf | 3.4× |
+| OBSERVED_SQL | 1.02 ms | 3.19 ms | **0.242 ms**, 97 buf | 0.2× |
+| CYCLES_SQL | 10.3 ms | 86.4 ms | **15.9 ms**, 1,204 buf | 1.5× |
+| TRACKS_SQL n = 8 | 3.26 ms | 29–61 ms, seq scan | **6.6 ms**, 2,363 buf | 2.0× |
+| ODDS_SQL | 0.357 ms | 3.36 ms, seq scan | **0.294 ms**, 19 buf | 0.8× |
+
+- **The plans:** every anti-join's inner side is `ttp_revised` or `tpo_revised`, and every ledger lookup is `tfv_identity`. No plan scans a whole table.
+- **STOP-V does not fire on the re-fire.**
+- **The bank at that read** held the first real correction with different rows: Simon 012A at revision 1, 6 points. `OFFICIAL_NEWEST_SQL` returned 24 of its 30 candidate rows.
+
+---
+
+# The first firing — STOP-V
 
 **How (Neon).** EXPLAIN (ANALYZE, BUFFERS) of each statement in `explains_before.sql` (d091673's, the bare tables, git `c40c231:tropics.py`) and `explains_after.sql` (this lane's draft, the 294 views, `draft_rows_in_force.patch`). Both were rendered by psycopg's `ClientCursor.mogrify` (`render_explains.py`).
 - **Where:** the Neon connector, production database (Energylake, Postgres 17), 2026-10-10 10:38–10:49Z. Every statement was a SELECT; nothing was written.

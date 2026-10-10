@@ -1,6 +1,7 @@
 """Render every Tropics statement twice, d091673's (the bare tables, from git at
 the lane's base) and d091682's draft (the rows in force: that tropics.py with
-draft_rows_in_force.patch applied; STOP-V held it back from the tree),
+draft_rows_in_force.patch applied: held back by STOP-V at the first firing, applied
+as tropics.py on the re-fire after pantry 297),
 with the literal parameters their Neon plans were taken with, by psycopg's own
 client-side binding, into explains_before.sql and explains_after.sql.
 
