@@ -49,6 +49,10 @@ Endpoints:
     GET /api/weather/dd/blend              The EnergyLake blend per station from v_dd_blend_drawable only; what is not drawable is not served, and the payload says so (d091666)
     GET /api/weather/dd/band               The GEFS degree-day band: a stated absence, no member values banked at our places (d091666, STOP-B)
     GET /api/weather/dd/desk               The Forecast desk's morning numbers: one source per region, the board's levels, the delta view's change, the score cell by lead (d091666)
+    GET /api/weather/cpc/curves            A place's newest CPC 6-10 and 8-14 day curve (percentiles, equal-odds, label, band claim) from v_cpc_curves_drawable only; not drawable -> 200 with the verdict's reasons (d091679)
+    GET /api/weather/cpc/curves/vintages   One product's n newest issuances at a place, oldest first, n 1-14 (above the cap a 400), for the player (d091679)
+    GET /api/weather/cpc/places            Every place with its CPC curve verdict per product, season and strength, and its newest curve (d091679)
+    GET /api/weather/cpc/outlooks          The banked CPC outlook features of each family's newest issuance (6-10, 8-14, weeks 3-4, monthly, seasonal), stated absence where not banked (d091679)
     GET /api/regulatory/board             regulatory_board view as JSON, body-filterable (D-2026-06-14-03)
     GET /api/joule/chart-brief             latest Joule chart brief by brief_type (#99 render leg)
     GET /api/atlas/pnode-lmp               latest complete CAISO pnode-LMP snapshot, columnar prices-only (D-07-05-09)
@@ -17260,6 +17264,360 @@ async def dd_desk(
     except asyncio.TimeoutError:
         raise _dd_503_on_timeout("the desk", 2 * _DD_REGION_FC_BUILD_TIMEOUT)
     return _dd_envelope(payload, state, entry, _dd_desk_cache, response)
+
+
+# ── /api/weather/cpc: curves, vintages, places, outlooks (d091679) ──────────
+#
+# CPC's 6-10 and 8-14 day outlooks as the bank turns them into curves
+# (pantry 286, D-09-25-172), the verdict per place, season and strength of
+# CPC's odds, and the banked outlook features. SQL and shaping in
+# cpc_outlooks.py. Every read goes through _dd_timed_read (2 s statement
+# timeout, D-09-25-75); every route through a single-flight _DDCache memo with
+# the degree-day cache block and headers (_dd_envelope). Measured on Neon
+# 2026-10-09/10 (docs/receipts/cpc-outlooks-d091679/plans.md): a curve read
+# 0.4-2 ms warm (n = 1..14), the verdicts 1 ms, the features 1 ms.
+#
+# Why not merged into /api/weather/outlooks: that route's body is the
+# OutlooksShelves contract (graphics registry, discussions, state tables, read
+# from forecasts_climate_outlook), which the brief says not to change, and its
+# guard blanks every shelf on a shape it does not know. /api/weather/regime's
+# CPC chips read cpc_outlook_vintage metadata with lean null. Neither reads a
+# curve, a verdict or a feature, so these are new routes beside them, under
+# one prefix. /curves and /curves/vintages share one read (CURVES_SQL, n = 1
+# for /curves) and one shaping (cpc_outlooks.vintage): a player's frame and
+# the board's newest curve are the same object.
+#
+# TTL, against the writers' cadence: CPC posts the dailies ~19:05-19:30Z, the
+# capture banks them ~20:23-21:26Z, the features parse runs 21:41Z (for D-1),
+# the curves writer 22:47Z, the verdicts writer Sunday 06:11Z. Nothing moves
+# more than once a day, so 15 minutes bounds how long a new issuance waits to
+# be seen, for one ~1 ms read per memo key per quarter hour. Shorter buys
+# nothing; longer would leave the evening's curve unseen for longer.
+
+import cpc_outlooks as _co
+
+CPC_PREFIX = "/api/weather/cpc"
+_CPC_TTL = 900.0
+_CPC_BUILD_TIMEOUT = _DD_REGION_FC_BUILD_TIMEOUT
+
+_cpc_places_cache = _DDCache("cpc/places", _CPC_TTL, max_entries=1,
+                             build_timeout=_CPC_BUILD_TIMEOUT)
+_cpc_curves_cache = _DDCache("cpc/curves", _CPC_TTL, max_entries=64,
+                             build_timeout=_CPC_BUILD_TIMEOUT)
+_cpc_vintages_cache = _DDCache("cpc/curves/vintages", _CPC_TTL, max_entries=64,
+                               build_timeout=_CPC_BUILD_TIMEOUT)
+_cpc_outlooks_cache = _DDCache("cpc/outlooks", _CPC_TTL, max_entries=16,
+                               build_timeout=_CPC_BUILD_TIMEOUT)
+_CPC_CACHES = (_cpc_places_cache, _cpc_curves_cache, _cpc_vintages_cache,
+               _cpc_outlooks_cache)
+
+
+def _cpc_404(place_kind: str, place: str, weighting: str) -> HTTPException:
+    w = f" ({weighting})" if weighting else ""
+    return HTTPException(
+        status_code=404,
+        detail=f"unknown place: {place_kind} {place}{w} has no verdict in "
+               f"cpc_curve_verdicts. {CPC_PREFIX}/places lists every place.")
+
+
+def _cpc_place_params(place_kind: Optional[str], place: Optional[str],
+                      weighting: Optional[str]) -> tuple[str, str, str]:
+    """(place_kind, place, weighting) as the bank keys them, or a 400."""
+    if place_kind in (None, ""):
+        raise _dd_400("place_kind", f"is required. one of {list(_co.PLACE_KINDS)}")
+    if place_kind not in _co.PLACE_KINDS:
+        raise _dd_400("place_kind", f"unknown place_kind {place_kind!r}. one of "
+                                    f"{list(_co.PLACE_KINDS)}")
+    if place in (None, ""):
+        raise _dd_400("place", "is required: a GHCN station id or a region id")
+    if place_kind == "station":
+        if not _co.STATION_RE.match(place):
+            raise _dd_400("place", f"must be a GHCN station id (11 capitals and digits, "
+                                   f"e.g. USW00024233), got {place!r}")
+        if weighting not in (None, ""):
+            raise _dd_400("weighting", "a station has no weighting (the bank keys it '')")
+        return place_kind, place, ""
+    if not _co.REGION_RE.match(place):
+        raise _dd_400("place", f"must be a region id (lower case, digits, _), got {place!r}")
+    w = weighting if weighting not in (None, "") else _co.DEFAULT_WEIGHTING
+    if w not in _co.WEIGHTINGS:
+        raise _dd_400("weighting", f"unknown weighting {w!r}. one of {list(_co.WEIGHTINGS)}")
+    return place_kind, place, w
+
+
+async def _cpc_places():
+    """The verdicts in force and the newest written places, through their memo."""
+    async def _build():
+        verdicts, newest = await asyncio.gather(
+            _dd_timed_read(_co.PLACES_SQL, {}),
+            _dd_timed_read(_co.PLACES_NEWEST_SQL, {"products": list(_co.CURVE_PRODUCTS)}))
+        out = _co.places_payload(verdicts, newest)
+        out["_known"] = _co.known_places(verdicts)
+        return out
+    try:
+        return await _cpc_places_cache.serve("places", _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the places", _CPC_BUILD_TIMEOUT)
+
+
+async def _cpc_known_or_404(key: tuple[str, str, str]) -> dict:
+    """The place's /places entry (from its memo), or a 404."""
+    places, _state, _entry = await _cpc_places()
+    if key not in places["_known"]:
+        raise _cpc_404(*key)
+    return next(p for p in places["places"]
+                if (p["place_kind"], p["place"], p["weighting"]) == key)
+
+
+def _cpc_public(payload: dict) -> dict:
+    return {k: v for k, v in payload.items() if not k.startswith("_")}
+
+
+@app.get(f"{CPC_PREFIX}/places")
+async def cpc_places(response: Response):
+    """Every place the verdicts name, its cells, and its newest curve.
+
+        { drawable_rule, verdict_versions: [ {backtest_version, scored_at,
+            truth_frontier, method_version, method_hash, rules_version,
+            rules_hash, min_n_eff} ],
+          sources, newest_written_issued_date: {610temp, 814temp},
+          place_count, cell_count, drawable_count,
+          places: [ { place_kind, place, weighting,
+                      products: [ { product, drawable_cells, cell_count,
+                                    newest_curve: { issued_date, valid_start,
+                                      valid_end, season, strength,
+                                      method_version, drawable, reasons } | null,
+                                    newest_curve_absence,
+                                    seasons: [ { season,
+                                      cells: [ { season, strength, drawable,
+                                        n, n_eff, skill, t, strength_verdict,
+                                        share_p5_p95, share_p25_p75, season_n,
+                                        season_n_eff, season_skill, season_t,
+                                        verdict, history_years_in_base,
+                                        band_basis, band_basis_n,
+                                        band_basis_n_eff, band_share,
+                                        band_claim, band_sentence,
+                                        backtest_version, reasons } ] } ] } ] } ],
+          absence, cache }
+
+    cpc_curve_verdicts in the backtest_version in force (the newest scored_at
+    per method_hash, v_cpc_curves_drawable's own rule), every cell as stored.
+    `drawable` is the bank's column; `reasons` names which term of
+    ccv_drawable_ck is false where it is false. newest_curve is the place's
+    window row on each product's newest written issuance, with the drawable
+    flag of its own cell. Two reads, 2 s statement timeout, 15 min memo,
+    single-flight. DB unavailable -> 503.
+    """
+    assert _pool is not None
+    payload, state, entry = await _cpc_places()
+    return _dd_envelope(_cpc_public(payload), state, entry, _cpc_places_cache, response)
+
+
+@app.get(f"{CPC_PREFIX}/curves")
+async def cpc_curves(
+    response: Response,
+    place_kind: Optional[str] = Query(None, description="station or region"),
+    place: Optional[str] = Query(None, description="GHCN station id, or region id"),
+    weighting: Optional[str] = Query(
+        None, description="region only: population (default) or load_share_365d"),
+):
+    """A place's newest CPC curve for both products, as the bank states it.
+
+        { place_kind, place, weighting, drawable_rule, verdict_versions,
+          sources, products_drawn: [product],
+          products: [ { product, cpc_title, newest_written_issued_date,
+                        vintage: VINTAGE | null,
+                        place_verdict: { drawable_cells, cell_count,
+                          reason_codes, history_years_in_base, verdicts },
+                        absence } ],
+          absence, cache }
+
+        VINTAGE = { issued_date, written, valid_start, valid_end, season,
+          strength, reading, history, notes, writer_version, source_r2_key,
+          source_format_epoch, written_at, drawable,
+          verdict: { season, strength, drawable, n, n_eff, skill, t,
+                     strength_verdict, share_p5_p95, share_p25_p75, season_n,
+                     season_n_eff, season_skill, season_t, verdict,
+                     history_years_in_base, band_basis, band_basis_n,
+                     band_basis_n_eff, band_share, band_claim, band_sentence,
+                     backtest_version, reasons } | null,
+          curve: { label, band_claim, band_share, band_sentence, band_basis,
+                   backtest_version, season, strength, n_history_years,
+                   history_first, history_last, member_odds, method_version,
+                   method_hash, source_content_sha256,
+                   window: { valid_start, valid_end, empty_class, tavg_p05,
+                             tavg_p25, tavg_p50, tavg_p75, tavg_p95, hdd_p05 ..
+                             hdd_p95, cdd_p05 .. cdd_p95, eq_tavg_p05,
+                             eq_tavg_p50, eq_tavg_p95, eq_hdd_p05 .. eq_hdd_p95,
+                             eq_cdd_p05 .. eq_cdd_p95 },
+                   days: [ { day_index, target_date, empty_class, (the same
+                             24 value columns) } ] } | null,
+          absence: { reason: not_written | not_drawable | no_verdict,
+                     detail, reasons? } | null }
+
+    The curve is v_cpc_curves_drawable's rows and nothing else (pantry 286):
+    percentiles as stored, the equal-odds columns as themselves, the fixed
+    label and the band claim and sentence (ruling 172: where the odds were
+    strong the band held less than 9 in 10, and the sentence says how much).
+    A place whose newest issuance is not drawable is 200 with curve null and
+    the verdict's reasons; a place with no curve written (under 30 base years)
+    is 200 with its cells' reason codes in place_verdict, from the /places
+    memo the 404 check already holds (no extra read). One read per product (concurrent), each one
+    statement; 15 min memo, single-flight, 2 s statement timeout. Bad
+    parameter -> 400 naming it; a place with no verdict -> 404; DB down or
+    timed out -> 503.
+    """
+    assert _pool is not None
+    key = _cpc_place_params(place_kind, place, weighting)
+    place_entry = await _cpc_known_or_404(key)
+    pk, pl, w = key
+
+    async def _build():
+        reads = await asyncio.gather(*(
+            _dd_timed_read(_co.CURVES_SQL, {"product": p, "place_kind": pk, "place": pl,
+                                            "weighting": w, "n": 1})
+            for p in _co.CURVE_PRODUCTS))
+        return _co.curves_payload(dict(zip(_co.CURVE_PRODUCTS, reads)),
+                                  place_kind=pk, place=pl, weighting=w,
+                                  place_entry=place_entry)
+
+    try:
+        payload, state, entry = await _cpc_curves_cache.serve(key, _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the curves", _CPC_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, _cpc_curves_cache, response)
+
+
+@app.get(f"{CPC_PREFIX}/curves/vintages")
+async def cpc_curves_vintages(
+    response: Response,
+    product: Optional[str] = Query(None, description="610temp or 814temp"),
+    place_kind: Optional[str] = Query(None, description="station or region"),
+    place: Optional[str] = Query(None, description="GHCN station id, or region id"),
+    weighting: Optional[str] = Query(
+        None, description="region only: population (default) or load_share_365d"),
+    n: Optional[str] = Query(
+        None, description=f"issuances, 1-{_co.VINTAGES_MAX_N}; "
+                          f"default {_co.VINTAGES_DEFAULT_N}"),
+):
+    """One product's n newest issuances at a place, oldest first, for a player.
+
+        { place_kind, place, weighting, product, cpc_title, n, n_cap, order,
+          drawable_rule, verdict_versions, sources, issued_dates: [..],
+          drawn_count, vintages: [ VINTAGE ], absence, cache }
+
+    VINTAGE is /curves's. Every frame the player can step to is in this body,
+    so no step costs a round trip. The issuances are the product's n newest
+    written (bank-wide); a frame whose cell is not drawable carries curve null
+    and its reasons, and a frame with no row at the place says not_written.
+    n above 14 is a 400, never trimmed. One read (one statement); 15 min memo,
+    single-flight, 2 s statement timeout. Bad parameter -> 400; a place with
+    no verdict -> 404; DB down or timed out -> 503.
+    """
+    assert _pool is not None
+    if product in (None, ""):
+        raise _dd_400("product", f"is required. one of {list(_co.CURVE_PRODUCTS)}")
+    if product not in _co.CURVE_PRODUCTS:
+        raise _dd_400("product", f"unknown product {product!r}. one of "
+                                 f"{list(_co.CURVE_PRODUCTS)}")
+    if n in (None, ""):
+        n_ = _co.VINTAGES_DEFAULT_N
+    else:
+        try:
+            n_ = int(n)
+        except ValueError:
+            raise _dd_400("n", f"must be an integer 1-{_co.VINTAGES_MAX_N}, got {n!r}")
+        if not 1 <= n_ <= _co.VINTAGES_MAX_N:
+            raise _dd_400("n", f"must be 1-{_co.VINTAGES_MAX_N} (cap {_co.VINTAGES_MAX_N}), "
+                               f"got {n_}. This endpoint never silently truncates.")
+    key = _cpc_place_params(place_kind, place, weighting)
+    await _cpc_known_or_404(key)
+    pk, pl, w = key
+
+    async def _build():
+        rows = await _dd_timed_read(_co.CURVES_SQL, {"product": product, "place_kind": pk,
+                                                     "place": pl, "weighting": w, "n": n_})
+        return _co.vintages_payload(rows, product=product, n=n_, place_kind=pk,
+                                    place=pl, weighting=w)
+
+    try:
+        payload, state, entry = await _cpc_vintages_cache.serve((product, *key, n_), _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the vintages", _CPC_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, _cpc_vintages_cache, response)
+
+
+_CPC_TRUE = ("1", "true", "yes")
+_CPC_FALSE = ("", "0", "false", "no")
+
+
+@app.get(f"{CPC_PREFIX}/outlooks")
+async def cpc_outlooks(
+    response: Response,
+    product: Optional[str] = Query(
+        None, description=f"one of {list(_co.OUTLOOK_FAMILIES)}. Omit for every family."),
+    geometry: Optional[str] = Query(
+        None, description="true to add each feature's West polygon as GeoJSON "
+                          "(one family only; ~0.75 MB a product)"),
+):
+    """The banked features of each outlook's newest parsed issuance.
+
+        { families: [ { family, absence,
+                        products: [ { product, cpc_title, issued_date, layers,
+                                      content_sha256[], r2_key[],
+                                      format_epoch[], parser_version[],
+                                      parsed_at, bytes_newest_issued_date,
+                                      feature_count,
+                                      features: [ { layer, feature_index,
+                                        category, category_source, prob,
+                                        valid_start, valid_end,
+                                        intersects_west, west_area_fraction,
+                                        centroid: [lon, lat] | null, regions,
+                                        west_geojson? } ],
+                                      absence: { reason: not_banked |
+                                        not_parsed | no_layer_in_family,
+                                        detail } | null } ] } ],
+          geometry, geometry_note, sources, cache }
+
+    Families: 610 and 814 (temp and prcp), wk34 (weeks 3-4), monthly
+    (seastemp/seasprcp layer lead14 and the monthly-update products) and
+    seasonal (seastemp/seasprcp leads 1-13). cpc_outlook_features as stored,
+    EC as EC; what is not banked is a stated absence, and bytes banked but not
+    yet parsed (the parse runs for D-1) say so. Two reads (three with
+    geometry); 15 min memo, single-flight, 2 s statement timeout. Bad
+    parameter -> 400; DB down or timed out -> 503.
+    """
+    assert _pool is not None
+    if product in (None, ""):
+        fams = tuple(_co.OUTLOOK_FAMILIES)
+    elif product in _co.OUTLOOK_FAMILIES:
+        fams = (product,)
+    else:
+        raise _dd_400("product", f"unknown product {product!r}. one of "
+                                 f"{list(_co.OUTLOOK_FAMILIES)}")
+    g = (geometry or "").lower()
+    if g not in _CPC_TRUE + _CPC_FALSE:
+        raise _dd_400("geometry", f"must be true or false, got {geometry!r}")
+    with_geo = g in _CPC_TRUE
+    if with_geo and len(fams) != 1:
+        raise _dd_400("geometry", "needs one product family (?product=...): every "
+                                  "family's polygons together are several MB")
+    codes = list(dict.fromkeys(c for f in fams for c in _co.OUTLOOK_FAMILIES[f]["products"]))
+
+    async def _build():
+        reads = [_dd_timed_read(_co.OUTLOOK_FEATURES_SQL, {"products": codes}),
+                 _dd_timed_read(_co.OUTLOOK_VINTAGE_SQL, {"products": codes})]
+        if with_geo:
+            reads.append(_dd_timed_read(_co.OUTLOOK_GEOMETRY_SQL, {"products": codes}))
+        got = await asyncio.gather(*reads)
+        return _co.outlooks_payload(got[0], got[1], families=fams,
+                                    geometry_rows=got[2] if with_geo else None)
+
+    try:
+        payload, state, entry = await _cpc_outlooks_cache.serve((fams, with_geo), _build)
+    except asyncio.TimeoutError:
+        raise _dd_503_on_timeout("the outlooks", _CPC_BUILD_TIMEOUT)
+    return _dd_envelope(payload, state, entry, _cpc_outlooks_cache, response)
 
 
 # ── Startup warm ────────────────────────────────────────────────────────────

@@ -1,0 +1,81 @@
+# d091679 red on the base: tests/test_cpc_outlooks_d091679.py, cpc_outlooks.py and the fixtures
+# against main.py at 149e314 (no /api/weather/cpc routes)
+
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_curves_equal_the_hand_read_view_rows[610temp]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_curves_equal_the_hand_read_view_rows[814temp]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_both_products_in_one_body_each_its_own_newest
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_the_pnw_region_draws_at_both_weightings[key0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_the_pnw_region_draws_at_both_weightings[key1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T1_region_weighting_defaults_to_population
+FAILED tests/test_cpc_outlooks_d091679.py::test_T2_a_place_with_no_curve_states_why
+FAILED tests/test_cpc_outlooks_d091679.py::test_T2_a_written_curve_whose_cell_is_not_drawable
+FAILED tests/test_cpc_outlooks_d091679.py::test_T2_the_places_reasons_are_the_banks_columns
+FAILED tests/test_cpc_outlooks_d091679.py::test_T2_every_undrawable_cell_names_its_term
+FAILED tests/test_cpc_outlooks_d091679.py::test_T3_strong_odds_carry_the_banks_label_verbatim
+FAILED tests/test_cpc_outlooks_d091679.py::test_T3_no_word_of_the_apis_own - ...
+FAILED tests/test_cpc_outlooks_d091679.py::test_T3_every_strong_frame_carries_its_view_rows_claim
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_vintages_are_the_n_newest_oldest_first[1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_vintages_are_the_n_newest_oldest_first[7]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_vintages_are_the_n_newest_oldest_first[14]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_default_n_is_7 - Assertion...
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_one_read_carries_every_frame
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[15]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[-1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[100]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[seven]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T4_n_outside_1_14_is_400_never_trimmed[7.5]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T5_places_match_the_count_query
+FAILED tests/test_cpc_outlooks_d091679.py::test_T5_every_cell_is_the_stored_row
+FAILED tests/test_cpc_outlooks_d091679.py::test_T5_newest_curve_per_place - A...
+FAILED tests/test_cpc_outlooks_d091679.py::test_T6_unbanked_families_are_a_stated_absence
+FAILED tests/test_cpc_outlooks_d091679.py::test_T6_banked_families_serve_the_stored_features
+FAILED tests/test_cpc_outlooks_d091679.py::test_T6_bytes_banked_but_not_parsed_say_so
+FAILED tests/test_cpc_outlooks_d091679.py::test_T6_parsed_trails_banked_by_a_day_and_says_both
+FAILED tests/test_cpc_outlooks_d091679.py::test_T6_geometry_on_request_one_family
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves/vintages-params0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves/vintages-params1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_unknown_place_is_404[/api/weather/cpc/curves/vintages-params2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params0-place_kind]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params1-place_kind]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params2-place]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params3-place]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params4-place]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params5-weighting]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves-params6-weighting]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves/vintages-params7-product]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/curves/vintages-params8-product]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/outlooks-params9-product]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/outlooks-params10-geometry]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_bad_parameters_are_400_naming_the_field[/api/weather/cpc/outlooks-params11-geometry]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[down-/api/weather/cpc/places-params0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[down-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[down-/api/weather/cpc/curves/vintages-params2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[down-/api/weather/cpc/outlooks-params3]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[timeout-/api/weather/cpc/places-params0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[timeout-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[timeout-/api/weather/cpc/curves/vintages-params2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_database_down_or_timed_out_is_503[timeout-/api/weather/cpc/outlooks-params3]
+FAILED tests/test_cpc_outlooks_d091679.py::test_T7_a_build_past_its_ceiling_is_503
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_a_curve_is_the_views_rows_or_nothing
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_drawable_is_the_banks_column_not_a_derivation
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_every_read_is_one_statement_under_the_statement_timeout[/api/weather/cpc/places-params0-2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_every_read_is_one_statement_under_the_statement_timeout[/api/weather/cpc/curves-params1-4]
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_every_read_is_one_statement_under_the_statement_timeout[/api/weather/cpc/curves/vintages-params2-3]
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_every_read_is_one_statement_under_the_statement_timeout[/api/weather/cpc/outlooks-params3-2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_every_read_is_one_statement_under_the_statement_timeout[/api/weather/cpc/outlooks-params4-3]
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_memo_ttl_cache_block_and_headers
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_single_flight - AttributeEr...
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_places_never_serves_its_vocabulary_key
+FAILED tests/test_cpc_outlooks_d091679.py::test_S_existing_routes_unchanged
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_curves_pnw_population.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_curves_kden.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params3]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params4]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_places.json-/api/weather/cpc/places-params5]
+FAILED tests/test_cpc_outlooks_d091679.py::test_banked_body_is_what_the_route_serves[body_outlooks.json-/api/weather/cpc/outlooks-params6]
+77 failed, 4 passed, 1 warning in 2.69s

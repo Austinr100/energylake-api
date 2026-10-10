@@ -1,0 +1,53 @@
+# d091679 reds — each break must turn its tests red; the clean tree must be green
+
+rule 1  RED   an equal-odds column served as the reweighted one
+        -k 'test_T1_curves_equal': 2 failed, 79 deselected, 1 warning in 0.94s
+rule 1  RED   a percentile rounded on the way out
+        -k 'test_T1_curves_equal': 2 failed, 79 deselected, 1 warning in 0.97s
+rule 1  RED   notes dropped
+        -k 'test_T1_curves_equal': 2 failed, 79 deselected, 1 warning in 0.95s
+rule 1  RED   a verdict cell field restated (band_share rounded)
+        -k 'test_T5_every_cell': 1 failed, 80 deselected, 1 warning in 1.06s
+rule 2  RED   the curve read from cpc_outlook_curves, not the view
+        -k 'test_T8_every_read_is_pinned or test_S_every_read': 1 failed, 5 passed, 75 deselected, 1 warning in 1.28s
+rule 2  RED   drawable derived from the fields, not the column
+        -k 'test_S_drawable_is_the_banks_column': 1 failed, 80 deselected, 1 warning in 0.95s
+rule 2  RED   a curve kept when the view holds no row (made from the window row)
+        -k 'test_S_a_curve_is_the_views or test_T2_a_written': 2 failed, 79 deselected, 1 warning in 1.07s
+rule 2  RED   a not-drawable cell served without its reasons
+        -k 'test_T2_a_written': 1 failed, 80 deselected, 1 warning in 1.03s
+rule 2  RED   the place's reason codes left off a place with no curve
+        -k 'test_T2_a_place_with_no_curve': 1 failed, 80 deselected, 1 warning in 0.94s
+rule 2  RED   reasons read the base-years floor as 25
+        -k 'test_T2_every_undrawable': 1 failed, 80 deselected, 1 warning in 0.92s
+rule 3  RED   the band sentence replaced by the API's own words
+        -k 'test_T3': 3 failed, 78 deselected, 1 warning in 1.06s
+rule 3  RED   the band claim dropped from the curve
+        -k 'test_T3 or test_T1_curves_equal': 4 failed, 1 passed, 76 deselected, 1 warning in 1.18s
+rule 4  RED   vintages served newest first
+        -k 'test_T4_vintages_are': 2 failed, 1 passed, 78 deselected, 1 warning in 0.94s
+rule 4  RED   vintages read one issuance (a round trip per step)
+        -k 'test_T4': 4 failed, 7 passed, 70 deselected, 1 warning in 1.21s
+rule 4  RED   n above the cap trimmed to 14, not refused
+        -k 'test_T4_n_outside': 2 failed, 4 passed, 75 deselected, 1 warning in 1.03s
+rule 5  RED   an unbanked product silently left out
+        -k 'test_T6': 1 failed, 4 passed, 76 deselected, 1 warning in 1.23s
+rule 5  RED   banked-but-unparsed told as not banked
+        -k 'test_T6_bytes_banked': 1 failed, 80 deselected, 1 warning in 0.94s
+rule 6  RED   a curve read loses its statement timeout
+        -k 'test_S_every_read or test_T7_database': 1 failed, 12 passed, 68 deselected, 1 warning in 1.33s
+rule 6  RED   the curves memo held an hour
+        -k 'test_S_memo': 1 failed, 80 deselected, 1 warning in 1.01s
+rule 6  RED   the verdicts in force picked by DISTINCT ON (d091551)
+        -k 'test_T8': 2 failed, 1 passed, 78 deselected, 1 warning in 0.90s
+rule 6  RED   the view's LATERAL unfenced (a walk of the place's rows)
+        -k 'test_T8': 2 failed, 1 passed, 78 deselected, 1 warning in 0.93s
+rule 6  RED   the newest issuances read per place (the trap: an unwritten place walks)
+        -k 'test_T8': 2 failed, 1 passed, 78 deselected, 1 warning in 0.94s
+rule 6  RED   an unknown place read anyway (no 404)
+        -k 'test_T7_unknown': 6 failed, 75 deselected, 1 warning in 4.49s
+rule 6  RED   a down database answered 200 with an empty body
+        -k 'test_T7_database': 2 failed, 6 passed, 73 deselected, 1 warning in 1.13s
+
+clean tree: GREEN  81 passed, 1 warning in 2.80s
+tree restored byte for byte: True (cpc_outlooks.py 27b7695befee, main.py d65a7c022f9e, tests/test_cpc_outlooks_d091679.py 3f81df647031)

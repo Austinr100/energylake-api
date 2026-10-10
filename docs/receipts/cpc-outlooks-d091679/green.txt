@@ -1,0 +1,5 @@
+# d091679 green: tests/test_cpc_outlooks_d091679.py, then the full suite
+
+81 passed, 1 warning in 2.58s
+
+2725 passed, 3 skipped, 1 warning in 62.54s (0:01:02)
