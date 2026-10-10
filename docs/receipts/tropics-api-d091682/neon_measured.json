@@ -1,0 +1,51 @@
+{
+  "lane": "d091682",
+  "how": "Neon connector, project Energylake (fancy-block-96153928), production database, Postgres 17; SELECT and EXPLAIN (ANALYZE, BUFFERS) of SELECTs only, 2026-10-10 10:37-10:50Z. Nothing written.",
+  "migration_294": {
+    "applied_at": "2026-10-10T00:39:06.036Z",
+    "views_read_back_at": "2026-10-10T10:37:23.740Z",
+    "view_definitions_match_pantry_file": true,
+    "pantry_file": "energylake-pantry c7779f2 migrations/294_tropical_correction_revisions.sql, sha-256 42b610d1ccc85bd2c58f372d8cd52d63c6b1052f9bf8f4a04a70b875de32a4af",
+    "tropical_track_points_in_force": {
+      "columns": ["point_id bigint", "storm_id text", "source text", "init_ts timestamptz", "advisory text", "tau smallint", "valid_ts timestamptz", "lat double precision", "lon double precision", "vmax_kt real", "mslp_hpa real", "radii jsonb", "stage text", "source_r2_key text", "inserted_ts timestamptz", "revision smallint"],
+      "rule": "NOT EXISTS a row of the same (storm_id, source, init_ts, advisory) with a higher revision"
+    },
+    "tropical_place_odds_in_force": {
+      "columns": ["odds_id bigint", "storm_id text", "issued_ts timestamptz", "source text", "advisory text", "place_id text", "threshold_kt smallint", "radius_km real", "window_h smallint", "kind text", "value real", "below_1pct boolean", "n_members smallint", "scored boolean", "source_r2_key text", "inserted_ts timestamptz", "revision smallint"],
+      "rule": "NOT EXISTS a row of the same (storm_id, source, issued_ts, advisory) with a higher revision"
+    },
+    "tropical_file_vintage_in_force": {
+      "columns": ["vintage_id bigint", "dataset text", "source text", "product text", "storm_id text", "vintage_key text", "fetch_ts timestamptz", "issued_ts timestamptz", "r2_key text", "byte_size bigint", "sha256 text", "source_url text", "source_last_modified timestamptz", "source_etag text", "meta jsonb", "revision integer", "corrected boolean", "anomalies_held bigint"],
+      "rule": "DISTINCT ON (source, product, storm_id, vintage_key), status banked, not meta.anomaly_prior_sha, newest fetch_ts; revision = meta.correction.revision or 0; corrected = meta ? 'correction'"
+    },
+    "advisory_nullable": {"tropical_track_points": "NO, default ''", "tropical_place_odds": "NO, default ''"}
+  },
+  "counts_at_10_37Z": {
+    "tropical_track_points": 36523,
+    "tropical_track_points_revision_gt_0": 0,
+    "advisories_with_revision_gt_0": 0,
+    "tropical_place_odds": 4046,
+    "tropical_place_odds_revision_gt_0": 0,
+    "file_identities_in_force": 3593,
+    "file_identities_corrected_true": 7,
+    "file_identities_revision_gt_0": 7,
+    "file_identities_with_anomalies_held": 13,
+    "ledger_rows_meta_correction": 7,
+    "ledger_rows_meta_anomaly_prior_sha": 13
+  },
+  "the_seven_corrected_file_identities": {
+    "storm_id": "ep182026",
+    "vintage_key": "052A",
+    "products": ["fcst_5day_zip", "fcst_radii_zip", "track_kmz", "cone_kmz", "ww_kmz", "initialradii_kmz", "forecastradii_kmz"],
+    "file_revision": 1,
+    "fetched": "2026-10-10T07:10:33-37Z",
+    "signal": "file_update_time and last_modified (06:44:31-06:45:02Z) newer than the copies banked at 06:25:41-06:27:10Z"
+  },
+  "live_corrected_with_identical_rows": {
+    "advisory": "ep182026 052A (Rachel, init 2026-10-10 00Z)",
+    "official_points": {"n": 4, "revision": 0, "inserted": "2026-10-10T06:34:38.961-06:34:39.067Z"},
+    "pantry_receipt_ingestion_log_07_10_31Z": "ep182026/nhc_official/052A: correction revision 2 parses identically to revision 0 (rows in force) -- no new rows",
+    "what_the_payload_would_say": "corrected true, revision 0, on /tracks?storm_id=ep182026 (the 00Z cycle's official list) for as long as that cycle is among the newest n; not on /storm or /storms, whose official is 053 (06Z)"
+  },
+  "pws_corrections": "none: no pws file identity reads corrected; no odds row has revision > 0"
+}

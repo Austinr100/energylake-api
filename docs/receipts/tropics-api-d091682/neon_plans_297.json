@@ -1,0 +1,22 @@
+{
+  "what": "EXPLAIN (ANALYZE, BUFFERS) of the six Tropics statements that read the views, through pantry's views as restated by migration 297 (applied 2026-10-10 11:55:17Z), on Neon (Energylake, production, Postgres 17), 2026-10-10 11:58-12:00Z, through the connector. The statements are explains_after.sql's text (tropics.py as it now stands). Every statement a SELECT; nothing written. Warm = the run whose buffers were all shared hits; where the first run read from storage, both are given.",
+  "stop_v": "a seq scan of a whole table, or more than ten times the d091673 receipt (docs/receipts/tropics-api-d091673/plans.md)",
+  "bank_at_read": {"tropical_track_points": 36539, "revision_gt_0": 6, "tropical_place_odds": 4046, "odds_revision_gt_0": 0,
+                   "note": "the 6 revision-1 rows are Simon ep202026 012A, written by pantry at 11:57:26Z (the first correction whose rows differ)"},
+  "statements": {
+    "STORMS_SQL": {"d091673_ms": 0.135, "ms": 0.139, "buffers": 31, "seq_scan_of_big_table": false,
+                   "plan": "per storm, LIMIT 1 over a Nested Loop Anti Join: Index Scan Backward uniq_tropical_track_points, anti-join on Index Only Scan ttp_revised (Materialize, 0 rows)"},
+    "OFFICIAL_NEWEST_SQL": {"d091673_ms": 0.150, "ms": 0.516, "buffers": 155, "seq_scan_of_big_table": false,
+                   "plan": "newest init by Index Only Scan Backward uniq_tropical_track_points; rows by Index Scan uniq_tropical_track_points (30 rows); Nested Loop Anti Join on Index Only Scan ttp_revised (6 rows removed: Simon 012A revision 0); per advisory Index Scan tfv_identity",
+                   "rows": 24},
+    "OBSERVED_SQL": {"d091673_ms": 1.02, "ms": 0.242, "buffers": 97, "seq_scan_of_big_table": false,
+                   "plan": "Index Scan uniq_tropical_track_points (73 rows); Nested Loop Anti Join on Index Only Scan ttp_revised (73 probes, 1 buffer each)"},
+    "CYCLES_SQL": {"d091673_ms": 10.3, "ms": 15.905, "ms_first_run": 28.034, "buffers": 1204, "seq_scan_of_big_table": false,
+                   "plan": "loose index scan down ttp_storm_init (58 probes, each anti-joined on ttp_revised); per cycle Bitmap Heap Scan ttp_storm_init, Hash Anti Join whose inner is Index Only Scan ttp_revised (0 rows)"},
+    "TRACKS_SQL n=8": {"d091673_ms": 3.26, "ms": 6.619, "ms_first_run": 7.007, "buffers": 2363, "seq_scan_of_big_table": false,
+                   "plan": "loose index scan (8 probes); Bitmap Heap Scan ttp_storm_init (2,218 rows); Nested Loop Anti Join on Index Only Scan ttp_revised (2,218 probes, 1 buffer each); per official advisory Index Scan tfv_identity (9)"},
+    "ODDS_SQL": {"d091673_ms": 0.357, "ms": 0.294, "buffers": 19, "seq_scan_of_big_table": false,
+                   "plan": "Index Scan Backward uniq_tropical_place_odds LIMIT 1 (anti-joined on tpo_revised); Index Scan tfv_identity for the pws; Bitmap Heap Scan uniq_tropical_place_odds (154 rows); Nested Loop Anti Join on Index Only Scan tpo_revised (Materialize, 0 rows)"}
+  },
+  "verdict": "STOP-V does not fire: no statement seq-scans a whole table; the largest ratio to d091673 is OFFICIAL_NEWEST_SQL at 3.4x (0.52 ms)"
+}

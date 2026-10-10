@@ -1,0 +1,258 @@
+diff --git a/tropics.py b/tropics.py
+index aae2cd1..979777f 100644
+--- a/tropics.py
++++ b/tropics.py
+@@ -303,6 +303,22 @@ POLL_SQL = """
+       LEFT JOIN datasets AS d ON d.dataset_code = 'nhc_storms_current'
+ """
+ 
++# THE ROWS IN FORCE (spec d091682, ruling D-09-25-174, pantry migration 294).
++# Every read of track points and place odds is of pantry's views, never the
++# bare tables: per advisory, the rows of its highest revision only, so an
++# advisory NHC corrected is read whole (a tau the correction dropped does not
++# survive from the original) and two revisions of one advisory never mix. The
++# bare tables are the history; no page route reads them. Each view row carries
++# `revision`: 0 for the original, n for the n-th correction whose rows differ.
++#
++# Whether NHC corrected an advisory is the ledger's word, read from
++# tropical_file_vintage_in_force (one row per banked file identity, the copy
++# in force, with `corrected`): the official forecast is parsed from the
++# advisory's 5-day zip and its forecast-radii zip (pantry
++# ingesters/tropical_bank.py _official_points), an odds issuance from the PWS
++# text (_pws_odds). A correction that parses to identical rows writes no row,
++# so `corrected` can be true at revision 0 (handback d091682 §1).
++
+ # Storms in scope, each with its newest best-track fix and tcvitals analysis:
+ # one LATERAL ... LIMIT 1 per (storm, source) on uniq_tropical_track_points.
+ STORMS_SQL = """
+@@ -317,13 +333,13 @@ STORMS_SQL = """
+       FROM tropical_storms AS s
+       LEFT JOIN LATERAL (
+             SELECT init_ts, valid_ts, lat, lon, vmax_kt, mslp_hpa, stage
+-              FROM tropical_track_points
++              FROM tropical_track_points_in_force
+              WHERE storm_id = s.storm_id AND source = 'best_track'
+              ORDER BY init_ts DESC, advisory DESC, tau DESC
+              LIMIT 1) AS bt ON true
+       LEFT JOIN LATERAL (
+             SELECT init_ts, valid_ts, lat, lon, vmax_kt, mslp_hpa, stage
+-              FROM tropical_track_points
++              FROM tropical_track_points_in_force
+              WHERE storm_id = s.storm_id AND source = 'tcvitals'
+              ORDER BY init_ts DESC, advisory DESC, tau DESC
+              LIMIT 1) AS tv ON true
+@@ -334,20 +350,27 @@ STORMS_SQL = """
+ """
+ 
+ # The official forecast at each storm's newest init: every advisory sharing
+-# that init (a regular one and its intermediate), all their points. One
+-# LATERAL per storm for the newest init, one index range for its rows.
++# that init (a regular one and its intermediate), all their points in force.
++# One LATERAL per storm for the newest init, one index range for its rows, and
++# per advisory the ledger's word on its two source files (the copy in force of
++# each: one probe of tfv_identity).
+ OFFICIAL_NEWEST_SQL = """
+     SELECT p.storm_id, p.advisory, p.init_ts, p.tau, p.valid_ts, p.lat, p.lon,
+-           p.vmax_kt, p.mslp_hpa, p.radii, p.stage
++           p.vmax_kt, p.mslp_hpa, p.radii, p.stage, p.revision, f.corrected
+       FROM unnest(%(storm_ids)s::text[]) AS u(storm_id)
+       CROSS JOIN LATERAL (
+             SELECT init_ts
+-              FROM tropical_track_points
++              FROM tropical_track_points_in_force
+              WHERE storm_id = u.storm_id AND source = 'nhc_official'
+              ORDER BY init_ts DESC
+              LIMIT 1) AS m
+-      JOIN tropical_track_points AS p
++      JOIN tropical_track_points_in_force AS p
+         ON p.storm_id = u.storm_id AND p.source = 'nhc_official' AND p.init_ts = m.init_ts
++      LEFT JOIN LATERAL (
++            SELECT bool_or(v.corrected) AS corrected
++              FROM tropical_file_vintage_in_force AS v
++             WHERE v.source = 'nhc' AND v.product IN ('fcst_5day_zip', 'fcst_radii_zip')
++               AND v.storm_id = p.storm_id AND v.vintage_key = p.advisory) AS f ON true
+      ORDER BY p.storm_id, p.advisory, p.tau
+ """
+ 
+@@ -362,7 +385,7 @@ STORM_SQL = """
+ # ranges of uniq_tropical_track_points.
+ OBSERVED_SQL = """
+     SELECT source, init_ts, advisory, tau, valid_ts, lat, lon, vmax_kt, mslp_hpa, radii, stage
+-      FROM tropical_track_points
++      FROM tropical_track_points_in_force
+      WHERE storm_id = %(storm_id)s AND source IN ('best_track', 'tcvitals')
+      ORDER BY source, valid_ts, init_ts, tau
+ """
+@@ -372,18 +395,20 @@ OBSERVED_SQL = """
+ # ttp_storm_init), then one index range per cycle. The plain GROUP BY over the
+ # storm's rows is a seq scan of the whole table on Neon (Rachel is 64 % of it
+ # today), which would grow with every storm the backfill adds; this grows with
+-# the storm alone (plans.md §CYCLES).
++# the storm alone (plans.md §CYCLES). Every advisory has rows in force, so the
++# probes find the same inits on the view as on the table; the counts are of
++# the rows in force.
+ CYCLES_SQL = """
+     WITH RECURSIVE cyc AS (
+         (SELECT init_ts
+-           FROM tropical_track_points
++           FROM tropical_track_points_in_force
+           WHERE storm_id = %(storm_id)s
+             AND source NOT IN ('best_track', 'tcvitals', 'nhc_official')
+           ORDER BY init_ts DESC
+           LIMIT 1)
+         UNION ALL
+         SELECT (SELECT t.init_ts
+-                  FROM tropical_track_points AS t
++                  FROM tropical_track_points_in_force AS t
+                  WHERE t.storm_id = %(storm_id)s
+                    AND t.source NOT IN ('best_track', 'tcvitals', 'nhc_official')
+                    AND t.init_ts < cyc.init_ts
+@@ -396,7 +421,7 @@ CYCLES_SQL = """
+       FROM cyc AS c
+      CROSS JOIN LATERAL (
+             SELECT source, count(*) AS n_points, max(tau) AS max_tau
+-              FROM tropical_track_points
++              FROM tropical_track_points_in_force
+              WHERE storm_id = %(storm_id)s AND init_ts = c.init_ts
+                AND source NOT IN ('best_track', 'tcvitals', 'nhc_official')
+              GROUP BY source) AS g
+@@ -405,19 +430,20 @@ CYCLES_SQL = """
+ """
+ 
+ # The newest n model cycles (a loose index scan down ttp_storm_init: one probe
+-# per cycle, never the storm's whole history), then every point of those
+-# cycles, official included, on the same index.
++# per cycle, never the storm's whole history), then every point in force of
++# those cycles, official included, on the same index; for each official
++# advisory, the ledger's word on its two source files.
+ TRACKS_SQL = """
+     WITH RECURSIVE cyc AS (
+         (SELECT init_ts
+-           FROM tropical_track_points
++           FROM tropical_track_points_in_force
+           WHERE storm_id = %(storm_id)s
+             AND source NOT IN ('best_track', 'tcvitals', 'nhc_official')
+           ORDER BY init_ts DESC
+           LIMIT 1)
+         UNION ALL
+         SELECT (SELECT t.init_ts
+-                  FROM tropical_track_points AS t
++                  FROM tropical_track_points_in_force AS t
+                  WHERE t.storm_id = %(storm_id)s
+                    AND t.source NOT IN ('best_track', 'tcvitals', 'nhc_official')
+                    AND t.init_ts < cyc.init_ts
+@@ -427,28 +453,47 @@ TRACKS_SQL = """
+          WHERE cyc.init_ts IS NOT NULL
+     ), newest AS (
+         SELECT init_ts FROM cyc WHERE init_ts IS NOT NULL LIMIT %(n)s
++    ), pts AS (
++        SELECT p.source, p.init_ts, p.advisory, p.tau, p.valid_ts, p.lat, p.lon,
++               p.vmax_kt, p.mslp_hpa, p.stage, p.revision
++          FROM tropical_track_points_in_force AS p
++         WHERE p.storm_id = %(storm_id)s
++           AND p.init_ts = ANY (ARRAY(SELECT init_ts FROM newest))
++           AND p.source NOT IN ('best_track', 'tcvitals')
++    ), official_files AS (
++        SELECT a.advisory, f.corrected
++          FROM (SELECT DISTINCT advisory FROM pts WHERE source = 'nhc_official') AS a
++          CROSS JOIN LATERAL (
++                SELECT bool_or(v.corrected) AS corrected
++                  FROM tropical_file_vintage_in_force AS v
++                 WHERE v.source = 'nhc' AND v.product IN ('fcst_5day_zip', 'fcst_radii_zip')
++                   AND v.storm_id = %(storm_id)s AND v.vintage_key = a.advisory) AS f
+     )
+-    SELECT p.source, p.init_ts, p.advisory, p.tau, p.valid_ts, p.lat, p.lon,
+-           p.vmax_kt, p.mslp_hpa, p.stage
+-      FROM tropical_track_points AS p
+-     WHERE p.storm_id = %(storm_id)s
+-       AND p.init_ts = ANY (ARRAY(SELECT init_ts FROM newest))
+-       AND p.source NOT IN ('best_track', 'tcvitals')
+-     ORDER BY p.init_ts, p.source, p.advisory, p.tau
++    SELECT pts.*, o.corrected
++      FROM pts
++      LEFT JOIN official_files AS o
++        ON pts.source = 'nhc_official' AND o.advisory = pts.advisory
++     ORDER BY pts.init_ts, pts.source, pts.advisory, pts.tau
+ """
+ 
+-# The newest NHC PWS issuance for one storm: one LIMIT 1 on
++# The newest NHC PWS issuance in force for one storm: one LIMIT 1 on
+ # uniq_tropical_place_odds' (storm_id, source, issued_ts) prefix, then that
+-# issuance's rows in the bank's insertion order (NHC's printed order).
++# issuance's rows in force in the bank's insertion order (NHC's printed
++# order), and the ledger's word on the PWS text it was parsed from.
+ ODDS_SQL = """
+     SELECT o.issued_ts, o.advisory, o.place_id, o.threshold_kt, o.radius_km, o.window_h,
+-           o.kind, o.value, o.below_1pct, o.scored, o.odds_id
+-      FROM (SELECT issued_ts
+-              FROM tropical_place_odds
++           o.kind, o.value, o.below_1pct, o.scored, o.odds_id, o.revision, f.corrected
++      FROM (SELECT issued_ts, advisory
++              FROM tropical_place_odds_in_force
+              WHERE storm_id = %(storm_id)s AND source = 'nhc_pws'
+              ORDER BY issued_ts DESC
+              LIMIT 1) AS m
+-      JOIN tropical_place_odds AS o
++      LEFT JOIN LATERAL (
++            SELECT bool_or(v.corrected) AS corrected
++              FROM tropical_file_vintage_in_force AS v
++             WHERE v.source = 'nhc' AND v.product = 'pws'
++               AND v.storm_id = %(storm_id)s AND v.vintage_key = m.advisory) AS f ON true
++      JOIN tropical_place_odds_in_force AS o
+         ON o.storm_id = %(storm_id)s AND o.source = 'nhc_pws' AND o.issued_ts = m.issued_ts
+      ORDER BY o.odds_id
+ """
+@@ -539,6 +584,16 @@ def identity(s: dict) -> dict:
+ 
+ # ── the official forecast ───────────────────────────────────────────────────
+ 
++def correction(rows: list) -> dict:
++    """`corrected` and `revision` of one advisory (or one odds issuance), from
++    its rows in force. revision is the rows' own (the view serves one revision
++    per advisory); corrected is the ledger's word on the files they were
++    parsed from (tropical_file_vintage_in_force.corrected), never inferred from
++    the numbers: NHC can correct an advisory without changing one."""
++    return {"corrected": any(r.get("corrected") is True for r in rows),
++            "revision": max((r.get("revision") or 0 for r in rows), default=0)}
++
++
+ def advisories(rows: list) -> list:
+     """Official rows grouped by advisory, ordered by init_ts, then by the valid
+     time of each advisory's own (first) point — never by the advisory string."""
+@@ -549,7 +604,7 @@ def advisories(rows: list) -> list:
+     for (init, adv), pts in by.items():
+         pts = sorted(pts, key=lambda r: r["tau"])
+         out.append({"advisory": adv, "init_ts": init, "position_valid_ts": pts[0]["valid_ts"],
+-                    "position_tau_h": pts[0]["tau"], "points": pts})
++                    "position_tau_h": pts[0]["tau"], **correction(pts), "points": pts})
+     out.sort(key=lambda a: (a["init_ts"], a["position_valid_ts"]))
+     return out
+ 
+@@ -558,6 +613,7 @@ def _advisory_obj(a: dict, *, radii: bool) -> dict:
+     return {"advisory": a["advisory"], "init_ts": _ts(a["init_ts"]),
+             "position_valid_ts": _ts(a["position_valid_ts"]),
+             "position_tau_h": a["position_tau_h"],
++            "corrected": a["corrected"], "revision": a["revision"],
+             "points": [_point(r, radii=radii, stage=True) for r in a["points"]]}
+ 
+ 
+@@ -635,7 +691,8 @@ def storm_summary(s: dict, official_rows: list) -> dict:
+     out["newest_advisory"] = None if adv is None else {
+         "advisory": adv["advisory"], "init_ts": _ts(adv["init_ts"]),
+         "position_valid_ts": _ts(adv["position_valid_ts"]),
+-        "position_tau_h": adv["position_tau_h"]}
++        "position_tau_h": adv["position_tau_h"],
++        "corrected": adv["corrected"], "revision": adv["revision"]}
+     out["newest_advisory_absence"] = None if adv is not None else _absence(
+         "no_official_forecast", "the bank holds no NHC official forecast for this storm")
+     return out
+@@ -881,7 +938,8 @@ def build_odds(*, storm: dict, rows: list) -> dict:
+                      "detail": "NHC printed no row: below its print threshold, not 0"}
+                     for kt in THRESHOLDS_KT if kt not in held]})
+         body.update({
+-            "issuance": {"issued_ts": _ts(r0["issued_ts"]), "advisory": r0["advisory"]},
++            "issuance": {"issued_ts": _ts(r0["issued_ts"]), "advisory": r0["advisory"],
++                         **correction(rows)},
+             "places": out, "absence": None})
+     body.update({
+         "values_rule": ODDS_VALUES_RULE, "windows_rule": ODDS_WINDOWS_RULE,

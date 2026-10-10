@@ -860,14 +860,19 @@ def test_R_served_values_are_the_banks_and_valid_is_init_plus_tau(client, monkey
         assert not re.search(r'"source": "(ecmwf_ens|ecmwf_aifs_ens|atcf:AP\d\d)"', text), name
 
 
+# The commit before d091673's routes: main at 149e314, the lane's own base.
+# Pinned by d091682 (architect's ruling): the merge-base with main stopped being
+# that commit when d091673 merged (c40c231), and the test went red on main.
+D091673_BASE = "149e314"
+
+
 def _base():
     import subprocess
-    for ref in ("origin/main", "main"):
-        r = subprocess.run(["git", "-C", str(ROOT), "merge-base", "HEAD", ref],
-                           capture_output=True, text=True)
-        if r.returncode == 0:
-            return r.stdout.strip()
-    pytest.skip("no main branch to diff against")
+    r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--verify", "--quiet",
+                        f"{D091673_BASE}^{{commit}}"], capture_output=True, text=True)
+    if r.returncode != 0:
+        pytest.skip(f"{D091673_BASE} is not in this clone's history (a shallow clone?)")
+    return r.stdout.strip()
 
 
 def test_R_no_existing_route_or_memo_changed():

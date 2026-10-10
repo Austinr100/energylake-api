@@ -1,0 +1,18 @@
+clean tree: GREEN (115 passed, 1 warning in 51.48s)
+ 1. rule 1 in force    /tracks reads the bare points table                     -> RED  [1 failed, 111 deselected, 1 warning in 4.67s]
+ 2. rule 1 in force    the official forecast reads the bare points table       -> RED  [1 failed, 1 passed, 110 deselected, 1 warning in 4.13s]
+ 3. rule 1 in force    /odds reads the bare odds table                         -> RED  [1 failed, 111 deselected, 1 warning in 7.11s]
+ 4. rule 2 corrected   the ledger lookup is dropped (corrected always false)   -> RED  [1 failed, 1 passed, 110 deselected, 1 warning in 8.97s]
+ 5. rule 2 corrected   corrected is inferred from changed numbers              -> RED  [1 failed, 1 passed, 110 deselected, 1 warning in 8.98s]
+ 6. rule 2 corrected   the official reads the radii zip's word only            -> RED  [1 failed, 1 passed, 112 deselected, 1 warning in 9.66s]
+ 7. rule 2 corrected   revision is served as 0 whatever the rows say           -> RED  [1 failed, 1 passed, 109 deselected, 1 warning in 3.91s]
+ 8. rule 2 corrected   an anomaly copy is taken as the copy in force and as a correction -> RED  [1 failed, 112 deselected, 1 warning in 4.35s]
+ 9. rule 3 odds        below_1pct is served as 0                               -> RED  [1 failed, 1 passed, 113 deselected, 1 warning in 7.32s]
+10. rule 4 bodies      a third field rides on the issuance                     -> RED  [1 failed, 20 passed, 92 deselected, 1 warning in 4.80s]
+11. rule 4 bodies      the fields move before the advisory's position          -> RED  [1 failed, 13 passed, 92 deselected, 1 warning in 3.95s]
+12. rule 5 plans       the points view loses 297's clause                      -> RED  [1 failed, 110 deselected, 1 warning in 4.18s]
+13. rule 5 plans       the odds view loses 297's clause                        -> RED  [1 failed, 110 deselected, 1 warning in 4.98s]
+14. rule R repair      test_R's base unpinned again (merge-base with main)     -> RED  [1 failed, 114 deselected, 1 warning in 0.77s]
+clean tree again: GREEN (115 passed, 1 warning in 52.48s)
+14 of 14 breaks red; tree restored byte for byte (sha256 269d348a62a39902 -> 269d348a62a39902)
+exit 0

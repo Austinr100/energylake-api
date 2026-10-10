@@ -1,0 +1,27 @@
+d091682: the new tests and the d091673 suite on the lane's base tropics.py (git c40c231, the bare tables), with this lane's fixtures, loader and re-banked vectors in place.
+Run: python -B -m pytest -q -p no:cacheprovider tests/test_tropics_rows_in_force_d091682.py tests/test_tropics_d091673.py
+
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R1_storm_serves_revision_1_only_and_the_revision_0_tau_is_absent
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R1_storms_names_the_corrected_advisory
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R2_tracks_carries_one_revision_of_each_advisory
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R3_odds_serves_the_corrected_issuance_only
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R3_below_1pct_is_still_carried_as_itself
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R4_every_live_advisory_reads_false_at_revision_0_true_to_the_ledger
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R4_the_constructed_bank_is_true_to_its_ledger_too
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R4_an_anomaly_copy_is_never_a_correction
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R5_corrected_with_identical_rows_reads_true_at_revision_0_figures_unchanged
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R7_no_statement_names_a_bare_table
+FAILED tests/test_tropics_rows_in_force_d091682.py::test_R8_with_a_correction_in_the_bank_every_read_is_an_index_read
+FAILED tests/test_tropics_d091673.py::test_T10_body_bytes_are_under_stop_z
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storms_active.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_al092026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_ep182026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_ep202026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_al092026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep182026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep202026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep182026_n8.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_al092026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_ep182026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_ep202026.json]
+23 failed, 92 passed, 1 warning in 153.55s (0:02:33)

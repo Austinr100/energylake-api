@@ -68,6 +68,11 @@ def load(conn, kinds=LOAD_ORDER) -> None:
     for kind in kinds:
         conn.execute(f"INSERT INTO {TABLES[kind]} SELECT * FROM json_populate_recordset("
                      f"NULL::{TABLES[kind]}, %s::json)", ("[" + ",".join(lines(kind)) + "]",))
+    # d091682: the bank as the routes read it since pantry 294 and 297 (the
+    # revision column, the views of the rows in force) and the ledger rows the
+    # routes read for `corrected`, laid over the rows as on Neon.
+    import load_bank_d091682
+    load_bank_d091682.in_force(conn)
     for table, col in (("tropical_track_points", "point_id"), ("tropical_place_odds", "odds_id"),
                        ("tropical_file_vintage", "vintage_id")):
         # The rows carry Neon's ids; a later insert must not collide with them.

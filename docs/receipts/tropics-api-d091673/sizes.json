@@ -3,156 +3,156 @@
  "stop_z_gzip_bytes": 500000,
  "al092026": {
   "n1": {
-   "raw": 14930,
-   "gzip6": 2968,
-   "local_build_ms": 8.4
+   "raw": 14961,
+   "gzip6": 2982,
+   "local_build_ms": 6.9
   },
   "n2": {
-   "raw": 72788,
-   "gzip6": 8509,
-   "local_build_ms": 19.1
+   "raw": 72881,
+   "gzip6": 8522,
+   "local_build_ms": 20.2
   },
   "n3": {
-   "raw": 120418,
-   "gzip6": 13050,
-   "local_build_ms": 27.1
+   "raw": 120542,
+   "gzip6": 13075,
+   "local_build_ms": 33.3
   },
   "n4": {
-   "raw": 174227,
-   "gzip6": 18139,
-   "local_build_ms": 41.4
+   "raw": 174351,
+   "gzip6": 18166,
+   "local_build_ms": 45.1
   },
   "n5": {
-   "raw": 223336,
-   "gzip6": 22813,
-   "local_build_ms": 47.7
+   "raw": 223460,
+   "gzip6": 22840,
+   "local_build_ms": 53.4
   },
   "n6": {
-   "raw": 280405,
-   "gzip6": 28145,
-   "local_build_ms": 74.4
+   "raw": 280529,
+   "gzip6": 28172,
+   "local_build_ms": 69.0
   },
   "n7": {
-   "raw": 328939,
-   "gzip6": 32661,
-   "local_build_ms": 70.0
+   "raw": 329063,
+   "gzip6": 32688,
+   "local_build_ms": 80.7
   },
   "n8": {
-   "raw": 388169,
-   "gzip6": 38132,
-   "local_build_ms": 91.4
+   "raw": 388293,
+   "gzip6": 38166,
+   "local_build_ms": 91.6
   },
   "storm": {
-   "raw": 47669,
-   "gzip6": 4340
+   "raw": 47700,
+   "gzip6": 4356
   },
   "odds": {
-   "raw": 35240,
-   "gzip6": 2826
+   "raw": 35271,
+   "gzip6": 2839
   }
  },
  "ep182026": {
   "n1": {
-   "raw": 14210,
-   "gzip6": 2944,
-   "local_build_ms": 6.0
+   "raw": 14241,
+   "gzip6": 2957,
+   "local_build_ms": 6.8
   },
   "n2": {
-   "raw": 56122,
-   "gzip6": 6658,
-   "local_build_ms": 13.4
+   "raw": 56215,
+   "gzip6": 6671,
+   "local_build_ms": 14.0
   },
   "n3": {
-   "raw": 94563,
-   "gzip6": 10047,
-   "local_build_ms": 21.4
+   "raw": 94687,
+   "gzip6": 10071,
+   "local_build_ms": 22.7
   },
   "n4": {
-   "raw": 139623,
-   "gzip6": 14056,
-   "local_build_ms": 32.8
+   "raw": 139748,
+   "gzip6": 14079,
+   "local_build_ms": 31.8
   },
   "n5": {
-   "raw": 180446,
-   "gzip6": 17674,
-   "local_build_ms": 44.1
+   "raw": 180570,
+   "gzip6": 17697,
+   "local_build_ms": 43.0
   },
   "n6": {
-   "raw": 232889,
-   "gzip6": 22287,
-   "local_build_ms": 54.7
+   "raw": 233013,
+   "gzip6": 22310,
+   "local_build_ms": 60.5
   },
   "n7": {
-   "raw": 278742,
-   "gzip6": 26431,
-   "local_build_ms": 65.3
+   "raw": 278867,
+   "gzip6": 26456,
+   "local_build_ms": 63.1
   },
   "n8": {
-   "raw": 335246,
-   "gzip6": 31282,
-   "local_build_ms": 75.0
+   "raw": 335370,
+   "gzip6": 31305,
+   "local_build_ms": 95.0
   },
   "storm": {
-   "raw": 135649,
-   "gzip6": 6245
+   "raw": 135679,
+   "gzip6": 6259
   },
   "odds": {
-   "raw": 22425,
-   "gzip6": 2477
+   "raw": 22456,
+   "gzip6": 2492
   }
  },
  "ep202026": {
   "n1": {
-   "raw": 16208,
-   "gzip6": 3131,
-   "local_build_ms": 6.3
+   "raw": 16239,
+   "gzip6": 3144,
+   "local_build_ms": 6.6
   },
   "n2": {
-   "raw": 69461,
-   "gzip6": 7947,
-   "local_build_ms": 19.1
+   "raw": 69554,
+   "gzip6": 7959,
+   "local_build_ms": 18.2
   },
   "n3": {
-   "raw": 117665,
-   "gzip6": 12349,
-   "local_build_ms": 37.5
+   "raw": 117789,
+   "gzip6": 12378,
+   "local_build_ms": 30.2
   },
   "n4": {
-   "raw": 174947,
-   "gzip6": 17759,
-   "local_build_ms": 39.6
+   "raw": 175071,
+   "gzip6": 17787,
+   "local_build_ms": 41.0
   },
   "n5": {
-   "raw": 219444,
-   "gzip6": 21916,
-   "local_build_ms": 55.4
+   "raw": 219567,
+   "gzip6": 21962,
+   "local_build_ms": 54.4
   },
   "n6": {
-   "raw": 274646,
-   "gzip6": 26946,
-   "local_build_ms": 65.0
+   "raw": 274770,
+   "gzip6": 26972,
+   "local_build_ms": 63.4
   },
   "n7": {
-   "raw": 330121,
-   "gzip6": 32268,
-   "local_build_ms": 97.4
+   "raw": 330245,
+   "gzip6": 32304,
+   "local_build_ms": 79.1
   },
   "n8": {
-   "raw": 394493,
-   "gzip6": 38223,
-   "local_build_ms": 87.0
+   "raw": 394617,
+   "gzip6": 38250,
+   "local_build_ms": 93.2
   },
   "storm": {
-   "raw": 47470,
-   "gzip6": 4462
+   "raw": 47501,
+   "gzip6": 4479
   },
   "odds": {
-   "raw": 24053,
-   "gzip6": 2593
+   "raw": 24084,
+   "gzip6": 2605
   }
  },
  "storms": {
-  "raw": 8808,
-  "gzip6": 2321
+  "raw": 8901,
+  "gzip6": 2337
  }
 }

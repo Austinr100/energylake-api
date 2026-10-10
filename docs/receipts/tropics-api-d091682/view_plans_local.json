@@ -1,0 +1,657 @@
+{
+ "bank": {
+  "CYCLES_SQL": {
+   "after": {
+    "buffers": 2077,
+    "ms": 99.524,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Bitmap Heap Scan tropical_track_points"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 1048,
+    "ms": 9.872,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Bitmap Heap Scan tropical_track_points"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 1106,
+    "ms": 17.176,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "OBSERVED_SQL": {
+   "after": {
+    "buffers": 227,
+    "ms": 0.283,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 20,
+    "ms": 0.071,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 21,
+    "ms": 0.112,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "ODDS_SQL": {
+   "after": {
+    "buffers": 88,
+    "ms": 12.514,
+    "scans": [
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Seq Scan tropical_file_vintage",
+     "Bitmap Heap Scan tropical_place_odds",
+     "Seq Scan tropical_place_odds"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage",
+     "Seq Scan tropical_place_odds"
+    ]
+   },
+   "before": {
+    "buffers": 19,
+    "ms": 0.259,
+    "scans": [
+     "Index Only Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Bitmap Heap Scan tropical_place_odds"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 23,
+    "ms": 0.415,
+    "scans": [
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Index Only Scan tropical_place_odds (tpo_revised)",
+     "Seq Scan tropical_file_vintage",
+     "Bitmap Heap Scan tropical_place_odds",
+     "Bitmap Heap Scan tropical_place_odds"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "OFFICIAL_NEWEST_SQL": {
+   "after": {
+    "buffers": 170,
+    "ms": 0.483,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "before": {
+    "buffers": 27,
+    "ms": 0.072,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 100,
+    "ms": 0.292,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "POLL_SQL": {
+   "after": {
+    "buffers": 3,
+    "ms": 0.015,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 3,
+    "ms": 0.022,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 3,
+    "ms": 0.015,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "STORMS_SQL": {
+   "after": {
+    "buffers": 81,
+    "ms": 0.194,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 25,
+    "ms": 0.061,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 31,
+    "ms": 0.082,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "STORM_SQL": {
+   "after": {
+    "buffers": 1,
+    "ms": 0.008,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 1,
+    "ms": 0.01,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 1,
+    "ms": 0.008,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "TRACKS_SQL n=4": {
+   "after": {
+    "buffers": 948,
+    "ms": 21.274,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Seq Scan tropical_track_points",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage",
+     "Seq Scan tropical_track_points"
+    ]
+   },
+   "before": {
+    "buffers": 59,
+    "ms": 1.207,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Bitmap Heap Scan tropical_track_points"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 70,
+    "ms": 2.237,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "TRACKS_SQL n=8": {
+   "after": {
+    "buffers": 1021,
+    "ms": 20.838,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Seq Scan tropical_track_points",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage",
+     "Seq Scan tropical_track_points"
+    ]
+   },
+   "before": {
+    "buffers": 119,
+    "ms": 2.982,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Bitmap Heap Scan tropical_track_points"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 130,
+    "ms": 6.417,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Bitmap Heap Scan tropical_track_points",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  }
+ },
+ "constructed_revision_rows": {
+  "place_odds": 224,
+  "track_points": 7
+ },
+ "sizes": {
+  "tropical_place_odds": 89838,
+  "tropical_track_points": 1070275
+ },
+ "x31": {
+  "CYCLES_SQL": {
+   "after": {
+    "buffers": 2247,
+    "ms": 78.731,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 1161,
+    "ms": 14.08,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 1219,
+    "ms": 21.414,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "OBSERVED_SQL": {
+   "after": {
+    "buffers": 227,
+    "ms": 0.243,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 20,
+    "ms": 0.061,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 21,
+    "ms": 0.216,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "ODDS_SQL": {
+   "after": {
+    "buffers": 3055,
+    "ms": 16.229,
+    "scans": [
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Seq Scan tropical_file_vintage",
+     "Bitmap Heap Scan tropical_place_odds",
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "before": {
+    "buffers": 21,
+    "ms": 0.281,
+    "scans": [
+     "Index Only Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Bitmap Heap Scan tropical_place_odds"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 781,
+    "ms": 1.469,
+    "scans": [
+     "Index Scan tropical_place_odds (uniq_tropical_place_odds)",
+     "Index Only Scan tropical_place_odds (tpo_revised)",
+     "Seq Scan tropical_file_vintage",
+     "Bitmap Heap Scan tropical_place_odds",
+     "Index Only Scan tropical_place_odds (tpo_revised)"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "OFFICIAL_NEWEST_SQL": {
+   "after": {
+    "buffers": 171,
+    "ms": 0.377,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "before": {
+    "buffers": 27,
+    "ms": 0.073,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 100,
+    "ms": 0.498,
+    "scans": [
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "POLL_SQL": {
+   "after": {
+    "buffers": 3,
+    "ms": 0.021,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 3,
+    "ms": 0.03,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 3,
+    "ms": 0.022,
+    "scans": [
+     "Index Only Scan tropical_file_vintage (tfv_heartbeat)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "STORMS_SQL": {
+   "after": {
+    "buffers": 87,
+    "ms": 0.221,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 31,
+    "ms": 0.088,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 37,
+    "ms": 0.168,
+    "scans": [
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Only Scan tropical_track_points (ttp_revised)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "STORM_SQL": {
+   "after": {
+    "buffers": 7,
+    "ms": 0.013,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "before": {
+    "buffers": 7,
+    "ms": 0.016,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 7,
+    "ms": 0.022,
+    "scans": [],
+    "seq_scan_big": []
+   },
+   "fixed_rows_equal_after": true
+  },
+  "TRACKS_SQL n=4": {
+   "after": {
+    "buffers": 3189,
+    "ms": 6.526,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "before": {
+    "buffers": 72,
+    "ms": 1.192,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 83,
+    "ms": 2.257,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  },
+  "TRACKS_SQL n=8": {
+   "after": {
+    "buffers": 7906,
+    "ms": 17.795,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (uniq_tropical_track_points)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "before": {
+    "buffers": 152,
+    "ms": 3.344,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Scan tropical_track_points (ttp_storm_init)"
+    ],
+    "seq_scan_big": []
+   },
+   "fixed": {
+    "buffers": 163,
+    "ms": 5.753,
+    "scans": [
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Index Scan tropical_track_points (ttp_storm_init)",
+     "Index Only Scan tropical_track_points (ttp_revised)",
+     "Seq Scan tropical_file_vintage"
+    ],
+    "seq_scan_big": [
+     "Seq Scan tropical_file_vintage"
+    ]
+   },
+   "fixed_rows_equal_after": true
+  }
+ }
+}
