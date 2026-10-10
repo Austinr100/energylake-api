@@ -1,0 +1,38 @@
+# d091691 reds — each break must turn tests red; the clean tree must be green
+# red groups: P1 bodies/rows, P2 duplication, P3 newest, P4 source, P5 plans, P6 flip
+
+clean   GREEN  81 passed, 1 warning in 12.00s
+
+rule 1  RED   CURVES_SQL issuances read any version (iss pin removed)
+        expected P1 P3; red P1:17 P3:1 P4:1 P5:1; 20 failed, 61 passed, 1 warning in 11.78s
+rule 2  RED   CURVES_SQL window row of any version (w pin removed)
+        expected P1; red P1:20 P4:1 P5:1; 22 failed, 59 passed, 1 warning in 11.48s
+rule 3  RED   CURVES_SQL nv lateral unpinned
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.80s
+rule 3  RED   CURVES_SQL vv cell unpinned
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.08s
+rule 4  RED   CURVES_SQL view lateral unpinned (the tie to w kept)
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.36s
+rule 4  RED   CURVES_SQL view lateral's tie to the window row dropped (the pin kept)
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.70s
+rule 5  RED   PLACES_SQL hashes unpinned
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.36s
+rule 5  RED   PLACES_SQL inforce lateral unpinned
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.53s
+rule 5  RED   PLACES_SQL cells unpinned
+        expected P4; red P4:1 P5:1; 2 failed, 79 passed, 1 warning in 11.51s
+rule 5  RED   PLACES_SQL all three pins removed
+        expected P1 P2; red P1:5 P2:1 P4:1 P5:1 P6:1; 9 failed, 72 passed, 1 warning in 12.73s
+rule 6  RED   PLACES_NEWEST_SQL newest issuance of any version
+        expected P1 P3; red P1:2 P3:1 P4:1 P5:1; 5 failed, 76 passed, 1 warning in 11.92s
+rule 6  RED   PLACES_NEWEST_SQL window rows of any version
+        expected P1; red P1:3 P3:1 P4:1 P5:1; 6 failed, 75 passed, 1 warning in 11.75s
+rule 7  RED   the constant set to cpc_curves_v2
+        expected P1 P4; red P0:10 P1:30 P3:2 P4:2 P5:1; 45 failed, 36 passed, 1 warning in 10.65s
+rule 7  RED   the pin removed everywhere (main's cpc_outlooks.py)
+        expected P1 P2 P3 P4; red P1:30 P2:2 P3:2 P4:2 P5:1 P6:1; 38 failed, 43 passed, 1 warning in 12.54s
+rule 8  RED   a pinned read edited without its plan re-taken
+        expected P5; red P5:1; 1 failed, 80 passed, 1 warning in 11.34s
+
+working tree sha-256 before 33c147fb67f0a2d9c83e6b55c8cf0f654b0b71ecb7c58111a206e7a0527d6e6e
+working tree sha-256 after  33c147fb67f0a2d9c83e6b55c8cf0f654b0b71ecb7c58111a206e7a0527d6e6e  (identical)

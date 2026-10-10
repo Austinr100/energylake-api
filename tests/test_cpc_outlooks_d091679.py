@@ -756,8 +756,13 @@ def flat(s):
     return " ".join(s.split())
 
 
+# d091691 re-pinned the three CPC curve reads to one method version: the pin
+# is re-banked there, and those reads' plans are its A<nn> receipts.
+PIN_RECEIPTS = ROOT / "docs" / "receipts" / "cpc-api-method-pin-d091691"
+
+
 def test_T8_every_read_is_pinned():
-    want = json.loads((RECEIPTS / "pinned_sql.json").read_text())
+    want = json.loads((PIN_RECEIPTS / "pinned_sql.json").read_text())
     got = {n: flat(getattr(co, n)) for n in dir(co) if n.endswith("_SQL")}
     assert set(got) == set(PINNED) and got == want
 
@@ -767,16 +772,20 @@ def test_T8_the_plan_receipts_ran_the_pinned_sql():
     The pinned SQL with those literals substituted must be the statement that
     EXPLAIN (ANALYZE, BUFFERS) ran, and every read must have a plan with its
     execution time."""
-    text = (RECEIPTS / "explains.sql").read_text()
-    blocks = re.findall(r"^-- (\w+) (\w+_SQL) (\{.*?\})\n(.*?);\s*$", text, re.M | re.S)
-    assert blocks and {name for _t, name, _p, _s in blocks} == set(PINNED)
+    pat = r"^-- (\w+) (\w+_SQL) (\{.*?\})\n(.*?);\s*$"
+    repinned = [(PIN_RECEIPTS, b) for b in re.findall(
+        pat, (PIN_RECEIPTS / "explains.sql").read_text(), re.M | re.S) if b[0].startswith("A")]
+    names = {b[1] for _r, b in repinned}
+    blocks = repinned + [(RECEIPTS, b) for b in re.findall(
+        pat, (RECEIPTS / "explains.sql").read_text(), re.M | re.S) if b[1] not in names]
+    assert blocks and {name for _r, (_t, name, _p, _s) in blocks} == set(PINNED)
 
     def lit(v):
         if isinstance(v, list):
             return "ARRAY[" + ",".join(f"'{x}'" for x in v) + "]"
         return str(v) if isinstance(v, int) else f"'{v}'"
-    plans = (RECEIPTS / "plans_raw.txt").read_text()
-    for tag, name, params, stmt in blocks:
+    for where, (tag, name, params, stmt) in blocks:
+        plans = (where / "plans_raw.txt").read_text()
         p = json.loads(params)
         want = re.sub(r"%\((\w+)\)s", lambda m: lit(p[m.group(1)]), flat(getattr(co, name)))
         assert flat(stmt) == "EXPLAIN (ANALYZE, BUFFERS) " + want, tag

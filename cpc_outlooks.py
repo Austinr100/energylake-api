@@ -40,6 +40,13 @@ reads go past it, named in every payload's `sources`:
     columns only: never a percentile, an equal-odds value or member_odds.
 The view pantry would add to end both is in the handback (§8).
 
+ONE METHOD VERSION (d091691). Pantry 298 lets cpc_curves_v2 rows and verdicts
+stand beside v1's in the same two tables, and the view returns the newest
+verdict per method_hash, so it serves both vintages. Every statement here that
+names cpc_outlook_curves, cpc_curve_verdicts or v_cpc_curves_drawable filters
+each reference on CPC_METHOD_VERSION, so a route never mixes two versions. The
+flip to v2 is this constant (docs/handback_2026_10_10_cpc_api_method_pin.md).
+
 Nothing here decides whether a curve may be drawn: a curve is the view's rows
 or nothing, and `drawable` is the verdict's own column. `reasons` names which
 term of pantry's CHECK ccv_drawable_ck is false for a cell the bank already
@@ -78,6 +85,12 @@ DRAWABLE_RULE = ("drawable = (verdict = 'beats' AND history_years_in_base >= 30 
 
 # ── Reads ───────────────────────────────────────────────────────────────────
 
+# d091691: the one method version every read of the three relations names. A
+# literal in the SQL (not a bind parameter), so the planner sees it in every plan.
+CPC_METHOD_VERSION = "cpc_curves_v1"
+assert re.fullmatch(r"cpc_curves_v\d+", CPC_METHOD_VERSION)
+_PIN = f"'{CPC_METHOD_VERSION}'"
+
 # One read per (product, place): the product's n newest written issuances
 # (bank-wide, so an unwritten place never walks the table: CLAUDE.md, the
 # trap), each with the place's window row, the verdict in force for its cell
@@ -86,12 +99,14 @@ DRAWABLE_RULE = ("drawable = (verdict = 'beats' AND history_years_in_base >= 30 
 # per issuance, fenced by OFFSET 0 so the planner cannot flatten it back into
 # a hash join: its issued_date then reaches uniq_coc_row as an equality per
 # loop. Unfenced, it walked all 12,104 rows of the place (112 ms warm, plan
-# C00b in docs/receipts/cpc-outlooks-d091679/plans_raw.txt).
-CURVES_SQL = """
+# C00b in docs/receipts/cpc-outlooks-d091679/plans_raw.txt). Every reference
+# is pinned to CPC_METHOD_VERSION (d091691): the issuances too, so a newer
+# issuance of another version is not this read's newest.
+CURVES_SQL = f"""
     WITH iss AS (
         SELECT DISTINCT issued_date
-          FROM cpc_outlook_curves
-         WHERE product = %(product)s
+          FROM cpc_outlook_curves c
+         WHERE c.product = %(product)s AND c.method_version = {_PIN}
          ORDER BY issued_date DESC
          LIMIT %(n)s
     )
@@ -132,10 +147,11 @@ CURVES_SQL = """
              ON w.product = %(product)s AND w.issued_date = i.issued_date
             AND w.place_kind = %(place_kind)s AND w.place = %(place)s
             AND w.weighting = %(weighting)s AND w.day_index IS NULL
+            AND w.method_version = {_PIN}
       LEFT JOIN LATERAL (
             SELECT backtest_version
-              FROM cpc_curve_verdicts
-             WHERE method_hash = w.method_hash
+              FROM cpc_curve_verdicts cv
+             WHERE cv.method_hash = w.method_hash AND cv.method_version = {_PIN}
              ORDER BY scored_at DESC, backtest_version DESC
              LIMIT 1) nv ON TRUE
       LEFT JOIN cpc_curve_verdicts vv
@@ -143,6 +159,7 @@ CURVES_SQL = """
             AND vv.product = w.product AND vv.place_kind = w.place_kind
             AND vv.place = w.place AND vv.weighting = w.weighting
             AND vv.season = w.season AND vv.strength = w.strength
+            AND vv.method_version = {_PIN}
       LEFT JOIN LATERAL (
             SELECT *
               FROM v_cpc_curves_drawable dv
@@ -150,23 +167,25 @@ CURVES_SQL = """
                AND dv.place_kind = %(place_kind)s AND dv.place = %(place)s
                AND dv.weighting = %(weighting)s
                AND dv.method_version = w.method_version
+               AND dv.method_version = {_PIN}
             OFFSET 0) d ON TRUE
      ORDER BY i.issued_date, d.day_index NULLS FIRST
 """
 
 # Every verdict cell of the version in force, per method_hash: the newest
 # scored_at, as v_cpc_curves_drawable picks it, one LATERAL ... LIMIT 1 per
-# method_hash (d091551), not DISTINCT ON.
-PLACES_SQL = """
+# method_hash (d091551), not DISTINCT ON. Each reference pinned (d091691).
+PLACES_SQL = f"""
     WITH hashes AS (
-        SELECT DISTINCT method_hash FROM cpc_curve_verdicts
+        SELECT DISTINCT method_hash FROM cpc_curve_verdicts hv
+         WHERE hv.method_version = {_PIN}
     ), inforce AS (
         SELECT h.method_hash, l.backtest_version
           FROM hashes h
           CROSS JOIN LATERAL (
                 SELECT backtest_version
                   FROM cpc_curve_verdicts v
-                 WHERE v.method_hash = h.method_hash
+                 WHERE v.method_hash = h.method_hash AND v.method_version = {_PIN}
                  ORDER BY scored_at DESC, backtest_version DESC
                  LIMIT 1) l
     )
@@ -180,13 +199,15 @@ PLACES_SQL = """
       FROM cpc_curve_verdicts v
       JOIN inforce i ON i.method_hash = v.method_hash
                     AND i.backtest_version = v.backtest_version
+     WHERE v.method_version = {_PIN}
      ORDER BY v.place_kind, v.place, v.weighting, v.product, v.season, v.strength
 """
 
 # Which places the newest written issuance of each product holds: one
 # LATERAL ... LIMIT 1 per product, then that issuance's window rows (the
-# unique key's prefix). Identity columns only.
-PLACES_NEWEST_SQL = """
+# unique key's prefix). Identity columns only. Both references pinned
+# (d091691): the newest issuance is the newest of CPC_METHOD_VERSION.
+PLACES_NEWEST_SQL = f"""
     WITH p AS (
         SELECT unnest(%(products)s::text[]) AS product
     ), iss AS (
@@ -195,7 +216,7 @@ PLACES_NEWEST_SQL = """
           CROSS JOIN LATERAL (
                 SELECT issued_date
                   FROM cpc_outlook_curves c
-                 WHERE c.product = p.product
+                 WHERE c.product = p.product AND c.method_version = {_PIN}
                  ORDER BY issued_date DESC
                  LIMIT 1) l
     )
@@ -204,7 +225,7 @@ PLACES_NEWEST_SQL = """
       FROM iss
       JOIN cpc_outlook_curves c
         ON c.product = iss.product AND c.issued_date = iss.issued_date
-       AND c.day_index IS NULL
+       AND c.day_index IS NULL AND c.method_version = {_PIN}
      ORDER BY c.product, c.place_kind, c.place, c.weighting
 """
 

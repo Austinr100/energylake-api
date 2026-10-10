@@ -1,0 +1,4 @@
+d091691 green, 2026-10-10, branch claude/cpc-api-method-pin-g74pox
+tests/test_cpc_method_pin_d091691.py + tests/test_cpc_outlooks_d091679.py: 162 passed
+full suite: 2985 passed, 1 warning in 149.00s
+main 891de2e, same box (a fresh worktree): 2902 passed, 2 skipped; 2985 = 2904 + 81 new
