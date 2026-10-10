@@ -1,0 +1,7 @@
+body_curves_ksan.json|/api/weather/cpc/curves?place_kind=station&place=USW00023188|14280|3147
+body_curves_pnw_population.json|/api/weather/cpc/curves?place_kind=region&place=pnw&weighting=population|17423|4997
+body_curves_kden.json|/api/weather/cpc/curves?place_kind=station&place=USW00003017|3190|1116
+body_vintages_814temp_ksan_n14.json|/api/weather/cpc/curves/vintages?product=814temp&place_kind=station&place=USW00023188&n=14|92953|9441
+body_vintages_610temp_pnw_population.json|/api/weather/cpc/curves/vintages?product=610temp&place_kind=region&place=pnw&weighting=population|50262|10059
+body_places.json|/api/weather/cpc/places|628931|67999
+body_outlooks.json|/api/weather/cpc/outlooks|30633|2769
