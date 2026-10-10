@@ -20897,6 +20897,268 @@ async def generation_asset_runs(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# THE TROPICS PAGE — d091673 (API half), read from the tropical bank (d091664)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   GET /api/weather/tropics/storms?scope=     the storms, where each is now, the poll
+#   GET /api/weather/tropics/storm?storm_id=   one storm: identity, observed track,
+#                                              newest official, every cycle held
+#   GET /api/weather/tropics/tracks?storm_id=&n=
+#                                              the newest n model cycles, oldest
+#                                              first: the spaghetti plot and its player
+#   GET /api/weather/tropics/odds?storm_id=    the newest NHC PWS issuance by place
+#
+# READ-ONLY. The SQL and the shaping are in tropics.py; this section is the
+# routes and their memos, on the solar section's plumbing (_solar_serve and its
+# 503 contract, SOLAR_BUILD_TIMEOUT). Every statement names one storm (or the
+# heartbeat) and walks an index (D-09-25-75), inside one transaction under
+# SET LOCAL statement_timeout. Plans: docs/receipts/tropics-api-d091673/plans.md.
+#
+# FOUR ROUTES, NOT ONE. The page opens a storm with /storm, /tracks and /odds
+# in parallel (one round trip of latency) and never fetches while stepping:
+# /tracks carries every cycle the player steps through. They stay apart because
+# /tracks is 20-60x the others' size (memoised per n), and a failed or slow
+# tracks read must not blank the storm card or the odds table.
+#
+# THE MEMO: 300 s fresh, single-flight, NEVER served stale. NHC's official poll
+# is every 15 minutes and advisories land at 03/09/15/21Z: 300 s puts a banked
+# advisory on the page within 5 minutes, 20 at most after NHC posts it. Every
+# build is a few ms (plans.md), so a miss waits on a fast read instead of a
+# stale body adding up to 15 more minutes to an advisory.
+
+import tropics as _tr
+
+TROPICS_PREFIX = "/api/weather/tropics"
+TROPICS_MEMO_TTL = 300.0
+TROPICS_STATEMENT_TIMEOUT = "5s"      # production 2026-10-09: every read < 20 ms
+
+_tropics_storms_cache = _DDCache("weather/tropics/storms", TROPICS_MEMO_TTL, max_entries=4,
+                                 build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_storm_cache = _DDCache("weather/tropics/storm", TROPICS_MEMO_TTL, max_entries=32,
+                                build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_tracks_cache = _DDCache("weather/tropics/tracks", TROPICS_MEMO_TTL, max_entries=48,
+                                 build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_odds_cache = _DDCache("weather/tropics/odds", TROPICS_MEMO_TTL, max_entries=32,
+                               build_timeout=SOLAR_BUILD_TIMEOUT)
+
+
+async def _tropics_storm_or_404(cur, storm_id: str) -> dict:
+    await cur.execute(_tr.STORM_SQL, {"storm_id": storm_id})
+    rows = await cur.fetchall()
+    if not rows:
+        raise HTTPException(status_code=404,
+                            detail=f"no storm with storm_id={storm_id} in the tropical bank")
+    return rows[0]
+
+
+async def _tropics_storms_build(scope: str) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                await cur.execute(_tr.POLL_SQL)
+                poll = await cur.fetchone()
+                await cur.execute(_tr.STORMS_SQL, {"scope": scope,
+                                                   "recent_days": _tr.RECENT_DAYS})
+                storm_rows = await cur.fetchall()
+                official_rows: list = []
+                if storm_rows:
+                    await cur.execute(_tr.OFFICIAL_NEWEST_SQL,
+                                      {"storm_ids": [s["storm_id"] for s in storm_rows]})
+                    official_rows = await cur.fetchall()
+    return _tr.build_storms(scope=scope, poll=poll, storm_rows=storm_rows,
+                            official_rows=official_rows, now=_utcnow())
+
+
+async def _tropics_storm_build(storm_id: str) -> dict:
+    assert _pool is not None
+    key = {"storm_id": storm_id}
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                storm = await _tropics_storm_or_404(cur, storm_id)
+                await cur.execute(_tr.OBSERVED_SQL, key)
+                observed = await cur.fetchall()
+                await cur.execute(_tr.OFFICIAL_NEWEST_SQL, {"storm_ids": [storm_id]})
+                official = await cur.fetchall()
+                await cur.execute(_tr.CYCLES_SQL, key)
+                cycles = await cur.fetchall()
+    return _tr.build_storm(storm=storm, observed_rows=observed, official_rows=official,
+                           cycle_rows=cycles)
+
+
+async def _tropics_tracks_build(storm_id: str, n: int) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                storm = await _tropics_storm_or_404(cur, storm_id)
+                await cur.execute(_tr.TRACKS_SQL, {"storm_id": storm_id, "n": n})
+                rows = await cur.fetchall()
+    return _tr.build_tracks(storm=storm, n=n, rows=rows)
+
+
+async def _tropics_odds_build(storm_id: str) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                storm = await _tropics_storm_or_404(cur, storm_id)
+                await cur.execute(_tr.ODDS_SQL, {"storm_id": storm_id})
+                rows = await cur.fetchall()
+    return _tr.build_odds(storm=storm, rows=rows)
+
+
+@app.get(f"{TROPICS_PREFIX}/storms")
+async def weather_tropics_storms(
+    response: Response,
+    scope: Optional[str] = Query(None, description="active (default) | recent | all"),
+):
+    """The storms the tropical bank holds, where each is now, and the newest poll.
+
+        { scope, scope_rule, count,
+          storms: [ { storm_id, basin, number, season, status, name, name_absence,
+                      names: [ {name, from, to} ], aliases: [ {id, kind, from, to} ],
+                      first_seen_ts, last_seen_ts,
+                      book_position: { ts, lat_deg, lon_deg, source },
+                      newest_position: { source, label, valid_ts, lat_deg, lon_deg,
+                                         vmax_kt, mslp_hpa, stage, advisory } | null,
+                      newest_position_absence,
+                      positions: [ ..same shape, one per source read.. ],
+                      newest_advisory: { advisory, init_ts, position_valid_ts,
+                                         position_tau_h } | null,
+                      newest_advisory_absence } ],
+          poll: { newest_heartbeat_ts,
+                  freshness: { status: FRESH|STALE|MISSING, dataset, stale_after_h,
+                               age_s, graded_at, frontier_source, rule, absence } },
+          position_rule, advisory_rule, absence, timestamps, longitude, not_served,
+          nhc_terms, cache }
+
+    scope: active = every storm whose bank status is not inactive (active and
+    invest); recent = last seen in the last 7 days; all = every storm. No storm
+    in scope is a 200 with `absence` naming the newest heartbeat, never a 404.
+    Bad scope -> 400; DB unavailable or a read past the 5 s statement timeout
+    -> 503. Memoised 300 s per scope, single-flight, never served stale.
+    """
+    try:
+        s = _tr.parse_scope(scope)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_storms_cache, s,
+                              lambda: _tropics_storms_build(s), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/storm")
+async def weather_tropics_storm(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. al092026"),
+):
+    """One storm: identity, the observed track, the newest official forecast, every cycle.
+
+        { storm: { ..identity as on /storms.. },
+          observed: { best_track | tcvitals: { source, label, role, operational,
+                      points: [ { tau_h, valid_ts, lat_deg, lon_deg, vmax_kt, mslp_hpa,
+                                  stage, radii_nm } ], absence } },
+          official: { advisory, init_ts, position_valid_ts, position_tau_h, label,
+                      same_init_advisories, points: [ ..as observed.. ] } | null,
+          official_absence,
+          cycles: [ { init_ts, sources: [ { source, label, role, n_points,
+                                            max_tau_h } ] } ],      // oldest first
+          cycles_absence, refused, radii_convention, advisory_rule, valid_ts_rule,
+          timestamps, longitude, not_served, nhc_terms, cache }
+
+    Identity is the bank's storm_id; no read joins on a name. tcvitals is marked
+    `operational: true` (the operational analysis, not the best track). The
+    official forecast is the newest advisory by init_ts, then by its own
+    position's valid time, never by the advisory string. Unknown storm -> 404;
+    a malformed storm_id -> 400; a known storm with an empty block -> 200 with
+    that block's absence; DB unavailable or timed out -> 503. Memoised 300 s
+    per storm_id, single-flight, never served stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_storm_cache, sid,
+                              lambda: _tropics_storm_build(sid), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/tracks")
+async def weather_tropics_tracks(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. ep182026"),
+    n: Optional[str] = Query(None, description=f"Newest model cycles, 1-{_tr.TRACKS_N_MAX}. "
+                                               f"Default {_tr.TRACKS_N_DEFAULT}."),
+):
+    """The newest n model cycles, oldest first: the spaghetti plot and its player.
+
+        { storm_id, name, n, n_cycles, order, cycle_rule,
+          cycles: [ { init_ts,
+                      series: [ { source, label, status, role, track, notice,
+                                  points: [ { tau_h, valid_ts, lat_deg, lon_deg,
+                                              vmax_kt, mslp_hpa } ] } ],
+                      official: [ { advisory, init_ts, position_valid_ts,
+                                    position_tau_h, points: [ ..+ stage.. ] } ],
+                      official_absence } ],
+          absent: [ { source, label, role, adeck, present_in, missing_from } ],
+          absent_rule, absence, refused, attribution, advisory_rule, valid_ts_rule,
+          timestamps, longitude, not_served, nhc_terms, cache }
+
+    One series per stored source, labelled by tropics.SOURCES alone (an
+    unknown source is served with the unknown label). The official forecast
+    rides with the cycle of its synoptic time, every advisory of that time in
+    order. Every ECMWF-derived series carries its CC BY 4.0 notice. Members
+    are never served (a member-named row is listed in `refused`). n above 8 is
+    refused (400), never trimmed. Unknown storm -> 404; DB unavailable or
+    timed out -> 503. Memoised 300 s per (storm_id, n), single-flight, never
+    served stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+        n_ = _tr.parse_tracks_n(n)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_tracks_cache, (sid, n_),
+                              lambda: _tropics_tracks_build(sid, n_), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/odds")
+async def weather_tropics_odds(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. al092026"),
+):
+    """The newest NHC wind speed probability issuance, by place, threshold and window.
+
+        { storm_id, name, source: "nhc_pws", source_label,
+          issuance: { issued_ts, advisory } | null,
+          places: [ { place_id, coordinates: null,
+                      thresholds: [ { threshold_kt, radius_km,
+                                      windows: [ { window_h,
+                                                   cumulative: { value_pct, below_1pct, scored },
+                                                   onset: { value_pct, below_1pct, scored } } ] } ],
+                      thresholds_absent: [ { threshold_kt, reason, detail } ] } ],
+          absence, values_rule, windows_rule, places_rule, place_coordinates,
+          odds_not_served, timestamps, longitude, not_served, nhc_terms, cache }
+
+    below_1pct is carried as itself: where it is true, value_pct is null, never
+    0. scored rides through as stored. place_id is NHC's printed name; no
+    coordinates exist anywhere the API can read (STOP-P, `place_coordinates`).
+    Unknown storm -> 404; DB unavailable or timed out -> 503. Memoised 300 s
+    per storm_id, single-flight, never served stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_odds_cache, sid,
+                              lambda: _tropics_odds_build(sid), response)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # LOAD OUTLOOK AND CAISO NET DEMAND — d091611 (API half), D-09-25-139, D-09-25-140
 # ═══════════════════════════════════════════════════════════════════════════
 #

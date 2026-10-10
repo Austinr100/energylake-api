@@ -1,0 +1,82 @@
+# d091673: the new tests, red on main
+
+## Run 1: origin/main @ 149e314 + tests/test_tropics_d091673.py, tests/load_bank_d091673.py, tests/fixtures/tropics_d091673/ and sizes.json (no tropics.py, no routes)
+ImportError while importing test module '/tmp/claude-0/-home-user-energylake-api/fd4faa04-1993-5791-9e92-55aa0589d881/scratchpad/redwt/tests/test_tropics_d091673.py'.
+E   ModuleNotFoundError: No module named 'tropics'
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 warning, 1 error in 0.69s
+
+## Run 2: as run 1 + this branch's tropics.py alone (no route in main.py)
+FAILED tests/test_tropics_d091673.py::test_T1_storms_active_is_the_three_storms_with_the_hand_read_positions
+FAILED tests/test_tropics_d091673.py::test_T1_identity_fields_are_the_bank_row
+FAILED tests/test_tropics_d091673.py::test_T1_scopes_recent_and_all_and_a_bad_scope
+FAILED tests/test_tropics_d091673.py::test_T2_no_storm_in_scope_is_a_200_with_absence_and_the_heartbeat
+FAILED tests/test_tropics_d091673.py::test_T2_an_empty_bank_answers_200_never_404
+FAILED tests/test_tropics_d091673.py::test_T2_no_heartbeat_at_all_is_missing
+FAILED tests/test_tropics_d091673.py::test_T3_a_stale_heartbeat_reads_stale
+FAILED tests/test_tropics_d091673.py::test_T4_the_observed_track_is_in_time_order_and_is_the_bank
+FAILED tests/test_tropics_d091673.py::test_T4_the_official_is_the_newest_advisory_by_init_ts_on_the_bank
+FAILED tests/test_tropics_d091673.py::test_T4_008a_008A_and_8_order_by_init_ts_never_by_the_string
+FAILED tests/test_tropics_d091673.py::test_T4_two_storms_sharing_a_name_stay_two_storms
+FAILED tests/test_tropics_d091673.py::test_T5_oldest_first_one_series_per_source_every_point_the_banks
+FAILED tests/test_tropics_d091673.py::test_T5_n_8_and_the_official_rides_with_its_cycle
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[9]
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[100]
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[0]
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[-1]
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[abc]
+FAILED tests/test_tropics_d091673.py::test_T5_n_out_of_range_is_400_with_no_read[2.5]
+FAILED tests/test_tropics_d091673.py::test_T5_a_source_missing_from_a_cycle_is_in_absent
+FAILED tests/test_tropics_d091673.py::test_T5_a_member_row_is_refused_by_name
+FAILED tests/test_tropics_d091673.py::test_T5_a_storm_with_no_model_cycle_is_a_200_with_absence
+FAILED tests/test_tropics_d091673.py::test_T6_below_1pct_is_carried_and_never_zero
+FAILED tests/test_tropics_d091673.py::test_T6_thresholds_windows_and_place_order_as_stored
+FAILED tests/test_tropics_d091673.py::test_T6_stop_p_no_place_has_coordinates_and_the_payload_says_so
+FAILED tests/test_tropics_d091673.py::test_T6_a_storm_with_no_odds_is_a_200_with_absence
+FAILED tests/test_tropics_d091673.py::test_T7_an_unknown_source_is_served_with_the_unknown_label
+FAILED tests/test_tropics_d091673.py::test_T8_an_unknown_storm_is_404[storm]
+FAILED tests/test_tropics_d091673.py::test_T8_an_unknown_storm_is_404[tracks]
+FAILED tests/test_tropics_d091673.py::test_T8_an_unknown_storm_is_404[odds]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-?storm_id=]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-?storm_id=AL092026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-?storm_id=al09]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-?storm_id=wp012026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[storm-?storm_id=al092026%27--]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-?storm_id=]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-?storm_id=AL092026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-?storm_id=al09]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-?storm_id=wp012026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[tracks-?storm_id=al092026%27--]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-?storm_id=]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-?storm_id=AL092026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-?storm_id=al09]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-?storm_id=wp012026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_bad_storm_id_is_400_with_no_read[odds-?storm_id=al092026%27--]
+FAILED tests/test_tropics_d091673.py::test_T8_db_down_is_503[/api/weather/tropics/storms]
+FAILED tests/test_tropics_d091673.py::test_T8_db_down_is_503[/api/weather/tropics/storm?storm_id=al092026]
+FAILED tests/test_tropics_d091673.py::test_T8_db_down_is_503[/api/weather/tropics/tracks?storm_id=al092026]
+FAILED tests/test_tropics_d091673.py::test_T8_db_down_is_503[/api/weather/tropics/odds?storm_id=al092026]
+FAILED tests/test_tropics_d091673.py::test_T8_a_statement_timeout_is_503_and_not_memoised
+FAILED tests/test_tropics_d091673.py::test_T9_a_constructed_east_positive_row_is_served_signed
+FAILED tests/test_tropics_d091673.py::test_T10_body_bytes_are_under_stop_z
+FAILED tests/test_tropics_d091673.py::test_C_each_build_sets_the_statement_timeout_first
+FAILED tests/test_tropics_d091673.py::test_C_memoised_per_key_300s_never_stale_with_the_cache_block
+FAILED tests/test_tropics_d091673.py::test_C_twenty_concurrent_cold_requests_make_one_build
+FAILED tests/test_tropics_d091673.py::test_R_every_body_carries_not_served_and_the_shape_statements
+FAILED tests/test_tropics_d091673.py::test_R_every_ecmwf_derived_series_carries_its_cc_by_notice
+FAILED tests/test_tropics_d091673.py::test_R_served_values_are_the_banks_and_valid_is_init_plus_tau
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storms_active.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_al092026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_ep182026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[storm_ep202026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_al092026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep182026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep202026_n4.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[tracks_ep182026_n8.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_al092026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_ep182026.json]
+FAILED tests/test_tropics_d091673.py::test_V_the_banked_body_is_served_byte_for_byte[odds_ep202026.json]
+72 failed, 15 passed, 1 warning in 32.67s

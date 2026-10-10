@@ -1,0 +1,13 @@
+{
+  "what": "ingestion_freshness's own grade of the two tropical arms, read on Neon beside the heartbeat index's newest row, so the API's grade can be held to the view's (test T3).",
+  "read_ts": "2026-10-09T22:11:41.849+00:00",
+  "view_md5": "d3af42e8a770a71ef0446ff7bc37d756",
+  "view_case": "CASE WHEN frontier_ts IS NULL THEN 'MISSING' WHEN (now() - frontier_ts) > stale_after THEN 'STALE' ELSE 'FRESH' END",
+  "rows": [
+    {"dataset_code": "nhc_storms_current", "frontier_ts": "2026-10-09T21:54:46.943+00:00", "stale_after_h": 2, "status": "FRESH",
+     "frontier_source": "tropical_file_vintage.fetch_ts (product=heartbeat: a successful poll, storms or none)"},
+    {"dataset_code": "tc_model_tracks", "frontier_ts": "2026-10-09T18:00:00+00:00", "stale_after_h": 18, "status": "FRESH",
+     "frontier_source": "tropical_file_vintage.issued_ts (gfs_aws tcvitals cycles, banked)"}
+  ],
+  "newest_heartbeat_by_index": "2026-10-09T21:54:46.943+00:00"
+}

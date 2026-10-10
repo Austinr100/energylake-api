@@ -1,0 +1,16 @@
+{
+  "lane": "d091673",
+  "what": "The tropical bank as stored in Neon (project Energylake), every row of the four tables the routes read, as Postgres's own row_to_json(t)::text, one row per line, in key order. Read-only through the Neon connector, 2026-10-09 22:08-22:11Z.",
+  "cut": "2026-10-09T21:54:47.543942+00:00",
+  "cut_rule": "tropical_storms as read at 22:08:10Z (its max(updated_ts) is the cut; no storm row was updated after it); tropical_track_points and tropical_place_odds with inserted_ts <= cut; heartbeat rows of tropical_file_vintage with fetch_ts <= cut. Those three tables are insert-only (points and odds ON CONFLICT DO NOTHING; a heartbeat row is never updated), so every chunk read the same rows.",
+  "server": {"server_version": "17.11", "TimeZone": "GMT"},
+  "files": {
+    "storm":     {"path": "bank/storm.jsonl.gz",     "rows": 3,     "order": "storm_id",   "sha256": "5df912f12d3346ad3aca101a253ead4da9cba1eb3288ea6166dc3071d9dc4b22", "table": "tropical_storms", "columns": "*"},
+    "point":     {"path": "bank/point.jsonl.gz",     "rows": 34518, "order": "point_id",   "sha256": "5b3d8c8beb36bcefdcaa99f75396033fb2d20f1e973e291b5086efd8987ded9a", "table": "tropical_track_points", "columns": "*"},
+    "odds":      {"path": "bank/odds.jsonl.gz",      "rows": 2674,  "order": "odds_id",    "sha256": "061b04ba92aa063c87103b88916447a6837aa44891742446446bb50ea16b96ac", "table": "tropical_place_odds", "columns": "*"},
+    "heartbeat": {"path": "bank/heartbeat.jsonl.gz", "rows": 31,    "order": "vintage_id", "sha256": "e1cb8dce0c373b2100fea26fc178f1b9ffc9436968dec98a062370abae06e1bc", "table": "tropical_file_vintage", "columns": "vintage_id, dataset, source, product, storm_id, vintage_key, status, fetch_ts, issued_ts, meta (WHERE product = 'heartbeat')"},
+    "dataset":   {"path": "bank/dataset.jsonl.gz",   "rows": 2,     "order": "dataset_code", "sha256": "96f03585ac88505918e9f2aaecb0ca30201f0c44f2b48e002be69732ba4fa534", "table": "datasets", "columns": "dataset_code, lifecycle_status, refresh_cron, freshness_mode, stale_after_override, enabled (nhc_storms_current, tc_model_tracks)"}
+  },
+  "sha256_rule": "Neon computed encode(sha256(convert_to(string_agg(row_to_json(t)::text, E'\\n' ORDER BY <order>), 'UTF8')), 'hex') in one statement at the cut; the suite recomputes it over the decompressed file (no trailing newline) on every load.",
+  "chunks": "points in 7 reads (ntile over point_id), odds and heartbeats in one; bank_from_neon.py reassembled them and checked every sha before writing"
+}
