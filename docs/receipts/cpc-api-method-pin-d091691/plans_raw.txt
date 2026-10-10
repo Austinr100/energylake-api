@@ -1,0 +1,983 @@
+== A01 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 1 of 2
+Sort  (cost=220.67..220.68 rows=1 width=1617) (actual time=6.295..6.299 rows=6 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=73 read=59 dirtied=2
+  ->  Nested Loop Left Join  (cost=159.59..220.66 rows=1 width=1617) (actual time=5.962..6.248 rows=6 loops=1)
+        Buffers: shared hit=67 read=59 dirtied=2
+        ->  Nested Loop Left Join  (cost=66.52..85.75 rows=1 width=646) (actual time=5.573..5.578 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cv.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=5 read=58 dirtied=1
+              ->  Nested Loop Left Join  (cost=66.25..85.22 rows=1 width=259) (actual time=4.645..4.648 rows=1 loops=1)
+                    Buffers: shared hit=4 read=56 dirtied=1
+                    ->  Nested Loop Left Join  (cost=0.84..19.80 rows=1 width=232) (actual time=2.347..2.349 rows=1 loops=1)
+                          Buffers: shared hit=4 read=5 dirtied=1
+                          ->  Limit  (cost=0.42..11.33 rows=1 width=4) (actual time=2.104..2.105 rows=1 loops=1)
+                                Buffers: shared hit=1 read=4
+                                ->  Result  (cost=0.42..19641.59 rows=1800 width=4) (actual time=2.103..2.104 rows=1 loops=1)
+                                      Buffers: shared hit=1 read=4
+                                      ->  Unique  (cost=0.42..19641.59 rows=1800 width=4) (actual time=2.101..2.102 rows=1 loops=1)
+                                            Buffers: shared hit=1 read=4
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..19135.14 rows=202581 width=4) (actual time=2.100..2.100 rows=1 loops=1)
+                                                  Index Cond: ((product = '610temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=1 read=4
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.237..0.238 rows=1 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=3 read=1 dirtied=1
+                    ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=2.295..2.296 rows=1 loops=1)
+                          Buffers: shared read=51
+                          ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=2.294..2.294 rows=1 loops=1)
+                                Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared read=51
+                                ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.184..2.171 rows=720 loops=1)
+                                      Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                      Buffers: shared read=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.50 rows=1 width=484) (actual time=0.922..0.922 rows=1 loops=1)
+                    Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: ((method_version = 'cpc_curves_v1'::text) AND (method_hash = w.method_hash))
+                    Buffers: shared hit=1 read=2
+        ->  Result  (cost=93.07..134.89 rows=1 width=1263) (actual time=0.385..0.665 rows=6 loops=1)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=62 read=1 dirtied=1
+              ->  Nested Loop  (cost=93.07..134.88 rows=1 width=1263) (actual time=0.382..0.661 rows=6 loops=1)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    Buffers: shared hit=62 read=1 dirtied=1
+                    ->  Nested Loop  (cost=0.70..38.83 rows=1 width=984) (actual time=0.048..0.318 rows=6 loops=1)
+                          Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                          Rows Removed by Join Filter: 66
+                          Buffers: shared hit=11 read=1 dirtied=1
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..21.35 rows=5 width=714) (actual time=0.017..0.263 rows=6 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=5 read=1 dirtied=1
+                          ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.002..0.005 rows=12 loops=6)
+                                Buffers: shared hit=6
+                                ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.010..0.017 rows=12 loops=1)
+                                      Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                      Filter: drawable
+                                      Buffers: shared hit=6
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.055..0.055 rows=1 loops=6)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.054..0.055 rows=1 loops=6)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: quicksort  Memory: 70kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.008..0.124 rows=720 loops=1)
+                                      Buffers: shared hit=51
+Planning:
+  Buffers: shared hit=254 read=34 dirtied=28
+Planning Time: 10.737 ms
+Execution Time: 6.441 ms
+
+== A01 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 2 of 2
+Sort  (cost=220.67..220.68 rows=1 width=1617) (actual time=1.285..1.289 rows=6 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=125 read=1
+  ->  Nested Loop Left Join  (cost=159.59..220.66 rows=1 width=1617) (actual time=1.233..1.271 rows=6 loops=1)
+        Buffers: shared hit=125 read=1
+        ->  Nested Loop Left Join  (cost=66.52..85.75 rows=1 width=646) (actual time=0.858..0.861 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cv.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=62 read=1
+              ->  Nested Loop Left Join  (cost=66.25..85.22 rows=1 width=259) (actual time=0.388..0.391 rows=1 loops=1)
+                    Buffers: shared hit=60
+                    ->  Nested Loop Left Join  (cost=0.84..19.80 rows=1 width=232) (actual time=0.072..0.074 rows=1 loops=1)
+                          Buffers: shared hit=9
+                          ->  Limit  (cost=0.42..11.33 rows=1 width=4) (actual time=0.037..0.038 rows=1 loops=1)
+                                Buffers: shared hit=5
+                                ->  Result  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.036..0.036 rows=1 loops=1)
+                                      Buffers: shared hit=5
+                                      ->  Unique  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.035..0.035 rows=1 loops=1)
+                                            Buffers: shared hit=5
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..19135.14 rows=202581 width=4) (actual time=0.032..0.032 rows=1 loops=1)
+                                                  Index Cond: ((product = '610temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=5
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.027..0.028 rows=1 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=4
+                    ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.312..0.313 rows=1 loops=1)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.312..0.312 rows=1 loops=1)
+                                Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.011..0.195 rows=720 loops=1)
+                                      Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                      Buffers: shared hit=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.50 rows=1 width=484) (actual time=0.467..0.467 rows=1 loops=1)
+                    Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: ((method_version = 'cpc_curves_v1'::text) AND (method_hash = w.method_hash))
+                    Buffers: shared hit=2 read=1
+        ->  Result  (cost=93.07..134.89 rows=1 width=1263) (actual time=0.372..0.405 rows=6 loops=1)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=63
+              ->  Nested Loop  (cost=93.07..134.88 rows=1 width=1263) (actual time=0.369..0.401 rows=6 loops=1)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    Buffers: shared hit=63
+                    ->  Nested Loop  (cost=0.70..38.83 rows=1 width=984) (actual time=0.040..0.065 rows=6 loops=1)
+                          Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                          Rows Removed by Join Filter: 66
+                          Buffers: shared hit=12
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..21.35 rows=5 width=714) (actual time=0.012..0.016 rows=6 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=6
+                          ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.002..0.005 rows=12 loops=6)
+                                Buffers: shared hit=6
+                                ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.007..0.015 rows=12 loops=1)
+                                      Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                      Filter: drawable
+                                      Buffers: shared hit=6
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.054..0.054 rows=1 loops=6)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.054..0.054 rows=1 loops=6)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: quicksort  Memory: 70kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.006..0.130 rows=720 loops=1)
+                                      Buffers: shared hit=51
+Planning Time: 0.916 ms
+Execution Time: 1.412 ms
+
+== B01 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 1 of 1
+Sort  (cost=212.58..212.58 rows=1 width=1617) (actual time=2.752..2.756 rows=6 loops=1)
+  Sort Key: cpc_outlook_curves.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=123 read=3
+  ->  Nested Loop Left Join  (cost=157.79..212.57 rows=1 width=1617) (actual time=2.700..2.735 rows=6 loops=1)
+        Buffers: shared hit=123 read=3
+        ->  Nested Loop Left Join  (cost=64.72..77.66 rows=1 width=646) (actual time=2.329..2.332 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cpc_curve_verdicts.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=60 read=3
+              ->  Nested Loop Left Join  (cost=64.45..77.14 rows=1 width=259) (actual time=2.316..2.319 rows=1 loops=1)
+                    Buffers: shared hit=57 read=3
+                    ->  Nested Loop Left Join  (cost=0.84..13.51 rows=1 width=232) (actual time=2.013..2.015 rows=1 loops=1)
+                          Buffers: shared hit=6 read=3
+                          ->  Limit  (cost=0.42..5.05 rows=1 width=4) (actual time=1.989..1.990 rows=1 loops=1)
+                                Buffers: shared hit=2 read=3
+                                ->  Result  (cost=0.42..8331.14 rows=1800 width=4) (actual time=1.988..1.989 rows=1 loops=1)
+                                      Buffers: shared hit=2 read=3
+                                      ->  Unique  (cost=0.42..8331.14 rows=1800 width=4) (actual time=1.987..1.987 rows=1 loops=1)
+                                            Buffers: shared hit=2 read=3
+                                            ->  Index Only Scan using idx_coc_issued on cpc_outlook_curves  (cost=0.42..7824.68 rows=202581 width=4) (actual time=1.985..1.985 rows=1 loops=1)
+                                                  Index Cond: (product = '610temp'::text)
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=2 read=3
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.45 rows=1 width=232) (actual time=0.017..0.018 rows=1 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL))
+                                Buffers: shared hit=4
+                    ->  Limit  (cost=63.60..63.60 rows=1 width=35) (actual time=0.301..0.302 rows=1 loops=1)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=63.60..65.40 rows=720 width=35) (actual time=0.301..0.301 rows=1 loops=1)
+                                Sort Key: cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..60.00 rows=720 width=35) (actual time=0.016..0.183 rows=720 loops=1)
+                                      Filter: (method_hash = w.method_hash)
+                                      Buffers: shared hit=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.50 rows=1 width=484) (actual time=0.009..0.009 rows=1 loops=1)
+                    Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: (method_hash = w.method_hash)
+                    Buffers: shared hit=3
+        ->  Nested Loop  (cost=93.07..134.88 rows=1 width=1263) (actual time=0.368..0.399 rows=6 loops=1)
+              Join Filter: ((c.method_hash = cpc_curve_verdicts_1.method_hash) AND (v.backtest_version = cpc_curve_verdicts_1.backtest_version))
+              Buffers: shared hit=63
+              ->  Nested Loop  (cost=0.70..38.83 rows=1 width=984) (actual time=0.036..0.061 rows=6 loops=1)
+                    Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                    Rows Removed by Join Filter: 66
+                    Buffers: shared hit=12
+                    ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..21.35 rows=5 width=714) (actual time=0.012..0.015 rows=6 loops=1)
+                          Index Cond: ((product = '610temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = w.method_version))
+                          Buffers: shared hit=6
+                    ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.001..0.004 rows=12 loops=6)
+                          Buffers: shared hit=6
+                          ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.006..0.014 rows=12 loops=1)
+                                Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                Filter: drawable
+                                Buffers: shared hit=6
+              ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.054..0.054 rows=1 loops=6)
+                    Buffers: shared hit=51
+                    ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.054..0.054 rows=1 loops=6)
+                          Sort Key: cpc_curve_verdicts_1.method_hash, cpc_curve_verdicts_1.scored_at DESC, cpc_curve_verdicts_1.backtest_version DESC
+                          Sort Method: quicksort  Memory: 70kB
+                          Buffers: shared hit=51
+                          ->  Seq Scan on cpc_curve_verdicts cpc_curve_verdicts_1  (cost=0.00..58.20 rows=720 width=48) (actual time=0.005..0.114 rows=720 loops=1)
+                                Buffers: shared hit=51
+Planning Time: 0.916 ms
+Execution Time: 2.886 ms
+
+== A02 CURVES_SQL {"product": "814temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 1 of 2
+Sort  (cost=224.99..224.99 rows=1 width=1617) (actual time=3.855..3.860 rows=8 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 39kB
+  Buffers: shared hit=121 read=6
+  ->  Nested Loop Left Join  (cost=159.59..224.98 rows=1 width=1617) (actual time=3.553..3.832 rows=8 loops=1)
+        Buffers: shared hit=121 read=6
+        ->  Nested Loop Left Join  (cost=66.52..86.78 rows=1 width=646) (actual time=3.184..3.188 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cv.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=59 read=5
+              ->  Nested Loop Left Join  (cost=66.25..86.27 rows=1 width=259) (actual time=2.699..2.703 rows=1 loops=1)
+                    Buffers: shared hit=57 read=4
+                    ->  Nested Loop Left Join  (cost=0.84..20.85 rows=1 width=232) (actual time=2.400..2.402 rows=1 loops=1)
+                          Buffers: shared hit=6 read=4
+                          ->  Limit  (cost=0.42..12.39 rows=1 width=4) (actual time=2.190..2.191 rows=1 loops=1)
+                                Buffers: shared hit=3 read=3
+                                ->  Result  (cost=0.42..21537.33 rows=1800 width=4) (actual time=2.189..2.189 rows=1 loops=1)
+                                      Buffers: shared hit=3 read=3
+                                      ->  Unique  (cost=0.42..21537.33 rows=1800 width=4) (actual time=2.187..2.188 rows=1 loops=1)
+                                            Buffers: shared hit=3 read=3
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..20973.36 rows=225588 width=4) (actual time=2.184..2.184 rows=1 loops=1)
+                                                  Index Cond: ((product = '814temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 1
+                                                  Buffers: shared hit=3 read=3
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.204..0.205 rows=1 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=3 read=1
+                    ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.296..0.297 rows=1 loops=1)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.295..0.296 rows=1 loops=1)
+                                Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.012..0.182 rows=720 loops=1)
+                                      Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                      Buffers: shared hit=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.48 rows=1 width=484) (actual time=0.480..0.480 rows=1 loops=1)
+                    Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: ((method_version = 'cpc_curves_v1'::text) AND (method_hash = w.method_hash))
+                    Buffers: shared hit=2 read=1
+        ->  Result  (cost=93.07..138.18 rows=1 width=1263) (actual time=0.365..0.637 rows=8 loops=1)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=62 read=1
+              ->  Nested Loop  (cost=93.07..138.17 rows=1 width=1263) (actual time=0.362..0.632 rows=8 loops=1)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    Buffers: shared hit=62 read=1
+                    ->  Nested Loop  (cost=0.70..42.11 rows=1 width=984) (actual time=0.039..0.298 rows=8 loops=1)
+                          Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                          Rows Removed by Join Filter: 88
+                          Buffers: shared hit=11 read=1
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..24.57 rows=6 width=714) (actual time=0.011..0.236 rows=8 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=5 read=1
+                          ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.001..0.004 rows=12 loops=8)
+                                Buffers: shared hit=6
+                                ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.007..0.016 rows=12 loops=1)
+                                      Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                      Filter: drawable
+                                      Buffers: shared hit=6
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.040..0.040 rows=1 loops=8)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.040..0.040 rows=1 loops=8)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: quicksort  Memory: 70kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.006..0.123 rows=720 loops=1)
+                                      Buffers: shared hit=51
+Planning Time: 0.938 ms
+Execution Time: 4.002 ms
+
+== A02 CURVES_SQL {"product": "814temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 2 of 2
+Sort  (cost=224.99..224.99 rows=1 width=1617) (actual time=1.277..1.280 rows=8 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 39kB
+  Buffers: shared hit=126 read=1
+  ->  Nested Loop Left Join  (cost=159.59..224.98 rows=1 width=1617) (actual time=1.209..1.256 rows=8 loops=1)
+        Buffers: shared hit=126 read=1
+        ->  Nested Loop Left Join  (cost=66.52..86.78 rows=1 width=646) (actual time=0.841..0.844 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cv.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=63 read=1
+              ->  Nested Loop Left Join  (cost=66.25..86.27 rows=1 width=259) (actual time=0.355..0.358 rows=1 loops=1)
+                    Buffers: shared hit=61
+                    ->  Nested Loop Left Join  (cost=0.84..20.85 rows=1 width=232) (actual time=0.050..0.052 rows=1 loops=1)
+                          Buffers: shared hit=10
+                          ->  Limit  (cost=0.42..12.39 rows=1 width=4) (actual time=0.039..0.040 rows=1 loops=1)
+                                Buffers: shared hit=6
+                                ->  Result  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.038..0.039 rows=1 loops=1)
+                                      Buffers: shared hit=6
+                                      ->  Unique  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.037..0.038 rows=1 loops=1)
+                                            Buffers: shared hit=6
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..20973.36 rows=225588 width=4) (actual time=0.036..0.036 rows=1 loops=1)
+                                                  Index Cond: ((product = '814temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 1
+                                                  Buffers: shared hit=6
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.008..0.008 rows=1 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=4
+                    ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.303..0.304 rows=1 loops=1)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.303..0.303 rows=1 loops=1)
+                                Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.011..0.193 rows=720 loops=1)
+                                      Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                      Buffers: shared hit=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.48 rows=1 width=484) (actual time=0.483..0.483 rows=1 loops=1)
+                    Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: ((method_version = 'cpc_curves_v1'::text) AND (method_hash = w.method_hash))
+                    Buffers: shared hit=2 read=1
+        ->  Result  (cost=93.07..138.18 rows=1 width=1263) (actual time=0.366..0.406 rows=8 loops=1)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=63
+              ->  Nested Loop  (cost=93.07..138.17 rows=1 width=1263) (actual time=0.364..0.402 rows=8 loops=1)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    Buffers: shared hit=63
+                    ->  Nested Loop  (cost=0.70..42.11 rows=1 width=984) (actual time=0.039..0.070 rows=8 loops=1)
+                          Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                          Rows Removed by Join Filter: 88
+                          Buffers: shared hit=12
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..24.57 rows=6 width=714) (actual time=0.013..0.017 rows=8 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=6
+                          ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.001..0.003 rows=12 loops=8)
+                                Buffers: shared hit=6
+                                ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.007..0.014 rows=12 loops=1)
+                                      Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                      Filter: drawable
+                                      Buffers: shared hit=6
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.040..0.040 rows=1 loops=8)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.040..0.040 rows=1 loops=8)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: quicksort  Memory: 70kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.006..0.128 rows=720 loops=1)
+                                      Buffers: shared hit=51
+Planning Time: 0.912 ms
+Execution Time: 1.390 ms
+
+== B02 CURVES_SQL {"product": "814temp", "place_kind": "station", "place": "USW00023188", "weighting": "", "n": 1} run 1 of 1
+Sort  (cost=216.18..216.19 rows=1 width=1617) (actual time=16.621..16.625 rows=8 loops=1)
+  Sort Key: cpc_outlook_curves.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 39kB
+  Buffers: shared hit=124 read=3
+  ->  Nested Loop Left Join  (cost=157.79..216.17 rows=1 width=1617) (actual time=16.554..16.599 rows=8 loops=1)
+        Buffers: shared hit=124 read=3
+        ->  Nested Loop Left Join  (cost=64.72..77.98 rows=1 width=646) (actual time=16.220..16.224 rows=1 loops=1)
+              Join Filter: ((vv.backtest_version = cpc_curve_verdicts.backtest_version) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting))
+              Buffers: shared hit=61 read=3
+              ->  Nested Loop Left Join  (cost=64.45..77.48 rows=1 width=259) (actual time=16.207..16.210 rows=1 loops=1)
+                    Buffers: shared hit=58 read=3
+                    ->  Nested Loop Left Join  (cost=0.84..13.85 rows=1 width=232) (actual time=15.891..15.894 rows=1 loops=1)
+                          Buffers: shared hit=7 read=3
+                          ->  Limit  (cost=0.42..5.39 rows=1 width=4) (actual time=15.859..15.860 rows=1 loops=1)
+                                Buffers: shared hit=3 read=3
+                                ->  Result  (cost=0.42..8945.36 rows=1800 width=4) (actual time=15.858..15.858 rows=1 loops=1)
+                                      Buffers: shared hit=3 read=3
+                                      ->  Unique  (cost=0.42..8945.36 rows=1800 width=4) (actual time=15.856..15.856 rows=1 loops=1)
+                                            Buffers: shared hit=3 read=3
+                                            ->  Index Only Scan using idx_coc_issued on cpc_outlook_curves  (cost=0.42..8381.39 rows=225588 width=4) (actual time=15.852..15.852 rows=1 loops=1)
+                                                  Index Cond: (product = '814temp'::text)
+                                                  Heap Fetches: 1
+                                                  Buffers: shared hit=3 read=3
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.45 rows=1 width=232) (actual time=0.025..0.026 rows=1 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (day_index IS NULL))
+                                Buffers: shared hit=4
+                    ->  Limit  (cost=63.60..63.60 rows=1 width=35) (actual time=0.313..0.314 rows=1 loops=1)
+                          Buffers: shared hit=51
+                          ->  Sort  (cost=63.60..65.40 rows=720 width=35) (actual time=0.312..0.313 rows=1 loops=1)
+                                Sort Key: cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                Sort Method: top-N heapsort  Memory: 25kB
+                                Buffers: shared hit=51
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..60.00 rows=720 width=35) (actual time=0.035..0.196 rows=720 loops=1)
+                                      Filter: (method_hash = w.method_hash)
+                                      Buffers: shared hit=51
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..0.48 rows=1 width=484) (actual time=0.009..0.009 rows=1 loops=1)
+                    Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (season = w.season) AND (strength = w.strength))
+                    Filter: (method_hash = w.method_hash)
+                    Buffers: shared hit=3
+        ->  Nested Loop  (cost=93.07..138.17 rows=1 width=1263) (actual time=0.331..0.370 rows=8 loops=1)
+              Join Filter: ((c.method_hash = cpc_curve_verdicts_1.method_hash) AND (v.backtest_version = cpc_curve_verdicts_1.backtest_version))
+              Buffers: shared hit=63
+              ->  Nested Loop  (cost=0.70..42.11 rows=1 width=984) (actual time=0.032..0.063 rows=8 loops=1)
+                    Join Filter: ((v.method_hash = c.method_hash) AND (c.season = v.season) AND (c.strength = v.strength))
+                    Rows Removed by Join Filter: 88
+                    Buffers: shared hit=12
+                    ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..24.57 rows=6 width=714) (actual time=0.007..0.011 rows=8 loops=1)
+                          Index Cond: ((product = '814temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text) AND (method_version = w.method_version))
+                          Buffers: shared hit=6
+                    ->  Materialize  (cost=0.28..17.19 rows=3 width=312) (actual time=0.001..0.003 rows=12 loops=8)
+                          Buffers: shared hit=6
+                          ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..17.17 rows=3 width=312) (actual time=0.006..0.014 rows=12 loops=1)
+                                Index Cond: ((product = '814temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00023188'::text) AND (weighting = ''::text))
+                                Filter: drawable
+                                Buffers: shared hit=6
+              ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.036..0.037 rows=1 loops=8)
+                    Buffers: shared hit=51
+                    ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.036..0.036 rows=1 loops=8)
+                          Sort Key: cpc_curve_verdicts_1.method_hash, cpc_curve_verdicts_1.scored_at DESC, cpc_curve_verdicts_1.backtest_version DESC
+                          Sort Method: quicksort  Memory: 70kB
+                          Buffers: shared hit=51
+                          ->  Seq Scan on cpc_curve_verdicts cpc_curve_verdicts_1  (cost=0.00..58.20 rows=720 width=48) (actual time=0.003..0.113 rows=720 loops=1)
+                                Buffers: shared hit=51
+Planning Time: 0.871 ms
+Execution Time: 16.730 ms
+
+== A03 CURVES_SQL {"product": "814temp", "place_kind": "region", "place": "pnw", "weighting": "population", "n": 14} run 1 of 2
+Sort  (cost=2001.95..2001.98 rows=14 width=1617) (actual time=875.255..875.268 rows=112 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 293kB
+  Buffers: shared hit=1261 read=81 dirtied=37
+  ->  Nested Loop Left Join  (cost=159.60..2001.68 rows=14 width=1617) (actual time=10.641..866.377 rows=112 loops=1)
+        Buffers: shared hit=1255 read=81 dirtied=37
+        ->  Nested Loop Left Join  (cost=66.53..421.70 rows=14 width=646) (actual time=3.630..508.294 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 136
+              Buffers: shared hit=137 read=60 dirtied=16
+              ->  Nested Loop Left Join  (cost=66.26..412.94 rows=14 width=259) (actual time=1.725..506.223 rows=14 loops=1)
+                    Buffers: shared hit=135 read=59 dirtied=16
+                    ->  Nested Loop Left Join  (cost=0.84..286.44 rows=14 width=232) (actual time=1.082..505.464 rows=14 loops=1)
+                          Buffers: shared hit=78 read=59 dirtied=16
+                          ->  Limit  (cost=0.42..167.93 rows=14 width=4) (actual time=0.048..90.166 rows=14 loops=1)
+                                Buffers: shared hit=50 read=31 dirtied=2
+                                ->  Result  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.047..90.149 rows=14 loops=1)
+                                      Buffers: shared hit=50 read=31 dirtied=2
+                                      ->  Unique  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.046..90.129 rows=14 loops=1)
+                                            Buffers: shared hit=50 read=31 dirtied=2
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..20973.36 rows=225588 width=4) (actual time=0.045..89.913 rows=1769 loops=1)
+                                                  Index Cond: ((product = '814temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 136
+                                                  Buffers: shared hit=50 read=31 dirtied=2
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=29.656..29.657 rows=1 loops=14)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=28 read=28 dirtied=14
+                    ->  Memoize  (cost=65.41..65.42 rows=1 width=27) (actual time=0.048..0.049 rows=1 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared hit=57
+                          ->  Subquery Scan on nv  (cost=65.40..65.41 rows=1 width=27) (actual time=0.570..0.572 rows=1 loops=1)
+                                Buffers: shared hit=57
+                                ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.567..0.569 rows=1 loops=1)
+                                      Buffers: shared hit=57
+                                      ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.566..0.567 rows=1 loops=1)
+                                            Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                            Sort Method: top-N heapsort  Memory: 25kB
+                                            Buffers: shared hit=57
+                                            ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.020..0.236 rows=720 loops=1)
+                                                  Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Buffers: shared hit=51
+              ->  Materialize  (cost=0.28..8.31 rows=1 width=484) (actual time=0.134..0.137 rows=11 loops=14)
+                    Buffers: shared hit=2 read=1
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..8.30 rows=1 width=484) (actual time=1.861..1.870 rows=12 loops=1)
+                          Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                          Filter: (method_version = 'cpc_curves_v1'::text)
+                          Buffers: shared hit=2 read=1
+        ->  Result  (cost=93.07..112.84 rows=1 width=1263) (actual time=1.995..25.568 rows=8 loops=14)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=1118 read=21 dirtied=21
+              ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (actual time=1.993..25.562 rows=8 loops=14)
+                    Join Filter: ((v.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version) AND (c.season = v.season) AND (c.strength = v.strength))
+                    Rows Removed by Join Filter: 78
+                    Buffers: shared hit=1118 read=21 dirtied=21
+                    ->  Nested Loop  (cost=92.79..104.45 rows=1 width=754) (actual time=1.960..25.347 rows=8 loops=14)
+                          Join Filter: (c.method_hash = cpc_curve_verdicts.method_hash)
+                          Buffers: shared hit=782 read=21 dirtied=21
+                          ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.910..7.756 rows=1 loops=14)
+                                Buffers: shared hit=714
+                                ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.909..7.663 rows=720 loops=14)
+                                      Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                      Sort Method: quicksort  Memory: 70kB
+                                      Buffers: shared hit=714
+                                      ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.008..0.639 rows=720 loops=14)
+                                            Buffers: shared hit=714
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (actual time=1.046..17.572 rows=8 loops=14)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=68 read=21 dirtied=21
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.30 rows=1 width=312) (actual time=0.008..0.021 rows=11 loops=112)
+                          Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                          Filter: drawable
+                          Buffers: shared hit=336
+Planning:
+  Buffers: shared hit=585 read=6
+Planning Time: 30.848 ms
+Execution Time: 876.393 ms
+
+== A03 CURVES_SQL {"product": "814temp", "place_kind": "region", "place": "pnw", "weighting": "population", "n": 14} run 2 of 2
+Sort  (cost=2001.95..2001.98 rows=14 width=1617) (actual time=12.088..12.098 rows=112 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 293kB
+  Buffers: shared hit=1314 read=16
+  ->  Nested Loop Left Join  (cost=159.60..2001.68 rows=14 width=1617) (actual time=1.061..11.711 rows=112 loops=1)
+        Buffers: shared hit=1314 read=16
+        ->  Nested Loop Left Join  (cost=66.53..421.70 rows=14 width=646) (actual time=0.690..4.065 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 136
+              Buffers: shared hit=175 read=16
+              ->  Nested Loop Left Join  (cost=66.26..412.94 rows=14 width=259) (actual time=0.630..3.830 rows=14 loops=1)
+                    Buffers: shared hit=172 read=16
+                    ->  Nested Loop Left Join  (cost=0.84..286.44 rows=14 width=232) (actual time=0.320..3.494 rows=14 loops=1)
+                          Buffers: shared hit=121 read=16
+                          ->  Limit  (cost=0.42..167.93 rows=14 width=4) (actual time=0.307..3.293 rows=14 loops=1)
+                                Buffers: shared hit=65 read=16
+                                ->  Result  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.306..3.288 rows=14 loops=1)
+                                      Buffers: shared hit=65 read=16
+                                      ->  Unique  (cost=0.42..21537.33 rows=1800 width=4) (actual time=0.305..3.281 rows=14 loops=1)
+                                            Buffers: shared hit=65 read=16
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..20973.36 rows=225588 width=4) (actual time=0.304..3.102 rows=1769 loops=1)
+                                                  Index Cond: ((product = '814temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 136
+                                                  Buffers: shared hit=65 read=16
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.012..0.012 rows=1 loops=14)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=56
+                    ->  Memoize  (cost=65.41..65.42 rows=1 width=27) (actual time=0.023..0.023 rows=1 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared hit=51
+                          ->  Subquery Scan on nv  (cost=65.40..65.41 rows=1 width=27) (actual time=0.303..0.305 rows=1 loops=1)
+                                Buffers: shared hit=51
+                                ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.302..0.303 rows=1 loops=1)
+                                      Buffers: shared hit=51
+                                      ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.302..0.302 rows=1 loops=1)
+                                            Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                            Sort Method: top-N heapsort  Memory: 25kB
+                                            Buffers: shared hit=51
+                                            ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.010..0.192 rows=720 loops=1)
+                                                  Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Buffers: shared hit=51
+              ->  Materialize  (cost=0.28..8.31 rows=1 width=484) (actual time=0.003..0.010 rows=11 loops=14)
+                    Buffers: shared hit=3
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..8.30 rows=1 width=484) (actual time=0.033..0.039 rows=12 loops=1)
+                          Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                          Filter: (method_version = 'cpc_curves_v1'::text)
+                          Buffers: shared hit=3
+        ->  Result  (cost=93.07..112.84 rows=1 width=1263) (actual time=0.376..0.543 rows=8 loops=14)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=1139
+              ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (actual time=0.375..0.540 rows=8 loops=14)
+                    Join Filter: ((v.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version) AND (c.season = v.season) AND (c.strength = v.strength))
+                    Rows Removed by Join Filter: 78
+                    Buffers: shared hit=1139
+                    ->  Nested Loop  (cost=92.79..104.45 rows=1 width=754) (actual time=0.353..0.452 rows=8 loops=14)
+                          Join Filter: (c.method_hash = cpc_curve_verdicts.method_hash)
+                          Buffers: shared hit=803
+                          ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.343..0.434 rows=1 loops=14)
+                                Buffers: shared hit=714
+                                ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.343..0.376 rows=720 loops=14)
+                                      Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                      Sort Method: quicksort  Memory: 70kB
+                                      Buffers: shared hit=714
+                                      ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (actual time=0.002..0.125 rows=720 loops=14)
+                                            Buffers: shared hit=714
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (actual time=0.008..0.012 rows=8 loops=14)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=89
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.30 rows=1 width=312) (actual time=0.004..0.008 rows=11 loops=112)
+                          Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                          Filter: drawable
+                          Buffers: shared hit=336
+Planning Time: 0.896 ms
+Execution Time: 12.213 ms
+
+== B03 CURVES_SQL {"product": "814temp", "place_kind": "region", "place": "pnw", "weighting": "population", "n": 14} run 1 of 1
+Sort  (cost=1900.46..1900.50 rows=14 width=1617) (actual time=15.539..15.551 rows=112 loops=1)
+  Sort Key: cpc_outlook_curves.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 293kB
+  Buffers: shared hit=1148 read=130
+  ->  Nested Loop Left Join  (cost=157.80..1900.20 rows=14 width=1617) (actual time=5.737..15.141 rows=112 loops=1)
+        Buffers: shared hit=1148 read=130
+        ->  Nested Loop Left Join  (cost=64.73..320.25 rows=14 width=646) (actual time=4.959..7.433 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 136
+              Buffers: shared hit=30 read=109
+              ->  Nested Loop Left Join  (cost=64.45..311.50 rows=14 width=259) (actual time=4.651..7.048 rows=14 loops=1)
+                    Buffers: shared hit=29 read=107
+                    ->  Nested Loop Left Join  (cost=0.84..188.47 rows=14 width=232) (actual time=1.919..4.289 rows=14 loops=1)
+                          Buffers: shared hit=29 read=56
+                          ->  Limit  (cost=0.42..69.99 rows=14 width=4) (actual time=1.401..3.461 rows=14 loops=1)
+                                Buffers: shared hit=3 read=26
+                                ->  Result  (cost=0.42..8945.36 rows=1800 width=4) (actual time=1.400..3.455 rows=14 loops=1)
+                                      Buffers: shared hit=3 read=26
+                                      ->  Unique  (cost=0.42..8945.36 rows=1800 width=4) (actual time=1.399..3.443 rows=14 loops=1)
+                                            Buffers: shared hit=3 read=26
+                                            ->  Index Only Scan using idx_coc_issued on cpc_outlook_curves  (cost=0.42..8381.39 rows=225588 width=4) (actual time=1.392..3.320 rows=1769 loops=1)
+                                                  Index Cond: (product = '814temp'::text)
+                                                  Heap Fetches: 136
+                                                  Buffers: shared hit=3 read=26
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.45 rows=1 width=232) (actual time=0.057..0.057 rows=1 loops=14)
+                                Index Cond: ((product = '814temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (day_index IS NULL))
+                                Buffers: shared hit=26 read=30
+                    ->  Memoize  (cost=63.61..63.62 rows=1 width=27) (actual time=0.195..0.196 rows=1 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared read=51
+                          ->  Subquery Scan on nv  (cost=63.60..63.61 rows=1 width=27) (actual time=2.719..2.721 rows=1 loops=1)
+                                Buffers: shared read=51
+                                ->  Limit  (cost=63.60..63.60 rows=1 width=35) (actual time=2.717..2.718 rows=1 loops=1)
+                                      Buffers: shared read=51
+                                      ->  Sort  (cost=63.60..65.40 rows=720 width=35) (actual time=2.716..2.716 rows=1 loops=1)
+                                            Sort Key: cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                            Sort Method: top-N heapsort  Memory: 25kB
+                                            Buffers: shared read=51
+                                            ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..60.00 rows=720 width=35) (actual time=0.216..2.561 rows=720 loops=1)
+                                                  Filter: (method_hash = w.method_hash)
+                                                  Buffers: shared read=51
+              ->  Materialize  (cost=0.28..8.31 rows=1 width=484) (actual time=0.020..0.022 rows=11 loops=14)
+                    Buffers: shared hit=1 read=2
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..8.30 rows=1 width=484) (actual time=0.279..0.285 rows=12 loops=1)
+                          Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                          Buffers: shared hit=1 read=2
+        ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (actual time=0.360..0.547 rows=8 loops=14)
+              Join Filter: ((v.method_hash = cpc_curve_verdicts_1.method_hash) AND (v.backtest_version = cpc_curve_verdicts_1.backtest_version) AND (c.season = v.season) AND (c.strength = v.strength))
+              Rows Removed by Join Filter: 78
+              Buffers: shared hit=1118 read=21
+              ->  Nested Loop  (cost=92.79..104.45 rows=1 width=754) (actual time=0.328..0.442 rows=8 loops=14)
+                    Join Filter: (c.method_hash = cpc_curve_verdicts_1.method_hash)
+                    Buffers: shared hit=782 read=21
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (actual time=0.319..0.413 rows=1 loops=14)
+                          Buffers: shared hit=714
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (actual time=0.318..0.354 rows=720 loops=14)
+                                Sort Key: cpc_curve_verdicts_1.method_hash, cpc_curve_verdicts_1.scored_at DESC, cpc_curve_verdicts_1.backtest_version DESC
+                                Sort Method: quicksort  Memory: 70kB
+                                Buffers: shared hit=714
+                                ->  Seq Scan on cpc_curve_verdicts cpc_curve_verdicts_1  (cost=0.00..58.20 rows=720 width=48) (actual time=0.002..0.134 rows=720 loops=14)
+                                      Buffers: shared hit=714
+                    ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (actual time=0.008..0.023 rows=8 loops=14)
+                          Index Cond: ((product = '814temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text) AND (method_version = w.method_version))
+                          Buffers: shared hit=68 read=21
+              ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.30 rows=1 width=312) (actual time=0.006..0.011 rows=11 loops=112)
+                    Index Cond: ((product = '814temp'::text) AND (place_kind = 'region'::text) AND (place = 'pnw'::text) AND (weighting = 'population'::text))
+                    Filter: drawable
+                    Buffers: shared hit=336
+Planning Time: 1.036 ms
+Execution Time: 15.674 ms
+
+== A04 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00003017", "weighting": "", "n": 14} run 1 of 2
+Sort  (cost=1998.38..1998.41 rows=14 width=1617) (actual time=6.134..6.138 rows=14 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=111 read=17
+  ->  Nested Loop Left Join  (cost=159.60..1998.11 rows=14 width=1617) (actual time=2.297..6.093 rows=14 loops=1)
+        Buffers: shared hit=105 read=17
+        ->  Nested Loop Left Join  (cost=66.53..418.13 rows=14 width=646) (actual time=2.294..6.074 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 168
+              Buffers: shared hit=105 read=17
+              ->  Nested Loop Left Join  (cost=66.26..398.19 rows=14 width=259) (actual time=1.334..5.042 rows=14 loops=1)
+                    Buffers: shared hit=103 read=16
+                    ->  Nested Loop Left Join  (cost=0.84..271.70 rows=14 width=232) (actual time=1.172..4.861 rows=14 loops=1)
+                          Buffers: shared hit=46 read=16
+                          ->  Limit  (cost=0.42..153.19 rows=14 width=4) (actual time=0.400..3.403 rows=14 loops=1)
+                                Buffers: shared hit=6 read=14
+                                ->  Result  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.400..3.398 rows=14 loops=1)
+                                      Buffers: shared hit=6 read=14
+                                      ->  Unique  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.399..3.390 rows=14 loops=1)
+                                            Buffers: shared hit=6 read=14
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..19135.14 rows=202581 width=4) (actual time=0.397..3.280 rows=1327 loops=1)
+                                                  Index Cond: ((product = '610temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=6 read=14
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.103..0.103 rows=0 loops=14)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=40 read=2
+                    ->  Memoize  (cost=65.41..65.42 rows=1 width=27) (actual time=0.012..0.012 rows=0 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared hit=57
+                          ->  Subquery Scan on nv  (cost=65.40..65.41 rows=1 width=27) (actual time=0.156..0.157 rows=0 loops=1)
+                                Buffers: shared hit=57
+                                ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.155..0.156 rows=0 loops=1)
+                                      Buffers: shared hit=57
+                                      ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.155..0.155 rows=0 loops=1)
+                                            Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                            Sort Method: quicksort  Memory: 25kB
+                                            Buffers: shared hit=57
+                                            ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.122..0.122 rows=0 loops=1)
+                                                  Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Rows Removed by Filter: 720
+                                                  Buffers: shared hit=51
+              ->  Materialize  (cost=0.28..17.22 rows=6 width=484) (actual time=0.067..0.069 rows=12 loops=14)
+                    Buffers: shared hit=2 read=1
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..17.19 rows=6 width=484) (actual time=0.928..0.935 rows=12 loops=1)
+                          Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text))
+                          Filter: (method_version = 'cpc_curves_v1'::text)
+                          Buffers: shared hit=2 read=1
+        ->  Result  (cost=93.07..112.84 rows=1 width=1263) (actual time=0.000..0.000 rows=0 loops=14)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (never executed)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    ->  Nested Loop  (cost=0.70..16.77 rows=1 width=984) (never executed)
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (never executed)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                          ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.31 rows=1 width=312) (never executed)
+                                Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (season = c.season) AND (strength = c.strength))
+                                Filter: (drawable AND (method_hash = c.method_hash))
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (never executed)
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (never executed)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (never executed)
+Planning:
+  Buffers: shared hit=433 read=66
+Planning Time: 5.223 ms
+Execution Time: 6.327 ms
+
+== A04 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00003017", "weighting": "", "n": 14} run 2 of 2
+Sort  (cost=1998.38..1998.41 rows=14 width=1617) (actual time=1.205..1.210 rows=14 loops=1)
+  Sort Key: ci.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=116
+  ->  Nested Loop Left Join  (cost=159.60..1998.11 rows=14 width=1617) (actual time=0.221..1.193 rows=14 loops=1)
+        Buffers: shared hit=116
+        ->  Nested Loop Left Join  (cost=66.53..418.13 rows=14 width=646) (actual time=0.218..1.182 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 168
+              Buffers: shared hit=116
+              ->  Nested Loop Left Join  (cost=66.26..398.19 rows=14 width=259) (actual time=0.185..1.101 rows=14 loops=1)
+                    Buffers: shared hit=113
+                    ->  Nested Loop Left Join  (cost=0.84..271.70 rows=14 width=232) (actual time=0.043..0.949 rows=14 loops=1)
+                          Buffers: shared hit=62
+                          ->  Limit  (cost=0.42..153.19 rows=14 width=4) (actual time=0.034..0.880 rows=14 loops=1)
+                                Buffers: shared hit=20
+                                ->  Result  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.033..0.877 rows=14 loops=1)
+                                      Buffers: shared hit=20
+                                      ->  Unique  (cost=0.42..19641.59 rows=1800 width=4) (actual time=0.032..0.873 rows=14 loops=1)
+                                            Buffers: shared hit=20
+                                            ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves ci  (cost=0.42..19135.14 rows=202581 width=4) (actual time=0.031..0.791 rows=1327 loops=1)
+                                                  Index Cond: ((product = '610temp'::text) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=20
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.46 rows=1 width=232) (actual time=0.004..0.004 rows=0 loops=14)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=42
+                    ->  Memoize  (cost=65.41..65.42 rows=1 width=27) (actual time=0.010..0.010 rows=0 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared hit=51
+                          ->  Subquery Scan on nv  (cost=65.40..65.41 rows=1 width=27) (actual time=0.139..0.140 rows=0 loops=1)
+                                Buffers: shared hit=51
+                                ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.139..0.139 rows=0 loops=1)
+                                      Buffers: shared hit=51
+                                      ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.139..0.139 rows=0 loops=1)
+                                            Sort Key: cv.scored_at DESC, cv.backtest_version DESC
+                                            Sort Method: quicksort  Memory: 25kB
+                                            Buffers: shared hit=51
+                                            ->  Seq Scan on cpc_curve_verdicts cv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.135..0.136 rows=0 loops=1)
+                                                  Filter: ((method_hash = w.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                                  Rows Removed by Filter: 720
+                                                  Buffers: shared hit=51
+              ->  Materialize  (cost=0.28..17.22 rows=6 width=484) (actual time=0.001..0.003 rows=12 loops=14)
+                    Buffers: shared hit=3
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..17.19 rows=6 width=484) (actual time=0.010..0.016 rows=12 loops=1)
+                          Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text))
+                          Filter: (method_version = 'cpc_curves_v1'::text)
+                          Buffers: shared hit=3
+        ->  Result  (cost=93.07..112.84 rows=1 width=1263) (actual time=0.000..0.000 rows=0 loops=14)
+              One-Time Filter: (w.method_version = 'cpc_curves_v1'::text)
+              ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (never executed)
+                    Join Filter: ((c.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = cpc_curve_verdicts.backtest_version))
+                    ->  Nested Loop  (cost=0.70..16.77 rows=1 width=984) (never executed)
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (never executed)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = ci.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (method_version = 'cpc_curves_v1'::text))
+                          ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.31 rows=1 width=312) (never executed)
+                                Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (season = c.season) AND (strength = c.strength))
+                                Filter: (drawable AND (method_hash = c.method_hash))
+                    ->  Unique  (cost=92.37..95.97 rows=1 width=48) (never executed)
+                          ->  Sort  (cost=92.37..94.17 rows=720 width=48) (never executed)
+                                Sort Key: cpc_curve_verdicts.method_hash, cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=48) (never executed)
+Planning Time: 1.002 ms
+Execution Time: 1.330 ms
+
+== B04 CURVES_SQL {"product": "610temp", "place_kind": "station", "place": "USW00003017", "weighting": "", "n": 14} run 1 of 1
+Sort  (cost=1906.85..1906.88 rows=14 width=1617) (actual time=2.488..2.493 rows=14 loops=1)
+  Sort Key: cpc_outlook_curves.issued_date, c.day_index NULLS FIRST
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=100 read=3
+  ->  Nested Loop Left Join  (cost=157.80..1906.58 rows=14 width=1617) (actual time=1.371..2.476 rows=14 loops=1)
+        Buffers: shared hit=100 read=3
+        ->  Nested Loop Left Join  (cost=64.73..326.64 rows=14 width=646) (actual time=1.366..2.456 rows=14 loops=1)
+              Join Filter: ((vv.backtest_version = nv.backtest_version) AND (vv.method_hash = w.method_hash) AND (vv.product = w.product) AND (vv.place_kind = w.place_kind) AND (vv.place = w.place) AND (vv.weighting = w.weighting) AND (vv.season = w.season) AND (vv.strength = w.strength))
+              Rows Removed by Join Filter: 168
+              Buffers: shared hit=100 read=3
+              ->  Nested Loop Left Join  (cost=64.45..306.72 rows=14 width=259) (actual time=1.329..2.371 rows=14 loops=1)
+                    Buffers: shared hit=97 read=3
+                    ->  Nested Loop Left Join  (cost=0.84..183.69 rows=14 width=232) (actual time=1.153..2.186 rows=14 loops=1)
+                          Buffers: shared hit=46 read=3
+                          ->  Limit  (cost=0.42..65.22 rows=14 width=4) (actual time=1.132..2.105 rows=14 loops=1)
+                                Buffers: shared hit=4 read=3
+                                ->  Result  (cost=0.42..8331.14 rows=1800 width=4) (actual time=1.131..2.103 rows=14 loops=1)
+                                      Buffers: shared hit=4 read=3
+                                      ->  Unique  (cost=0.42..8331.14 rows=1800 width=4) (actual time=1.130..2.099 rows=14 loops=1)
+                                            Buffers: shared hit=4 read=3
+                                            ->  Index Only Scan using idx_coc_issued on cpc_outlook_curves  (cost=0.42..7824.68 rows=202581 width=4) (actual time=1.128..2.020 rows=1327 loops=1)
+                                                  Index Cond: (product = '610temp'::text)
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=4 read=3
+                          ->  Index Scan using uniq_coc_row on cpc_outlook_curves w  (cost=0.42..8.45 rows=1 width=232) (actual time=0.005..0.005 rows=0 loops=14)
+                                Index Cond: ((product = '610temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (day_index IS NULL))
+                                Buffers: shared hit=42
+                    ->  Memoize  (cost=63.61..63.62 rows=1 width=27) (actual time=0.013..0.013 rows=0 loops=14)
+                          Cache Key: w.method_hash
+                          Cache Mode: binary
+                          Hits: 13  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                          Buffers: shared hit=51
+                          ->  Subquery Scan on nv  (cost=63.60..63.61 rows=1 width=27) (actual time=0.172..0.172 rows=0 loops=1)
+                                Buffers: shared hit=51
+                                ->  Limit  (cost=63.60..63.60 rows=1 width=35) (actual time=0.163..0.164 rows=0 loops=1)
+                                      Buffers: shared hit=51
+                                      ->  Sort  (cost=63.60..65.40 rows=720 width=35) (actual time=0.163..0.163 rows=0 loops=1)
+                                            Sort Key: cpc_curve_verdicts.scored_at DESC, cpc_curve_verdicts.backtest_version DESC
+                                            Sort Method: quicksort  Memory: 25kB
+                                            Buffers: shared hit=51
+                                            ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..60.00 rows=720 width=35) (actual time=0.152..0.152 rows=0 loops=1)
+                                                  Filter: (method_hash = w.method_hash)
+                                                  Rows Removed by Filter: 720
+                                                  Buffers: shared hit=51
+              ->  Materialize  (cost=0.28..17.20 rows=6 width=484) (actual time=0.001..0.003 rows=12 loops=14)
+                    Buffers: shared hit=3
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts vv  (cost=0.28..17.17 rows=6 width=484) (actual time=0.012..0.019 rows=12 loops=1)
+                          Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text))
+                          Buffers: shared hit=3
+        ->  Nested Loop  (cost=93.07..112.82 rows=1 width=1263) (actual time=0.001..0.001 rows=0 loops=14)
+              Join Filter: ((c.method_hash = cpc_curve_verdicts_1.method_hash) AND (v.backtest_version = cpc_curve_verdicts_1.backtest_version))
+              ->  Nested Loop  (cost=0.70..16.77 rows=1 width=984) (actual time=0.001..0.001 rows=0 loops=14)
+                    ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..8.45 rows=1 width=714) (actual time=0.000..0.000 rows=0 loops=14)
+                          Index Cond: ((product = '610temp'::text) AND (issued_date = cpc_outlook_curves.issued_date) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (method_version = w.method_version))
+                    ->  Index Scan using uniq_ccv_cell on cpc_curve_verdicts v  (cost=0.28..8.31 rows=1 width=312) (never executed)
+                          Index Cond: ((product = '610temp'::text) AND (place_kind = 'station'::text) AND (place = 'USW00003017'::text) AND (weighting = ''::text) AND (season = c.season) AND (strength = c.strength))
+                          Filter: (drawable AND (method_hash = c.method_hash))
+              ->  Unique  (cost=92.37..95.97 rows=1 width=48) (never executed)
+                    ->  Sort  (cost=92.37..94.17 rows=720 width=48) (never executed)
+                          Sort Key: cpc_curve_verdicts_1.method_hash, cpc_curve_verdicts_1.scored_at DESC, cpc_curve_verdicts_1.backtest_version DESC
+                          ->  Seq Scan on cpc_curve_verdicts cpc_curve_verdicts_1  (cost=0.00..58.20 rows=720 width=48) (never executed)
+Planning Time: 0.972 ms
+Execution Time: 2.648 ms
+
+== A05 PLACES_SQL {} run 1 of 1
+Sort  (cost=232.20..234.00 rows=720 width=484) (actual time=3.563..3.600 rows=720 loops=1)
+  Sort Key: v.place_kind, v.place, v.weighting, v.product, v.season, v.strength
+  Sort Method: quicksort  Memory: 402kB
+  Buffers: shared hit=153
+  ->  Nested Loop  (cost=127.20..198.03 rows=720 width=484) (actual time=0.545..0.931 rows=720 loops=1)
+        Join Filter: ((v.method_hash = hv.method_hash) AND (v.backtest_version = lv.backtest_version))
+        Buffers: shared hit=153
+        ->  Nested Loop  (cost=127.20..127.23 rows=1 width=40) (actual time=0.540..0.543 rows=1 loops=1)
+              Buffers: shared hit=102
+              ->  HashAggregate  (cost=61.80..61.81 rows=1 width=13) (actual time=0.290..0.291 rows=1 loops=1)
+                    Group Key: hv.method_hash
+                    Batches: 1  Memory Usage: 24kB
+                    Buffers: shared hit=51
+                    ->  Seq Scan on cpc_curve_verdicts hv  (cost=0.00..60.00 rows=720 width=13) (actual time=0.013..0.177 rows=720 loops=1)
+                          Filter: (method_version = 'cpc_curves_v1'::text)
+                          Buffers: shared hit=51
+              ->  Limit  (cost=65.40..65.40 rows=1 width=35) (actual time=0.248..0.249 rows=1 loops=1)
+                    Buffers: shared hit=51
+                    ->  Sort  (cost=65.40..67.20 rows=720 width=35) (actual time=0.248..0.248 rows=1 loops=1)
+                          Sort Key: lv.scored_at DESC, lv.backtest_version DESC
+                          Sort Method: top-N heapsort  Memory: 25kB
+                          Buffers: shared hit=51
+                          ->  Seq Scan on cpc_curve_verdicts lv  (cost=0.00..61.80 rows=720 width=35) (actual time=0.004..0.139 rows=720 loops=1)
+                                Filter: ((method_hash = hv.method_hash) AND (method_version = 'cpc_curves_v1'::text))
+                                Buffers: shared hit=51
+        ->  Seq Scan on cpc_curve_verdicts v  (cost=0.00..60.00 rows=720 width=484) (actual time=0.003..0.253 rows=720 loops=1)
+              Filter: (method_version = 'cpc_curves_v1'::text)
+              Buffers: shared hit=51
+Planning Time: 0.246 ms
+Execution Time: 3.693 ms
+
+== B05 PLACES_SQL {} run 1 of 1
+Sort  (cost=226.80..228.60 rows=720 width=484) (actual time=3.542..3.577 rows=720 loops=1)
+  Sort Key: v.place_kind, v.place, v.weighting, v.product, v.season, v.strength
+  Sort Method: quicksort  Memory: 402kB
+  Buffers: shared hit=153
+  ->  Nested Loop  (cost=123.60..192.63 rows=720 width=484) (actual time=0.515..0.879 rows=720 loops=1)
+        Join Filter: ((v.method_hash = cpc_curve_verdicts.method_hash) AND (v.backtest_version = v_1.backtest_version))
+        Buffers: shared hit=153
+        ->  Nested Loop  (cost=123.60..123.63 rows=1 width=40) (actual time=0.510..0.512 rows=1 loops=1)
+              Buffers: shared hit=102
+              ->  HashAggregate  (cost=60.00..60.01 rows=1 width=13) (actual time=0.274..0.275 rows=1 loops=1)
+                    Group Key: cpc_curve_verdicts.method_hash
+                    Batches: 1  Memory Usage: 24kB
+                    Buffers: shared hit=51
+                    ->  Seq Scan on cpc_curve_verdicts  (cost=0.00..58.20 rows=720 width=13) (actual time=0.015..0.160 rows=720 loops=1)
+                          Buffers: shared hit=51
+              ->  Limit  (cost=63.60..63.60 rows=1 width=35) (actual time=0.234..0.235 rows=1 loops=1)
+                    Buffers: shared hit=51
+                    ->  Sort  (cost=63.60..65.40 rows=720 width=35) (actual time=0.234..0.234 rows=1 loops=1)
+                          Sort Key: v_1.scored_at DESC, v_1.backtest_version DESC
+                          Sort Method: top-N heapsort  Memory: 25kB
+                          Buffers: shared hit=51
+                          ->  Seq Scan on cpc_curve_verdicts v_1  (cost=0.00..60.00 rows=720 width=35) (actual time=0.003..0.125 rows=720 loops=1)
+                                Filter: (method_hash = cpc_curve_verdicts.method_hash)
+                                Buffers: shared hit=51
+        ->  Seq Scan on cpc_curve_verdicts v  (cost=0.00..58.20 rows=720 width=484) (actual time=0.003..0.229 rows=720 loops=1)
+              Buffers: shared hit=51
+Planning Time: 0.252 ms
+Execution Time: 3.655 ms
+
+== A06 PLACES_NEWEST_SQL {"products": ["610temp", "814temp"]} run 1 of 2
+Sort  (cost=134.07..134.16 rows=35 width=65) (actual time=2.729..2.732 rows=34 loops=1)
+  Sort Key: c.product, c.place_kind, c.place, c.weighting
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=34 read=13 dirtied=12
+  ->  Nested Loop  (cost=0.84..133.17 rows=35 width=65) (actual time=0.639..2.694 rows=34 loops=1)
+        Buffers: shared hit=34 read=13 dirtied=12
+        ->  Nested Loop  (cost=0.42..1.08 rows=2 width=36) (actual time=0.025..0.055 rows=2 loops=1)
+              Buffers: shared hit=10
+              ->  ProjectSet  (cost=0.00..0.03 rows=2 width=32) (actual time=0.002..0.005 rows=2 loops=1)
+                    ->  Result  (cost=0.00..0.01 rows=1 width=0) (actual time=0.000..0.001 rows=1 loops=1)
+              ->  Limit  (cost=0.42..0.52 rows=1 width=4) (actual time=0.022..0.022 rows=1 loops=2)
+                    Buffers: shared hit=10
+                    ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves lc  (cost=0.42..20054.24 rows=214084 width=4) (actual time=0.020..0.021 rows=1 loops=2)
+                          Index Cond: ((product = (unnest('{610temp,814temp}'::text[]))) AND (method_version = 'cpc_curves_v1'::text))
+                          Heap Fetches: 1
+                          Buffers: shared hit=10
+        ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..65.88 rows=17 width=65) (actual time=0.310..1.305 rows=17 loops=2)
+              Index Cond: ((product = (unnest('{610temp,814temp}'::text[]))) AND (issued_date = lc.issued_date) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+              Buffers: shared hit=24 read=13 dirtied=12
+Planning:
+  Buffers: shared hit=15
+Planning Time: 0.334 ms
+Execution Time: 2.799 ms
+
+== A06 PLACES_NEWEST_SQL {"products": ["610temp", "814temp"]} run 2 of 2
+Sort  (cost=134.07..134.16 rows=35 width=65) (actual time=0.139..0.142 rows=34 loops=1)
+  Sort Key: c.product, c.place_kind, c.place, c.weighting
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=47
+  ->  Nested Loop  (cost=0.84..133.17 rows=35 width=65) (actual time=0.047..0.122 rows=34 loops=1)
+        Buffers: shared hit=47
+        ->  Nested Loop  (cost=0.42..1.08 rows=2 width=36) (actual time=0.035..0.050 rows=2 loops=1)
+              Buffers: shared hit=10
+              ->  ProjectSet  (cost=0.00..0.03 rows=2 width=32) (actual time=0.003..0.003 rows=2 loops=1)
+                    ->  Result  (cost=0.00..0.01 rows=1 width=0) (actual time=0.000..0.001 rows=1 loops=1)
+              ->  Limit  (cost=0.42..0.52 rows=1 width=4) (actual time=0.022..0.022 rows=1 loops=2)
+                    Buffers: shared hit=10
+                    ->  Index Only Scan Backward using uniq_coc_row on cpc_outlook_curves lc  (cost=0.42..20054.24 rows=214084 width=4) (actual time=0.021..0.021 rows=1 loops=2)
+                          Index Cond: ((product = (unnest('{610temp,814temp}'::text[]))) AND (method_version = 'cpc_curves_v1'::text))
+                          Heap Fetches: 1
+                          Buffers: shared hit=10
+        ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..65.88 rows=17 width=65) (actual time=0.009..0.029 rows=17 loops=2)
+              Index Cond: ((product = (unnest('{610temp,814temp}'::text[]))) AND (issued_date = lc.issued_date) AND (day_index IS NULL) AND (method_version = 'cpc_curves_v1'::text))
+              Buffers: shared hit=37
+Planning Time: 0.318 ms
+Execution Time: 0.181 ms
+
+== B06 PLACES_NEWEST_SQL {"products": ["610temp", "814temp"]} run 1 of 1
+Sort  (cost=133.36..133.45 rows=35 width=65) (actual time=0.141..0.144 rows=34 loops=1)
+  Sort Key: c.product, c.place_kind, c.place, c.weighting
+  Sort Method: quicksort  Memory: 27kB
+  Buffers: shared hit=47
+  ->  Nested Loop  (cost=0.84..132.47 rows=35 width=65) (actual time=0.048..0.124 rows=34 loops=1)
+        Buffers: shared hit=47
+        ->  Nested Loop  (cost=0.42..0.97 rows=2 width=36) (actual time=0.032..0.046 rows=2 loops=1)
+              Buffers: shared hit=10
+              ->  ProjectSet  (cost=0.00..0.03 rows=2 width=32) (actual time=0.003..0.003 rows=2 loops=1)
+                    ->  Result  (cost=0.00..0.01 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1)
+              ->  Limit  (cost=0.42..0.46 rows=1 width=4) (actual time=0.020..0.020 rows=1 loops=2)
+                    Buffers: shared hit=10
+                    ->  Index Only Scan using idx_coc_issued on cpc_outlook_curves c_1  (cost=0.42..8103.03 rows=214084 width=4) (actual time=0.019..0.019 rows=1 loops=2)
+                          Index Cond: (product = (unnest('{610temp,814temp}'::text[])))
+                          Heap Fetches: 1
+                          Buffers: shared hit=10
+        ->  Index Scan using uniq_coc_row on cpc_outlook_curves c  (cost=0.42..65.58 rows=17 width=65) (actual time=0.011..0.032 rows=17 loops=2)
+              Index Cond: ((product = (unnest('{610temp,814temp}'::text[]))) AND (issued_date = c_1.issued_date) AND (day_index IS NULL))
+              Buffers: shared hit=37
+Planning Time: 0.332 ms
+Execution Time: 0.183 ms

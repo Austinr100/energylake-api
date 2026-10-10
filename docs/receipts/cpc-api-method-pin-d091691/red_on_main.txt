@@ -1,0 +1,24 @@
+# d091691 red: tests/test_cpc_method_pin_d091691.py and the fixtures against main 891de2e's cpc_outlooks.py
+# (P0 and P2 pass on main by design: P0 is the bank, P2 asserts what main serves; P5's static receipts too)
+
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_curves_pnw_population.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_curves_kden.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params3]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params4]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2-body_places.json-/api/weather/cpc/places-params5]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_curves_pnw_population.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_curves_kden.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params3]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params4]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_v2_rows_beside_v1_change_no_body[v2_beside_only-body_places.json-/api/weather/cpc/places-params5]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P1_no_v2_word_reaches_a_body
+FAILED tests/test_cpc_method_pin_d091691.py::test_P3_the_v2_only_issuance_is_not_places_newest
+FAILED tests/test_cpc_method_pin_d091691.py::test_P3_nor_curves_newest[params0]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P3_nor_curves_newest[params1]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P3_nor_curves_newest[params2]
+FAILED tests/test_cpc_method_pin_d091691.py::test_P4_one_constant
+FAILED tests/test_cpc_method_pin_d091691.py::test_P4_every_statement_naming_the_relations_carries_the_pin
+FAILED tests/test_cpc_method_pin_d091691.py::test_P5_the_receipts_ran_the_pinned_and_main_sql
+20 failed, 28 passed, 1 warning in 7.21s

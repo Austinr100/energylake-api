@@ -1,0 +1,31 @@
+# d091691 reds — each break must turn its tests red; the clean tree must be green
+
+rule 1  RED   CURVES_SQL: the issuances (iss) unpinned
+        -k 'test_P1 or test_P3 or test_P4_every_statement': 9 failed, 9 passed, 111 deselected, 1 warning in 5.28s
+rule 1  RED   CURVES_SQL: the window row (w) unpinned
+        -k 'test_P1 or test_P3 or test_P4_every_statement': 7 failed, 11 passed, 111 deselected, 1 warning in 5.47s
+rule 1  RED   CURVES_SQL: the verdict-in-force lateral (nv) unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 0.98s
+rule 1  RED   CURVES_SQL: the verdict cell (vv) unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 1.03s
+rule 1  RED   CURVES_SQL: the view lateral (dv) unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 0.93s
+rule 1  RED   PLACES_SQL: the hashes unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 0.99s
+rule 1  RED   PLACES_SQL: the in-force lateral (lv) unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 0.97s
+rule 1  RED   PLACES_SQL: the cells (v) unpinned
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 1.01s
+rule 1  RED   PLACES_NEWEST_SQL: the newest issuance (lc) unpinned
+        -k 'test_P1 or test_P3 or test_P4_every_statement': 3 failed, 15 passed, 111 deselected, 1 warning in 5.80s
+rule 1  RED   PLACES_NEWEST_SQL: the window rows (c) unpinned
+        -k 'test_P1 or test_P3 or test_P4_every_statement': 5 failed, 13 passed, 111 deselected, 1 warning in 5.70s
+rule 2  RED   the constant flipped to cpc_curves_v2
+        -k 'test_P1 or test_P3 or test_P4_one_constant': 18 failed, 111 deselected, 1 warning in 5.29s
+rule 2  RED   a second literal beside the constant
+        -k 'test_P4_one_constant': 1 failed, 128 deselected, 1 warning in 0.95s
+rule 3  RED   the window row pinned by hash instead (lets every v1-hash version through, v2 rows still out) — P4 must still see it
+        -k 'test_P4_every_statement': 1 failed, 128 deselected, 1 warning in 1.07s
+
+clean tree: GREEN  129 passed, 1 warning in 8.76s
+tree restored byte for byte: True (cpc_outlooks.py 38b794f59f3c, main.py 67f39ed296f6, tests/test_cpc_method_pin_d091691.py a12faff2972d, tests/test_cpc_outlooks_d091679.py c501aadb642b, tests/load_bank_d091691.py 785a1fee7089)
