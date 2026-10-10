@@ -1,0 +1,6 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_chart_brief.py::test_chart_brief_maps_contract - AssertionE...
+FAILED tests/test_tropics_d091673.py::test_R_no_existing_route_or_memo_changed
+2 failed, 2874 passed, 1 warning in 149.43s (0:02:29)

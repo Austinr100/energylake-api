@@ -1,0 +1,833 @@
+{
+ "schema": "el.edition.v1",
+ "kind": "daily",
+ "edition_date": "2026-10-10",
+ "edition_no": 283,
+ "masthead": {
+  "title": "The Joule Report",
+  "strap": "Power, gas and weather across the Western Interconnection"
+ },
+ "window": {
+  "from": "2026-10-09T09:30:00Z",
+  "to": "2026-10-10T09:50:00Z"
+ },
+ "digest": [
+  {
+   "type": "p",
+   "text": "**The heat is over.** CAISO's daily peak fell from 45,719 MW on Monday to 37,094 MW on Friday, and day-ahead on-peak power at SP15 for today cleared near $42.",
+   "standing": [
+    "bank"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**Tropical Storm Rachel** is forecast over northern Baja tonight and near the Nevada-Arizona line by Sunday midday as a 40-knot post-tropical system.",
+   "standing": [
+    "bank"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**SoCalGas storage** turned down. Inventory peaked at 103.4 Bcf on Oct. 3 and 4 and stood at 101.7 Bcf on Oct. 8.",
+   "standing": [
+    "bank"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**GTN declared force majeure** at Sandpoint, cutting flow past Kingsgate to about 2.1 Bcf/d from about 3.0 through Oct. 15.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**NERC's board** created registry categories for data-center loads. The final ballot on the first standards runs through Wednesday.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**Oracle** is weighing trucked compressed gas for its New Mexico campus while a pipeline runs late.",
+   "standing": [
+    "reported"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**Arizona's attorney general** asked regulators to examine a possible $587 million cost shift from large users to other APS customers.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**PG&E** began shutting off power in parts of the Central Valley and coast for wind. About 12,200 customers could be affected through Monday.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "type": "p",
+   "text": "**Palo Verde Unit 1** is in a planned refueling outage of about 45 days.",
+   "standing": [
+    "confirmed"
+   ]
+  }
+ ],
+ "lead": {
+  "desk": "Power · California",
+  "headline": "California's October heat wave ends, and the price of power falls by half in four days",
+  "deck": "Peak demand dropped 8,600 megawatts between Monday and Friday. A tropical storm arrives this weekend to finish the job.",
+  "blocks": [
+   {
+    "type": "figure",
+    "title": "The week the grid ran hot",
+    "sub": "CAISO daily peak demand, GW (bars) · day-ahead on-peak hub price, $/MWh (lines)",
+    "note": "Source: EnergyLake bank. Demand is the highest hourly value of each Pacific day. Prices are the mean of the 16 on-peak hours of CAISO's day-ahead hub series. Oct. 4 is absent from the price bank and is left as a gap, not filled.",
+    "charts": [
+     {
+      "id": "load_peak",
+      "kind": "bars",
+      "x": [
+       "Sep 28",
+       "Sep 29",
+       "Sep 30",
+       "Oct 1",
+       "Oct 2",
+       "Oct 3",
+       "Oct 4",
+       "Oct 5",
+       "Oct 6",
+       "Oct 7",
+       "Oct 8",
+       "Oct 9",
+       "Oct 10"
+      ],
+      "y": {
+       "unit": "GW",
+       "min": 0,
+       "max": 50
+      },
+      "series": [
+       {
+        "name": "CAISO daily peak demand",
+        "values": [
+         31.702,
+         34.093,
+         35.934,
+         38.015,
+         41.475,
+         42.125,
+         42.359,
+         45.719,
+         45.395,
+         43.888,
+         41.563,
+         37.094,
+         null
+        ]
+       }
+      ],
+      "highlight": 7,
+      "source": {
+       "bank": "timeseries_values",
+       "dataset": "caiso_load_hourly",
+       "series": "actual",
+       "read_at": "2026-10-10T12:10:00Z"
+      }
+     },
+     {
+      "id": "da_onpeak",
+      "kind": "lines",
+      "x": [
+       "Sep 28",
+       "Sep 29",
+       "Sep 30",
+       "Oct 1",
+       "Oct 2",
+       "Oct 3",
+       "Oct 4",
+       "Oct 5",
+       "Oct 6",
+       "Oct 7",
+       "Oct 8",
+       "Oct 9",
+       "Oct 10"
+      ],
+      "y": {
+       "unit": "$/MWh",
+       "min": 0,
+       "max": 100
+      },
+      "series": [
+       {
+        "name": "SP15 on-peak",
+        "values": [
+         31.67,
+         31.46,
+         27.73,
+         39.28,
+         47.57,
+         50.53,
+         null,
+         90.51,
+         79.17,
+         68.99,
+         55.82,
+         42.23,
+         42.26
+        ],
+        "source": {
+         "bank": "timeseries_values",
+         "dataset": "caiso_lmp_da_hourly",
+         "series": "TH_SP15_GEN_ONPEAK-APND",
+         "read_at": "2026-10-10T12:10:00Z"
+        }
+       },
+       {
+        "name": "NP15 on-peak",
+        "values": [
+         39.63,
+         38.74,
+         49.16,
+         48.32,
+         56.96,
+         56.38,
+         null,
+         89.35,
+         77.92,
+         68.75,
+         57.89,
+         43.75,
+         40.62
+        ],
+        "source": {
+         "bank": "timeseries_values",
+         "dataset": "caiso_lmp_da_hourly",
+         "series": "TH_NP15_GEN_ONPEAK-APND",
+         "read_at": "2026-10-10T12:10:00Z"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The first full week of October was the hardest stretch the California grid has seen this autumn. Hourly demand on the CAISO system climbed every day from Sept. 28 and peaked at 45,719 megawatts on Monday, Oct. 5, about 14,000 megawatts above where the run began.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Prices followed. The day-ahead on-peak average at SP15 was $27.73 on Sept. 30 and $90.51 on Monday. The single most expensive hour that day cleared at $228.96 at SP15 and $242.52 at NP15.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Then the weather turned. Friday's peak was 37,094 megawatts, and the on-peak price for delivery today cleared at $42.26 at SP15 and $40.62 at NP15, with no hour above $51.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The grid operator did not declare an emergency at any point. It posted Restricted Maintenance Operations notices on Oct. 5 and 6 and again for the afternoon of Oct. 8, and no Flex Alert or Energy Emergency Alert followed.",
+    "standing": [
+     "reported"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The National Weather Service office in Sacramento expects Saturday highs in the mid to upper 70s, down from the 90s on Friday, and the first measurable Sierra snow of the season above 7,000 feet from Sunday evening.",
+    "standing": [
+     "confirmed"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "The cool spell may be short. The Climate Prediction Center's outlook for Oct. 15 to 19 favors above-normal temperatures on the West Coast, with odds above 60% in Southern California, and a dry pattern across most of the West.",
+    "standing": [
+     "confirmed"
+    ]
+   }
+  ],
+  "dateline": "EnergyLake desk · figures from the EnergyLake bank, read 12:10 UTC Oct. 10"
+ },
+ "side": {
+  "desk": "Weather · Tropics",
+  "headline": "Rachel heads for the desert",
+  "blocks": [
+   {
+    "type": "figure",
+    "title": "Tropical Storm Rachel, official forecast",
+    "sub": "NHC advisory 53, 06Z Oct. 10 · past positions solid, forecast dashed",
+    "note": "Source: EnergyLake tropical bank (NHC official forecast). Positions and cities only; no coastline is drawn. Winds in knots.",
+    "charts": [
+     {
+      "id": "rachel_track",
+      "kind": "track",
+      "storm_id": "ep182026",
+      "advisory": "053",
+      "init": "2026-10-10T06:00:00Z",
+      "past": [
+       [
+        22.7,
+        -124.9
+       ],
+       [
+        22.8,
+        -124.6
+       ],
+       [
+        23.3,
+        -124.0
+       ],
+       [
+        23.8,
+        -123.3
+       ],
+       [
+        24.2,
+        -121.4
+       ]
+      ],
+      "forecast": [
+       {
+        "tau_h": 12,
+        "lat": 26.6,
+        "lon": -119.0,
+        "vmax_kt": 55
+       },
+       {
+        "tau_h": 24,
+        "lat": 31.0,
+        "lon": -116.6,
+        "vmax_kt": 55
+       },
+       {
+        "tau_h": 36,
+        "lat": 36.0,
+        "lon": -114.1,
+        "vmax_kt": 40
+       }
+      ],
+      "now": {
+       "lat": 24.2,
+       "lon": -121.4,
+       "vmax_kt": 50
+      },
+      "source": {
+       "bank": "tropical_track_points_in_force",
+       "source": "nhc_official",
+       "read_at": "2026-10-10T12:10:00Z"
+      }
+     }
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Rachel strengthened overnight to 50 knots, and the hurricane center's forecast takes it ashore on northern Baja in about 24 hours at 55 knots. Twelve hours later the forecast point sits near 36N, 114W, close to Lake Mead, as a 40-knot post-tropical system.",
+    "standing": [
+     "bank"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "Forecasters expect heavy rain and flash flooding in Southern California, the Southwest and the Great Basin from late Saturday into Sunday. Phoenix has wind advisories for Sunday and better-than-even odds of wetting rain.",
+    "standing": [
+     "confirmed"
+    ]
+   },
+   {
+    "type": "p",
+    "text": "For power, the storm means cloud over the desert solar fleet on Sunday and less cooling load from San Diego to Phoenix. For gas, it removes burn just as SoCalGas enters a round of storage maintenance."
+   }
+  ]
+ },
+ "stories": [
+  {
+   "desk": "Gas · Southern California",
+   "headline": "The gas system tightened on the way out of the heat",
+   "wide": true,
+   "blocks": [
+    {
+     "type": "figure",
+     "title": "SoCalGas storage inventory, Bcf",
+     "sub": "Total of the four fields, Aug. 27 to Oct. 8",
+     "note": "Source: EnergyLake bank, SoCalGas Envoy daily inventory. The vertical axis starts at 95 Bcf.",
+     "charts": [
+      {
+       "id": "socalgas_storage",
+       "kind": "lines",
+       "x_start": "2026-08-27",
+       "x_step": "day",
+       "y": {
+        "unit": "Bcf",
+        "min": 95,
+        "max": 104
+       },
+       "series": [
+        {
+         "name": "SoCalGas total inventory",
+         "values": [
+          96.8,
+          96.3,
+          96.6,
+          96.8,
+          97.0,
+          97.2,
+          97.3,
+          97.6,
+          98.0,
+          98.3,
+          98.4,
+          98.6,
+          98.2,
+          97.4,
+          97.2,
+          97.6,
+          98.0,
+          98.4,
+          98.8,
+          98.9,
+          99.2,
+          99.6,
+          99.8,
+          100.0,
+          100.3,
+          100.5,
+          100.6,
+          100.8,
+          101.0,
+          101.4,
+          101.8,
+          102.1,
+          102.4,
+          102.7,
+          102.9,
+          103.1,
+          103.3,
+          103.4,
+          103.4,
+          103.1,
+          102.5,
+          101.9,
+          101.7
+         ]
+        }
+       ],
+       "source": {
+        "bank": "timeseries_values",
+        "dataset": "socalgas_storage_daily",
+        "series": "total_inventory",
+        "read_at": "2026-10-10T12:10:00Z"
+       }
+      }
+     ]
+    },
+    {
+     "type": "p",
+     "text": "Southern California's gas storage filled almost without pause from late August, reaching 103.4 billion cubic feet on Oct. 3 and 4. It has fallen each day since and stood at 101.7 Bcf on Oct. 8, a draw of 1.7 Bcf in four days during what is normally still injection season.",
+     "standing": [
+      "bank"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "SoCalGas declared a High Operational Flow Order, Stage 3 at a 10% tolerance, for gas day Friday, Oct. 9. Friday's wire recorded it from the operator's own notice. Saturday's gas scout reads \"no OFO declared\", which may mean the order has lapsed or that the scout again missed the notice page. The order is confirmed for Friday and unconfirmed for today.",
+     "standing": [
+      "confirmed",
+      "tip"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "Supply is constrained on three sides. Gas Transmission Northwest declared force majeure after an equipment failure at its Sandpoint compressor station and cut flow past Kingsgate to about 2.1 Bcf/d from about 3.0 for Oct. 6 to 15, which reduces Canadian gas reaching the Northwest and California.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "Inside the basin, Aliso Canyon is under well isolation through Oct. 30, and Honor Rancho begins an inventory shut-in today. Transwestern posted capacity constraints on several point groups for gas day Oct. 9, with planned outages starting Oct. 14.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "question",
+     "text": "Open question for the bank: how much of the four-day draw was power burn, and does it reverse now that load has dropped 8,600 MW?"
+    }
+   ]
+  },
+  {
+   "desk": "Large load",
+   "headline": "Regulators close in on the data center",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "NERC's board, meeting in Toronto on Oct. 8, approved rules that create two new registered entities, the Computational Load Owner and the Computational Load Operator. They take effect only if FERC approves them. The final ballot on the first reliability standards for those loads runs Oct. 9 to 14, against a FERC deadline of Dec. 31.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "FERC has separately ordered six grid operators to justify or rewrite their rules for connecting large loads within 60 days. The scouts disagree on when: one dates the orders to June, another to this week.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "In Arizona, Attorney General Kris Mayes asked the Corporation Commission to investigate whether about $587 million in fuel costs shifted from large users to other APS customers between 2023 and 2025.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "In New Mexico, Oracle is considering trucking compressed natural gas to its Project Jupiter campus at Santa Teresa because the Green Chile pipeline is not expected in service until February 2027.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  },
+  {
+   "desk": "Follow the money",
+   "headline": "The turbine line is five years long, and SpaceX says it can cut it",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "GE Vernova's gas-turbine backlog and slot reservations stood at 116 gigawatts at its last report, with reservations reaching into 2031. Siemens Energy reported a record backlog and lead times of about three years. Both figures are from earlier quarters and are being cited again this week.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "The choke point is the casting of turbine blades and vanes, which a handful of foundries worldwide can do. Elon Musk has said an in-house foundry at SpaceX's Bastrop, Texas, site could bring gas turbines online up to 18 months sooner. No production start, permit or output has been shown.",
+     "standing": [
+      "tip"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "Utilities are starting to charge for the capacity up front. The Tennessee Valley Authority's data-center rate took effect Oct. 1 and is reported to carry a commitment charge of about $1.5 million per megawatt for new load above 5 MW.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "The week's checks: Volta Infrastructure launched a $5.012 billion six-year leveraged loan on Oct. 9 for a data-center lease guarantee and GPU spending, with commitments due Oct. 14. Applied Digital closed $1.59 billion of 7% secured notes and signed for about 1,200 MW of gas-fired supply beside a North Dakota campus, deliveries from 2030. New APR Energy says it is placing more than 100 MW of mobile turbines behind the meter for an unnamed hyperscaler.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  },
+  {
+   "desk": "Water and hydro",
+   "headline": "Three court and agency fights over who gets the river",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "**The Delta.** Two groups sued California's Department of Water Resources in Alameda County, asking a court to cut State Water Project exports roughly in half. The department declined to comment.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**The Colorado.** Operations under the new 2027 to 2028 guidelines began Oct. 1. Lower Basin deliveries are reduced by 1.25 million acre-feet for 2027, and Lake Powell releases are managed to protect an elevation of about 3,510 feet.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**The Columbia.** The Ninth Circuit hears argument on Oct. 20 in the federal appeal of the order that increased spill at eight lower Columbia and Snake dams. BPA's rate case carries an adder of about $125 million a year for the court-ordered operations.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  },
+  {
+   "desk": "Market seam",
+   "headline": "Five months in, the extended day-ahead market prices near $16",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "CAISO's market monitor, in its second-quarter report, found that prices in the Extended Day-Ahead Market averaged about $16 per megawatt-hour in May and June, close to the 15-minute prices of the same balancing areas. It also found that congestion between PacifiCorp's two areas looked very different day-ahead than in real time, because less transfer capacity is offered a day ahead.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "Portland General Electric joined on Oct. 1. SPP's rival Markets+ is in connectivity testing through Oct. 30 and still targets October 2027. BPA, which reopened its choice between the two in September, has said it will issue a draft decision by year-end.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  },
+  {
+   "desk": "Fire and wind",
+   "headline": "Shutoffs begin as the wind arrives ahead of the rain",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "PG&E began cutting power at about 1 p.m. Friday in parts of Fresno, Kern, Kings, San Benito and San Luis Obispo counties, later adding Alameda, Merced and San Joaquin. Gusts of 30 to 55 mph are forecast through Monday. No transmission-level effect has been reported.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "The Cyrus Fire started Friday afternoon near Lake Isabella in Kern County and was 450 acres with forward progress stopped by evening. The Danny Fire near Gorman is 150 acres and 56% contained. Neither is reported near gas or transmission lines.",
+     "standing": [
+      "confirmed"
+     ]
+    }
+   ]
+  },
+  {
+   "desk": "Beyond the West",
+   "headline": "Hurricane Isaias shuts in most Gulf oil output",
+   "wide": true,
+   "blocks": [
+    {
+     "type": "p",
+     "text": "Reports put 60% to 70% of Gulf of Mexico crude production and about 57% of its associated gas offline as of Friday, with crews off more than 100 platforms. The storm's track shifted east, away from the main LNG terminals. These are scout figures and no agency count is in the wire.",
+     "standing": [
+      "tip"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "In Texas, about 300 large-load applicants in ERCOT's first study batch have been told their provisional classification. The batch is reported at nearly 250 projects and 191.8 gigawatts.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  }
+ ],
+ "changed": {
+  "since": "2026-10-09",
+  "rows": [
+   {
+    "topic": "Grid",
+    "before": "Normal. Peak 37,094 MW, the lowest since Sept. 30.",
+    "after": "Still normal. PG&E shutoffs under way. Cyrus Fire new."
+   },
+   {
+    "topic": "SoCalGas",
+    "before": "High OFO, Stage 3 at 10%, for gas day Oct. 9.",
+    "after": "No order on the Saturday scout. Honor Rancho shut-in starts."
+   },
+   {
+    "topic": "Rachel",
+    "before": "45 knots near 22.7N, 124.9W. Landfall expected late Saturday.",
+    "after": "50 knots near 24.2N, 121.4W. Forecast near Lake Mead by Sunday midday."
+   },
+   {
+    "topic": "Large load",
+    "before": "Oracle trucking tip. NERC ballot opens.",
+    "after": "NERC registry rules confirmed. Arizona attorney general's letter."
+   },
+   {
+    "topic": "Seam",
+    "before": "PGE in the day-ahead market since Oct. 1.",
+    "after": "Market monitor's second-quarter report on the library. No BPA decision."
+   },
+   {
+    "topic": "Money",
+    "before": "New APR mobile turbines. SpaceX foundry claim.",
+    "after": "Volta's $5.0 billion loan. Applied Digital notes and gas contract."
+   },
+   {
+    "topic": "Queue",
+    "before": "Six completion-date changes on the Oct. 2 snapshot.",
+    "after": "Jewelflower Storage, 350 MW, withdrawn."
+   }
+  ]
+ },
+ "feeds": [
+  {
+   "desk": "The queue · CAISO interconnection",
+   "headline": "A 350 MW battery leaves the queue, and a 750 MW one slips to 2030",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "Jewelflower Storage, a 350 MW battery project at queue position 1553, changed from active to withdrawn on the Oct. 9 snapshot.",
+     "standing": [
+      "bank"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "The Oct. 2 snapshot moved five completion dates. Irving Storage, 750 MW, went from November 2025 to August 2030, a slip of 57 months. Redux Solar, 125 MW of solar and storage, slipped 29 months to November 2028. Lotus Solar 2, 200 MW, slipped 14 months to January 2032. Overnight Solar, 150 MW, slipped two months to Nov. 13. Clarkson, 200 MW, moved seven months earlier, to February 2029.",
+     "standing": [
+      "bank"
+     ]
+    },
+    {
+     "type": "question",
+     "text": "The queue feed tracks status and dates. EnergyLake does not yet bank county or state permits, so no permit items appear here."
+    }
+   ]
+  },
+  {
+   "desk": "The tape · filings and company wires",
+   "headline": "Digital Realty files a new financing; Xcel and Fluence file late Friday",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "These are the filings the tape flagged as power-related in the last four days, by their form headings. The documents themselves were not read for this draft.",
+     "standing": [
+      "bank"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Oct. 9.** Digital Realty (DLR) 8-K: material agreement and direct financial obligation, its second such filing in four days. Xcel Energy (XEL) 8-K: other material event. Fluence (FLNC) 8-K: director or officer change. AES declared its quarterly dividend."
+    },
+    {
+     "type": "p",
+     "text": "**Oct. 7.** Applied Digital (APLD) filed its quarterly report and results, the source of the notes and gas contract in the money column. NextEra (NEE) filed a merger communication. Duke Energy issued a release titled \"Duke Energy protects customers from data center costs\"."
+    },
+    {
+     "type": "p",
+     "text": "**Oct. 6.** T1 Energy (TE) and NextEra 8-Ks: other material events."
+    }
+   ]
+  },
+  {
+   "desk": "Newswire · what others published",
+   "headline": "Weather West calls it a remarkable weekend",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "**Weather West, Oct. 9.** Its headline says Rachel is approaching San Diego and that an early-season trough is ending a record-breaking autumn heat wave.",
+     "standing": [
+      "reported"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**EIA, Oct. 9.** Today in Energy: Hurricane Isaias was expected ashore on the Gulf Coast late Friday or early Saturday, with production shut in ahead of it.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Reclamation, Oct. 8.** The October forecast for the Yakima basin says irrigation demand will be fully met this month.",
+     "standing": [
+      "confirmed"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Maven's Notebook, Oct. 7 to 9.** Daily water digests lead with a new El Niño forecast for California and a winter outlook of floods, fires and storms together.",
+     "standing": [
+      "reported"
+     ]
+    }
+   ]
+  }
+ ],
+ "clock": [
+  {
+   "when": "Oct. 10",
+   "text": "Honor Rancho inventory shut-in begins. Rachel forecast over northern Baja tonight.",
+   "standing": [
+    "reported",
+    "bank"
+   ]
+  },
+  {
+   "when": "Oct. 12",
+   "text": "PG&E shutoff window closes. Federal holiday: EIA's weekly petroleum report moves to Oct. 15.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "when": "Oct. 14",
+   "text": "NERC final ballot on computational-load standards closes. Transwestern planned outages begin. Volta loan commitments due.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "when": "Oct. 15",
+   "text": "FERC open meeting. GTN's Kingsgate restriction is scheduled to end. CAISO large-load proposal comments due.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "when": "Oct. 19",
+   "text": "BPA workshop on large-load interconnection. CAISO meeting on large-load tariff language.",
+   "standing": [
+    "reported"
+   ]
+  },
+  {
+   "when": "Oct. 20",
+   "text": "Ninth Circuit argument on the Columbia and Snake spill order.",
+   "standing": [
+    "reported"
+   ]
+  },
+  {
+   "when": "Oct. 22",
+   "text": "CAISO and SPP joint market-seams workshop.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "when": "Oct. 23",
+   "text": "Maricopa County board hearing on the Belmont 4 zone change, near Tonopah, Ariz.",
+   "standing": [
+    "reported"
+   ]
+  },
+  {
+   "when": "Oct. 30",
+   "text": "Aliso Canyon maintenance ends. Markets+ connectivity testing ends.",
+   "standing": [
+    "reported"
+   ]
+  },
+  {
+   "when": "~Nov. 17",
+   "text": "Palo Verde Unit 1 due back from refueling.",
+   "standing": [
+    "confirmed"
+   ]
+  },
+  {
+   "when": "Nov. 23",
+   "text": "New Mexico regulators' decision window on the air permit for Oracle's Project Jupiter.",
+   "standing": [
+    "reported"
+   ]
+  }
+ ],
+ "sources": "Where this came from. Eleven scout reports filed to the EnergyLake wire between 05:12 and 05:48 ET on Oct. 10 (weather, fire, grid, seam, gas, large load, money, regulatory, competitive, competitor press, hydro and fuel), plus Friday's night-desk close. Charts and the figures tagged Bank were read from EnergyLake's database: CAISO hourly load, CAISO day-ahead hub prices, SoCalGas daily storage, the NHC official track for Rachel, the CAISO interconnection queue, the filings tape and the newswire. Scout items were not independently checked for this draft. No photographs yet: this page can only carry images EnergyLake owns or draws itself.",
+ "disclaimer": "Nothing here is advice."
+}

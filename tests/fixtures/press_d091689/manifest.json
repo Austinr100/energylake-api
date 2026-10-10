@@ -1,0 +1,13 @@
+{
+  "pantry_repo": "Austinr100/energylake-pantry",
+  "pantry_main": "169e2c10acd19691609b85f6a76350bc0f2bc609",
+  "pantry_press_commit": "a2fcdc6ab321bfe0acd10c312be92dcdc8b8dfcc",
+  "note": "vectors/ and pantry_press_README.md are byte copies of energylake-pantry press/ at pantry_press_commit (merged to pantry main by PR #1103). raw_sha256 is over the file bytes; digests.json (pantry's) is over each document's canonical bytes.",
+  "files": {
+    "vectors/edition_daily_2026_10_10.json": "75dcb8e40758e22d06aadd8464a2dceaff43dd9ca5d95115ced932aa897583b2",
+    "vectors/edition_article_2026_10_10_gas_carried_california.json": "b7584db5adb71c7910c89643e256149e48a11727a11c877faf60a80a3f4e8a02",
+    "vectors/digests.json": "55f39468a8b99ec4892b34d23e53dde173b7732ddfa2888adeb05f3940cad431",
+    "pantry_press_README.md": "79e15bed65511a0fef9a054b39d4f1c892edc8279fe4326a5b6cc1724b20bc19",
+    "ddl_press_editions.sql": "5a03649ff4f197a7b6d5bf148306bb1838d07068078b5d97ac80c698aca278bc"
+  }
+}

@@ -1,0 +1,4 @@
+file|path|raw_bytes_as_served|gzip6_bytes
+body_front.json|/api/press/front|24845|9351
+body_edition_article.json|/api/press/edition?kind=article&date=2026-10-10&slug=gas-carried-california-october-2026|11858|4702
+body_editions_daily_n14.json|/api/press/editions?kind=daily|2730|671
