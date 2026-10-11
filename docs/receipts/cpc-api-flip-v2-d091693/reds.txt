@@ -1,0 +1,43 @@
+# d091693 reds — each break must turn its tests red; the clean tree must be green
+
+rule 1  RED   the constant set back to cpc_curves_v1
+        -k 'test_V1_every_route or test_V1_v1_rows_beside or test_V1_the_vectors or test_V4_one_constant': 28 failed, 116 deselected, 1 warning in 7.07s
+rule 2  RED   a second literal beside the constant
+        -k 'test_V4_one_constant': 1 failed, 143 deselected, 1 warning in 1.15s
+rule 3  RED   CURVES_SQL: the issuances (iss) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.06s
+rule 3  RED   CURVES_SQL: the window row (w) unpinned
+        -k 'test_V1_every_route or test_V1_v1_rows_beside or test_V1_the_vectors or test_V4_every_statement': 7 failed, 21 passed, 116 deselected, 1 warning in 8.11s
+rule 3  RED   CURVES_SQL: the verdict-in-force lateral (nv) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.22s
+rule 3  RED   CURVES_SQL: the verdict cell (vv) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.34s
+rule 3  RED   CURVES_SQL: the view lateral (dv) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.13s
+rule 3  RED   PLACES_SQL: the hashes unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.28s
+rule 3  RED   PLACES_SQL: the in-force lateral (lv) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.13s
+rule 3  RED   PLACES_SQL: the cells (v) unpinned
+        -k 'test_V1_every_route or test_V1_v1_rows_beside or test_V1_the_vectors or test_V4_every_statement': 1 failed, 27 passed, 116 deselected, 1 warning in 7.49s
+rule 3  RED   PLACES_NEWEST_SQL: the newest issuance (lc) unpinned
+        -k 'test_V4_every_statement': 1 failed, 143 deselected, 1 warning in 1.23s
+rule 3  RED   PLACES_NEWEST_SQL: the window rows (c) unpinned
+        -k 'test_V1_every_route or test_V1_v1_rows_beside or test_V1_the_vectors or test_V4_every_statement': 1 failed, 27 passed, 116 deselected, 1 warning in 7.28s
+rule 4  RED   clause 5 at a hard-coded 30
+        -k 'test_V3': 3 failed, 1 passed, 140 deselected, 1 warning in 5.41s
+rule 4  RED   clause 5 at a hard-coded 22 (v2's floor, not the cell's)
+        -k 'test_V3': 1 failed, 3 passed, 140 deselected, 1 warning in 5.27s
+rule 5  RED   a base_reason derived from the count
+        -k 'test_V3': 1 failed, 3 passed, 140 deselected, 1 warning in 5.48s
+rule 6  RED   DRAWABLE_RULE quoting 286's >= 30
+        -k 'test_V3': 1 failed, 3 passed, 140 deselected, 1 warning in 5.33s
+rule 7  RED   a cell's base_by_station not served
+        -k 'test_V2 or test_V3': 2 failed, 8 passed, 134 deselected, 1 warning in 5.56s
+rule 8  RED   a curve's count not served
+        -k 'test_V2': 3 failed, 3 passed, 138 deselected, 1 warning in 5.66s
+rule 9  RED   the label's count trimmed (the API's own words, not the writer's)
+        -k 'test_V2': 2 failed, 4 passed, 138 deselected, 1 warning in 5.62s
+
+clean tree: GREEN  144 passed, 1 warning in 12.77s
+tree restored byte for byte: True (cpc_outlooks.py a2bd18111b08, main.py 67f39ed296f6, tests/test_cpc_flip_v2_d091693.py 82e692342dfc, tests/test_cpc_outlooks_d091679.py 281999bff16f, tests/load_bank_d091693.py 7605ba21e60d)

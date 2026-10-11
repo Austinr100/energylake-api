@@ -1,0 +1,53 @@
+# d091693 red: tests/test_cpc_flip_v2_d091693.py, its fixtures and receipts, against main a10b6f2's cpc_outlooks.py and main.py
+# 45 failed, 18 passed. Passing on main by design (they read Neon's counts, the bank or the receipts, not the code):
+#   V0 x2 (STOP-0's counts; the banked rows), V1_the_view_is_neons, V1_the_local_bank_answers_as_neon[N6] (the v1 read),
+#   V1_the_pin_decides_not_the_bank x9 (it sets the literal itself), V2_the_13_short_places_are_the_rows (the rows),
+#   V4_every_reference_is_counted, V4_the_v1_pin_fails_the_rule_for_v2 (d091691's receipt), V5_stop_p and
+#   V5_the_flip_is_not_slower_than_production_today (the plan receipts).
+
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_local_bank_answers_as_neon[N1-CURVES_SQL-v2-params0]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_local_bank_answers_as_neon[N2-CURVES_SQL-v2-params1]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_local_bank_answers_as_neon[N3-CURVES_SQL-v2-params2]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_local_bank_answers_as_neon[N4-PLACES_SQL-v2-params3]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_local_bank_answers_as_neon[N5-PLACES_NEWEST_SQL-v2-params4]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_curves_kden.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_curves_san_jose.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_curves_pnw_population.json-/api/weather/cpc/curves-params3]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_curves_sp15_load_share_365d.json-/api/weather/cpc/curves-params4]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params5]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params6]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_vintages_610temp_kden_n14.json-/api/weather/cpc/curves/vintages-params7]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_v1_rows_beside_change_no_byte[body_places.json-/api/weather/cpc/places-params8]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_curves_kden.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_curves_san_jose.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_curves_pnw_population.json-/api/weather/cpc/curves-params3]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_curves_sp15_load_share_365d.json-/api/weather/cpc/curves-params4]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params5]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params6]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_vintages_610temp_kden_n14.json-/api/weather/cpc/curves/vintages-params7]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_every_route_serves_v2_only[body_places.json-/api/weather/cpc/places-params8]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_curves_ksan.json-/api/weather/cpc/curves-params0]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_curves_kden.json-/api/weather/cpc/curves-params1]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_curves_san_jose.json-/api/weather/cpc/curves-params2]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_curves_pnw_population.json-/api/weather/cpc/curves-params3]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_curves_sp15_load_share_365d.json-/api/weather/cpc/curves-params4]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_vintages_814temp_ksan_n14.json-/api/weather/cpc/curves/vintages-params5]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_vintages_610temp_pnw_population.json-/api/weather/cpc/curves/vintages-params6]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_vintages_610temp_kden_n14.json-/api/weather/cpc/curves/vintages-params7]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_vectors_are_what_the_routes_serve[body_places.json-/api/weather/cpc/places-params8]
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V1_the_v2_only_issuance_is_the_newest
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V2_each_short_place_states_its_count_with_the_writers_label
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V2_denver_is_a_curve
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V2_thirty_year_places_keep_cpc_s_words
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V2_pooled_bands_under_30_become_none
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V2_places_counts
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V3_clause_5_reads_the_cells_floor
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V3_nothing_is_derived_from_base_reason
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V3_base_reason_rides_verbatim_on_every_cell
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V3_drawable_rule_quotes_298
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V4_one_constant
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V4_every_statement_naming_the_relations_carries_the_pin
+FAILED tests/test_cpc_flip_v2_d091693.py::test_V5_the_receipts_ran_the_pinned_and_the_v1_sql
+45 failed, 18 passed, 1 warning in 9.58s
