@@ -16,3 +16,8 @@ The view it creates deparses to Neon's (`md5(pg_get_viewdef)` =
 The rows are not here: `tests/load_bank_d091691.py` rebuilds the v1 bank from
 d091679's sha-checked fixtures (`../cpc_outlooks_d091679`) and constructs the
 v2 rows beside it, deterministically.
+
+d091693 retired `tests/load_bank_d091691.py` and its tests (the constructed v2
+rows): their P-tests are restated for v2 over real rows read from Neon in
+`tests/test_cpc_flip_v2_d091693.py`, whose loader (`tests/load_bank_d091693.py`)
+reuses `ddl_286_298.sql` unchanged.

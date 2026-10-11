@@ -36,9 +36,10 @@ from test_solar_outlook import FakePool
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BANK = ROOT / "tests" / "fixtures" / "cpc_outlooks_d091679"
 RECEIPTS = ROOT / "docs" / "receipts" / "cpc-outlooks-d091679"
-# d091691 pinned the curve reads to one method version: their SQL pin and plans
-# are re-taken there. The bodies here (the dashboard lane's vectors) are not.
-PIN_RECEIPTS = ROOT / "docs" / "receipts" / "cpc-api-method-pin-d091691"
+# d091691 pinned the curve reads to one method version and d091693 flipped it
+# to cpc_curves_v2: the SQL pin and the plans of the three pinned reads are
+# re-taken there. The bodies here (v1's vectors) are not: they stay v1's record.
+PIN_RECEIPTS = ROOT / "docs" / "receipts" / "cpc-api-flip-v2-d091693"
 
 KSAN = ("station", "USW00023188", "")
 KDEN = ("station", "USW00003017", "")
@@ -84,6 +85,28 @@ def _typed(r):
     return out
 
 
+# d091693: the API reads pantry 298's count columns. The rows banked here are
+# v1's, read before 298 was applied; since 298 Neon hands a v1 row over with
+# min_base_years 30 on every verdict cell (the column's DEFAULT) and NULL in
+# every other count column (ccv_base_ck and coc_base_ck: a v1 row carries
+# none). post_298 adds exactly that, so the shaping is held over v1 rows as
+# Postgres serves them today. Nothing else in a row is touched.
+V_298 = ("min_base_years", "base_reason", "base_by_station", "base_fewest_stations",
+         "threaded_base")
+D_298 = ("base_years", "base_fewest_stations", "base_by_station", "threaded_base")
+
+
+def post_298(name, r):
+    if name == "places_verdicts.json":
+        return {**r, "min_base_years": 30, **{k: None for k in V_298[1:]}}
+    if name.startswith("curves_"):
+        cell, view = r.get("v_backtest_version") is not None, r.get("label") is not None
+        return {**r, "v_min_base_years": 30 if cell else None,
+                **{"v_" + k: None for k in V_298[1:]}, **{k: None for k in D_298},
+                "min_base_years": 30 if view else None}
+    return r
+
+
 _CACHE = {}
 
 
@@ -97,7 +120,7 @@ def banked(name, typed=True):
         if f == name:
             t = gzip.decompress((BANK / (f + ".gz")).read_bytes()).decode().rstrip("\n")
             assert hashlib.sha256(t.encode()).hexdigest() == sha and len(t) == int(ln), f
-            rows = json.loads(t)
+            rows = [post_298(f, r) for r in json.loads(t)]
             assert len(rows) == int(n), f
             rows = [_typed(r) for r in rows] if typed else rows
             _CACHE[key] = rows
@@ -239,10 +262,10 @@ def test_T2_a_place_with_no_curve_states_why(client, monkeypatch):
         p = product(body, prod)
         assert p["vintage"]["curve"] is None and p["vintage"]["written"] is False
         assert p["absence"]["reason"] == "not_written"
-        assert p["absence"]["place_reason_codes"] == ["under_30_base_years"]
+        assert p["absence"]["place_reason_codes"] == ["under_min_base_years"]
         pv = p["place_verdict"]
         assert pv == {"drawable_cells": 0, "cell_count": 12,
-                      "reason_codes": ["under_30_base_years"],
+                      "reason_codes": ["under_min_base_years"],
                       "history_years_in_base": [24], "verdicts": ["beats"]}
 
 
@@ -301,15 +324,19 @@ def test_T2_the_places_reasons_are_the_banks_columns(client, monkeypatch):
     assert [r["code"] for r in klax["reasons"]] == ["season_does_not_beat_equal_odds"]
     kden = cells[("USW00003017", "", "814temp", "SON", "strong")]
     assert kden["drawable"] is False and kden["verdict"] == "beats"
-    assert kden["reasons"] == [{"code": "under_30_base_years", "clause": 5,
-                                "history_years_in_base": 24}]
+    # d091693: clause 5 at the cell's own floor (30 on a v1 cell), its code
+    # renamed from under_30_base_years, with the bank's base_reason (NULL on v1)
+    assert kden["reasons"] == [{"code": "under_min_base_years", "clause": 5,
+                                "history_years_in_base": 24, "min_base_years": 30,
+                                "base_reason": None}]
     for c in cells.values():
         assert (c["reasons"] == []) == c["drawable"]
 
 
 def test_T2_every_undrawable_cell_names_its_term(client, monkeypatch):
     """Measured 2026-10-09: of 324 undrawable cells, 312 are at the 13 places
-    under 30 base years (22, 24 and 26 years) and 12 are KLAX/KSFO in JJA."""
+    under 30 base years (22, 24 and 26 years) and 12 are KLAX/KSFO in JJA.
+    (v1's floor is 30; d091693 renamed the clause-5 code under_min_base_years.)"""
     body = ok(get(client, monkeypatch, pool(), "/api/weather/cpc/places"))
     codes = {}
     for p in body["places"]:
@@ -318,9 +345,9 @@ def test_T2_every_undrawable_cell_names_its_term(client, monkeypatch):
                 for c in s["cells"]:
                     for r in c["reasons"]:
                         codes.setdefault(r["code"], []).append(c["history_years_in_base"])
-    assert sorted(codes) == ["season_does_not_beat_equal_odds", "under_30_base_years"]
-    assert len(codes["under_30_base_years"]) == 312
-    assert sorted(set(codes["under_30_base_years"])) == [22, 24, 26]
+    assert sorted(codes) == ["season_does_not_beat_equal_odds", "under_min_base_years"]
+    assert len(codes["under_min_base_years"]) == 312
+    assert sorted(set(codes["under_min_base_years"])) == [22, 24, 26]
     assert len(codes["season_does_not_beat_equal_odds"]) == 12
 
 
@@ -816,9 +843,41 @@ BODIES = [
 ]
 
 
+# d091693 served the count (pantry 298) and read clause 5 at the cell's floor.
+# These vectors are v1's record and are not edited: over the same v1 rows the
+# route serves each of them exactly, once this lane's additions are taken back
+# out, and nothing else: the five count fields on each cell and each curve, the
+# clause-5 reason's code and its two new keys, and DRAWABLE_RULE's text.
+D091693_CELL = set(V_298)
+D091693_CURVE = set(D_298) | {"min_base_years"}
+
+
+def as_d091679(o, vector_rule):
+    if isinstance(o, list):
+        return [as_d091679(x, vector_rule) for x in o]
+    if not isinstance(o, dict):
+        return "under_30_base_years" if o == "under_min_base_years" else o
+    if o.get("code") == "under_min_base_years":
+        assert (o["min_base_years"], o["base_reason"]) == (30, None)
+        return {"code": "under_30_base_years", "clause": 5,
+                "history_years_in_base": o["history_years_in_base"]}
+    drop = set()
+    if "strength_verdict" in o:                       # a verdict cell
+        assert o["min_base_years"] == 30 and all(o[k] is None for k in V_298[1:])
+        drop = D091693_CELL
+    elif "member_odds" in o:                          # a curve
+        assert o["min_base_years"] == 30 and all(o[k] is None for k in D_298)
+        drop = D091693_CURVE
+    out = {k: as_d091679(v, vector_rule) for k, v in o.items() if k not in drop}
+    if "drawable_rule" in out:
+        assert out["drawable_rule"] == co.DRAWABLE_RULE
+        out["drawable_rule"] = vector_rule
+    return out
+
+
 @pytest.mark.parametrize("name,path,params", BODIES)
 def test_banked_body_is_what_the_route_serves(client, monkeypatch, name, path, params):
     want = json.loads((RECEIPTS / name).read_text())
     body = ok(get(client, monkeypatch, pool(), path, params))
     strip = lambda b: {k: v for k, v in b.items() if k != "cache"}
-    assert strip(body) == strip(want)
+    assert strip(as_d091679(body, want.get("drawable_rule"))) == strip(want)

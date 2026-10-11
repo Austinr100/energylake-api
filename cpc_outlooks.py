@@ -26,6 +26,16 @@ still writing older issuances; docs/handback_2026_10_09_cpc_outlooks_api.md):
   * cpc_outlook_features: 610/814 temp and prcp 2026-07-29 .. 10-08, weeks
     3-4 temp and prcp 2022-01-07 .. 2026-10-02. No seasonal, no monthly.
 
+Since d091693 (read on Neon 2026-10-11 ~13:45Z;
+docs/handback_2026_10_10_cpc_api_flip_to_v2.md) every read serves
+cpc_curves_v2 (pantry 298, D-09-25-177): 3,601 issuances, every v1 issuance
+among them, at all 30 places, and one v2 backtest_version
+(cpcv_2026-10-06_243e6acd91) of 720 cells, 641 drawable, floor 22. The 13
+places on 22 to 29 base years are written and say so ("..., on N base years,
+not CPC's 30"); each curve and cell carries its count (base_years /
+history_years_in_base, base_by_station, base_fewest_stations, threaded_base,
+min_base_years). The v1 rows stay beside, unread.
+
 WHERE THIS READS, AND THE ONE DEPARTURE FROM PANTRY'S CONTRACT. Pantry's
 comment on v_cpc_curves_drawable says nothing downstream reads
 cpc_outlook_curves or cpc_curve_verdicts directly. Every curve VALUE served
@@ -68,13 +78,15 @@ VINTAGES_MAX_N = 14
 STATION_RE = re.compile(r"^[A-Z0-9]{11}$")        # a GHCN station id
 REGION_RE = re.compile(r"^[a-z0-9_]{1,64}$")
 
-# Pantry's CHECK, quoted (migration 286). The API reads `drawable`; this is
-# what the column means, for the page and for `reasons`.
-DRAWABLE_RULE = ("drawable = (verdict = 'beats' AND history_years_in_base >= 30 "
+# Pantry's CHECK, quoted (migration 298 restates 286's). The API reads
+# `drawable`; this is what the column means, for the page and for `reasons`.
+DRAWABLE_RULE = ("drawable = (verdict = 'beats' AND history_years_in_base >= min_base_years "
                  "AND band_claim IS NOT NULL): cpc_curve_verdicts CHECK "
-                 "ccv_drawable_ck, migration 286, D-09-25-172 clauses 3, 5 and 4. "
-                 "verdict is the product x place x season cell's skill test over "
-                 "equal-odds history; band_claim is judged per strength of CPC's odds.")
+                 "ccv_drawable_ck, migration 298, D-09-25-172 clauses 3 and 4 and "
+                 "D-09-25-177 clause 5. verdict is the product x place x season cell's "
+                 "skill test over equal-odds history; min_base_years is the floor the "
+                 "cell was judged at (22 in cpc_curves_v2: the shortest base measured, "
+                 "not a ruled floor); band_claim is judged per strength of CPC's odds.")
 
 # ── Reads ───────────────────────────────────────────────────────────────────
 
@@ -84,9 +96,12 @@ DRAWABLE_RULE = ("drawable = (verdict = 'beats' AND history_years_in_base >= 30 
 # method_hash), and the view returns the newest verdict per method_hash, so
 # both vintages. Every read of cpc_outlook_curves, cpc_curve_verdicts and
 # v_cpc_curves_drawable filters on this, so a route never mixes two versions
-# (test_P4 holds every statement to it). The flip to cpc_curves_v2 is a later
-# lane: docs/handback_2026_10_10_cpc_api_method_pin.md, section 3.
-CPC_METHOD_VERSION = "cpc_curves_v1"
+# (test_V4 holds every statement to it). d091693 flipped it to cpc_curves_v2
+# (D-09-25-177: places on 22 to 29 base years get curves stating their count)
+# once the v2 backfill covered every v1 issuance and the first v2
+# backtest_version was scored: docs/handback_2026_10_10_cpc_api_flip_to_v2.md.
+# The v1 rows stay in the tables, beside; nothing here reads them.
+CPC_METHOD_VERSION = "cpc_curves_v2"
 _PIN = f"'{CPC_METHOD_VERSION}'"          # a literal: the planner sees the value
 
 # One read per (product, place): the product's n newest written issuances
@@ -128,6 +143,10 @@ CURVES_SQL = f"""
            vv.band_basis AS v_band_basis, vv.band_basis_n AS v_band_basis_n,
            vv.band_basis_n_eff AS v_band_basis_n_eff, vv.band_share AS v_band_share,
            vv.band_claim AS v_band_claim, vv.band_sentence AS v_band_sentence,
+           vv.min_base_years AS v_min_base_years, vv.base_reason AS v_base_reason,
+           vv.base_by_station AS v_base_by_station,
+           vv.base_fewest_stations AS v_base_fewest_stations,
+           vv.threaded_base AS v_threaded_base,
            vv.drawable AS v_drawable,
            d.day_index, d.target_date,
            d.tavg_p05, d.tavg_p25, d.tavg_p50, d.tavg_p75, d.tavg_p95,
@@ -139,7 +158,9 @@ CURVES_SQL = f"""
            d.n_history_years, d.history_first, d.history_last, d.empty_class,
            d.member_odds, d.season, d.strength, d.method_version, d.method_hash,
            d.source_content_sha256, d.label, d.band_claim, d.band_share,
-           d.band_sentence, d.band_basis, d.backtest_version
+           d.band_sentence, d.band_basis, d.backtest_version,
+           d.base_years, d.base_fewest_stations, d.base_by_station, d.threaded_base,
+           d.min_base_years
       FROM iss i
       LEFT JOIN cpc_outlook_curves w
              ON w.product = %(product)s AND w.issued_date = i.issued_date
@@ -193,7 +214,9 @@ PLACES_SQL = f"""
            v.skill, v.t, v.strength_verdict, v.share_p5_p95, v.share_p25_p75,
            v.season_n, v.season_n_eff, v.season_skill, v.season_t, v.verdict,
            v.history_years_in_base, v.band_basis, v.band_basis_n, v.band_basis_n_eff,
-           v.band_share, v.band_claim, v.band_sentence, v.drawable
+           v.band_share, v.band_claim, v.band_sentence, v.min_base_years,
+           v.base_reason, v.base_by_station, v.base_fewest_stations, v.threaded_base,
+           v.drawable
       FROM cpc_curve_verdicts v
       JOIN inforce i ON i.method_hash = v.method_hash
                     AND i.backtest_version = v.backtest_version
@@ -341,10 +364,19 @@ VALUE_COLS = ("tavg_p05", "tavg_p25", "tavg_p50", "tavg_p75", "tavg_p95",
 VERSION_KEYS = ("backtest_version", "scored_at", "truth_frontier", "method_version",
                 "method_hash", "rules_version", "rules_hash", "min_n_eff")
 
+# The last five are pantry 298's (D-09-25-177), served as stored: the floor the
+# cell was judged at, why a place under it is not drawn (the bank's words, with
+# its number), and the count by member, the fewest, and the threaded years.
 CELL_KEYS = ("n", "n_eff", "skill", "t", "strength_verdict", "share_p5_p95",
              "share_p25_p75", "season_n", "season_n_eff", "season_skill", "season_t",
              "verdict", "history_years_in_base", "band_basis", "band_basis_n",
-             "band_basis_n_eff", "band_share", "band_claim", "band_sentence")
+             "band_basis_n_eff", "band_share", "band_claim", "band_sentence",
+             "min_base_years", "base_reason", "base_by_station", "base_fewest_stations",
+             "threaded_base")
+
+# A curve's count, from the view's rows (pantry 298 appends them), as stored.
+CURVE_BASE_KEYS = ("base_years", "base_fewest_stations", "base_by_station",
+                   "threaded_base", "min_base_years")
 
 
 def reasons(cell: dict) -> list[dict]:
@@ -361,9 +393,13 @@ def reasons(cell: dict) -> list[dict]:
     elif cell["verdict"] == "too_thin":
         out.append({"code": "season_too_thin", "clause": 3, "verdict": cell["verdict"],
                     "season_n_eff": cell["season_n_eff"]})
-    if cell["history_years_in_base"] < 30:
-        out.append({"code": "under_30_base_years", "clause": 5,
-                    "history_years_in_base": cell["history_years_in_base"]})
+    # clause 5 at the cell's own floor (D-09-25-177); base_reason is the bank's
+    # sentence for it, verbatim, and nothing is read out of it
+    if cell["history_years_in_base"] < cell["min_base_years"]:
+        out.append({"code": "under_min_base_years", "clause": 5,
+                    "history_years_in_base": cell["history_years_in_base"],
+                    "min_base_years": cell["min_base_years"],
+                    "base_reason": cell["base_reason"]})
     if cell["band_claim"] is None:
         out.append({"code": "no_band_claim", "clause": 4, "band_basis": cell["band_basis"]})
     if not out:
@@ -428,6 +464,7 @@ def vintage(rows: list[dict], *, product: str) -> dict:
             "n_history_years": head["n_history_years"],
             "history_first": head["history_first"],
             "history_last": head["history_last"],
+            **{k: head[k] for k in CURVE_BASE_KEYS},
             "member_odds": head["member_odds"],
             "method_version": head["method_version"],
             "method_hash": head["method_hash"],
@@ -515,9 +552,9 @@ def _place(place_kind: str, place: str, weighting: str) -> dict:
 def place_verdict(place_entry: Optional[dict], product: str) -> Optional[dict]:
     """A place's cells for one product, summed up from /places (its memo):
     how many are drawable, and the reason codes of those that are not. This is
-    what says why a place with no curve (under 30 base years: the writer
-    writes none) is absent, where no cell can be picked by a curve's season
-    and strength."""
+    what says why a place with no curve (under its floor of base years: the
+    writer writes none) is absent, where no cell can be picked by a curve's
+    season and strength."""
     if place_entry is None:
         return None
     pr = next((x for x in place_entry["products"] if x["product"] == product), None)

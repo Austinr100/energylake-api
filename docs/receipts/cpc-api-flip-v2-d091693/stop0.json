@@ -1,0 +1,69 @@
+{
+ "read_on": "Neon production fancy-block-96153928, default branch, through the connector",
+ "a": {
+  "read_at": "2026-10-11T13:42:40.914Z",
+  "sql": "SELECT now() AS read_at, (SELECT count(*) FROM (SELECT DISTINCT product, issued_date FROM cpc_outlook_curves WHERE method_version='cpc_curves_v1') a) AS v1_issuances, (SELECT count(*) FROM (SELECT DISTINCT product, issued_date FROM cpc_outlook_curves WHERE method_version='cpc_curves_v2') b) AS v2_issuances, (SELECT count(*) FROM (SELECT DISTINCT product, issued_date FROM cpc_outlook_curves WHERE method_version='cpc_curves_v1' EXCEPT SELECT DISTINCT product, issued_date FROM cpc_outlook_curves WHERE method_version='cpc_curves_v2') c) AS v1_lacking_v2",
+  "v1_issuances": 3599,
+  "v2_issuances": 3601,
+  "v1_lacking_v2": 0
+ },
+ "a_v2_only": {
+  "sql": "SELECT product, issued_date, count(*) AS rows FROM cpc_outlook_curves WHERE method_version='cpc_curves_v2' AND (product, issued_date) NOT IN (SELECT DISTINCT product, issued_date FROM cpc_outlook_curves WHERE method_version='cpc_curves_v1') GROUP BY 1,2 ORDER BY 1,2",
+  "rows": [
+   {
+    "product": "610temp",
+    "issued_date": "2026-10-10",
+    "rows": 180
+   },
+   {
+    "product": "814temp",
+    "issued_date": "2026-10-10",
+    "rows": 240
+   }
+  ]
+ },
+ "b": {
+  "read_at": "2026-10-11T13:42:53.837Z",
+  "sql": "SELECT now() AS read_at, method_version, backtest_version, count(*) AS cells FROM cpc_curve_verdicts GROUP BY 2,3 ORDER BY 2,3",
+  "rows": [
+   {
+    "method_version": "cpc_curves_v1",
+    "backtest_version": "cpcv_2026-10-03_d0a93d5811",
+    "cells": 720
+   },
+   {
+    "method_version": "cpc_curves_v2",
+    "backtest_version": "cpcv_2026-10-06_243e6acd91",
+    "cells": 720
+   }
+  ]
+ },
+ "b_detail": {
+  "sql": "SELECT method_version, backtest_version, method_hash, rules_version, rules_hash, scored_at, truth_frontier, count(*) cells, count(*) FILTER (WHERE drawable) drawable, md5(pg_get_viewdef('v_cpc_curves_drawable'::regclass)) viewmd5 FROM cpc_curve_verdicts GROUP BY 1,2,3,4,5,6,7 ORDER BY 1",
+  "rows": [
+   {
+    "method_version": "cpc_curves_v1",
+    "backtest_version": "cpcv_2026-10-03_d0a93d5811",
+    "method_hash": "e99c71234013",
+    "rules_version": "cpc_curve_verdicts_v1",
+    "rules_hash": "5ffe9e61df72",
+    "scored_at": "2026-10-08T21:51:37.361Z",
+    "truth_frontier": "2026-10-03",
+    "cells": 720,
+    "drawable": 396
+   },
+   {
+    "method_version": "cpc_curves_v2",
+    "backtest_version": "cpcv_2026-10-06_243e6acd91",
+    "method_hash": "b201e09ff97d",
+    "rules_version": "cpc_curve_verdicts_v2",
+    "rules_hash": "5e3eb4b51c0f",
+    "scored_at": "2026-10-11T07:19:58.993Z",
+    "truth_frontier": "2026-10-06",
+    "cells": 720,
+    "drawable": 641
+   }
+  ],
+  "viewmd5": "66966f907581836370275d209d564a67"
+ }
+}

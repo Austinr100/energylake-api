@@ -1,0 +1,722 @@
+[
+ {
+  "place_kind": "station",
+  "place": "USW00003017",
+  "weighting": "",
+  "base_years": [
+   29
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 29",
+  "label": "History at USW00003017, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds, on 29 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00003017",
+  "weighting": "",
+  "base_years": [
+   29
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 29",
+  "label": "History at USW00003017, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 29 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00003102",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 22",
+  "label": "History at USW00003102, 1999-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00003102",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00003145",
+  "weighting": "",
+  "base_years": [
+   26
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 26",
+  "label": "History at USW00003145, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds, on 26 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00003145",
+  "weighting": "",
+  "base_years": [
+   26
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023050",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023050, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023050",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023050, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023152",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 22",
+  "label": "History at USW00023152, 1998-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023152",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023169",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023169, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023169",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023169, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023174",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023174, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023174",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023174, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023183",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023183, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023183",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023183, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023185",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023185, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023185",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023185, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023188",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023188, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023188",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023188, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023232",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023232, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023232",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00023232, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023234",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023234, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023234",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00023234, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023293",
+  "weighting": "",
+  "base_years": [
+   28
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00023293",
+  "weighting": "",
+  "base_years": [
+   28
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 28",
+  "label": "History at USW00023293, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 28 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024127",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00024127, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024127",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024127, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024131",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024131, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024131",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00024131, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024157",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024157, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024157",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024157, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024229",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024229, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024229",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00024229, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024233",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024233, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024233",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024233, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024257",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024257, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00024257",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00024257, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00093138",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 22",
+  "label": "History at USW00093138, 1998-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00093138",
+  "weighting": "",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00093193",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at USW00093193, 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "station",
+  "place": "USW00093193",
+  "weighting": "",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at USW00093193, 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_np15_proxy",
+  "weighting": "load_share_365d",
+  "base_years": [
+   28
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_np15_proxy",
+  "weighting": "load_share_365d",
+  "base_years": [
+   28
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 28",
+  "label": "History at caiso_np15_proxy (load_share_365d), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 28 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_np15_proxy",
+  "weighting": "population",
+  "base_years": [
+   28
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 28",
+  "label": "History at caiso_np15_proxy (population), 1991-2025, reweighted by NOAA CPC's published 6-10 day odds, on 28 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_np15_proxy",
+  "weighting": "population",
+  "base_years": [
+   28
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 28",
+  "label": "History at caiso_np15_proxy (population), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 28 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_sp15_proxy",
+  "weighting": "load_share_365d",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 22",
+  "label": "History at caiso_sp15_proxy (load_share_365d), 1999-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_sp15_proxy",
+  "weighting": "load_share_365d",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_sp15_proxy",
+  "weighting": "population",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 22",
+  "label": "History at caiso_sp15_proxy (population), 1999-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "caiso_sp15_proxy",
+  "weighting": "population",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ },
+ {
+  "place_kind": "region",
+  "place": "desert_sw",
+  "weighting": "load_share_365d",
+  "base_years": [
+   26
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, measured, base_years 26",
+  "label": "History at desert_sw (load_share_365d), 1991-2025, reweighted by NOAA CPC's published 6-10 day odds, on 26 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "desert_sw",
+  "weighting": "load_share_365d",
+  "base_years": [
+   26
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 26",
+  "label": "History at desert_sw (load_share_365d), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 26 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "desert_sw",
+  "weighting": "population",
+  "base_years": [
+   26
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 26",
+  "label": "History at desert_sw (population), 1991-2025, reweighted by NOAA CPC's published 6-10 day odds, on 26 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "desert_sw",
+  "weighting": "population",
+  "base_years": [
+   26
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 26",
+  "label": "History at desert_sw (population), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds, on 26 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "pnw",
+  "weighting": "load_share_365d",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at pnw (load_share_365d), 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "region",
+  "place": "pnw",
+  "weighting": "load_share_365d",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at pnw (load_share_365d), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "region",
+  "place": "pnw",
+  "weighting": "population",
+  "base_years": [
+   30
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 curve, about_9_in_10",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 30",
+  "label": "History at pnw (population), 1991-2025, reweighted by NOAA CPC's published 6-10 day odds"
+ },
+ {
+  "place_kind": "region",
+  "place": "pnw",
+  "weighting": "population",
+  "base_years": [
+   30
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 curve, measured",
+  "flip": "2026-10-10 curve, measured, base_years 30",
+  "label": "History at pnw (population), 1991-2025, reweighted by NOAA CPC's published 8-14 day odds"
+ },
+ {
+  "place_kind": "region",
+  "place": "socalgas_territory",
+  "weighting": "population",
+  "base_years": [
+   22
+  ],
+  "product": "610temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 curve, about_9_in_10, base_years 22",
+  "label": "History at socalgas_territory (population), 1999-2025, reweighted by NOAA CPC's published 6-10 day odds, on 22 base years, not CPC's 30"
+ },
+ {
+  "place_kind": "region",
+  "place": "socalgas_territory",
+  "weighting": "population",
+  "base_years": [
+   22
+  ],
+  "product": "814temp",
+  "production": "2026-10-09 not_written",
+  "flip": "2026-10-10 not_drawable (no_band_claim; band_basis none)",
+  "label": null
+ }
+]
