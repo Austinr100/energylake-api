@@ -1,0 +1,10 @@
+# d091693 green, 2026-10-11T14:25:37Z, tree at branch claude/cpc-api-flip-to-v2-8rss1l
+
+## tests/test_cpc_flip_v2_d091693.py
+63 passed, 1 warning in 10.34s
+
+## both CPC files (d091679's restated; d091691's retired, restated here)
+144 passed, 1 warning in 12.84s
+
+## full suite (baseline on main a10b6f2: 2952 passed; this branch removes d091691's 48 and adds 63)
+2967 passed, 1 warning in 168.24s (0:02:48)
