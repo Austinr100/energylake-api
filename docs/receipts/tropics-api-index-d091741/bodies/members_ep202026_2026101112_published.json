@@ -1,0 +1,85 @@
+{
+ "storm_id": "ep202026",
+ "name": "Simon",
+ "cycle": "2026101112",
+ "cycles_held": [
+  "2026101112"
+ ],
+ "cycles": [
+  {
+   "cycle": "2026101112",
+   "ensembles": [
+    {
+     "ensemble": "ecmwf_ens",
+     "label": "ECMWF ENS",
+     "manifest_url": "https://display.energylake.io/tropics/ep202026/2026101112/ecmwf_ens/manifest.json",
+     "sha256": "9016925ca222b1d77ba0b58f57a5e512afbd188d3d38d070728b8b5d37d38471",
+     "bytes": 1685,
+     "n_members": 51,
+     "min_members": 5,
+     "taus": [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30,
+      36,
+      42,
+      48,
+      54,
+      60,
+      66,
+      72,
+      78,
+      84,
+      90,
+      96,
+      102,
+      108,
+      114
+     ],
+     "source_r2_key": "tropical/tracks/ep202026/2026101112/ecmwf_ens.parquet",
+     "source_sha256": "a5aae22c561e6f8fe76c7b853aef83a9b3ad69ed12063ea657b4107e5156124e",
+     "revision": 0,
+     "corrected": false,
+     "notice": "(c) 2026 European Centre for Medium-Range Weather Forecasts (ECMWF). Source: www.ecmwf.int. Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified: tracks decoded from ECMWF's open-data tropical cyclone BUFR, positions rounded to 0.01 deg, 10 m wind converted to knots, radii to nautical miles, matched to NHC storms by position."
+    }
+   ]
+  }
+ ],
+ "absent": [
+  {
+   "cycle": "2026101112",
+   "ensemble": "ecmwf_aifs_ens",
+   "reason": "not_published",
+   "detail": "banked as R2 parquet tropical/tracks/ep202026/2026101112/ecmwf_aifs_ens.parquet (sha256 2c70d88bdd9d1938ba85e12e75c956699a41345f32a05bb30d6ef450706d5b05, 52 members by the bank's meta); no published manifest is in the ledger (the members publish step is d091743's)"
+  },
+  {
+   "cycle": "2026101112",
+   "ensemble": "gefs_adeck",
+   "reason": "not_published",
+   "detail": "banked as R2 parquet tropical/tracks/ep202026/2026101112/adeck.parquet (sha256 12b68dcae461ed0c012e0f71ae57c8144306a12051b747c7aa5e9eec99b64206, the whole A-deck; GEFS members are told by source name (AP01-AP30), the bank's n_members counts a member column the A-deck parser leaves null); no published manifest is in the ledger (the members publish step is d091743's)"
+  }
+ ],
+ "absence": null,
+ "ensembles": [
+  "ecmwf_ens",
+  "ecmwf_aifs_ens",
+  "gefs_adeck"
+ ],
+ "order": "oldest cycle first",
+ "members_rule": "A published ensemble is a display-bucket manifest (schema tropics.members.v1, recon d091737 §4) in the ledger as product 'display:members:<ensemble>', vintage_key the cycle. n_members, min_members and taus are the manifest's own (its ledger meta); an ensemble whose manifest states fewer members than its own minimum is listed absent as too_few_members, with its url. A banked member parquet with no manifest is not_published; a cycle with no parquet is not_banked.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket (tropical_file_vintage_in_force, source 'parsed', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is recon d091737 §7's; d091740's spec was not readable when this route was written.",
+ "reasons": {
+  "not_banked": "the bank holds no copy of the NHC file this would be published from (the member parquet)",
+  "not_published": "the member parquet is banked; no manifest is published",
+  "too_few_members": "the published manifest states fewer members than its own minimum"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5).",
+  "member_points": "No member point is served or stored in Neon: the points are in the manifest's members.geojson in the display bucket."
+ }
+}

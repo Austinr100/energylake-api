@@ -1,0 +1,665 @@
+[
+ {
+  "byte_size": 27968,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T09:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Polygon": 1
+   },
+   "lon_range": [
+    -116.47044,
+    -108.0546
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/cone_kmz.kmz",
+   "source_sha256": "1f82e17dc6d17d760091a7c6215a502073277e8892beb020698db9210c3f79e1",
+   "vertices": 1260
+  },
+  "product": "display:cone",
+  "r2_key": "tropics/ep202026/adv032/cone.geojson",
+  "sha256": "23fb9e669eb93c9db7a63eb81cffff4c159c248f491399695dd20040c223bab9",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910001,
+  "vintage_key": "032"
+ },
+ {
+  "byte_size": 5079,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T15:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Polygon": 1
+   },
+   "lon_range": [
+    -115.15237,
+    -114.04598
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv058/cone_kmz.kmz",
+   "source_sha256": "787f719ab5401bea6b24f2788b821e1a07b8832d9ce90f1dd1c47ec11bc10919",
+   "vertices": 210
+  },
+  "product": "display:cone",
+  "r2_key": "tropics/ep182026/adv058/cone.geojson",
+  "sha256": "e84d18b60dfbd20ac1bc74ce41e7bdf30541b328a86c89391836b0a32692db5f",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep182026",
+  "vintage_id": 910002,
+  "vintage_key": "058"
+ },
+ {
+  "byte_size": 632,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "LineString": 1
+   },
+   "lon_range": [
+    -114.96,
+    -113.53
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv057A/ww_kmz.kmz",
+   "source_sha256": "fd5f17d0556b56a6c6d638ee8902c4bae7f5cfad3cccb20f39320ed46d730c2c",
+   "vertices": 4
+  },
+  "product": "display:ww",
+  "r2_key": "tropics/ep182026/adv057A/ww.geojson",
+  "sha256": "ba8deba1820ba8692e919249149f1279f7d972ee6f666dd06c921a96da9bc103",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep182026",
+  "vintage_id": 910003,
+  "vintage_key": "057A"
+ },
+ {
+  "byte_size": 590,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-14T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "LineString": 1
+   },
+   "lon_range": [
+    -106.71,
+    -106.21
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv028A/ww_kmz.kmz",
+   "source_sha256": "f7d9987f13a6ee79a5e595d33ed038b70179edfe57ac74c734b9bed88d6f03a6",
+   "vertices": 4
+  },
+  "product": "display:ww",
+  "r2_key": "tropics/ep202026/adv028A/ww.geojson",
+  "sha256": "07d5dff201f9a695c25f177211436ee4119759efeb3e1a90ff33ffce60e725dd",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910004,
+  "vintage_key": "028A"
+ },
+ {
+  "byte_size": 700,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-10T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "LineString": 1
+   },
+   "lon_range": [
+    -87.55,
+    -83.99
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/al092026/adv014A/ww_kmz.kmz",
+   "source_sha256": "6de8b55efd3a3e4d10fd408e9d71fb742415ce935367955c0e5fad4a8cbacf0a",
+   "vertices": 9
+  },
+  "product": "display:ww",
+  "r2_key": "tropics/al092026/adv014A/ww.geojson",
+  "sha256": "1261d83dab76229be0059e5b4bece832ef24976899ba2b20808a9fb15be88935",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "al092026",
+  "vintage_id": 910005,
+  "vintage_key": "014A"
+ },
+ {
+  "byte_size": 23372,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-10T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Polygon": 7
+   },
+   "lon_range": [
+    -86.81114073249086,
+    -83.1365465348871
+   ],
+   "n_features": 7,
+   "source_r2_key": "tropical/nhc/2026/al092026/adv014A/surge_ww_kml.kml",
+   "source_sha256": "9a0d69b55bfda2eb117eaa17848c4da3119f86a8aef6807bd668dc868aabf18d",
+   "vertices": 550
+  },
+  "product": "display:surge_ww",
+  "r2_key": "tropics/al092026/adv014A/surge_ww.geojson",
+  "sha256": "f80dc8056bf58df8abe4d0d41f5f5eafbaecb6df87155117f27c89a9677e54f4",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "al092026",
+  "vintage_id": 910006,
+  "vintage_key": "014A"
+ },
+ {
+  "byte_size": 4256,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T15:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "forecaster": "Kelly",
+   "issued_utc": "2026-10-11T15:00:00+00:00",
+   "sections": [
+    {
+     "kind": "discussion",
+     "title": "Discussion"
+    },
+    {
+     "kind": "key_messages",
+     "title": "Key Messages"
+    },
+    {
+     "kind": "forecast_table",
+     "title": "FORECAST POSITIONS AND MAX WINDS"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv058/tcd.txt",
+   "source_sha256": "d3d1069b890a259cdcd5a593705e8171de6c668c7abd9337ef3e65c963239727",
+   "transmitted_utc": "2026-10-11T14:44:00+00:00",
+   "wmo_heading": "WTPZ43 KNHC 111444"
+  },
+  "product": "display:tcd",
+  "r2_key": "tropics/ep182026/adv058/tcd.json",
+  "sha256": "f5921626bd885ae91e4678532d90976029097fe2afaebf735a4d9a246b08f221",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep182026",
+  "vintage_id": 910011,
+  "vintage_key": "058"
+ },
+ {
+  "byte_size": 3870,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T15:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "forecaster": "Kelly",
+   "issued_utc": "2026-10-11T15:00:00+00:00",
+   "sections": [
+    {
+     "kind": "summary",
+     "title": "SUMMARY OF 800 AM MST...1500 UTC...INFORMATION"
+    },
+    {
+     "kind": "watches_and_warnings",
+     "title": "WATCHES AND WARNINGS"
+    },
+    {
+     "kind": "discussion_and_outlook",
+     "title": "DISCUSSION AND OUTLOOK"
+    },
+    {
+     "kind": "hazards_affecting_land",
+     "title": "HAZARDS AFFECTING LAND"
+    },
+    {
+     "kind": "next_advisory",
+     "title": "NEXT ADVISORY"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv058/tcp.txt",
+   "source_sha256": "21f1d993f7a79d4425a35767e967eed56179376372d0828d481afe32f75b1956",
+   "transmitted_utc": "2026-10-11T14:42:00+00:00",
+   "wmo_heading": "WTPZ33 KNHC 111442"
+  },
+  "product": "display:tcp",
+  "r2_key": "tropics/ep182026/adv058/tcp.json",
+  "sha256": "cbc91bf3288b32f0a944e8316b187d14f566b3cddbf4c98775ff9b8ae8a57103",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep182026",
+  "vintage_id": 910012,
+  "vintage_key": "058"
+ },
+ {
+  "byte_size": 4776,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T09:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "forecaster": "Reinhart",
+   "issued_utc": "2026-10-15T09:00:00+00:00",
+   "sections": [
+    {
+     "kind": "discussion",
+     "title": "Discussion"
+    },
+    {
+     "kind": "key_messages",
+     "title": "Key Messages"
+    },
+    {
+     "kind": "forecast_table",
+     "title": "FORECAST POSITIONS AND MAX WINDS"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/tcd.txt",
+   "source_sha256": "5e97fb1d62cb6427eef6e314c969b7ca64666ebf4e79f610495ee916b4dcaf52",
+   "transmitted_utc": "2026-10-15T08:39:00+00:00",
+   "wmo_heading": "WTPZ45 KNHC 150839"
+  },
+  "product": "display:tcd",
+  "r2_key": "tropics/ep202026/adv032/tcd.json",
+  "sha256": "68ef33dc59631010de31776880668a52395d9904a68929978db4da5428f56ca4",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910013,
+  "vintage_key": "032"
+ },
+ {
+  "byte_size": 2864,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T09:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "forecaster": "Reinhart",
+   "issued_utc": "2026-10-15T09:00:00+00:00",
+   "sections": [
+    {
+     "kind": "summary",
+     "title": "SUMMARY OF 200 AM MST...0900 UTC...INFORMATION"
+    },
+    {
+     "kind": "watches_and_warnings",
+     "title": "WATCHES AND WARNINGS"
+    },
+    {
+     "kind": "discussion_and_outlook",
+     "title": "DISCUSSION AND OUTLOOK"
+    },
+    {
+     "kind": "hazards_affecting_land",
+     "title": "HAZARDS AFFECTING LAND"
+    },
+    {
+     "kind": "next_advisory",
+     "title": "NEXT ADVISORY"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/tcp.txt",
+   "source_sha256": "f1c3a0b113e5a46a15e366b52390dd8c5b0a45f35e7dbfc05a43ea88b7a9b518",
+   "transmitted_utc": "2026-10-15T08:39:00+00:00",
+   "wmo_heading": "WTPZ35 KNHC 150839"
+  },
+  "product": "display:tcp",
+  "r2_key": "tropics/ep202026/adv032/tcp.json",
+  "sha256": "e896c5756890628e97062704f68f51df56fd12a61643b8daf27e0e83d2ec727d",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910014,
+  "vintage_key": "032"
+ },
+ {
+  "byte_size": 1192194,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 11
+   },
+   "lon_range": [
+    -214.99910088113046,
+    -103.19367020317986
+   ],
+   "n_features": 11,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_5km_zip.zip",
+   "source_sha256": "61659d4b74bac0750b9582199398082ceeb610319e796e822989edf93b7312bc",
+   "vertices": 29717
+  },
+  "product": "display:wsp34_bands",
+  "r2_key": "tropics/wsp/2026101112/wsp34_bands.geojson",
+  "sha256": "b247a39a979e11357d2df445c8c87f2e8ca1d1af5e231f1b098f9e087ce31f1b",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910021,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 742345,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 11
+   },
+   "lon_range": [
+    -214.54954144937352,
+    -103.6881855781125
+   ],
+   "n_features": 11,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_5km_zip.zip",
+   "source_sha256": "61659d4b74bac0750b9582199398082ceeb610319e796e822989edf93b7312bc",
+   "vertices": 18473
+  },
+  "product": "display:wsp50_bands",
+  "r2_key": "tropics/wsp/2026101112/wsp50_bands.geojson",
+  "sha256": "447a1fd7484834531a8c0f9ce015a219a76850b31b06083a197ad3caf5ceb6f8",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910022,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 425401,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 9,
+    "Polygon": 2
+   },
+   "lon_range": [
+    -214.27980579031936,
+    -104.04783312351805
+   ],
+   "n_features": 11,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_5km_zip.zip",
+   "source_sha256": "61659d4b74bac0750b9582199398082ceeb610319e796e822989edf93b7312bc",
+   "vertices": 10560
+  },
+  "product": "display:wsp64_bands",
+  "r2_key": "tropics/wsp/2026101112/wsp64_bands.geojson",
+  "sha256": "314f46516d8bdcb847ea9e606d2ba1d815d7922dc4c221736233067140e106b1",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910023,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 262255,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Point": 2310
+   },
+   "lon_range": [
+    -180.0,
+    179.5
+   ],
+   "n_features": 2310,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_halfdeg_zip.zip",
+   "source_sha256": "73193ad864ff5ae16fdcea450f36f1d7f61f6a3e983e99e213cc1b6e2b7ee213",
+   "vertices": 2310
+  },
+  "product": "display:wsp34_grid",
+  "r2_key": "tropics/wsp/2026101112/wsp34_grid.geojson",
+  "sha256": "0fa1c17092977ef6008074292edb580a20949f983b6f1c239bdeab6000d725d1",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910024,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 121993,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Point": 1075
+   },
+   "lon_range": [
+    -180.0,
+    179.5
+   ],
+   "n_features": 1075,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_halfdeg_zip.zip",
+   "source_sha256": "73193ad864ff5ae16fdcea450f36f1d7f61f6a3e983e99e213cc1b6e2b7ee213",
+   "vertices": 1075
+  },
+  "product": "display:wsp50_grid",
+  "r2_key": "tropics/wsp/2026101112/wsp50_grid.geojson",
+  "sha256": "ffb6725c41d518e742cd9bb5be882d35b8b6ef083614e97a49099daeb58f3e58",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910025,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 93255,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "Point": 821
+   },
+   "lon_range": [
+    -109.0,
+    179.5
+   ],
+   "n_features": 821,
+   "source_r2_key": "tropical/nhc/wsp/2026101112/wsp_halfdeg_zip.zip",
+   "source_sha256": "73193ad864ff5ae16fdcea450f36f1d7f61f6a3e983e99e213cc1b6e2b7ee213",
+   "vertices": 821
+  },
+  "product": "display:wsp64_grid",
+  "r2_key": "tropics/wsp/2026101112/wsp64_grid.geojson",
+  "sha256": "08681ec57f80e1a804bc60947f1033a31171c538e5d41ff5a3694fea108487a0",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910026,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 1211969,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 11
+   },
+   "lon_range": [
+    -234.3751123898545,
+    -99.10267937419172
+   ],
+   "n_features": 11,
+   "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+   "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+   "vertices": 29916
+  },
+  "product": "display:wsp34_bands",
+  "r2_key": "tropics/wsp/2026101506/wsp34_bands.geojson",
+  "sha256": "f2e9bc1f83178e8ab8c8fd92bc4d10a9d7bf93618e4cf5a32df4b583400b52b0",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910027,
+  "vintage_key": "2026101506"
+ },
+ {
+  "byte_size": 691986,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 8,
+    "Polygon": 2
+   },
+   "lon_range": [
+    -232.75669843552953,
+    -100.13666606723268
+   ],
+   "n_features": 10,
+   "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+   "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+   "vertices": 17059
+  },
+  "product": "display:wsp50_bands",
+  "r2_key": "tropics/wsp/2026101506/wsp50_bands.geojson",
+  "sha256": "4b92c95805715aaef4109fee0a8fc0b4b329c657e1852227d97d3188dfe3e9e7",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910028,
+  "vintage_key": "2026101506"
+ },
+ {
+  "byte_size": 444010,
+  "closed_ts": null,
+  "dataset": "nhc_wsp_vintage",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-15T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "geometry_types": {
+    "MultiPolygon": 6,
+    "Polygon": 2
+   },
+   "lon_range": [
+    -232.08235928789412,
+    -100.27153389675976
+   ],
+   "n_features": 8,
+   "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+   "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+   "vertices": 10941
+  },
+  "product": "display:wsp64_bands",
+  "r2_key": "tropics/wsp/2026101506/wsp64_bands.geojson",
+  "sha256": "77708dbae121d0f1b3e22c6625db6728dee25013666fd9582dfd66a9d2b4a0a2",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "",
+  "vintage_id": 910029,
+  "vintage_key": "2026101506"
+ }
+]

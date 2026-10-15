@@ -1,0 +1,69 @@
+{
+ "storm_id": "al092026",
+ "name": "Isaias",
+ "basin": "al",
+ "advisory": "020",
+ "advisory_requested": false,
+ "init_ts": null,
+ "position_valid_ts": null,
+ "issued_ts": "2026-10-11T15:00:00+00:00",
+ "nhc_entry": {
+  "vintage_key": "020:f60e80a4",
+  "issued_ts": "2026-10-11T15:00:00+00:00",
+  "fetch_ts": "2026-10-11T21:31:27.225552+00:00",
+  "classification": "PTC",
+  "refs": {
+   "tcd": "020",
+   "tcm": "020",
+   "tcp": "020"
+  }
+ },
+ "nhc_entry_absence": null,
+ "revision": 0,
+ "corrected": false,
+ "objects": [],
+ "absent": [
+  {
+   "product": "cone",
+   "reason": "not_issued",
+   "detail": "NHC's CurrentStorms entry for advisory 020 (the newest the bank holds, 020:f60e80a4, fetched 2026-10-11T21:31:27.225552+00:00) links no cone_kmz"
+  },
+  {
+   "product": "ww",
+   "reason": "not_issued",
+   "detail": "NHC's CurrentStorms entry for advisory 020 (the newest the bank holds, 020:f60e80a4, fetched 2026-10-11T21:31:27.225552+00:00) links no ww_kmz"
+  },
+  {
+   "product": "surge_ww",
+   "reason": "not_issued",
+   "detail": "NHC's CurrentStorms entry for advisory 020 (the newest the bank holds, 020:f60e80a4, fetched 2026-10-11T21:31:27.225552+00:00) links no surge_ww_kml"
+  }
+ ],
+ "wsp": {
+  "cycle": null,
+  "synoptic_ts": null,
+  "objects": [],
+  "absent": [],
+  "absence": {
+   "reason": "no_synoptic_time",
+   "detail": "the bank holds no official forecast for advisory 020 (NHC issues none with a text-only advisory), so its synoptic time, the WSP cycle, is not known"
+  }
+ },
+ "absence": null,
+ "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (pantry 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
+ "wsp_rule": "WSP is issued per synoptic cycle, basin-wide, not per storm: the cycle is the advisory's synoptic time (its official forecast's init_ts) as YYYYMMDDHH. Bands are the 5 km zip's contours (11 percentage bands); the grid is the half-degree zip's points, value in percent, cells below 0.1 % absent.",
+ "revision_rule": "revision and corrected are each object's own (the ledger's copy in force and meta.correction); `original` is the uncorrected copy where one is corrected. The top-level revision is the highest served; source_in_force says whether the NHC file an object names is the copy in force now.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket (tropical_file_vintage_in_force, source 'parsed', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is recon d091737 §7's; d091740's spec was not readable when this route was written.",
+ "reasons": {
+  "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",
+  "basin_has_none": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only",
+  "not_banked": "the bank holds no copy of the NHC file this would be published from",
+  "not_published": "the NHC file is banked; no published display object is in the ledger"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

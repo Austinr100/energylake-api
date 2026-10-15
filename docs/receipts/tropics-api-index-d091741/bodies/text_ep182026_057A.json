@@ -1,0 +1,91 @@
+{
+ "storm_id": "ep182026",
+ "name": "Rachel",
+ "basin": "ep",
+ "advisory": "057A",
+ "advisory_requested": true,
+ "init_ts": "2026-10-11T06:00:00+00:00",
+ "position_valid_ts": "2026-10-11T12:00:00+00:00",
+ "issued_ts": "2026-10-11T12:00:00+00:00",
+ "nhc_entry": {
+  "vintage_key": "057A:82ca1448",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "fetch_ts": "2026-10-11T11:59:51.923745+00:00",
+  "classification": "PTC",
+  "refs": {
+   "pws": "057",
+   "tcd": "057",
+   "tcm": "057",
+   "tcp": "057A",
+   "ww_kmz": "057A",
+   "cone_kmz": "057A",
+   "track_kmz": "057A",
+   "fcst_5day_zip": "057A",
+   "fcst_radii_zip": "057A",
+   "initialradii_kmz": "057A",
+   "toa_earliest_kmz": "057",
+   "forecastradii_kmz": "057A",
+   "toa_mostlikely_kmz": "057"
+  }
+ },
+ "nhc_entry_absence": null,
+ "products": {
+  "tcd": {
+   "product": "tcd",
+   "url": null,
+   "sha256": null,
+   "bytes": null,
+   "issued_utc": null,
+   "transmitted_utc": null,
+   "forecaster": null,
+   "sections": [],
+   "source_r2_key": null,
+   "source_sha256": null,
+   "revision": null,
+   "corrected": null,
+   "original": null,
+   "source_in_force": null,
+   "absence": {
+    "reason": "not_issued",
+    "detail": "NHC's CurrentStorms entry for advisory 057A (the newest the bank holds, 057A:82ca1448, fetched 2026-10-11T11:59:51.923745+00:00) links advisory 057's tcd: NHC issued none with 057A"
+   }
+  },
+  "tcp": {
+   "product": "tcp",
+   "url": null,
+   "sha256": null,
+   "bytes": null,
+   "issued_utc": null,
+   "transmitted_utc": null,
+   "forecaster": null,
+   "sections": [],
+   "source_r2_key": null,
+   "source_sha256": null,
+   "revision": null,
+   "corrected": null,
+   "original": null,
+   "source_in_force": null,
+   "absence": {
+    "reason": "not_published",
+    "detail": "NHC's tcp for advisory 057A is banked (tropical/nhc/2026/ep182026/adv057A/tcp.txt, sha256 10aa532732dd92ba3b3f0d0cc9e131ac185e0a1faa2120ad96d18460a580504d); the ledger holds no published display:tcp object for it"
+   }
+  }
+ },
+ "absence": null,
+ "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (pantry 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
+ "times_rule": "Two times, and they differ: transmitted_utc is the WMO heading's DDHHMM (when NHC transmitted the product), issued_utc the product's local issuance line in UTC (the advisory's nominal time). The TCD's forecast table counts from the advisory time, the bank's official track from the synoptic time: never join them on tau.",
+ "sections_rule": "sections are the parse's own, in NHC's order, title as printed and kind as the parser names it; the text is in the object at url.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket (tropical_file_vintage_in_force, source 'parsed', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is recon d091737 §7's; d091740's spec was not readable when this route was written.",
+ "reasons": {
+  "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",
+  "basin_has_none": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only",
+  "not_banked": "the bank holds no copy of the NHC file this would be published from",
+  "not_published": "the NHC file is banked; no published display object is in the ledger"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

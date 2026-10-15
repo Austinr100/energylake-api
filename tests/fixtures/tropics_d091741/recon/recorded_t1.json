@@ -1,0 +1,62 @@
+{
+ "ep182026_adv058_tcd.txt": {
+  "advisory": "58",
+  "awips_id": "TCDEP3",
+  "forecaster": "Kelly",
+  "issued_utc": "2026-10-11T15:00:00+00:00",
+  "parsed_sha256": "f5921626bd885ae91e4678532d90976029097fe2afaebf735a4d9a246b08f221",
+  "section_kinds": [
+   "discussion",
+   "key_messages",
+   "forecast_table"
+  ],
+  "transmitted_utc": "2026-10-11T14:44:00+00:00",
+  "wmo_heading": "WTPZ43 KNHC 111444"
+ },
+ "ep182026_adv058_tcp.txt": {
+  "advisory": "58",
+  "awips_id": "TCPEP3",
+  "forecaster": "Kelly",
+  "issued_utc": "2026-10-11T15:00:00+00:00",
+  "parsed_sha256": "cbc91bf3288b32f0a944e8316b187d14f566b3cddbf4c98775ff9b8ae8a57103",
+  "section_kinds": [
+   "summary",
+   "watches_and_warnings",
+   "discussion_and_outlook",
+   "hazards_affecting_land",
+   "next_advisory"
+  ],
+  "transmitted_utc": "2026-10-11T14:42:00+00:00",
+  "wmo_heading": "WTPZ33 KNHC 111442"
+ },
+ "ep202026_adv032_tcd.txt": {
+  "advisory": "32",
+  "awips_id": "TCDEP5",
+  "forecaster": "Reinhart",
+  "issued_utc": "2026-10-15T09:00:00+00:00",
+  "parsed_sha256": "68ef33dc59631010de31776880668a52395d9904a68929978db4da5428f56ca4",
+  "section_kinds": [
+   "discussion",
+   "key_messages",
+   "forecast_table"
+  ],
+  "transmitted_utc": "2026-10-15T08:39:00+00:00",
+  "wmo_heading": "WTPZ45 KNHC 150839"
+ },
+ "ep202026_adv032_tcp.txt": {
+  "advisory": "32",
+  "awips_id": "TCPEP5",
+  "forecaster": "Reinhart",
+  "issued_utc": "2026-10-15T09:00:00+00:00",
+  "parsed_sha256": "e896c5756890628e97062704f68f51df56fd12a61643b8daf27e0e83d2ec727d",
+  "section_kinds": [
+   "summary",
+   "watches_and_warnings",
+   "discussion_and_outlook",
+   "hazards_affecting_land",
+   "next_advisory"
+  ],
+  "transmitted_utc": "2026-10-15T08:39:00+00:00",
+  "wmo_heading": "WTPZ35 KNHC 150839"
+ }
+}

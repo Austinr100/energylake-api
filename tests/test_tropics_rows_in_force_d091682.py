@@ -34,6 +34,7 @@ import main
 import tropics as tr
 import load_bank_d091673 as lb
 import load_bank_d091682 as lb2
+import load_bank_d091741 as lb3
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 P = "/api/weather/tropics"
@@ -338,6 +339,7 @@ def test_R6_the_rebanked_vector_minus_the_two_fields_is_d091673s(name):
     assert objs and all(set(o) >= {"corrected", "revision"} for o in objs)
     assert raw.count('"corrected":') == raw.count('"revision":') == len(objs)   # nowhere else
     assert lb2.strip_correction(body) == len(objs)
+    lb3.revert_not_served(body)       # d091741: the two not_served pointers, and nothing else
     old = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode()
     assert hashlib.sha256(old).hexdigest() == OLD["bodies"][name]["sha256"]
 

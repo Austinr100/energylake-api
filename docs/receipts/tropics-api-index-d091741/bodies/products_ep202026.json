@@ -1,0 +1,154 @@
+{
+ "storm_id": "ep202026",
+ "name": "Simon",
+ "basin": "ep",
+ "advisory": "032",
+ "advisory_requested": false,
+ "init_ts": "2026-10-15T06:00:00+00:00",
+ "position_valid_ts": "2026-10-15T09:00:00+00:00",
+ "issued_ts": "2026-10-15T09:00:00+00:00",
+ "nhc_entry": {
+  "vintage_key": "032:63ae9aa6",
+  "issued_ts": "2026-10-15T09:00:00+00:00",
+  "fetch_ts": "2026-10-15T09:49:33.813818+00:00",
+  "classification": "TS",
+  "refs": {
+   "pws": "032",
+   "tcd": "032",
+   "tcm": "032",
+   "tcp": "032",
+   "cone_kmz": "032",
+   "track_kmz": "032",
+   "fcst_5day_zip": "032",
+   "fcst_radii_zip": "032",
+   "initialradii_kmz": "032",
+   "toa_earliest_kmz": "032",
+   "forecastradii_kmz": "032",
+   "toa_mostlikely_kmz": "032"
+  }
+ },
+ "nhc_entry_absence": null,
+ "revision": 0,
+ "corrected": false,
+ "objects": [
+  {
+   "product": "cone",
+   "url": "https://display.energylake.io/tropics/ep202026/adv032/cone.geojson",
+   "sha256": "23fb9e669eb93c9db7a63eb81cffff4c159c248f491399695dd20040c223bab9",
+   "bytes": 27968,
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/cone_kmz.kmz",
+   "source_sha256": "1f82e17dc6d17d760091a7c6215a502073277e8892beb020698db9210c3f79e1",
+   "geometry_types": {
+    "Polygon": 1
+   },
+   "vertices": 1260,
+   "revision": 0,
+   "corrected": false,
+   "original": null,
+   "source_in_force": true
+  }
+ ],
+ "absent": [
+  {
+   "product": "ww",
+   "reason": "not_issued",
+   "detail": "NHC's CurrentStorms entry for advisory 032 (the newest the bank holds, 032:63ae9aa6, fetched 2026-10-15T09:49:33.813818+00:00) links no ww_kmz"
+  },
+  {
+   "product": "surge_ww",
+   "reason": "basin_has_none",
+   "detail": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only; this storm's basin is 'ep'"
+  }
+ ],
+ "wsp": {
+  "cycle": "2026101506",
+  "synoptic_ts": "2026-10-15T06:00:00+00:00",
+  "objects": [
+   {
+    "product": "wsp34_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101506/wsp34_bands.geojson",
+    "sha256": "f2e9bc1f83178e8ab8c8fd92bc4d10a9d7bf93618e4cf5a32df4b583400b52b0",
+    "bytes": 1211969,
+    "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+    "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "vertices": 29916,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp50_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101506/wsp50_bands.geojson",
+    "sha256": "4b92c95805715aaef4109fee0a8fc0b4b329c657e1852227d97d3188dfe3e9e7",
+    "bytes": 691986,
+    "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+    "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+    "geometry_types": {
+     "Polygon": 2,
+     "MultiPolygon": 8
+    },
+    "vertices": 17059,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp64_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101506/wsp64_bands.geojson",
+    "sha256": "77708dbae121d0f1b3e22c6625db6728dee25013666fd9582dfd66a9d2b4a0a2",
+    "bytes": 444010,
+    "source_r2_key": "tropical/nhc/wsp/2026101506/wsp_5km_zip.zip",
+    "source_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+    "geometry_types": {
+     "Polygon": 2,
+     "MultiPolygon": 6
+    },
+    "vertices": 10941,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   }
+  ],
+  "absent": [
+   {
+    "product": "wsp34_grid",
+    "reason": "not_published",
+    "detail": "NHC's wsp_halfdeg_zip for cycle 2026101506 is banked (tropical/nhc/wsp/2026101506/wsp_halfdeg_zip.zip, sha256 8ee8d4c1b1acc3fda6065a67977823c7dcc8c661c688657739e5fad081cec693); the ledger holds no published display:wsp34_grid object"
+   },
+   {
+    "product": "wsp50_grid",
+    "reason": "not_published",
+    "detail": "NHC's wsp_halfdeg_zip for cycle 2026101506 is banked (tropical/nhc/wsp/2026101506/wsp_halfdeg_zip.zip, sha256 8ee8d4c1b1acc3fda6065a67977823c7dcc8c661c688657739e5fad081cec693); the ledger holds no published display:wsp50_grid object"
+   },
+   {
+    "product": "wsp64_grid",
+    "reason": "not_published",
+    "detail": "NHC's wsp_halfdeg_zip for cycle 2026101506 is banked (tropical/nhc/wsp/2026101506/wsp_halfdeg_zip.zip, sha256 8ee8d4c1b1acc3fda6065a67977823c7dcc8c661c688657739e5fad081cec693); the ledger holds no published display:wsp64_grid object"
+   }
+  ],
+  "absence": null
+ },
+ "absence": null,
+ "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (pantry 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
+ "wsp_rule": "WSP is issued per synoptic cycle, basin-wide, not per storm: the cycle is the advisory's synoptic time (its official forecast's init_ts) as YYYYMMDDHH. Bands are the 5 km zip's contours (11 percentage bands); the grid is the half-degree zip's points, value in percent, cells below 0.1 % absent.",
+ "revision_rule": "revision and corrected are each object's own (the ledger's copy in force and meta.correction); `original` is the uncorrected copy where one is corrected. The top-level revision is the highest served; source_in_force says whether the NHC file an object names is the copy in force now.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket (tropical_file_vintage_in_force, source 'parsed', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is recon d091737 §7's; d091740's spec was not readable when this route was written.",
+ "reasons": {
+  "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",
+  "basin_has_none": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only",
+  "not_banked": "the bank holds no copy of the NHC file this would be published from",
+  "not_published": "the NHC file is banked; no published display object is in the ledger"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

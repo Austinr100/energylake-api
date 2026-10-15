@@ -1,0 +1,50 @@
+[
+ {
+  "name": "STORM_SQL ep202026",
+  "sql": "SELECT storm_id, basin, number, season, status, names, aliases, first_seen, last_seen, last_lat, last_lon, updated_ts FROM tropical_storms WHERE storm_id = 'ep202026'"
+ },
+ {
+  "name": "ENTRY_NEWEST_SQL ep202026",
+  "sql": "SELECT vintage_key, issued_ts, fetch_ts, meta FROM tropical_file_vintage_in_force WHERE source = 'nhc' AND product = 'storm_entry' AND storm_id = 'ep202026' ORDER BY issued_ts DESC, fetch_ts DESC, vintage_id DESC LIMIT 1"
+ },
+ {
+  "name": "ENTRY_NEWEST_SQL ep182026",
+  "sql": "SELECT vintage_key, issued_ts, fetch_ts, meta FROM tropical_file_vintage_in_force WHERE source = 'nhc' AND product = 'storm_entry' AND storm_id = 'ep182026' ORDER BY issued_ts DESC, fetch_ts DESC, vintage_id DESC LIMIT 1"
+ },
+ {
+  "name": "ADVISORY_AT_SQL ep202026 032",
+  "sql": "SELECT advisory, init_ts, min(valid_ts) AS position_valid_ts FROM tropical_track_points_in_force WHERE storm_id = 'ep202026' AND source = 'nhc_official' AND advisory = '032' GROUP BY advisory, init_ts ORDER BY init_ts DESC LIMIT 1"
+ },
+ {
+  "name": "ADVISORY_NEWEST_SQL ep202026",
+  "sql": "SELECT p.advisory, p.init_ts, min(p.valid_ts) AS position_valid_ts FROM (SELECT init_ts FROM tropical_track_points_in_force WHERE storm_id = 'ep202026' AND source = 'nhc_official' ORDER BY init_ts DESC LIMIT 1) AS m JOIN tropical_track_points_in_force AS p ON p.storm_id = 'ep202026' AND p.source = 'nhc_official' AND p.init_ts = m.init_ts GROUP BY p.advisory, p.init_ts ORDER BY position_valid_ts DESC LIMIT 1"
+ },
+ {
+  "name": "ENTRY_SQL ep182026 058",
+  "sql": "SELECT vintage_key, issued_ts, fetch_ts, meta FROM tropical_file_vintage_in_force WHERE source = 'nhc' AND product = 'storm_entry' AND storm_id = 'ep182026' AND vintage_key LIKE '058:%' ORDER BY fetch_ts DESC, vintage_id DESC LIMIT 1"
+ },
+ {
+  "name": "FILES_SQL products ep202026 032",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_file_vintage_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.corrected AND a.source = v.source AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.vintage_key AND a.status = 'banked' AND NOT (a.meta ? 'correction') AND NOT (a.meta ? 'anomaly_prior_sha') ORDER BY a.fetch_ts, a.vintage_id LIMIT 1) AS o ON true WHERE v.source = ANY ('{nhc,parsed}'::text[]) AND v.product = ANY ('{cone_kmz,ww_kmz,surge_ww_kml,display:cone,display:ww,display:surge_ww}'::text[]) AND v.storm_id = 'ep202026' AND v.vintage_key = '032' ORDER BY v.source, v.product"
+ },
+ {
+  "name": "FILES_SQL wsp 2026101506",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_file_vintage_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.corrected AND a.source = v.source AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.vintage_key AND a.status = 'banked' AND NOT (a.meta ? 'correction') AND NOT (a.meta ? 'anomaly_prior_sha') ORDER BY a.fetch_ts, a.vintage_id LIMIT 1) AS o ON true WHERE v.source = ANY ('{nhc,parsed}'::text[]) AND v.product = ANY ('{wsp_5km_zip,wsp_halfdeg_zip,display:wsp34_bands,display:wsp50_bands,display:wsp64_bands,display:wsp34_grid,display:wsp50_grid,display:wsp64_grid}'::text[]) AND v.storm_id = '' AND v.vintage_key = '2026101506' ORDER BY v.source, v.product"
+ },
+ {
+  "name": "FILES_SQL text ep202026 032",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_file_vintage_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.corrected AND a.source = v.source AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.vintage_key AND a.status = 'banked' AND NOT (a.meta ? 'correction') AND NOT (a.meta ? 'anomaly_prior_sha') ORDER BY a.fetch_ts, a.vintage_id LIMIT 1) AS o ON true WHERE v.source = ANY ('{nhc,parsed}'::text[]) AND v.product = ANY ('{tcd,tcp,display:tcd,display:tcp}'::text[]) AND v.storm_id = 'ep202026' AND v.vintage_key = '032' ORDER BY v.source, v.product"
+ },
+ {
+  "name": "MEMBERS_SQL ep202026 all",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.meta, v.revision, v.corrected FROM tropical_file_vintage_in_force AS v WHERE v.source = ANY ('{parsed}'::text[]) AND v.product = ANY ('{tracks:ecmwf_ens,tracks:ecmwf_aifs_ens,tracks:adeck,display:members:ecmwf_ens,display:members:ecmwf_aifs_ens,display:members:gefs_adeck}'::text[]) AND v.storm_id = 'ep202026' AND (NULL::text IS NULL OR v.vintage_key = NULL) ORDER BY v.vintage_key, v.product"
+ },
+ {
+  "name": "MEMBERS_SQL ep202026 2026101112",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.meta, v.revision, v.corrected FROM tropical_file_vintage_in_force AS v WHERE v.source = ANY ('{parsed}'::text[]) AND v.product = ANY ('{tracks:ecmwf_ens,tracks:ecmwf_aifs_ens,tracks:adeck,display:members:ecmwf_ens,display:members:ecmwf_aifs_ens,display:members:gefs_adeck}'::text[]) AND v.storm_id = 'ep202026' AND ('2026101112'::text IS NULL OR v.vintage_key = '2026101112') ORDER BY v.vintage_key, v.product"
+ },
+ {
+  "name": "MEMBERS_SQL ep212026 all",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.meta, v.revision, v.corrected FROM tropical_file_vintage_in_force AS v WHERE v.source = ANY ('{parsed}'::text[]) AND v.product = ANY ('{tracks:ecmwf_ens,tracks:ecmwf_aifs_ens,tracks:adeck,display:members:ecmwf_ens,display:members:ecmwf_aifs_ens,display:members:gefs_adeck}'::text[]) AND v.storm_id = 'ep212026' AND (NULL::text IS NULL OR v.vintage_key = NULL) ORDER BY v.vintage_key, v.product"
+ }
+]

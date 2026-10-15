@@ -1,0 +1,12 @@
+{
+  "title": "GeoColor (True Color (Day), Multispectral IR (Night))",
+  "subtitle": "GOES-West/ABI",
+  "ongoing": true,
+  "measurement": "Geostationary",
+  "retentionPeriod": -1,
+  "daynight": [
+    "day",
+    "night"
+  ],
+  "layerPeriod": "Subdaily"
+}

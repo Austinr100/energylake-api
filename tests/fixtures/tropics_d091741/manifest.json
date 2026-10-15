@@ -1,0 +1,121 @@
+{
+ "lane": "d091741",
+ "what": "The Tropics index routes' fixtures. bank/: the ledger slice, official points, storms and datasets the routes read, as Postgres's own row_to_json(t)::text, one row per line in key order, read through the Neon connector (project Energylake, read-only SELECTs). recon/: copies of recon d091737's fixtures the display rows are built from. gibs/: recorded GIBS answers. attribution/: GIBS's published acknowledgement and layer metadata.",
+ "cut": "2026-10-15T13:50:00+00:00",
+ "cut_rule": "tropical_track_points with inserted_ts <= cut; tropical_file_vintage with fetch_ts <= cut; tropical_storms and datasets as read (13:55:50Z).",
+ "bank": {
+  "dataset": {
+   "path": "bank/dataset.jsonl.gz",
+   "rows": 4,
+   "sha256": "07af19f9bee2e35f135be2835b56135932cad3e572c44c297fb479e8a4a4c79a",
+   "read_at": "2026-10-15T13:55:50.539Z"
+  },
+  "storm": {
+   "path": "bank/storm.jsonl.gz",
+   "rows": 4,
+   "sha256": "99e9dfc713a02c7d18297728051c5e787688086c0ce944477c7fbd7419349b1c",
+   "read_at": "2026-10-15T13:55:50.539Z"
+  },
+  "official": {
+   "path": "bank/official.jsonl.gz",
+   "rows": 550,
+   "sha256": "9a51051232dd4ca4ab945053e6e3eb1dc226fb41ad43558ab1094074a0fc8a5f",
+   "read_at": "2026-10-15T13:56:27.382Z"
+  },
+  "ledger": {
+   "path": "bank/ledger.jsonl.gz",
+   "rows": 692,
+   "sha256": "51417b81101a0b90f47c2cf4e0f205bc4cc5b77b1a48706f55d30c6c6ae5bd83",
+   "read_at": "2026-10-15T13:56:39.033Z"
+  }
+ },
+ "neon_ledger_rows_at_read": 7029,
+ "display_rows": {
+  "path": "display_rows.json",
+  "generator": "make_display_rows.py",
+  "what": "CONSTRUCTED: no display:* row exists on Neon (read 13:56Z) and d091740's spec was not readable; built from recon/ to recon \u00a77's keys"
+ },
+ "constructed_rows": {
+  "path": "constructed_rows.json",
+  "generator": "make_display_rows.py",
+  "what": "CONSTRUCTED: I2's revision-1 cone of Simon 032, and three member manifests (Simon's from the recon's dry write over a SYNTHETIC parquet; Rachel's states 1 member against a minimum of 5; Isaias 2026101006 AIFS-ENS states 7 against 10)"
+ },
+ "recon": {
+  "recon/recorded_k1.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/recorded_k1.json",
+   "sha256": "f40d833405c408dec18240854e2f2aefe8c811e33fd19aef899ece2c4b0d1fc7"
+  },
+  "recon/recorded_t1.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/recorded_t1.json",
+   "sha256": "45817767e872e7b297903b0a9b2492743ea873bb452be566676a42592b6c422a"
+  },
+  "recon/MANIFEST.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/MANIFEST.json",
+   "sha256": "ebf9eb45b140592a616c42c47ac1e17bf1c3e4c712a5d7cde81fd126e3655dd3"
+  },
+  "recon/ep182026_adv058_tcd.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/parsed/ep182026_adv058_tcd.json",
+   "sha256": "f5921626bd885ae91e4678532d90976029097fe2afaebf735a4d9a246b08f221"
+  },
+  "recon/ep182026_adv058_tcp.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/parsed/ep182026_adv058_tcp.json",
+   "sha256": "cbc91bf3288b32f0a944e8316b187d14f566b3cddbf4c98775ff9b8ae8a57103"
+  },
+  "recon/ep202026_adv032_tcd.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/parsed/ep202026_adv032_tcd.json",
+   "sha256": "68ef33dc59631010de31776880668a52395d9904a68929978db4da5428f56ca4"
+  },
+  "recon/ep202026_adv032_tcp.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:tests/fixtures/tropics_v2_d091737/parsed/ep202026_adv032_tcp.json",
+   "sha256": "e896c5756890628e97062704f68f51df56fd12a61643b8daf27e0e83d2ec727d"
+  },
+  "recon/members_dry_ep202026_2026101112_ecmwf_ens_manifest.json": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:docs/receipts/tropics-v2-d091737/members_dry/synthetic_ep202026_2026101112_ecmwf_ens/manifest.json",
+   "sha256": "9016925ca222b1d77ba0b58f57a5e512afbd188d3d38d070728b8b5d37d38471"
+  },
+  "gibs/recon_d091737_z3_runs.jsonl": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:docs/receipts/tropics-v2-d091737/gibs/gibs_probe_runs.jsonl",
+   "sha256": "506c6f41ac18d57ef1ada5c38eb2ed46b71885841eb9c9edfe6ef562e71cdc73"
+  }
+ },
+ "gibs": {
+  "gibs/recon_d091737_z3_runs.jsonl": {
+   "from": "energylake-pantry @ 81ad9019157f93a5312ce91b833e104d608e9512:docs/receipts/tropics-v2-d091737/gibs/gibs_probe_runs.jsonl",
+   "sha256": "506c6f41ac18d57ef1ada5c38eb2ed46b71885841eb9c9edfe6ef562e71cdc73",
+   "what": "the recon's z3 probe runs, 13:02-13:27Z"
+  },
+  "gibs/d091741_z0_runs.jsonl": {
+   "what": "this lane's z0 recordings (docs/receipts/tropics-api-index-d091741/record_gibs_z0.py); appended through the session",
+   "sha256": null
+  },
+  "gibs/tile200_east_z0_2026-10-15T1300Z.png": {
+   "sha256": "96b3f0a76a8208d9dfbe6232d4457ea4383663f834b470f3c86e8dd29996986f",
+   "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/2026-10-15T13:00:00Z/GoogleMapsCompatible_Level7/0/0/0.png"
+  },
+  "gibs/tile200.headers": {
+   "sha256": "7f5c0c192e61b38e50e8d1c8f30d7eaf5c95032a8b292df3e335df83cbc75a68"
+  },
+  "gibs/tile404_east_z0_2027-01-01T0000Z.html": {
+   "sha256": "80c3fe2ae1062abf56456f52518bd670f9ec3917b7f85e152b347ac6b6faf880",
+   "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/2027-01-01T00:00:00Z/GoogleMapsCompatible_Level7/0/0/0.png"
+  },
+  "gibs/tile404.headers": {
+   "sha256": "191ebb8f235428b8d6615759f81ea53526e34cdefadc2d784f4cb88e6635a838"
+  }
+ },
+ "attribution": {
+  "attribution/gibs-api-docs_docs_index.md": {
+   "from": "github.com/nasa-gibs/gibs-api-docs @ afb15814aee74b09e672466adb731b2e34d51d8b:docs/index.md (2026-09-21)",
+   "sha256": "c3cc2ba2a78a0dcc8f220c8680ea1ff27316f595144d58684ab846a1edb669a9",
+   "read": "2026-10-15, between 13:50Z and 14:00Z (container clock)"
+  },
+  "attribution/gibs_layer-metadata_GOES-East_ABI_GeoColor.json": {
+   "from": "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/GOES-East_ABI_GeoColor.json",
+   "sha256": "5051576b9301880e86fd211a35ebc8f01f7846ad1a08124d3b27c0cb7905cffc"
+  },
+  "attribution/gibs_layer-metadata_GOES-West_ABI_GeoColor.json": {
+   "from": "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/GOES-West_ABI_GeoColor.json",
+   "sha256": "8de1274f077316539885c6953dac8e1edc8430a777732325b91586e71238fa27"
+  }
+ }
+}

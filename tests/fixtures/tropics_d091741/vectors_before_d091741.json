@@ -1,0 +1,17 @@
+{
+ "what": "sha256 of each d091673 Tropics vector as committed on main at 265f9fb, before d091741's two not_served pointers",
+ "base": "265f9fb",
+ "bodies": {
+  "odds_al092026.json": "6f33cc2c277d2addf696d9e151fade4654693bb9fe7cf642319055c1c85f21eb",
+  "odds_ep182026.json": "d32c961c92dc47bf57856d2797dc35121db8dc5a247cd923a3c50116f43724e6",
+  "odds_ep202026.json": "381e66188475477fe6aaf34dad420ec167c56532d10b1da620415556d36f3730",
+  "storm_al092026.json": "b35459e9cbf45e6aba4baef40e0a21efe3cb87deaf544237475314429916b4b8",
+  "storm_ep182026.json": "b93de302c8b25cef713ebc081f61b50c7ea284e4cf035c2a1b9865ff802c6f49",
+  "storm_ep202026.json": "51cdba206f2b3c27370f2cbae4eeec73c1b2ded6c8d210f55c149175ecdc3d94",
+  "storms_active.json": "9515fb3db72e098a5976ecb140365f78cf1da9ae1b301b8b22420b9327ef43b5",
+  "tracks_al092026_n4.json": "167becee1ad445fb2b6eaef247989ecab32e47c3772dcb9a0a4e2f098b22e1e2",
+  "tracks_ep182026_n4.json": "43d7d8c7bdf3e3033d36a8f7b7e9fe76a39e571dea74d0b5ec751e6e2fb1eaa3",
+  "tracks_ep182026_n8.json": "81a7ac1c71e52c2079e55e9bfd8e68ba299de0d5756833c58221b41f31a4f64e",
+  "tracks_ep202026_n4.json": "eec65905ea222e942c59967ee22fafde2a209cb4d7edf395d6761416a28ca516"
+ }
+}
