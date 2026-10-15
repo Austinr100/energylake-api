@@ -28,9 +28,14 @@ _d091737.md): one vintage-ledger row per published object, `product` = 'display:
 K1 summary plus the source object's key and sha. The two names the recon left open
 are pinned here, in ONE place each, for d091740 to confirm or change:
 
-  * DISPLAY_SOURCE = 'parsed'. The ledger's CHECK (migration 291) admits six sources
-    and no 'display'; 'parsed' is the bank's source for objects it derives (the
-    'tracks:*' parquets), so a display row needs no migration under it.
+  * DISPLAY_SOURCE = 'display'. d091740 confirmed the recon's name and migration 314
+    (applied 2026-10-15 15:03Z) re-cut the ledger's source CHECK to admit it, with
+    tfv_display_is_display_product: (source = 'display') = (product LIKE 'display:%').
+    This file first pinned 'parsed' (291's six sources held no 'display' and 'parsed'
+    is the bank's source for the 'tracks:*' parquets); the first backfill (run
+    38758258112, 454 rows) landed under 'display' and every index read answered
+    not_published over a full ledger — D-09-05-T, the cross-repo pin that drifted.
+    PARSED_SOURCE stays the member parquets' source; /members reads both.
   * the meta keys each route reads (META_* below).
 
 A display row is read through tropical_file_vintage_in_force (pantry 294): per
@@ -94,10 +99,11 @@ def parse_basin(raw: Optional[str]) -> str:
     return raw
 
 
-# ── the ledger contract (recon d091737 §7; d091740 to confirm) ──────────────
+# ── the ledger contract (recon d091737 §7; confirmed by d091740 / migration 314) ──────────────
 
 DISPLAY_BASE = "https://display.energylake.io/"
-DISPLAY_SOURCE = "parsed"
+DISPLAY_SOURCE = "display"   # migration 314; the published objects
+PARSED_SOURCE = "parsed"     # the bank's own derivations: the tracks:* member parquets
 NHC_SOURCE = "nhc"
 DISPLAY_PREFIX = "display:"
 
@@ -265,8 +271,8 @@ def files_params(storm_id: str, vintage_key: str, pairs) -> dict:
 
 def members_params(storm_id: str, cycle: Optional[str]) -> dict:
     products = [p for _, p in ENSEMBLES] + [members_product(e) for e, _ in ENSEMBLES]
-    return {"sources": [DISPLAY_SOURCE], "products": products, "storm_id": storm_id,
-            "cycle": cycle}
+    return {"sources": sorted({PARSED_SOURCE, DISPLAY_SOURCE}), "products": products,
+            "storm_id": storm_id, "cycle": cycle}
 
 
 def entry_params(storm_id: str, advisory: str) -> dict:

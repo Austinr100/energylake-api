@@ -102,6 +102,7 @@ def load(conn, *, constructed: bool = False, padded: bool = False) -> None:
     import load_bank_d091682 as lb2
     conn.execute((lb2.FIX / "ddl_294.sql").read_text())
     conn.execute((lb2.FIX / "ddl_297.sql").read_text())
+    conn.execute((FIX / "ddl_314.sql").read_text())  # the display CHECKs the fixture rows are held to
     for kind in LOAD_ORDER:
         _insert(conn, TABLES[kind], "[" + ",".join(text(kind).split("\n")) + "]")
     _insert(conn, "tropical_file_vintage", display_rows())
