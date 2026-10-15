@@ -21534,7 +21534,9 @@ async def weather_tropics_odds(
 #
 # AN INDEX, AND NO R2. Each route says what the pantry published to the display
 # bucket, its key and sha, and why anything is absent, read from the vintage
-# ledger (tropical_file_vintage_in_force); the browser fetches the objects from
+# ledger (the published objects through tropical_display_in_force, the copy in
+# force per advisory or cycle, d091746; NHC's files through
+# tropical_file_vintage_in_force); the browser fetches the objects from
 # display.energylake.io. /ground reads no table: it asks GIBS. The SQL, the
 # shaping and the probe are tropics_index.py's; this section is the routes and
 # their memos, on the same plumbing as the routes above: every ledger read in
@@ -21629,11 +21631,17 @@ async def _tropics_advisory_reads(storm_id: str, advisory: Optional[str], pairs,
                 if a is not None:
                     await cur.execute(_ti.FILES_SQL, _ti.files_params(storm_id, a, pairs))
                     rows = await cur.fetchall()
+                    await cur.execute(_ti.DISPLAY_FILES_SQL,
+                                      _ti.display_files_params(storm_id, a, pairs))
+                    rows = rows + await cur.fetchall()
                     cycle = _ti.wsp_cycle(adv["init_ts"]) if adv is not None else None
                     if with_wsp and cycle is not None:
                         await cur.execute(_ti.FILES_SQL,
                                           _ti.files_params("", cycle, _ti.WSP_PRODUCTS))
                         wsp_rows = await cur.fetchall()
+                        await cur.execute(_ti.DISPLAY_FILES_SQL,
+                                          _ti.display_files_params("", cycle, _ti.WSP_PRODUCTS))
+                        wsp_rows = wsp_rows + await cur.fetchall()
     if advisory is not None and adv is None and entry is None and not rows:
         raise HTTPException(status_code=404,
                             detail=f"no advisory {advisory} for storm_id={storm_id} in the "
@@ -21665,6 +21673,8 @@ async def _tropics_members_build(storm_id: str, cycle: Optional[str]) -> dict:
                 storm = await _tropics_storm_or_404(cur, storm_id)
                 await cur.execute(_ti.MEMBERS_SQL, _ti.members_params(storm_id, cycle))
                 rows = await cur.fetchall()
+                await cur.execute(_ti.DISPLAY_MEMBERS_SQL, _ti.display_members_params(storm_id, cycle))
+                rows = rows + await cur.fetchall()
     return _ti.build_members(storm=storm, cycle=cycle, rows=rows)
 
 
@@ -21757,13 +21767,13 @@ async def weather_tropics_text(
     """One advisory's published Forecast Discussion (TCD) and Public Advisory (TCP).
 
         { storm_id, name, basin, advisory, advisory_requested, init_ts,
-          position_valid_ts, issued_ts, nhc_entry, nhc_entry_absence,
+          position_valid_ts, issued_ts, nhc_entry, nhc_entry_absence, revision, corrected,
           products: { tcd | tcp: { product, url, sha256, bytes, issued_utc,
-                                   transmitted_utc, forecaster,
-                                   sections: [ { title, kind } ], source_r2_key,
+                                   transmitted_utc, forecaster, title, n_forecast_rows,
+                                   sections: [ { kind } ], source_r2_key,
                                    source_sha256, revision, corrected, original,
                                    source_in_force, absence } },
-          absence, advisory_rule, times_rule, sections_rule, index_rule, reasons,
+          absence, advisory_rule, times_rule, revision_rule, sections_rule, index_rule, reasons,
           timestamps, not_served, nhc_terms, cache }
 
     A product not served carries `absence` {reason, detail}: not_banked,

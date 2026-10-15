@@ -1,4 +1,5 @@
-"""The Tropics index — d091741 (D-09-25-226, orders 1-4: the API half), reading no R2.
+"""The Tropics index — d091741 (D-09-25-226, orders 1-4: the API half), reading no R2;
+the display read by revision — d091746 (D-09-25-231).
 
     GET /api/weather/tropics/ground?basin=al|ep|cp
                                         the GOES GeoColor frame GIBS holds now, probed
@@ -19,14 +20,14 @@ the display bucket. /ground reads no table: it asks GIBS. This module holds the 
 the shaping and the probe; main.py holds the routes, the memos and the statement
 timeout (D-09-25-75).
 
-THE LEDGER CONTRACT, AND WHERE IT CAME FROM. d091740 (the pantry's publish step)
-had not landed when this lane ran and its spec was not readable from here (no branch
-in energylake-pantry, nothing in energylake-architect), so the published rows are
-read as recon d091737 §7 proposes them (pantry docs/recon_2026_10_15_tropics_v2_layers
-_d091737.md): one vintage-ledger row per published object, `product` = 'display:<name>',
+THE LEDGER CONTRACT, AND WHERE IT CAME FROM. d091741 was written before d091740 (the
+pantry's publish step) landed, against recon d091737 §7's proposal; the publisher
+(tropical/publish.py, migrations 314 and 316) confirmed it, with the corrections keyed
+as below (THE REVISION READ). The rows, as recon d091737 §7 proposes them (pantry
+docs/recon_2026_10_15_tropics_v2_layers_d091737.md): one vintage-ledger row per published object, `product` = 'display:<name>',
 `r2_key` = the display key, sha256 and byte_size of the published bytes, `meta` = the
 K1 summary plus the source object's key and sha. The two names the recon left open
-are pinned here, in ONE place each, for d091740 to confirm or change:
+are pinned here, in ONE place each:
 
   * DISPLAY_SOURCE = 'display'. d091740 confirmed the recon's name and migration 314
     (applied 2026-10-15 15:03Z) re-cut the ledger's source CHECK to admit it, with
@@ -36,12 +37,23 @@ are pinned here, in ONE place each, for d091740 to confirm or change:
     38758258112, 454 rows) landed under 'display' and every index read answered
     not_published over a full ledger — D-09-05-T, the cross-repo pin that drifted.
     PARSED_SOURCE stays the member parquets' source; /members reads both.
-  * the meta keys each route reads (META_* below).
+  * the meta keys each route reads (META_* below). /text reads the publisher's
+    section_kinds, title and n_forecast_rows (d091746: d091741 read a `sections` key no
+    writer produces, and every live /text served sections: []).
 
-A display row is read through tropical_file_vintage_in_force (pantry 294): per
-(source, product, storm_id, vintage_key), the copy in force, with `revision` and
-`corrected` from meta.correction. Every read names its (source, product, storm_id,
-vintage_key) and walks tfv_identity (source, product, storm_id, vintage_key).
+THE REVISION READ (d091746). The publisher (pantry tropical/publish.py, d091740) keys a
+correction NHC issued as its OWN row, vintage_key '<ADV>r<n>' (or '<cycle>r<n>'), one
+row per (product, storm_id, vintage_key) (pantry 314: tfv_display_immutable,
+tfv_display_vintage_key; 316 admits a 12-digit outlook stamp as a base). So a display
+row is read through 314's own reader, tropical_display_in_force: per (product,
+storm_id, advisory_or_cycle) the highest revision, then the newest publish
+(D-09-25-226 §2/§5: readers use the copy in force). `revision` is the view's (the
+key's r<n>), `corrected` is revision > 0, and a corrected object's `original` is
+the revision-0 row at the same identity (vintage_key = advisory_or_cycle). NHC's
+own files are still read through 294's tropical_file_vintage_in_force by exact
+vintage_key, and the member parquets likewise (source 'parsed'); no display row
+is read through 294's view. Before d091746 this module asked 294's view for
+vintage_key = '<ADV>', so a corrected advisory was served its revision-0 object.
 
 THE RULINGS, AND WHERE EACH IS HELD.
   D-09-21-05  a count says what it counted: every absence names what was read and
@@ -128,8 +140,10 @@ SURGE_BASINS = ("al",)
 
 # The meta keys read off a display row (the K1 summary, recon §3 and §7).
 META_OBJECT = ("source_r2_key", "source_sha256", "geometry_types", "vertices")
+# The publisher's text meta (tropical/publish.py: the products_text header, plus
+# section_kinds and n_forecast_rows); the section titles are in the object only.
 META_TEXT = ("source_r2_key", "source_sha256", "issued_utc", "transmitted_utc", "forecaster",
-             "sections")
+             "title", "n_forecast_rows", "section_kinds")
 META_MEMBERS = ("source_r2_key", "source_sha256", "n_members", "min_members", "taus")
 
 
@@ -145,12 +159,13 @@ def display_url(r2_key: Optional[str]) -> Optional[str]:
     return None if r2_key is None else DISPLAY_BASE + r2_key
 
 
-INDEX_RULE = ("Each object is a vintage-ledger row of the display bucket "
-              "(tropical_file_vintage_in_force, source '" + DISPLAY_SOURCE + "', product "
+INDEX_RULE = ("Each object is a vintage-ledger row of the display bucket, the copy in "
+              "force per (product, storm_id, advisory or cycle) as pantry 314's "
+              "tropical_display_in_force names it (source '" + DISPLAY_SOURCE + "', product "
               "'display:<name>', r2_key = the display key), served as the ledger states it: "
               "url = " + DISPLAY_BASE + "<r2_key>. The API reads no R2 and fetches no "
-              "object. The contract is recon d091737 §7's; d091740's spec was not readable "
-              "when this route was written.")
+              "object. The contract is the publisher's (pantry tropical/publish.py, "
+              "migrations 314 and 316).")
 REASONS = {
     "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such "
                   "product, or links an earlier advisory's file",
@@ -224,55 +239,87 @@ ENTRY_SQL = """
      LIMIT 1
 """
 
-# The copies in force of one (storm_id, vintage_key)'s files, NHC's and the
-# display bucket's, each named: tfv_identity probes. A corrected copy carries
-# its original (the banked copy with no meta.correction, the first fetched):
-# one more probe, only where corrected.
+# NHC's own files of one (storm_id, vintage_key), the copy in force of each
+# (pantry 294), by exact key: tfv_identity probes. Only what the absences and
+# source_in_force need (the banked key and sha); no display row is read here.
 FILES_SQL = """
     SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size,
-           v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected,
+           v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected
+      FROM tropical_file_vintage_in_force AS v
+     WHERE v.source = 'nhc' AND v.product = ANY (%(products)s::text[])
+       AND v.storm_id = %(storm_id)s AND v.vintage_key = %(vintage_key)s
+     ORDER BY v.product
+"""
+
+# The published objects of one (storm_id, advisory or WSP cycle), the copy in
+# force of each (pantry 314's tropical_display_in_force: the highest revision,
+# then the newest publish). A corrected object (revision > 0) carries its
+# original, the revision-0 row at the same identity, whose vintage_key is the
+# bare advisory or cycle (one row: tfv_display_immutable): one more probe, only
+# where corrected. WSP is basin-wide: storm_id ''.
+DISPLAY_FILES_SQL = """
+    SELECT 'display' AS source, v.product, v.advisory_or_cycle, v.vintage_key, v.revision,
+           v.revision > 0 AS corrected, v.r2_key, v.sha256, v.byte_size, v.issued_ts,
+           v.published_ts, v.meta,
            o.r2_key AS original_r2_key, o.sha256 AS original_sha256,
            o.byte_size AS original_bytes
-      FROM tropical_file_vintage_in_force AS v
+      FROM tropical_display_in_force AS v
       LEFT JOIN LATERAL (
             SELECT a.r2_key, a.sha256, a.byte_size
               FROM tropical_file_vintage AS a
-             WHERE v.corrected
-               AND a.source = v.source AND a.product = v.product
-               AND a.storm_id = v.storm_id AND a.vintage_key = v.vintage_key
-               AND a.status = 'banked'
-               AND NOT (a.meta ? 'correction') AND NOT (a.meta ? 'anomaly_prior_sha')
-             ORDER BY a.fetch_ts, a.vintage_id
-             LIMIT 1) AS o ON true
-     WHERE v.source = ANY (%(sources)s::text[]) AND v.product = ANY (%(products)s::text[])
-       AND v.storm_id = %(storm_id)s AND v.vintage_key = %(vintage_key)s
-     ORDER BY v.source, v.product
+             WHERE v.revision > 0
+               AND a.source = 'display' AND a.product = v.product
+               AND a.storm_id = v.storm_id AND a.vintage_key = v.advisory_or_cycle
+               AND a.status = 'banked') AS o ON true
+     WHERE v.product = ANY (%(products)s::text[]) AND v.storm_id = %(storm_id)s
+       AND v.advisory_or_cycle = %(advisory_or_cycle)s
+     ORDER BY v.product
 """
 
-# Every banked member parquet of one storm, and every published manifest, per
-# cycle (vintage_key): one tfv_identity range per (source, product, storm_id).
+# Every banked member parquet of one storm, per cycle (vintage_key): one
+# tfv_identity range per product. The bank's own derivations (source 'parsed').
 MEMBERS_SQL = """
     SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size,
            v.issued_ts, v.meta, v.revision, v.corrected
       FROM tropical_file_vintage_in_force AS v
-     WHERE v.source = ANY (%(sources)s::text[]) AND v.product = ANY (%(products)s::text[])
+     WHERE v.source = 'parsed' AND v.product = ANY (%(products)s::text[])
        AND v.storm_id = %(storm_id)s
        AND (%(cycle)s::text IS NULL OR v.vintage_key = %(cycle)s)
      ORDER BY v.vintage_key, v.product
 """
 
+# Every published member manifest of one storm, the copy in force per cycle
+# (advisory_or_cycle), read as DISPLAY_FILES_SQL reads the advisory objects.
+DISPLAY_MEMBERS_SQL = """
+    SELECT 'display' AS source, v.product, v.advisory_or_cycle, v.vintage_key, v.revision,
+           v.revision > 0 AS corrected, v.r2_key, v.sha256, v.byte_size, v.issued_ts,
+           v.published_ts, v.meta
+      FROM tropical_display_in_force AS v
+     WHERE v.product = ANY (%(products)s::text[]) AND v.storm_id = %(storm_id)s
+       AND (%(cycle)s::text IS NULL OR v.advisory_or_cycle = %(cycle)s)
+     ORDER BY v.advisory_or_cycle, v.product
+"""
+
 
 def files_params(storm_id: str, vintage_key: str, pairs) -> dict:
-    """FILES_SQL's parameters for (served name, NHC product) pairs."""
-    products = list(dict.fromkeys([p for _, p in pairs] + [display_product(n) for n, _ in pairs]))
-    return {"sources": sorted({NHC_SOURCE, DISPLAY_SOURCE}), "products": products,
-            "storm_id": storm_id, "vintage_key": vintage_key}
+    """FILES_SQL's parameters: the NHC products of (served name, NHC product) pairs."""
+    return {"products": list(dict.fromkeys(p for _, p in pairs)), "storm_id": storm_id,
+            "vintage_key": vintage_key}
+
+
+def display_files_params(storm_id: str, advisory_or_cycle: str, pairs) -> dict:
+    """DISPLAY_FILES_SQL's parameters: the display products of the same pairs."""
+    return {"products": [display_product(n) for n, _ in pairs], "storm_id": storm_id,
+            "advisory_or_cycle": advisory_or_cycle}
 
 
 def members_params(storm_id: str, cycle: Optional[str]) -> dict:
-    products = [p for _, p in ENSEMBLES] + [members_product(e) for e, _ in ENSEMBLES]
-    return {"sources": sorted({PARSED_SOURCE, DISPLAY_SOURCE}), "products": products,
-            "storm_id": storm_id, "cycle": cycle}
+    return {"products": [p for _, p in ENSEMBLES], "storm_id": storm_id, "cycle": cycle}
+
+
+def display_members_params(storm_id: str, cycle: Optional[str]) -> dict:
+    return {"products": [members_product(e) for e, _ in ENSEMBLES], "storm_id": storm_id,
+            "cycle": cycle}
 
 
 def entry_params(storm_id: str, advisory: str) -> dict:
@@ -429,7 +476,8 @@ ADVISORY_DEFAULT_RULE = ("Without `advisory`, NHC's newest advisory for the stor
                          "newest CurrentStorms entry is of (issued_ts, then fetch), so a "
                          "text-only post-tropical advisory counts; for a storm with no entry, "
                          "the newest official forecast (newest init_ts, then position valid "
-                         "time, never the string). Per product, the copy in force (pantry 294). "
+                         "time, never the string). Per product, the copy in force (published "
+                         "objects: pantry 314's tropical_display_in_force; NHC's files: 294). "
                          "init_ts is the advisory's synoptic time, from its official forecast; "
                          "null where NHC issued none.")
 
@@ -492,9 +540,13 @@ def build_products(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
                      "YYYYMMDDHH. Bands are the 5 km zip's contours (11 percentage bands); the "
                      "grid is the half-degree zip's points, value in percent, cells below 0.1 % "
                      "absent."),
-        "revision_rule": ("revision and corrected are each object's own (the ledger's copy in "
-                          "force and meta.correction); `original` is the uncorrected copy where "
-                          "one is corrected. The top-level revision is the highest served; "
+        "revision_rule": ("revision and corrected are each object's own: the copy in force is "
+                          "the highest revision published for the advisory or cycle (pantry "
+                          "314's tropical_display_in_force; a correction NHC issued is its own "
+                          "ledger row, key '<ADV>r<n>'), corrected = revision > 0, and "
+                          "`original` is the revision-0 object where one is corrected, stated "
+                          "even when its bytes equal the correction's (NHC re-posted the same "
+                          "file). The top-level revision is the highest served; "
                           "source_in_force says whether the NHC file an object names is the "
                           "copy in force now."),
         "index_rule": INDEX_RULE, "reasons": REASONS, "timestamps": _tr.TIMESTAMPS,
@@ -510,8 +562,8 @@ def _text_obj(name: str, r: dict, src: Optional[dict]) -> dict:
     return {"product": name, "url": display_url(r["r2_key"]), "sha256": r["sha256"],
             "bytes": r["byte_size"], "issued_utc": meta.get("issued_utc"),
             "transmitted_utc": meta.get("transmitted_utc"), "forecaster": meta.get("forecaster"),
-            "sections": [{"title": s.get("title"), "kind": s.get("kind")}
-                         for s in (meta.get("sections") or [])],
+            "title": meta.get("title"), "n_forecast_rows": meta.get("n_forecast_rows"),
+            "sections": [{"kind": k} for k in (meta.get("section_kinds") or [])],
             "source_r2_key": meta.get("source_r2_key"), "source_sha256": meta.get("source_sha256"),
             **_provenance(r, src), "absence": None}
 
@@ -520,7 +572,7 @@ def build_text(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
                requested: Optional[str], entry: Optional[dict], rows: list) -> dict:
     """GET /text. One advisory's TCD and TCP as published, sections listed."""
     if advisory is None:
-        body = {**no_advisory(storm), "products": {}}
+        body = {**no_advisory(storm), "revision": 0, "corrected": False, "products": {}}
     else:
         by = _by_product(rows)
         products = {}
@@ -533,12 +585,15 @@ def build_text(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
                 a = _absent(name, nhc_product, advisory=advisory, src=src, entry=entry)
                 products[name] = {"product": name, "url": None, "sha256": None, "bytes": None,
                                   "issued_utc": None, "transmitted_utc": None, "forecaster": None,
-                                  "sections": [], "source_r2_key": None, "source_sha256": None,
+                                  "title": None, "n_forecast_rows": None, "sections": [], "source_r2_key": None, "source_sha256": None,
                                   "revision": None, "corrected": None, "original": None,
                                   "source_in_force": None,
                                   "absence": {"reason": a["reason"], "detail": a["detail"]}}
-        body = {**_advisory_head(storm, advisory, adv, requested, entry), "products": products,
-                "absence": None}
+        served = [o for o in products.values() if o["absence"] is None]
+        body = {**_advisory_head(storm, advisory, adv, requested, entry),
+                "revision": max((o["revision"] for o in served), default=0),
+                "corrected": any(o["corrected"] for o in served),
+                "products": products, "absence": None}
     body.update({
         "advisory_rule": ADVISORY_DEFAULT_RULE,
         "times_rule": ("Two times, and they differ: transmitted_utc is the WMO heading's DDHHMM "
@@ -546,8 +601,16 @@ def build_text(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
                        "issuance line in UTC (the advisory's nominal time). The TCD's forecast "
                        "table counts from the advisory time, the bank's official track from the "
                        "synoptic time: never join them on tau."),
-        "sections_rule": ("sections are the parse's own, in NHC's order, title as printed and kind "
-                          "as the parser names it; the text is in the object at url."),
+        "revision_rule": ("revision and corrected are each product's own, as on /products: the "
+                          "copy in force is the highest revision published (a correction NHC "
+                          "issued is its own ledger row, key '<ADV>r<n>'), and `original` is "
+                          "the revision-0 object where one is corrected. The top-level revision "
+                          "is the highest served."),
+        "sections_rule": ("sections are the publisher's section_kinds, in NHC's order, each "
+                          "{kind} as the parser names it. The ledger carries no section titles: "
+                          "they, and the text, are in the object at url. title is the "
+                          "product's own heading as the parse read it; n_forecast_rows the "
+                          "rows of its forecast table (0 for a TCP)."),
         "index_rule": INDEX_RULE, "reasons": REASONS, "timestamps": _tr.TIMESTAMPS,
         "not_served": NOT_SERVED_INDEX, "nhc_terms": _tr.NHC_TERMS,
     })
@@ -558,7 +621,8 @@ def build_text(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
 
 MEMBERS_RULE = ("A published ensemble is a display-bucket manifest (schema tropics.members.v1, "
                 "recon d091737 §4) in the ledger as product 'display:members:<ensemble>', "
-                "vintage_key the cycle. n_members, min_members and taus are the manifest's own "
+                "the cycle its advisory_or_cycle, the copy in force per cycle "
+                "(tropical_display_in_force). n_members, min_members and taus are the manifest's own "
                 "(its ledger meta); an ensemble whose manifest states fewer members than its own "
                 "minimum is listed absent as too_few_members, with its url. A banked member "
                 "parquet with no manifest is not_published; a cycle with no parquet is "
@@ -575,7 +639,7 @@ def build_members(*, storm: dict, cycle: Optional[str], rows: list) -> dict:
         if r["product"] in banked_of:
             banked[(r["vintage_key"], banked_of[r["product"]])] = r
         elif r["product"] in published_of:
-            published[(r["vintage_key"], published_of[r["product"]])] = r
+            published[(r["advisory_or_cycle"], published_of[r["product"]])] = r
     cycles_held = sorted({k[0] for k in banked} | {k[0] for k in published})
     cycles = [cycle] if cycle is not None else cycles_held
     served, absent = [], []

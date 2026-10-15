@@ -5,14 +5,18 @@
       age computed; no_frame_in_window after 18 misses; gibs_unreachable; the memo
       answers a second call without a probe; East for al, West for ep and cp; each
       probe logged; the attribution sentence is GIBS's published one, pinned
-  I1  /products on the ledger slice + the constructed display rows (built from the
-      recon's parsed fixtures to recon §7's keys: d091740 had not landed): objects,
-      shas and vertices equal the fixture; Rachel 058 ww not_issued; Simon 032
+  I1  /products on the ledger slice + the display rows banked off the live ledger
+      (d091746; d091741 first constructed them from the recon's parsed fixtures,
+      and the ten advisory objects are those bytes exactly): objects, shas and
+      vertices equal the fixture; Rachel 058 ww not_issued; Simon 032
       surge_ww basin_has_none; banked-not-published -> not_published; unknown
       storm and unknown advisory -> 404
-  I2  a corrected advisory: the copy in force is revision 1; revision and the
-      original's url are both stated
-  T1  /text: section kinds and both times from the fixture parse; not_banked where
+  I2  a corrected advisory, on the bank's real corrections (d091746: Rachel 054
+      cone and ww, Isaias 016 tcd and tcp): the copy in force is the r1 row,
+      revision 1, corrected, and the original (the 054/016 row) stated, by the
+      named advisory and by the newest default
+  T1  /text: section kinds (the publisher's section_kinds) and both times from the
+      fixture parse; not_banked where
       the bank holds no text; not_issued for an intermediate's TCD
   M1  /members: not_published for every banked cycle today, not_banked for Trudy;
       the /tracks not_served wording points here; a published manifest is served
@@ -120,7 +124,7 @@ def display(product, storm_id, vkey):
 
 
 def banked(product, storm_id, vkey):
-    rows = [r for r in lb.rows("ledger") if (r["product"], r["storm_id"], r["vintage_key"])
+    rows = [r for r in lb.ledger_rows() if (r["product"], r["storm_id"], r["vintage_key"])
             == (product, storm_id, vkey) and r["status"] == "banked"]
     return max(rows, key=lambda r: (r["fetch_ts"], r["vintage_id"])) if rows else None
 
@@ -144,21 +148,24 @@ def test_F_every_pinned_fixture_file_has_its_sha():
         assert len(lb.rows(kind)) == m["bank"][kind]["rows"]           # rows() checks Neon's sha
 
 
-def test_F_the_display_rows_are_the_generators(tmp_path):
+def test_F_the_constructed_manifests_are_the_generators(tmp_path):
+    """d091746: the generator makes only the member manifests now (no manifest is
+    published); every other display row is banked."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("mdr", FIX / "make_display_rows.py")
     mdr = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mdr)
-    base = mdr.base_rows()
-    assert base == lb.display_rows()
-    assert mdr.constructed_rows(base) == lb.constructed_rows()
+    assert mdr.constructed_rows() == lb.constructed_rows()
+    assert {r["product"] for r in lb.constructed_rows()} <= {
+        "display:members:ecmwf_ens", "display:members:ecmwf_aifs_ens"}
+    assert not (FIX / "display_rows.json").exists()
 
 
 def test_F_no_display_row_is_in_the_banked_slice_and_each_names_a_banked_source():
-    assert not [r for r in lb.rows("ledger") if r["product"].startswith("display:")]
+    assert not [r for r in lb.ledger_rows() if r["product"].startswith("display:")]
     for r in lb.display_rows():
-        src = [b for b in lb.rows("ledger") if b["sha256"] == r["meta"]["source_sha256"]]
-        assert len(src) == 1 and src[0]["r2_key"] == r["meta"]["source_r2_key"], r["product"]
+        src = [b for b in lb.ledger_rows() if b["sha256"] == r["meta"]["source_sha256"]]
+        assert len(src) == 1 and src[0]["r2_key"] == r["meta"]["source_r2_key"], r["vintage_id"]
 
 
 def test_F_the_filler_names_nothing_a_route_reads(pg):
@@ -515,20 +522,28 @@ def test_I1_the_wsp_cycle_is_the_synoptic_time(client, monkeypatch, pg):
     s = get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026&advisory=032")
     assert (r["wsp"]["cycle"], s["wsp"]["cycle"]) == ("2026101112", "2026101506")   # recon §3
     assert r["wsp"]["synoptic_ts"] == r["init_ts"]
+    for body, cycle in ((r, "2026101112"), (s, "2026101506")):
+        objs = by_product(body["wsp"]["objects"])
+        assert sorted(objs) == ["wsp34_bands", "wsp34_grid", "wsp50_bands", "wsp50_grid",
+                                "wsp64_bands", "wsp64_grid"]
+        assert body["wsp"]["absent"] == []
+        for name, o in objs.items():                       # pinned to the banked row
+            row = display(f"display:{name}", "", cycle)
+            assert (o["sha256"], o["bytes"], o["vertices"]) == (
+                row["sha256"], row["byte_size"], row["meta"]["vertices"])
+            assert o["url"] == f"https://display.energylake.io/tropics/wsp/{cycle}/{name}.geojson"
+    # d091740 compacted the bands: the published band objects are not the recon's K1 parse
+    bands = k1("wsp_2026101112_wsp_5km_zip.zip")
     objs = by_product(r["wsp"]["objects"])
-    assert sorted(objs) == ["wsp34_bands", "wsp34_grid", "wsp50_bands", "wsp50_grid",
-                            "wsp64_bands", "wsp64_grid"]
     for kt in ("34", "50", "64"):
-        bands, grid = k1("wsp_2026101112_wsp_5km_zip.zip"), k1("wsp_2026101112_wsp_halfdeg_zip.zip")
-        assert objs[f"wsp{kt}_bands"]["vertices"] == bands["layers"][kt]["vertices"]
-        assert objs[f"wsp{kt}_bands"]["sha256"] == bands["layers"][kt]["parsed_sha256"]
-        assert objs[f"wsp{kt}_grid"]["vertices"] == grid["layers"][kt]["vertices"]
-    sa = by_product(s["wsp"]["absent"])
-    assert {k: v["reason"] for k, v in sa.items()} == {
-        "wsp34_grid": "not_published", "wsp50_grid": "not_published", "wsp64_grid": "not_published"}
+        assert objs[f"wsp{kt}_bands"]["sha256"] != bands["layers"][kt]["parsed_sha256"]
+        assert objs[f"wsp{kt}_bands"]["bytes"] != bands["layers"][kt]["parsed_bytes"]
 
 
 def test_I1_banked_not_published_is_not_published(client, monkeypatch, pg):
+    """Simon 031's cone, Isaias 014A's cone and 014A's WSP cycle are outside the
+    banked display selection (bank_display_from_neon.IDENTITIES; the live ledger
+    has published them since 15:22Z), so here they are banked-not-published."""
     b = get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026&advisory=031")
     assert b["objects"] == []
     cone = by_product(b["absent"])["cone"]
@@ -557,7 +572,7 @@ def test_I1_the_default_is_nhcs_newest_advisory_text_only_included(client, monke
     assert {a["product"]: a["reason"] for a in b["absent"]} == {
         "cone": "not_issued", "ww": "not_issued", "surge_ww": "not_issued"}
     assert b["wsp"]["absence"]["reason"] == "no_synoptic_time"
-    assert get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026")["advisory"] == "032"
+    assert get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026")["advisory"] == "033"   # d091746: Simon 033 banked
     assert get(client, monkeypatch, pg, f"{P}/products?storm_id=ep212026")["advisory"] == "008"
 
 
@@ -589,42 +604,86 @@ def test_I1_every_body_states_not_served_and_reads_no_r2(client, monkeypatch, pg
 # I2 — a corrected advisory
 # ═══════════════════════════════════════════════════════════════════════════
 
-REVISION_READ_XFAIL = pytest.mark.xfail(strict=True, reason=(
-    "D-09-05-T, the second half: the publisher keys a correction as '<ADV>r<n>' (pantry 314: "
-    "tfv_display_vintage_key, tfv_display_immutable — one row per (product, storm_id, vintage_key), "
-    "12 such rows in the first backfill), and this reader asks vintage_key = '<ADV>' through 294's "
-    "tropical_file_vintage_in_force, so a corrected advisory is served its revision-0 object. The "
-    "fixture here models the correction the way the bank does not (a second row at the same key); "
-    "the display read moves to tropical_display_in_force (advisory_or_cycle, revision) in the "
-    "revision-read lane, on banked r1 rows, and these two turn green there."))
+# The bank's real corrections (d091746): NHC re-posted Rachel 054's cone and ww
+# (the same bytes: the parse is identical) and corrected Isaias 016's TCD and TCP
+# (same size, new sha). The publisher keyed each correction as its own row,
+# '<ADV>r1' (pantry 314); the copy in force is the r1, and the 054/016 row is its
+# original, stated even where the bytes are equal.
+I2_VECTORS = [("products", "ep182026", "054", ("cone", "ww")), ("text", "al092026", "016", ("tcd", "tcp"))]
+I2_IDS = [f"{v[0]}-{v[1]}-{v[2]}" for v in I2_VECTORS]
 
 
-@REVISION_READ_XFAIL
-def test_I2_the_copy_in_force_is_revision_1_and_the_original_is_stated(client, monkeypatch, pg_c, pg):
-    b = get(client, monkeypatch, pg_c, f"{P}/products?storm_id=ep202026&advisory=032")
-    cone = by_product(b["objects"])["cone"]
-    r0 = display("display:cone", "ep202026", "032")
-    r1 = [r for r in lb.constructed_rows() if r["vintage_id"] == 910101][0]
-    assert (cone["revision"], cone["corrected"]) == (1, True)
-    assert cone["url"] == "https://display.energylake.io/" + r1["r2_key"]
-    assert (cone["sha256"], cone["vertices"]) == (r1["sha256"], r1["meta"]["vertices"])
-    assert cone["original"] == {"url": "https://display.energylake.io/" + r0["r2_key"],
-                                "sha256": r0["sha256"], "bytes": r0["byte_size"], "absence": None}
-    assert (b["revision"], b["corrected"]) == (1, True)
-    assert [o["product"] for o in b["objects"]] == ["cone"]                 # one copy, never both
-    live = by_product(get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026&advisory=032")["objects"])
-    assert (live["cone"]["revision"], live["cone"]["sha256"]) == (0, r0["sha256"])
+@pytest.fixture(scope="module")
+def pg_asof():
+    """The bank with NHC rewound to 2026-10-10T17:30Z: Rachel's newest advisory is
+    054 and Isaias's 016, so the newest default meets a corrected advisory."""
+    _need_postgres()
+    with lb.cluster(padded=True, as_of=lb.AS_OF_054_016) as conn:
+        yield conn
 
 
-@REVISION_READ_XFAIL
-def test_I2_the_ledger_holds_both_copies_and_the_view_one(pg_c):
-    rows = pg_c.execute("""SELECT vintage_id FROM tropical_file_vintage WHERE product = 'display:cone'
-                             AND storm_id = 'ep202026' AND vintage_key = '032' ORDER BY 1""").fetchall()
-    assert [r["vintage_id"] for r in rows] == [910001, 910101]
-    v = pg_c.execute("""SELECT vintage_id, revision, corrected FROM tropical_file_vintage_in_force
-                         WHERE product = 'display:cone' AND storm_id = 'ep202026'
-                           AND vintage_key = '032'""").fetchall()
-    assert v == [{"vintage_id": 910101, "revision": 1, "corrected": True}]
+def served(body, route):
+    return by_product(body["objects"]) if route == "products" else body["products"]
+
+
+def assert_r1(o, name, sid, adv):
+    r0, r1 = display(f"display:{name}", sid, adv), display(f"display:{name}", sid, adv + "r1")
+    assert (o["revision"], o["corrected"]) == (1, True), name
+    assert o["url"] == "https://display.energylake.io/" + r1["r2_key"]
+    assert "/adv" + adv + "r1/" in o["url"]
+    assert (o["sha256"], o["bytes"]) == (r1["sha256"], r1["byte_size"])
+    assert (o["source_r2_key"], o["source_sha256"]) == (r1["meta"]["source_r2_key"], r1["meta"]["source_sha256"])
+    assert o["source_in_force"] is True                     # the corrected NHC file is 294's copy in force
+    assert o["original"] == {"url": "https://display.energylake.io/" + r0["r2_key"],
+                             "sha256": r0["sha256"], "bytes": r0["byte_size"], "absence": None}
+    return r0, r1
+
+
+@pytest.mark.parametrize("route,sid,adv,names", I2_VECTORS, ids=I2_IDS)
+def test_I2_the_copy_in_force_is_revision_1_and_the_original_is_stated(client, monkeypatch, pg, route,
+                                                                        sid, adv, names):
+    b = get(client, monkeypatch, pg, f"{P}/{route}?storm_id={sid}&advisory={adv}")
+    objs = served(b, route)
+    same = {}
+    for name in names:
+        r0, r1 = assert_r1(objs[name], name, sid, adv)
+        same[name] = r0["sha256"] == r1["sha256"]
+    # 054: NHC re-posted the file, the parse is identical; 016: the bytes differ
+    assert same == ({"cone": True, "ww": True} if adv == "054" else {"tcd": False, "tcp": False})
+    assert (b["revision"], b["corrected"]) == (1, True)     # the body's: the max over its objects
+    if route == "products":
+        assert [o["product"] for o in b["objects"]] == list(names)   # one copy each, never both
+
+
+@pytest.mark.parametrize("route,sid,adv,names", I2_VECTORS, ids=I2_IDS)
+def test_I2_the_newest_default_agrees_with_the_named_advisory(client, monkeypatch, pg, pg_asof, route,
+                                                               sid, adv, names):
+    named = get(client, monkeypatch, pg_asof, f"{P}/{route}?storm_id={sid}&advisory={adv}")
+    default = get(client, monkeypatch, pg_asof, f"{P}/{route}?storm_id={sid}")
+    assert (default["advisory"], default["advisory_requested"], named["advisory_requested"]) == (adv, False, True)
+    assert default["nhc_entry"]["vintage_key"].startswith(adv + ":")
+    for name in names:
+        assert served(default, route)[name] == served(named, route)[name]
+        assert_r1(served(default, route)[name], name, sid, adv)
+    assert (default["revision"], default["corrected"]) == (1, True)
+    whole = get(client, monkeypatch, pg, f"{P}/{route}?storm_id={sid}&advisory={adv}")
+    assert {n: served(whole, route)[n] for n in names} == {n: served(named, route)[n] for n in names}
+
+
+def test_I2_the_ledger_holds_both_copies_and_the_view_one(pg):
+    rows = pg.execute("""SELECT vintage_key FROM tropical_file_vintage WHERE source = 'display'
+                           AND product = 'display:cone' AND storm_id = 'ep182026'
+                           AND vintage_key LIKE '054%%' ORDER BY 1""").fetchall()
+    assert [r["vintage_key"] for r in rows] == ["054", "054r1"]
+    v = pg.execute("""SELECT vintage_key, advisory_or_cycle, revision FROM tropical_display_in_force
+                       WHERE product = 'display:cone' AND storm_id = 'ep182026'
+                         AND advisory_or_cycle = '054'""").fetchall()
+    assert v == [{"vintage_key": "054r1", "advisory_or_cycle": "054", "revision": 1}]
+    # 294's view, asked as d091741 asked it, names the revision-0 row: the defect
+    old = pg.execute("""SELECT vintage_key FROM tropical_file_vintage_in_force WHERE source = 'display'
+                         AND product = 'display:cone' AND storm_id = 'ep182026'
+                         AND vintage_key = '054'""").fetchall()
+    assert old == [{"vintage_key": "054"}]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -645,8 +704,10 @@ def test_T1_section_kinds_and_both_times_are_the_parses(client, monkeypatch, pg,
         assert o["url"] == f"https://display.energylake.io/tropics/{sid}/adv{adv}/{product}.json"
         src = banked(product, sid, adv)
         assert (o["source_r2_key"], o["source_sha256"]) == (src["r2_key"], src["sha256"])
-        parse = json.loads((FIX / "recon" / f"{sid}_adv{adv}_{product}.json").read_text())
-        assert [s["title"] for s in o["sections"]] == [s["title"] for s in parse["sections"]]
+        # the ledger carries the kinds, not the titles (d091746): sections are [{kind}]
+        assert o["sections"] == [{"kind": k} for k in rec["section_kinds"]]
+        row = display(f"display:{product}", sid, adv)
+        assert (o["title"], o["n_forecast_rows"]) == (row["meta"]["title"], row["meta"]["n_forecast_rows"])
 
 
 def test_T1_not_banked_when_the_bank_holds_no_text(client, monkeypatch, pg_c):
@@ -747,8 +808,11 @@ def test_M1_a_cycle_the_bank_never_saw_is_not_banked_for_every_ensemble(client, 
 # X1 — the plan receipts: index scans only on tropical_file_vintage
 # ═══════════════════════════════════════════════════════════════════════════
 
-def neon_plans():
-    text = (RECEIPTS / "neon_plans.txt").read_text()
+RECEIPTS_NOW = ROOT / "docs" / "receipts" / "tropics-api-revision-read-d091746"
+
+
+def neon_plans(receipts=RECEIPTS_NOW):
+    text = (receipts / "neon_plans.txt").read_text()
     out = {}
     for block in text.split("\n## ")[1:]:
         head, _, plan = block.partition("\n")
@@ -757,21 +821,28 @@ def neon_plans():
 
 
 def test_X1_the_neon_receipts_show_index_scans_only():
+    """The routes' reads as they are now (d091746 re-took them: FILES_SQL and
+    MEMBERS_SQL changed text, DISPLAY_* are new). d091741's own receipts stay in
+    docs/receipts/tropics-api-index-d091741/ as that lane's record."""
     plans = neon_plans()
-    stated = json.loads((RECEIPTS / "explains.json").read_text())
+    stated = json.loads((RECEIPTS_NOW / "explains.json").read_text())
     assert sorted(plans) == sorted(s["name"] for s in stated)
     for name, plan in plans.items():
         assert "Seq Scan on tropical_file_vintage" not in plan, name
         assert "Seq Scan on tropical_track_points" not in plan, name
         if "tropical_file_vintage" in plan:
-            assert "Index Scan using tfv_identity on tropical_file_vintage" in plan, name
+            assert re.search(r"Index Scan using (tfv_identity|tfv_display_immutable) on tropical_file_vintage",
+                             plan), name
         ms = float(re.search(r"Execution Time: ([0-9.]+) ms", plan).group(1))
-        assert ms < 5.0, (name, ms)
+        cold = " read=" in plan                           # buffers read from storage, not hit
+        assert ms < (20.0 if cold else 5.0), (name, ms)
     # the receipts' statements are the routes' own, with the routes' parameter builders
     from_code = {s["name"]: s["sql"] for s in stated}
-    assert "v.product = ANY ('{cone_kmz,ww_kmz,surge_ww_kml,display:cone,display:ww,display:surge_ww}'" \
-        in from_code["FILES_SQL products ep202026 032"]
-    assert " ".join(ti.FILES_SQL.split()).split(" WHERE v.source")[0] in from_code["FILES_SQL products ep202026 032"]
+    assert "v.source = 'nhc' AND v.product = ANY ('{cone_kmz,ww_kmz,surge_ww_kml}'" \
+        in from_code["FILES_SQL products ep182026 054"]
+    assert " ".join(ti.FILES_SQL.split()).split(" WHERE v.source")[0] in from_code["FILES_SQL products ep182026 054"]
+    assert " ".join(ti.DISPLAY_FILES_SQL.split()).split(" WHERE v.product")[0] \
+        in from_code["DISPLAY_FILES_SQL products ep182026 054"]
 
 
 LOCAL = [("ENTRY_NEWEST_SQL", lambda: ti.ENTRY_NEWEST_SQL, {"storm_id": "ep202026"}),
@@ -780,8 +851,16 @@ LOCAL = [("ENTRY_NEWEST_SQL", lambda: ti.ENTRY_NEWEST_SQL, {"storm_id": "ep20202
           lambda: ti.files_params("ep202026", "032", ti.ADVISORY_PRODUCTS)),
          ("FILES_SQL wsp", lambda: ti.FILES_SQL, lambda: ti.files_params("", "2026101506", ti.WSP_PRODUCTS)),
          ("FILES_SQL text", lambda: ti.FILES_SQL, lambda: ti.files_params("ep202026", "032", ti.TEXT_PRODUCTS)),
+         ("DISPLAY_FILES_SQL products", lambda: ti.DISPLAY_FILES_SQL,
+          lambda: ti.display_files_params("ep182026", "054", ti.ADVISORY_PRODUCTS)),
+         ("DISPLAY_FILES_SQL wsp", lambda: ti.DISPLAY_FILES_SQL,
+          lambda: ti.display_files_params("", "2026101512", ti.WSP_PRODUCTS)),
+         ("DISPLAY_FILES_SQL text", lambda: ti.DISPLAY_FILES_SQL,
+          lambda: ti.display_files_params("al092026", "016", ti.TEXT_PRODUCTS)),
          ("MEMBERS_SQL all", lambda: ti.MEMBERS_SQL, lambda: ti.members_params("ep202026", None)),
-         ("MEMBERS_SQL cycle", lambda: ti.MEMBERS_SQL, lambda: ti.members_params("ep202026", "2026101112"))]
+         ("MEMBERS_SQL cycle", lambda: ti.MEMBERS_SQL, lambda: ti.members_params("ep202026", "2026101112")),
+         ("DISPLAY_MEMBERS_SQL all", lambda: ti.DISPLAY_MEMBERS_SQL,
+          lambda: ti.display_members_params("ep202026", None))]
 
 
 def _nodes(plan):
@@ -799,8 +878,9 @@ def test_X1_locally_at_neons_size_no_ledger_read_is_a_seq_scan(request, name, sq
     nodes = list(_nodes(plan))
     rel = [n["Node Type"] for n in nodes if n.get("Relation Name") == "tropical_file_vintage"]
     assert rel and "Seq Scan" not in rel, rel
-    # an Index Scan on tfv_identity, or a Bitmap Heap Scan whose bitmap is tfv_identity's
-    assert any(n.get("Index Name") == "tfv_identity" for n in nodes), rel
+    # an Index Scan on tfv_identity (or, for a display read, 314's tfv_display_immutable),
+    # or a Bitmap Heap Scan whose bitmap is one of those
+    assert any(n.get("Index Name") in ("tfv_identity", "tfv_display_immutable") for n in nodes), rel
 
 
 def test_X1_no_index_was_added():
@@ -834,9 +914,13 @@ def test_C_every_ledger_read_is_of_the_view_in_force():
     for name in ("ENTRY_NEWEST_SQL", "ENTRY_SQL", "FILES_SQL", "MEMBERS_SQL"):
         sql = getattr(ti, name)
         assert "FROM tropical_file_vintage_in_force" in sql, name
+    for name in ("DISPLAY_FILES_SQL", "DISPLAY_MEMBERS_SQL"):          # d091746: 314's reader
+        assert "FROM tropical_display_in_force" in getattr(ti, name), name
     # the one bare read is the original's, only where the copy in force is corrected
-    assert ti.FILES_SQL.count("FROM tropical_file_vintage AS a") == 1
-    assert "WHERE v.corrected" in ti.FILES_SQL
+    bare = [n for n in dir(ti) if n.endswith("_SQL") and "FROM tropical_file_vintage AS a" in getattr(ti, n)]
+    assert bare == ["DISPLAY_FILES_SQL"]
+    assert ti.DISPLAY_FILES_SQL.count("FROM tropical_file_vintage AS a") == 1
+    assert "WHERE v.revision > 0" in ti.DISPLAY_FILES_SQL
 
 
 # ═══════════════════════════════════════════════════════════════════════════
