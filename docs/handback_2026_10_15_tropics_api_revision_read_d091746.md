@@ -303,7 +303,26 @@ d091741's own rehearsal (`tests/rehearse_tropics_index_d091741.py`) is that lane
 
 ### 6.4 The whole suite, before and after
 
-SUITE_TABLE
+`pytest -B -q -p no:cacheprovider`, the whole suite, 2026-10-15 ~22:30Z:
+
+| | passed | failed | skipped | xfailed | total |
+|---|---:|---:|---:|---:|---:|
+| main `a7af1b0` (before; a worktree under the scratchpad) | 3,048 | 2 | 2 | 2 | 3,054 |
+| this branch (after) | **3,102** | 2 | 0 | 0 | 3,104 |
+
+**The difference, +50:**
+- this lane's new module: +39;
+- d091741's module, 87 → 98: +11 (its two xfails now pass, plus 11 new tests).
+
+**The 2 failures, identical on both:** asset H8.
+- `test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[…asset_wind_57514.json…]`
+- `test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[…body_wind_ciso_n28.json…]`
+
+Red on main before this lane; not touched.
+
+**Vintages PG_V1/V4,** which the brief said are red on main, **pass on both** in this container (`-k "PG_V1 or PG_V4"`: 2 passed). Not touched either.
+
+**The 2 skips on main** are `test_mjo_status.py:237/265` ("no energylake-pantry checkout beside this repo"): the main worktree has no pantry beside it. The branch run has one (this lane cloned the pantry to `/home/user/energylake-pantry`), so they ran and passed there. This is environment, not code.
 
 ---
 
