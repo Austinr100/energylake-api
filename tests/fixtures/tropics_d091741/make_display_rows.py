@@ -6,7 +6,7 @@ readable from this lane, so no `display:*` row exists anywhere (Neon, read
 publish step will write, built from the recon's own parsed fixtures (pantry
 @ 81ad901, copied under recon/, each sha pinned in manifest.json):
 
-  * one ledger row per published object: source 'parsed' (tropics_index.
+  * one ledger row per published object: source 'display' (migration 314; tropics_index.
     DISPLAY_SOURCE), product 'display:<name>', r2_key = the display key,
     sha256/byte_size = the parsed object's (the recon's canonical parse:
     recorded_k1's parsed_sha256 and parsed_bytes; the parsed text JSON's own
@@ -46,7 +46,7 @@ def banked(source, product, storm_id, vkey):
 
 def row(vid, dataset, product, storm_id, vkey, r2_key, sha, nbytes, issued_ts, meta,
         fetch_ts="2026-10-15T13:30:00+00:00"):
-    return {"vintage_id": vid, "dataset": dataset, "source": "parsed", "product": product,
+    return {"vintage_id": vid, "dataset": dataset, "source": "display", "product": product,
             "storm_id": storm_id, "vintage_key": vkey, "status": "banked", "fetch_ts": fetch_ts,
             "issued_ts": issued_ts, "r2_key": r2_key, "byte_size": nbytes, "sha256": sha,
             "source_url": None, "source_last_modified": None, "source_etag": None,
@@ -125,7 +125,9 @@ def constructed_rows(base):
     r0 = [r for r in base if (r["product"], r["storm_id"], r["vintage_key"]) ==
           ("display:cone", "ep202026", "032")][0]
     note = b"d091741 constructed revision 1 of tropics/ep202026/adv032/cone.geojson"
-    r1 = dict(r0, vintage_id=910101, fetch_ts="2026-10-15T13:40:00+00:00",
+    # Keyed as the publisher keys a revision (pantry 314: vintage_key '<ADV>r<n>', one row
+    # per (product, storm_id, vintage_key)); the API's revision read is the lane after this.
+    r1 = dict(r0, vintage_id=910101, vintage_key="032r1", fetch_ts="2026-10-15T13:40:00+00:00",
               r2_key="tropics/ep202026/adv032/cone.r1.geojson",
               sha256=hashlib.sha256(note).hexdigest(), byte_size=r0["byte_size"] + 12,
               meta=dict(r0["meta"], vertices=r0["meta"]["vertices"] + 4,

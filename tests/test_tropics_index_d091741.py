@@ -589,6 +589,17 @@ def test_I1_every_body_states_not_served_and_reads_no_r2(client, monkeypatch, pg
 # I2 — a corrected advisory
 # ═══════════════════════════════════════════════════════════════════════════
 
+REVISION_READ_XFAIL = pytest.mark.xfail(strict=True, reason=(
+    "D-09-05-T, the second half: the publisher keys a correction as '<ADV>r<n>' (pantry 314: "
+    "tfv_display_vintage_key, tfv_display_immutable — one row per (product, storm_id, vintage_key), "
+    "12 such rows in the first backfill), and this reader asks vintage_key = '<ADV>' through 294's "
+    "tropical_file_vintage_in_force, so a corrected advisory is served its revision-0 object. The "
+    "fixture here models the correction the way the bank does not (a second row at the same key); "
+    "the display read moves to tropical_display_in_force (advisory_or_cycle, revision) in the "
+    "revision-read lane, on banked r1 rows, and these two turn green there."))
+
+
+@REVISION_READ_XFAIL
 def test_I2_the_copy_in_force_is_revision_1_and_the_original_is_stated(client, monkeypatch, pg_c, pg):
     b = get(client, monkeypatch, pg_c, f"{P}/products?storm_id=ep202026&advisory=032")
     cone = by_product(b["objects"])["cone"]
@@ -605,6 +616,7 @@ def test_I2_the_copy_in_force_is_revision_1_and_the_original_is_stated(client, m
     assert (live["cone"]["revision"], live["cone"]["sha256"]) == (0, r0["sha256"])
 
 
+@REVISION_READ_XFAIL
 def test_I2_the_ledger_holds_both_copies_and_the_view_one(pg_c):
     rows = pg_c.execute("""SELECT vintage_id FROM tropical_file_vintage WHERE product = 'display:cone'
                              AND storm_id = 'ep202026' AND vintage_key = '032' ORDER BY 1""").fetchall()
