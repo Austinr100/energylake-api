@@ -266,10 +266,14 @@ NOT_SERVED = {
         "ECMWF ENS (51 members), AIFS-ENS (52) and the A-deck's GEFS members AP01-AP30 and "
         "AC00 are not in Neon: the bank keeps every member as R2 parquet "
         "(tropical/tracks/{storm}/{cycle}/{source}.parquet), and tropical_track_points has "
-        "no member column. This API reads no R2 per request."),
+        "no member column. This API reads no R2 per request. The members' published "
+        "manifests (display bucket) are indexed by GET /api/weather/tropics/members"
+        "?storm_id=&cycle= (d091741)."),
     "cone_and_warnings": (
         "NHC's cone and its watch and warning polygons are banked as files in R2 (the "
-        "advisory's 5-day zip and cone/WW KMZ), not as rows. This API reads no R2."),
+        "advisory's 5-day zip and cone/WW KMZ), not as rows. This API reads no R2. Their "
+        "published GeoJSON (display bucket) is indexed by GET /api/weather/tropics/products"
+        "?storm_id=&advisory= (d091741)."),
     "storms_before_2026": (
         "Nothing before 2026 is parsed into the bank; lane d091671 is building that "
         "backfill. A storm the bank never saw live is not here."),

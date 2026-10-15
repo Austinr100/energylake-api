@@ -1,0 +1,445 @@
+{
+ "al092026_adv014A_surge_ww_kml.kml": {
+  "input_sha256": "9a0d69b55bfda2eb117eaa17848c4da3119f86a8aef6807bd668dc868aabf18d",
+  "layers": {
+   "_": {
+    "geometry_types": {
+     "Polygon": 7
+    },
+    "lon_range": [
+     -86.81114073249086,
+     -83.1365465348871
+    ],
+    "n_features": 7,
+    "parsed_bytes": 23372,
+    "parsed_fixture": "parsed/al092026_adv014A_surge_ww_kml.geojson",
+    "parsed_sha256": "f80dc8056bf58df8abe4d0d41f5f5eafbaecb6df87155117f27c89a9677e54f4",
+    "vertices": 550
+   }
+  },
+  "product": "surge_ww_kml"
+ },
+ "al092026_adv014A_ww_kmz.kmz": {
+  "input_sha256": "6de8b55efd3a3e4d10fd408e9d71fb742415ce935367955c0e5fad4a8cbacf0a",
+  "layers": {
+   "_": {
+    "advisory": "14A",
+    "geometry_types": {
+     "LineString": 1
+    },
+    "lon_range": [
+     -87.55,
+     -83.99
+    ],
+    "n_features": 1,
+    "parsed_bytes": 700,
+    "parsed_fixture": "parsed/al092026_adv014A_ww_kmz.geojson",
+    "parsed_sha256": "1261d83dab76229be0059e5b4bece832ef24976899ba2b20808a9fb15be88935",
+    "segments": [
+     {
+      "advisoryNum": "14A",
+      "atcfid": "AL092026",
+      "code": "TWR",
+      "name": "Tropical Storm Warning",
+      "status": "warning",
+      "type": "tropical_storm"
+     }
+    ],
+    "vertices": 9
+   }
+  },
+  "product": "ww_kmz"
+ },
+ "ep182026_adv057A_ww_kmz.kmz": {
+  "input_sha256": "fd5f17d0556b56a6c6d638ee8902c4bae7f5cfad3cccb20f39320ed46d730c2c",
+  "layers": {
+   "_": {
+    "advisory": "57A",
+    "geometry_types": {
+     "LineString": 1
+    },
+    "lon_range": [
+     -114.96,
+     -113.53
+    ],
+    "n_features": 1,
+    "parsed_bytes": 632,
+    "parsed_fixture": "parsed/ep182026_adv057A_ww_kmz.geojson",
+    "parsed_sha256": "ba8deba1820ba8692e919249149f1279f7d972ee6f666dd06c921a96da9bc103",
+    "segments": [
+     {
+      "advisoryNum": "57A",
+      "atcfid": "EP182026",
+      "code": "TWR",
+      "name": "Tropical Storm Warning",
+      "status": "warning",
+      "type": "tropical_storm"
+     }
+    ],
+    "vertices": 4
+   }
+  },
+  "product": "ww_kmz"
+ },
+ "ep182026_adv058_cone_kmz.kmz": {
+  "input_sha256": "787f719ab5401bea6b24f2788b821e1a07b8832d9ce90f1dd1c47ec11bc10919",
+  "layers": {
+   "_": {
+    "advisory": "58",
+    "geometry_types": {
+     "Polygon": 1
+    },
+    "lon_range": [
+     -115.15237,
+     -114.04598
+    ],
+    "n_features": 1,
+    "parsed_bytes": 5079,
+    "parsed_fixture": "parsed/ep182026_adv058_cone_kmz.geojson",
+    "parsed_sha256": "e84d18b60dfbd20ac1bc74ce41e7bdf30541b328a86c89391836b0a32692db5f",
+    "vertices": 210
+   }
+  },
+  "product": "cone_kmz"
+ },
+ "ep202026_adv028A_ww_kmz.kmz": {
+  "input_sha256": "f7d9987f13a6ee79a5e595d33ed038b70179edfe57ac74c734b9bed88d6f03a6",
+  "layers": {
+   "_": {
+    "advisory": "28A",
+    "geometry_types": {
+     "LineString": 1
+    },
+    "lon_range": [
+     -106.71,
+     -106.21
+    ],
+    "n_features": 1,
+    "parsed_bytes": 590,
+    "parsed_fixture": "parsed/ep202026_adv028A_ww_kmz.geojson",
+    "parsed_sha256": "07d5dff201f9a695c25f177211436ee4119759efeb3e1a90ff33ffce60e725dd",
+    "segments": [
+     {
+      "advisoryNum": "28A",
+      "atcfid": "EP202026",
+      "code": "HWA",
+      "name": "Hurricane Watch",
+      "status": "watch",
+      "type": "hurricane"
+     }
+    ],
+    "vertices": 4
+   }
+  },
+  "product": "ww_kmz"
+ },
+ "ep202026_adv032_cone_kmz.kmz": {
+  "input_sha256": "1f82e17dc6d17d760091a7c6215a502073277e8892beb020698db9210c3f79e1",
+  "layers": {
+   "_": {
+    "advisory": "32",
+    "geometry_types": {
+     "Polygon": 1
+    },
+    "lon_range": [
+     -116.47044,
+     -108.0546
+    ],
+    "n_features": 1,
+    "parsed_bytes": 27968,
+    "parsed_fixture": "parsed/ep202026_adv032_cone_kmz.geojson",
+    "parsed_sha256": "23fb9e669eb93c9db7a63eb81cffff4c159c248f491399695dd20040c223bab9",
+    "vertices": 1260
+   }
+  },
+  "product": "cone_kmz"
+ },
+ "wsp_2026101112_wsp34_kmz.kmz": {
+  "input_sha256": "feea8dd3cea4fea998bc0d33ab813d85edc38ad91b91e5f812d5168dfbe574d3",
+  "layers": {
+   "_": {
+    "bands": [
+     "<5%",
+     "5-10",
+     "10-20",
+     "20-30",
+     "30-40",
+     "40-50",
+     "50-60",
+     "60-70",
+     "70-80",
+     "80-90",
+     ">90%",
+     "<5%",
+     "5-10",
+     "10-20",
+     "20-30",
+     "30-40",
+     "40-50",
+     "50-60",
+     "60-70",
+     "70-80",
+     "80-90",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 1,
+     "Polygon": 21
+    },
+    "lon_range": [
+     -180.0,
+     180.0
+    ],
+    "n_features": 22,
+    "parsed_bytes": 1071533,
+    "parsed_sha256": "24163655d08efa515759c2af04469c8a2931d5e38554c10e36725869196eb3c7",
+    "vertices": 29722
+   }
+  },
+  "product": "wsp34_kmz"
+ },
+ "wsp_2026101112_wsp_5km_zip.zip": {
+  "input_sha256": "61659d4b74bac0750b9582199398082ceeb610319e796e822989edf93b7312bc",
+  "layers": {
+   "34": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%",
+     "70-80%",
+     "80-90%",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "lon_range": [
+     -214.99910088113046,
+     -103.19367020317986
+    ],
+    "n_features": 11,
+    "parsed_bytes": 1192194,
+    "parsed_sha256": "b247a39a979e11357d2df445c8c87f2e8ca1d1af5e231f1b098f9e087ce31f1b",
+    "vertices": 29717
+   },
+   "50": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%",
+     "70-80%",
+     "80-90%",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "lon_range": [
+     -214.54954144937352,
+     -103.6881855781125
+    ],
+    "n_features": 11,
+    "parsed_bytes": 742345,
+    "parsed_sha256": "447a1fd7484834531a8c0f9ce015a219a76850b31b06083a197ad3caf5ceb6f8",
+    "vertices": 18473
+   },
+   "64": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%",
+     "70-80%",
+     "80-90%",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 9,
+     "Polygon": 2
+    },
+    "lon_range": [
+     -214.27980579031936,
+     -104.04783312351805
+    ],
+    "n_features": 11,
+    "parsed_bytes": 425401,
+    "parsed_sha256": "314f46516d8bdcb847ea9e606d2ba1d815d7922dc4c221736233067140e106b1",
+    "vertices": 10560
+   }
+  },
+  "product": "wsp_5km_zip"
+ },
+ "wsp_2026101112_wsp_halfdeg_zip.zip": {
+  "input_sha256": "73193ad864ff5ae16fdcea450f36f1d7f61f6a3e983e99e213cc1b6e2b7ee213",
+  "layers": {
+   "34": {
+    "geometry_types": {
+     "Point": 2310
+    },
+    "lon_range": [
+     -180.0,
+     179.5
+    ],
+    "n_features": 2310,
+    "parsed_bytes": 262255,
+    "parsed_sha256": "0fa1c17092977ef6008074292edb580a20949f983b6f1c239bdeab6000d725d1",
+    "vertices": 2310
+   },
+   "50": {
+    "geometry_types": {
+     "Point": 1075
+    },
+    "lon_range": [
+     -180.0,
+     179.5
+    ],
+    "n_features": 1075,
+    "parsed_bytes": 121993,
+    "parsed_sha256": "ffb6725c41d518e742cd9bb5be882d35b8b6ef083614e97a49099daeb58f3e58",
+    "vertices": 1075
+   },
+   "64": {
+    "geometry_types": {
+     "Point": 821
+    },
+    "lon_range": [
+     -109.0,
+     179.5
+    ],
+    "n_features": 821,
+    "parsed_bytes": 93255,
+    "parsed_sha256": "08681ec57f80e1a804bc60947f1033a31171c538e5d41ff5a3694fea108487a0",
+    "vertices": 821
+   }
+  },
+  "product": "wsp_halfdeg_zip"
+ },
+ "wsp_2026101506_wsp34_kmz.kmz": {
+  "input_sha256": "da0c3da817aeac4e6aad024eaf1b5456dba98172314b5e94e0a81ccdb0cd2610",
+  "layers": {
+   "_": {
+    "bands": [
+     "<5%",
+     "5-10",
+     "10-20",
+     "20-30",
+     "30-40",
+     "40-50",
+     "50-60",
+     "60-70",
+     "70-80",
+     "80-90",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "lon_range": [
+     -116.185937780955,
+     159.29688904874
+    ],
+    "n_features": 11,
+    "parsed_bytes": 1086305,
+    "parsed_sha256": "d345838a73e95aacbd42ad35b4260b7ba6cc7fe0506727b397798a477924b103",
+    "vertices": 29916
+   }
+  },
+  "product": "wsp34_kmz"
+ },
+ "wsp_2026101506_wsp_5km_zip.zip": {
+  "input_sha256": "b9b1f2e92d0c8b75992c81664b098c0f543e0ce84486d0b556381794ded35e01",
+  "layers": {
+   "34": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%",
+     "70-80%",
+     "80-90%",
+     ">90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "lon_range": [
+     -234.3751123898545,
+     -99.10267937419172
+    ],
+    "n_features": 11,
+    "parsed_bytes": 1211969,
+    "parsed_sha256": "f2e9bc1f83178e8ab8c8fd92bc4d10a9d7bf93618e4cf5a32df4b583400b52b0",
+    "vertices": 29916
+   },
+   "50": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%",
+     "70-80%",
+     "80-90%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 8,
+     "Polygon": 2
+    },
+    "lon_range": [
+     -232.75669843552953,
+     -100.13666606723268
+    ],
+    "n_features": 10,
+    "parsed_bytes": 691986,
+    "parsed_sha256": "4b92c95805715aaef4109fee0a8fc0b4b329c657e1852227d97d3188dfe3e9e7",
+    "vertices": 17059
+   },
+   "64": {
+    "bands": [
+     "<5%",
+     "5-10%",
+     "10-20%",
+     "20-30%",
+     "30-40%",
+     "40-50%",
+     "50-60%",
+     "60-70%"
+    ],
+    "geometry_types": {
+     "MultiPolygon": 6,
+     "Polygon": 2
+    },
+    "lon_range": [
+     -232.08235928789412,
+     -100.27153389675976
+    ],
+    "n_features": 8,
+    "parsed_bytes": 444010,
+    "parsed_sha256": "77708dbae121d0f1b3e22c6625db6728dee25013666fd9582dfd66a9d2b4a0a2",
+    "vertices": 10941
+   }
+  },
+  "product": "wsp_5km_zip"
+ }
+}

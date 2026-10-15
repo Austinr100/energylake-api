@@ -1,0 +1,27 @@
+HTTP/1.1 200 Connection Established
+
+HTTP/2 200 
+content-type: image/png
+content-length: 48650
+date: Thu, 15 Oct 2026 13:55:02 GMT
+x-content-type-options: nosniff
+server: ServerTokens ProductOnly
+pragma: no-cache
+expires: Thu, 1 Jan 1970 00:00:00 GMT
+cache-control: max-age=0, no-store, no-cache, must-revalidate
+layer-identifier-request: GOES-East_ABI_GeoColor
+layer-identifier-actual: GOES-East_ABI_GeoColor_v0_NRT
+layer-time-request: 2026-10-15T13:00:00Z
+layer-time-actual: 2026-10-15T13:00:00Z
+access-control-expose-headers: layer-identifier-request, layer-identifier-actual, layer-time-request, layer-time-actual
+etag: 05fit00hhs7k6
+access-control-allow-origin: *
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+x-request-id: ukd3F5mybazntMm7aCiwFYW2iWeBT6KsHhyKvRdsV8uw9HJZwIPCXQ==
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-cache: Miss from cloudfront
+via: 1.1 d1c0b1f525e8772ead2ffa07108a507a.cloudfront.net (CloudFront)
+x-amz-cf-pop: ORD56-P7
+x-amz-cf-id: ukd3F5mybazntMm7aCiwFYW2iWeBT6KsHhyKvRdsV8uw9HJZwIPCXQ==
+

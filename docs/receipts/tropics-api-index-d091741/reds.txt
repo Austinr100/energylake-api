@@ -1,0 +1,23 @@
+clean tree: GREEN (87 passed, 1 warning in 7.58s)
+ 1. R default  the layer's template binds GIBS's `default` time                         -> RED  [1 failed, 13 passed, 63 deselected, 1 warning in 0.96s]
+ 2. R default  the probe asks the `default` tile instead of the slot                    -> RED  [1 failed, 63 deselected, 1 warning in 0.69s]
+ 3. R in force the ledger read takes every banked copy, not the copy in force           -> RED  [1 failed, 85 deselected, 1 warning in 6.17s]
+ 4. R memo     /ground builds on every call (the memo removed)                          -> RED  [1 failed, 86 deselected, 1 warning in 0.92s]
+ 5. ground     GIBS's layer-time-actual is ignored (a snapped 200 counts)               -> RED  [1 failed, 15 passed, 63 deselected, 1 warning in 1.12s]
+ 6. ground     recent_present lists an errored slot                                     -> RED  [1 failed, 63 deselected, 1 warning in 1.17s]
+ 7. ground     the window gives up after 12 slots, not 18                               -> RED  [1 failed, 14 passed, 63 deselected, 1 warning in 1.10s]
+ 8. ground     ep is drawn from GOES-East                                               -> RED  [1 failed, 1 passed, 63 deselected, 1 warning in 1.00s]
+ 9. products   surge is looked for in every basin (basin_has_none dropped)              -> RED  [1 failed, 6 passed, 73 deselected, 1 warning in 3.76s]
+10. products   not_issued without NHC's word (an earlier link counts as this advisory's) -> RED  [1 failed, 10 passed, 69 deselected, 1 warning in 3.98s]
+11. products   the WSP cycle is the advisory's own time, not its synoptic time          -> RED  [1 failed, 8 passed, 73 deselected, 1 warning in 4.12s]
+12. products   the default advisory is the newest official forecast, not NHC's newest   -> RED  [1 failed, 6 passed, 69 deselected, 1 warning in 4.01s]
+13. I2         the original's url is dropped from a corrected object                    -> RED  [1 failed, 85 deselected, 1 warning in 6.23s]
+14. text       the two times are served as one                                          -> RED  [1 failed, 83 deselected, 1 warning in 3.52s]
+15. members    a banked parquet with no manifest is served as not_banked                -> RED  [1 failed, 80 deselected, 1 warning in 3.47s]
+16. members    too_few_members is the API's own floor (the recon's 5), not the manifest's -> RED  [1 failed, 5 passed, 80 deselected, 1 warning in 6.47s]
+17. members    /tracks's not_served no longer points at /members                        -> RED  [1 failed, 4 passed, 69 deselected, 1 warning in 3.59s]
+18. X1         the ledger read names no product (a scan of the storm's every file)      -> RED  [1 failed, 4 passed, 57 deselected, 1 warning in 3.51s]
+19. ground     one httpx client kept across event loops (found live, 14:20Z)            -> RED  [1 failed, 86 deselected, 1 warning in 1.14s]
+20. C          the index builds set no statement timeout                                -> RED  [1 failed, 82 deselected, 1 warning in 3.84s]
+clean tree again: GREEN (87 passed, 1 warning in 7.25s)
+20 of 20 breaks red; tree restored byte for byte (sha256 fca4067e671983bd -> fca4067e671983bd)

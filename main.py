@@ -21519,6 +21519,300 @@ async def weather_tropics_odds(
                               lambda: _tropics_odds_build(sid), response)
 
 
+# ── THE TROPICS INDEX — d091741 (D-09-25-226 orders 1-4, the API half) ───────
+#
+#   GET /api/weather/tropics/ground?basin=al|ep|cp
+#                                              the GOES GeoColor frame GIBS holds
+#                                              now, probed tile by tile
+#   GET /api/weather/tropics/products?storm_id=&advisory=
+#                                              one advisory's published cone, ww
+#                                              and surge objects, its cycle's WSP
+#   GET /api/weather/tropics/text?storm_id=&advisory=
+#                                              one advisory's published TCD and TCP
+#   GET /api/weather/tropics/members?storm_id=&cycle=
+#                                              the published member manifests
+#
+# AN INDEX, AND NO R2. Each route says what the pantry published to the display
+# bucket, its key and sha, and why anything is absent, read from the vintage
+# ledger (tropical_file_vintage_in_force); the browser fetches the objects from
+# display.energylake.io. /ground reads no table: it asks GIBS. The SQL, the
+# shaping and the probe are tropics_index.py's; this section is the routes and
+# their memos, on the same plumbing as the routes above: every ledger read in
+# one transaction under SET LOCAL statement_timeout (D-09-25-75), every answer
+# from a single-flight _DDCache, 300 s, never served stale. /ground's timeout is
+# the probe's own: GIBS_TIMEOUT_S per tile, GROUND_PROBE_BUDGET_S per search.
+# Plans: docs/receipts/tropics-api-index-d091741/.
+
+import tropics_index as _ti
+
+TROPICS_INDEX_MEMO_TTL = 300.0
+TROPICS_GROUND_MEMO_TTL = 300.0       # recon d091737 §7: memoised 5 minutes, single-flight
+GIBS_TIMEOUT_S = 4.0                  # one z0 tile answer (measured 2026-10-15: < 0.5 s)
+GROUND_PROBE_BUDGET_S = 20.0          # the descending search, then gibs_unreachable
+GROUND_BUILD_TIMEOUT = GROUND_PROBE_BUDGET_S + 2 * GIBS_TIMEOUT_S + 2.0
+GIBS_USER_AGENT = "energylake-api (energylake.io)"
+
+_tropics_ground_log = logging.getLogger("energylake.tropics.ground")
+
+_tropics_ground_cache = _DDCache("weather/tropics/ground", TROPICS_GROUND_MEMO_TTL, max_entries=2,
+                                 build_timeout=GROUND_BUILD_TIMEOUT)
+_tropics_products_cache = _DDCache("weather/tropics/products", TROPICS_INDEX_MEMO_TTL,
+                                   max_entries=64, build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_text_cache = _DDCache("weather/tropics/text", TROPICS_INDEX_MEMO_TTL, max_entries=64,
+                               build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_members_cache = _DDCache("weather/tropics/members", TROPICS_INDEX_MEMO_TTL,
+                                  max_entries=32, build_timeout=SOLAR_BUILD_TIMEOUT)
+
+# A recorded GIBS for the tests: fetch(url) -> (status, content-type,
+# layer-time-actual). None in service: each probe opens its own client.
+_tropics_gibs_fetch = None
+
+
+async def _tropics_gibs_get(client, url: str) -> tuple:
+    """One GIBS tile answer: (status, content-type, layer-time-actual); the body
+    is read and dropped."""
+    r = await client.get(url)
+    return r.status_code, r.headers.get("content-type"), r.headers.get("layer-time-actual")
+
+
+async def _tropics_ground_build(layer: str) -> dict:
+    """One probe, one httpx client (opened and closed on the probe's own event
+    loop: a process-wide client outlives the loop it was made on). httpx is
+    imported lazily, as weather_point's store does."""
+    if _tropics_gibs_fetch is not None:
+        p = await _ti.probe(layer, _utcnow(), _tropics_gibs_fetch, budget_s=GROUND_PROBE_BUDGET_S)
+    else:
+        import httpx
+        async with httpx.AsyncClient(timeout=GIBS_TIMEOUT_S, follow_redirects=False,
+                                     headers={"User-Agent": GIBS_USER_AGENT}) as client:
+            p = await _ti.probe(layer, _utcnow(), lambda url: _tropics_gibs_get(client, url),
+                                budget_s=GROUND_PROBE_BUDGET_S)
+    _tropics_ground_log.info("%s", json.dumps(_ti.probe_log(p), sort_keys=True))
+    return _ti.build_ground(p)
+
+
+async def _tropics_advisory(cur, storm_id: str, advisory: Optional[str]) -> tuple:
+    """(advisory, its official forecast's row or None, its newest entry or None).
+    Without one named: NHC's newest by its CurrentStorms entries, else the
+    newest official forecast (tropics_index.ADVISORY_DEFAULT_RULE)."""
+    entry = None
+    if advisory is None:
+        await cur.execute(_ti.ENTRY_NEWEST_SQL, {"storm_id": storm_id})
+        entry = await cur.fetchone()
+        if entry is None:
+            await cur.execute(_ti.ADVISORY_NEWEST_SQL, {"storm_id": storm_id})
+            adv = await cur.fetchone()
+            return (adv["advisory"] if adv else None), adv, None
+        advisory = _ti.entry_advisory(entry)
+    await cur.execute(_ti.ADVISORY_AT_SQL, {"storm_id": storm_id, "advisory": advisory})
+    adv = await cur.fetchone()
+    if entry is None:
+        await cur.execute(_ti.ENTRY_SQL, _ti.entry_params(storm_id, advisory))
+        entry = await cur.fetchone()
+    return advisory, adv, entry
+
+
+async def _tropics_advisory_reads(storm_id: str, advisory: Optional[str], pairs,
+                                  with_wsp: bool) -> tuple:
+    """(storm, a, adv, entry, rows, wsp_rows) for one advisory of one storm: the
+    reads /products and /text share, in one transaction. An unknown storm is a
+    404; a named advisory the bank knows nothing of (no official forecast, no
+    CurrentStorms entry, no file) is a 404."""
+    assert _pool is not None
+    a, adv, entry, rows, wsp_rows = None, None, None, [], []
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                storm = await _tropics_storm_or_404(cur, storm_id)
+                a, adv, entry = await _tropics_advisory(cur, storm_id, advisory)
+                if a is not None:
+                    await cur.execute(_ti.FILES_SQL, _ti.files_params(storm_id, a, pairs))
+                    rows = await cur.fetchall()
+                    cycle = _ti.wsp_cycle(adv["init_ts"]) if adv is not None else None
+                    if with_wsp and cycle is not None:
+                        await cur.execute(_ti.FILES_SQL,
+                                          _ti.files_params("", cycle, _ti.WSP_PRODUCTS))
+                        wsp_rows = await cur.fetchall()
+    if advisory is not None and adv is None and entry is None and not rows:
+        raise HTTPException(status_code=404,
+                            detail=f"no advisory {advisory} for storm_id={storm_id} in the "
+                                   f"tropical bank (no official forecast, no CurrentStorms "
+                                   f"entry, no file)")
+    return storm, a, adv, entry, rows, wsp_rows
+
+
+async def _tropics_products_build(storm_id: str, advisory: Optional[str]) -> dict:
+    storm, a, adv, entry, rows, wsp_rows = await _tropics_advisory_reads(
+        storm_id, advisory, _ti.ADVISORY_PRODUCTS, with_wsp=True)
+    return _ti.build_products(storm=storm, advisory=a, adv=adv, requested=advisory, entry=entry,
+                              rows=rows, wsp_rows=wsp_rows)
+
+
+async def _tropics_text_build(storm_id: str, advisory: Optional[str]) -> dict:
+    storm, a, adv, entry, rows, _ = await _tropics_advisory_reads(
+        storm_id, advisory, _ti.TEXT_PRODUCTS, with_wsp=False)
+    return _ti.build_text(storm=storm, advisory=a, adv=adv, requested=advisory, entry=entry,
+                          rows=rows)
+
+
+async def _tropics_members_build(storm_id: str, cycle: Optional[str]) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                storm = await _tropics_storm_or_404(cur, storm_id)
+                await cur.execute(_ti.MEMBERS_SQL, _ti.members_params(storm_id, cycle))
+                rows = await cur.fetchall()
+    return _ti.build_members(storm=storm, cycle=cycle, rows=rows)
+
+
+@app.get(f"{TROPICS_PREFIX}/ground")
+async def weather_tropics_ground(
+    response: Response,
+    basin: Optional[str] = Query(None, description="al (GOES-East) | ep | cp (GOES-West)"),
+):
+    """The GOES GeoColor frame GIBS holds now, for the Tropics map's ground.
+
+        { basin,
+          layers: [ { id, satellite, instrument, title, template, time_template,
+                      tile_matrix_set: "GoogleMapsCompatible_Level7", tile_size: 256,
+                      minzoom: 0, maxzoom: 6, frame_utc, probed_utc, age_min,
+                      recent_present: [ <= 12 slots ], recent_unknown } ],
+          attribution: { text, source, layer_credit }, absence,
+          probe: { probe, layer, probed_utc, frame_utc, age_min, slots_asked,
+                   absent_before_frame, recent_present, refusal },
+          frame_rule, recent_rule, basin_rule, timestamps, not_served, cache }
+
+    The z0 tile of the basin's layer (East for al, West for ep and cp) is asked
+    at descending 10-minute slots from now; the first 200 PNG GIBS says is that
+    slot's is the frame; after 18 slots, `absence` no_frame_in_window and no
+    layer. GIBS not reached, an answer other than 200 or 404, or a search past
+    20 s: `absence` gibs_unreachable. GIBS's `default` time is never bound.
+    Each probe is logged (energylake.tropics.ground). Memoised 300 s per layer,
+    single-flight, never served stale. Bad basin -> 400.
+    """
+    try:
+        b = _ti.parse_basin(basin)
+    except ValueError as e:
+        _solar_400(e)
+    layer = _ti.GROUND_LAYERS_BY_BASIN[b]
+    try:
+        payload, state, entry = await _tropics_ground_cache.serve(
+            layer, lambda: _tropics_ground_build(layer))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503,
+                            detail=f"gibs probe exceeded {GROUND_BUILD_TIMEOUT:g} s")
+    return {"basin": b, **_dd_envelope(payload, state, entry, _tropics_ground_cache, response)}
+
+
+@app.get(f"{TROPICS_PREFIX}/products")
+async def weather_tropics_products(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. ep202026"),
+    advisory: Optional[str] = Query(None, description="NNN or NNNA as the bank keys it; default "
+                                                      "the newest official advisory"),
+):
+    """One advisory's published NHC geometry, and the WSP of its synoptic cycle.
+
+        { storm_id, name, basin, advisory, advisory_requested, init_ts,
+          position_valid_ts, issued_ts,
+          nhc_entry: { vintage_key, issued_ts, fetch_ts, classification, refs } | null,
+          nhc_entry_absence, revision, corrected,
+          objects: [ { product: cone|ww|surge_ww, url, sha256, bytes, source_r2_key,
+                       source_sha256, geometry_types, vertices, revision, corrected,
+                       original: { url, sha256, bytes, absence } | null,
+                       source_in_force } ],
+          absent: [ { product, reason, detail } ],
+          wsp: { cycle, synoptic_ts, objects: [ ..as above, product wsp{34|50|64}_
+                 {bands|grid}.. ], absent: [ ... ], absence },
+          absence, advisory_rule, wsp_rule, revision_rule, index_rule, reasons,
+          timestamps, not_served, nhc_terms, cache }
+
+    Reasons: not_issued (NHC's CurrentStorms entry for the advisory links no
+    such product, or an earlier advisory's), basin_has_none (surge: Atlantic
+    and Gulf only), not_banked, not_published (banked, no display object in
+    the ledger). Unknown storm -> 404; a named advisory the bank knows nothing
+    of -> 404; a known storm with no advisory -> 200 with `absence`; bad
+    params -> 400; DB unavailable or past the 5 s statement timeout -> 503.
+    Memoised 300 s per (storm_id, advisory), single-flight, never stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+        adv = _ti.parse_advisory(advisory)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_products_cache, (sid, adv),
+                              lambda: _tropics_products_build(sid, adv), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/text")
+async def weather_tropics_text(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. ep202026"),
+    advisory: Optional[str] = Query(None, description="NNN or NNNA as the bank keys it; default "
+                                                      "the newest official advisory"),
+):
+    """One advisory's published Forecast Discussion (TCD) and Public Advisory (TCP).
+
+        { storm_id, name, basin, advisory, advisory_requested, init_ts,
+          position_valid_ts, issued_ts, nhc_entry, nhc_entry_absence,
+          products: { tcd | tcp: { product, url, sha256, bytes, issued_utc,
+                                   transmitted_utc, forecaster,
+                                   sections: [ { title, kind } ], source_r2_key,
+                                   source_sha256, revision, corrected, original,
+                                   source_in_force, absence } },
+          absence, advisory_rule, times_rule, sections_rule, index_rule, reasons,
+          timestamps, not_served, nhc_terms, cache }
+
+    A product not served carries `absence` {reason, detail}: not_banked,
+    not_published, or not_issued (NHC issues no TCD with an intermediate
+    advisory; its entry links the parent's). Status codes as /products.
+    Memoised 300 s per (storm_id, advisory), single-flight, never stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+        adv = _ti.parse_advisory(advisory)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_text_cache, (sid, adv),
+                              lambda: _tropics_text_build(sid, adv), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/members")
+async def weather_tropics_members(
+    response: Response,
+    storm_id: Optional[str] = Query(None, description="NHC's id as the bank keys it, e.g. ep202026"),
+    cycle: Optional[str] = Query(None, description="YYYYMMDDHH; default every cycle the bank holds"),
+):
+    """The published ensemble-member manifests of one storm, per model cycle.
+
+        { storm_id, name, cycle, cycles_held,
+          cycles: [ { cycle, ensembles: [ { ensemble, label, manifest_url, sha256,
+                                            bytes, n_members, min_members, taus,
+                                            source_r2_key, source_sha256, revision,
+                                            corrected, notice } ] } ],
+          absent: [ { cycle, ensemble, reason, detail } ],
+          absence, ensembles, order, members_rule, index_rule, reasons,
+          timestamps, not_served, cache }
+
+    Ensembles: ecmwf_ens, ecmwf_aifs_ens, gefs_adeck. Reasons: not_banked (no
+    member parquet), not_published (banked, no manifest: every answer until
+    d091743 publishes), too_few_members (the manifest's own count below its
+    own minimum). Member points are never served here. Unknown storm -> 404;
+    bad cycle -> 400; DB unavailable or timed out -> 503. Memoised 300 s per
+    (storm_id, cycle), single-flight, never served stale.
+    """
+    try:
+        sid = _tr.parse_storm_id(storm_id)
+        cyc = _ti.parse_cycle(cycle)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_members_cache, (sid, cyc),
+                              lambda: _tropics_members_build(sid, cyc), response)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # THE PRESS — d091689: the Joule Report's editions (D-09-25-184, D-09-25-185)
 # ═══════════════════════════════════════════════════════════════════════════

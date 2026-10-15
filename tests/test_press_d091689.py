@@ -450,10 +450,19 @@ def _base_main():
     return r.stdout
 
 
+# d091741: main.py has gained lines since this lane (the Tropics index routes), so
+# "main.py now" is pinned to this lane's own commit; the route list below stays live.
+PRESS_COMMIT = "58d0bf3"
+
+
 def test_A8_no_existing_route_changed():
     base = _base_main()
-    now = (ROOT / "main.py").read_text()
-    sec = _press_section()
+    r = subprocess.run(["git", "-C", str(ROOT), "show", f"{PRESS_COMMIT}:main.py"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        pytest.skip(f"{PRESS_COMMIT} is not in this clone")
+    now = r.stdout
+    sec = now[now.index("# THE PRESS — d091689"):now.index("# LOAD OUTLOOK AND CAISO NET DEMAND — d091611")]
     # main.py at the base, plus three index lines and the press section, is main.py now
     index = [l for l in now.splitlines(keepends=True) if l.startswith("    GET /api/press/")]
     assert len(index) == 3

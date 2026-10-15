@@ -1,0 +1,19 @@
+# d091741: /ground's probe log, live. main.py's own probe (energylake.tropics.ground, one JSON line per
+# probe), run against gibs.earthdata.nasa.gov from this session (container clock, UTC), through the
+# session's proxy. The 14:19:56Z run is the first: West's probe failed on 'Event loop is closed' (one
+# httpx client kept across event loops: fixed, test_G1_the_service_path_*, rehearsal break 19);
+# the 14:20:36Z run is the fix. cp shares West's memo, so it logs no probe of its own.
+
+2026-10-15 14:20:00,026 energylake.tropics.ground {"absent_before_frame": ["2026-10-15T14:10:00Z", "2026-10-15T14:00:00Z", "2026-10-15T13:50:00Z"], "age_min": 39.9, "frame_utc": "2026-10-15T13:40:00+00:00", "layer": "GOES-East_ABI_GeoColor", "probe": "gibs_geocolor_z0", "probed_utc": "2026-10-15T14:19:56.574339+00:00", "recent_present": 12, "refusal": null, "slots_asked": 4}
+2026-10-15 14:20:00,036 energylake.tropics.ground {"absent_before_frame": [], "age_min": null, "frame_utc": null, "layer": "GOES-West_ABI_GeoColor", "probe": "gibs_geocolor_z0", "probed_utc": "2026-10-15T14:20:00.032925+00:00", "recent_present": 0, "refusal": "gibs_unreachable", "slots_asked": 1}
+2026-10-15 14:20:39,079 energylake.tropics.ground {"absent_before_frame": ["2026-10-15T14:20:00Z", "2026-10-15T14:10:00Z", "2026-10-15T14:00:00Z", "2026-10-15T13:50:00Z"], "age_min": 40.6, "frame_utc": "2026-10-15T13:40:00+00:00", "layer": "GOES-East_ABI_GeoColor", "probe": "gibs_geocolor_z0", "probed_utc": "2026-10-15T14:20:36.583792+00:00", "recent_present": 12, "refusal": null, "slots_asked": 5}
+2026-10-15 14:20:41,373 energylake.tropics.ground {"absent_before_frame": ["2026-10-15T14:20:00Z", "2026-10-15T14:10:00Z", "2026-10-15T14:00:00Z", "2026-10-15T13:50:00Z"], "age_min": 40.7, "frame_utc": "2026-10-15T13:40:00+00:00", "layer": "GOES-West_ABI_GeoColor", "probe": "gibs_geocolor_z0", "probed_utc": "2026-10-15T14:20:39.161569+00:00", "recent_present": 12, "refusal": null, "slots_asked": 5}
+
+# Every z0 recording this lane made (record_gibs_z0.py -> tests/fixtures/tropics_d091741/gibs/d091741_z0_runs.jsonl):
+# the newest slot GIBS served (first 200 from now), its age, and the slots absent above it.
+2026-10-15T13:54:42+00:00  GOES-East_ABI_GeoColor   frame 13:10Z  age  44.7 min  absent above: 13:50,13:40,13:30,13:20  holes below: -
+2026-10-15T13:54:42+00:00  GOES-West_ABI_GeoColor   frame 13:20Z  age  34.7 min  absent above: 13:50,13:40,13:30  holes below: -
+2026-10-15T13:59:23+00:00  GOES-East_ABI_GeoColor   frame 13:30Z  age  29.4 min  absent above: 13:50,13:40  holes below: 13:20
+2026-10-15T13:59:23+00:00  GOES-West_ABI_GeoColor   frame 13:30Z  age  29.4 min  absent above: 13:50,13:40  holes below: -
+2026-10-15T14:20:00+00:00  GOES-East_ABI_GeoColor   frame 13:40Z  age  40.0 min  absent above: 14:20,14:10,14:00,13:50  holes below: -
+2026-10-15T14:20:00+00:00  GOES-West_ABI_GeoColor   frame 13:40Z  age  40.0 min  absent above: 14:20,14:10,14:00,13:50  holes below: -

@@ -1,0 +1,64 @@
+{
+ "basin": "al",
+ "layers": [
+  {
+   "id": "GOES-East_ABI_GeoColor",
+   "satellite": "GOES-East",
+   "instrument": "ABI",
+   "title": "GeoColor (True Color (Day), Multispectral IR (Night))",
+   "template": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/2026-10-15T13:40:00Z/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",
+   "time_template": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{Time}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",
+   "tile_matrix_set": "GoogleMapsCompatible_Level7",
+   "tile_size": 256,
+   "minzoom": 0,
+   "maxzoom": 6,
+   "frame_utc": "2026-10-15T13:40:00+00:00",
+   "probed_utc": "2026-10-15T14:20:00+00:00",
+   "age_min": 40.0,
+   "recent_present": [
+    "2026-10-15T13:40:00Z",
+    "2026-10-15T13:30:00Z",
+    "2026-10-15T13:20:00Z",
+    "2026-10-15T13:10:00Z",
+    "2026-10-15T13:00:00Z",
+    "2026-10-15T12:50:00Z",
+    "2026-10-15T12:40:00Z",
+    "2026-10-15T12:30:00Z",
+    "2026-10-15T12:20:00Z",
+    "2026-10-15T12:10:00Z",
+    "2026-10-15T12:00:00Z",
+    "2026-10-15T11:50:00Z"
+   ],
+   "recent_unknown": []
+  }
+ ],
+ "attribution": {
+  "text": "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).",
+  "source": "nasa-gibs/gibs-api-docs docs/index.md, 'Data Use Guidance and Acknowledgements' (published at https://nasa-gibs.github.io/gibs-api-docs/), commit afb15814aee74b09e672466adb731b2e34d51d8b, read 2026-10-15",
+  "layer_credit": "Layer titles are GIBS's own (layer-metadata/v1.0). GIBS publishes no credit line for GeoColor's producer; none is added here."
+ },
+ "absence": null,
+ "probe": {
+  "probe": "gibs_geocolor_z0",
+  "layer": "GOES-East_ABI_GeoColor",
+  "probed_utc": "2026-10-15T14:20:00+00:00",
+  "frame_utc": "2026-10-15T13:40:00+00:00",
+  "age_min": 40.0,
+  "slots_asked": 5,
+  "absent_before_frame": [
+   "2026-10-15T14:20:00Z",
+   "2026-10-15T14:10:00Z",
+   "2026-10-15T14:00:00Z",
+   "2026-10-15T13:50:00Z"
+  ],
+  "recent_present": 12,
+  "refusal": null
+ },
+ "frame_rule": "frame_utc is the newest 10-minute slot whose z0 tile GIBS served as a PNG of that time (a 200, and layer-time-actual equal to the slot where GIBS sends it), probed down from now; GIBS's `default` time, its DescribeDomains and its capabilities <Default> are never used (recon d091737 §1: each lagged or led the tiles). age_min is at probed_utc.",
+ "recent_rule": "recent_present lists the frame and every present slot among the 11 slots below it, newest first; recent_unknown the slots whose answer was an error. A slot in neither was absent.",
+ "basin_rule": "East for al, West for ep and cp",
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "default_time": "GIBS's `default` time is never bound: it served frames 20-60 minutes older than the newest present, by layer and minute (recon d091737 §1)."
+ }
+}

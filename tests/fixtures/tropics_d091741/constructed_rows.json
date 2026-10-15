@@ -1,0 +1,150 @@
+[
+ {
+  "byte_size": 27980,
+  "closed_ts": null,
+  "dataset": "nhc_advisory_vintage",
+  "fetch_ts": "2026-10-15T13:40:00+00:00",
+  "issued_ts": "2026-10-15T09:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "correction": {
+    "prior_sha256": [
+     "23fb9e669eb93c9db7a63eb81cffff4c159c248f491399695dd20040c223bab9"
+    ],
+    "revision": 1,
+    "signal": "constructed for I2 (a corrected advisory)"
+   },
+   "geometry_types": {
+    "Polygon": 1
+   },
+   "lon_range": [
+    -116.47044,
+    -108.0546
+   ],
+   "n_features": 1,
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/cone_kmz.kmz",
+   "source_sha256": "1f82e17dc6d17d760091a7c6215a502073277e8892beb020698db9210c3f79e1",
+   "vertices": 1264
+  },
+  "product": "display:cone",
+  "r2_key": "tropics/ep202026/adv032/cone.r1.geojson",
+  "sha256": "b57430293de7220dd9cf22761593d566dab77dae8924a8ae8558024236494361",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910101,
+  "vintage_key": "032"
+ },
+ {
+  "byte_size": 1685,
+  "closed_ts": null,
+  "dataset": "tc_model_tracks",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows); the manifest is the recon's dry write from a SYNTHETIC parquet",
+   "min_members": 5,
+   "n_members": 51,
+   "source_r2_key": "tropical/tracks/ep202026/2026101112/ecmwf_ens.parquet",
+   "source_sha256": "a5aae22c561e6f8fe76c7b853aef83a9b3ad69ed12063ea657b4107e5156124e",
+   "synthetic_input": true,
+   "taus": [
+    0,
+    6,
+    12,
+    18,
+    24,
+    30,
+    36,
+    42,
+    48,
+    54,
+    60,
+    66,
+    72,
+    78,
+    84,
+    90,
+    96,
+    102,
+    108,
+    114
+   ]
+  },
+  "product": "display:members:ecmwf_ens",
+  "r2_key": "tropics/ep202026/2026101112/ecmwf_ens/manifest.json",
+  "sha256": "9016925ca222b1d77ba0b58f57a5e512afbd188d3d38d070728b8b5d37d38471",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep202026",
+  "vintage_id": 910201,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 900,
+  "closed_ts": null,
+  "dataset": "tc_model_tracks",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-11T12:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "min_members": 5,
+   "n_members": 1,
+   "source_r2_key": "tropical/tracks/ep182026/2026101112/ecmwf_ens.parquet",
+   "source_sha256": "448afc8cf0c978fc7c211fb733a68ea820543018bb7f8a556d5c2479f597abd2",
+   "taus": [
+    0,
+    12
+   ]
+  },
+  "product": "display:members:ecmwf_ens",
+  "r2_key": "tropics/ep182026/2026101112/ecmwf_ens/manifest.json",
+  "sha256": "b5f238be3aa139e4657f05c54f5a71473b177b772611226bcd92e6e88e1f6aa4",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "ep182026",
+  "vintage_id": 910202,
+  "vintage_key": "2026101112"
+ },
+ {
+  "byte_size": 1400,
+  "closed_ts": null,
+  "dataset": "tc_model_tracks",
+  "fetch_ts": "2026-10-15T13:30:00+00:00",
+  "issued_ts": "2026-10-10T06:00:00+00:00",
+  "meta": {
+   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
+   "min_members": 10,
+   "n_members": 7,
+   "source_r2_key": "tropical/tracks/al092026/2026101006/ecmwf_aifs_ens.parquet",
+   "source_sha256": "4a83c4a176d5a262ff61a2a23a31e0d6872bc445383708f17f25e00a7b116d56",
+   "taus": [
+    0,
+    6,
+    12,
+    18,
+    24
+   ]
+  },
+  "product": "display:members:ecmwf_aifs_ens",
+  "r2_key": "tropics/al092026/2026101006/ecmwf_aifs_ens/manifest.json",
+  "sha256": "86d9608e94cf5b378d6a360278081ffa60e7bb29c78af9545d435638e9adf492",
+  "source": "parsed",
+  "source_etag": null,
+  "source_last_modified": null,
+  "source_url": null,
+  "status": "banked",
+  "storm_id": "al092026",
+  "vintage_id": 910203,
+  "vintage_key": "2026101006"
+ }
+]
