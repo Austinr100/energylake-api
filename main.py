@@ -21531,6 +21531,10 @@ async def weather_tropics_odds(
 #                                              one advisory's published TCD and TCP
 #   GET /api/weather/tropics/members?storm_id=&cycle=
 #                                              the published member manifests
+#   GET /api/weather/tropics/outlook?basin=&stamp=
+#                                              NHC's 7-day outlook: the graphics at
+#                                              their 12-digit stamp, the basin's text
+#                                              paired by its own stamp (d091757)
 #
 # AN INDEX, AND NO R2. Each route says what the pantry published to the display
 # bucket, its key and sha, and why anything is absent, read from the vintage
@@ -21563,6 +21567,8 @@ _tropics_products_cache = _DDCache("weather/tropics/products", TROPICS_INDEX_MEM
 _tropics_text_cache = _DDCache("weather/tropics/text", TROPICS_INDEX_MEMO_TTL, max_entries=64,
                                build_timeout=SOLAR_BUILD_TIMEOUT)
 _tropics_members_cache = _DDCache("weather/tropics/members", TROPICS_INDEX_MEMO_TTL,
+                                  max_entries=32, build_timeout=SOLAR_BUILD_TIMEOUT)
+_tropics_outlook_cache = _DDCache("weather/tropics/outlook", TROPICS_INDEX_MEMO_TTL,
                                   max_entries=32, build_timeout=SOLAR_BUILD_TIMEOUT)
 
 # A recorded GIBS for the tests: fetch(url) -> (status, content-type,
@@ -21652,7 +21658,7 @@ async def _tropics_advisory_reads(storm_id: str, advisory: Optional[str], pairs,
 
 async def _tropics_products_build(storm_id: str, advisory: Optional[str]) -> dict:
     storm, a, adv, entry, rows, wsp_rows = await _tropics_advisory_reads(
-        storm_id, advisory, _ti.ADVISORY_PRODUCTS, with_wsp=True)
+        storm_id, advisory, _ti.ADVISORY_PRODUCTS + _ti.TOA_PRODUCTS, with_wsp=True)
     return _ti.build_products(storm=storm, advisory=a, adv=adv, requested=advisory, entry=entry,
                               rows=rows, wsp_rows=wsp_rows)
 
@@ -21676,6 +21682,44 @@ async def _tropics_members_build(storm_id: str, cycle: Optional[str]) -> dict:
                 await cur.execute(_ti.DISPLAY_MEMBERS_SQL, _ti.display_members_params(storm_id, cycle))
                 rows = rows + await cur.fetchall()
     return _ti.build_members(storm=storm, cycle=cycle, rows=rows)
+
+
+async def _tropics_outlook_build(basin: str, stamp: Optional[str]) -> dict:
+    """The outlook's reads, in one transaction: the graphics' stamp (the one named, or
+    the newest), their rows at it through 314's view, the basin's text stamp at or before
+    it, and the text's row at its own stamp. A named stamp with no published graphics is
+    a 404."""
+    assert _pool is not None
+    text_name = _ti.OUTLOOK_TEXT_BY_BASIN[basin]
+    at, rows, text_stamp, text_rows = stamp, [], None, []
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{TROPICS_STATEMENT_TIMEOUT}'")
+                if at is None:
+                    await cur.execute(_ti.OUTLOOK_STAMP_SQL, _ti.outlook_stamp_params("two_areas"))
+                    row = await cur.fetchone()
+                    at = row["stamp"] if row else None
+                if at is not None:
+                    await cur.execute(_ti.DISPLAY_FILES_SQL, _ti.display_files_params(
+                        "", at, [(n, None) for n in _ti.OUTLOOK_GRAPHICS]))
+                    rows = await cur.fetchall()
+                if stamp is None or rows:
+                    await cur.execute(_ti.OUTLOOK_STAMP_SQL, _ti.outlook_stamp_params(text_name, at))
+                    row = await cur.fetchone()
+                    text_stamp = row["stamp"] if row else None
+                if text_stamp is not None:
+                    await cur.execute(_ti.DISPLAY_FILES_SQL, _ti.display_files_params(
+                        "", text_stamp, [(text_name, None)]))
+                    text_rows = await cur.fetchall()
+    if stamp is not None and not rows:
+        raise HTTPException(status_code=404,
+                            detail=f"no outlook published at stamp {stamp}: the ledger holds no "
+                                   f"display:two_areas or display:two_points under it (a stamp "
+                                   f"names the graphical issuance; a text is paired to one by "
+                                   f"its own stamp)")
+    return _ti.build_outlook(basin=basin, stamp=at, requested=stamp, rows=rows,
+                             text_name=text_name, text_stamp=text_stamp, text_rows=text_rows)
 
 
 @app.get(f"{TROPICS_PREFIX}/ground")
@@ -21735,12 +21779,18 @@ async def weather_tropics_products(
                        original: { url, sha256, bytes, absence } | null,
                        source_in_force } ],
           absent: [ { product, reason, detail } ],
+          toa: { objects: [ ..as above, product toa_earliest|toa_mostlikely,
+                            advisory_in_object, [advisory_check],
+                            labels: { labels, labels_null, timezone, withdrawal } ],
+                 absent: [ ... ] },
           wsp: { cycle, synoptic_ts, objects: [ ..as above, product wsp{34|50|64}_
                  {bands|grid}.. ], absent: [ ... ], absence },
-          absence, advisory_rule, wsp_rule, revision_rule, index_rule, reasons,
+          absence, advisory_rule, wsp_rule, revision_rule, toa_rule, index_rule, reasons,
           timestamps, not_served, nhc_terms, cache }
 
-    Reasons: not_issued (NHC's CurrentStorms entry for the advisory links no
+    The TOA label table is the ledger row's keys under the row's names, as banked
+    (D-09-25-236, D-09-25-242 §1(d)): a key the row does not carry is not served, and
+    no label is parsed or inferred here. Reasons: not_issued (NHC's CurrentStorms entry for the advisory links no
     such product, or an earlier advisory's), basin_has_none (surge: Atlantic
     and Gulf only), not_banked, not_published (banked, no display object in
     the ledger). Unknown storm -> 404; a named advisory the bank knows nothing
@@ -21821,6 +21871,49 @@ async def weather_tropics_members(
         _solar_400(e)
     return await _solar_serve(_tropics_members_cache, (sid, cyc),
                               lambda: _tropics_members_build(sid, cyc), response)
+
+
+@app.get(f"{TROPICS_PREFIX}/outlook")
+async def weather_tropics_outlook(
+    response: Response,
+    basin: Optional[str] = Query(None, description="al | ep | cp (cp is served the East Pacific text)"),
+    stamp: Optional[str] = Query(None, description="the issuance's 12-digit stamp YYYYMMDDHHMM; "
+                                                   "default the newest published"),
+):
+    """NHC's Tropical Weather Outlook (7-day), as the pantry published it.
+
+        { basin, stamp, stamp_requested, issued_ts, revision, corrected,
+          graphics: { stamp,
+                      objects: [ { product: two_areas|two_points, url, sha256, bytes,
+                                   stamp, issued_utc, source_layer, n_features,
+                                   n_records, dbf_fields, geometry_types, vertices,
+                                   source_r2_key, source_sha256, revision, corrected,
+                                   original } ],
+                      absent: [ { product, reason, detail } ] },
+          text: { product: two_text_at|two_text_ep, text_basin, url, sha256, bytes,
+                  basin_heading, stamp, wmo_heading, awips_id, bbb, title, forecaster,
+                  issued_local, issued_utc, transmitted_utc, formation_not_expected,
+                  n_paragraphs, n_disturbances, disturbances: [ { number, title,
+                  prob_2day, prob_7day, risk_2day, risk_7day } ], source_r2_key,
+                  source_sha256, revision, corrected, original, absence },
+          absence, stamp_rule, pairing_rule, basin_rule, revision_rule, index_rule,
+          reasons, timestamps, not_served, nhc_terms, cache }
+
+    The stamp is the issuance (D-09-25-234): YYYYMMDDHHMM, the graphics' own; an hour
+    or a correction's r<n> is a 400, never read as an issuance. The text is the
+    basin's with the newest stamp at or before it, stated with its own stamp; the
+    disturbances are the publisher's, verbatim (D-09-25-76). Reason: not_published.
+    A named stamp with no published graphics -> 404; bad params -> 400; DB
+    unavailable or past the 5 s statement timeout -> 503. Memoised 300 s per
+    (basin, stamp), single-flight, never served stale.
+    """
+    try:
+        b = _ti.parse_basin(basin)
+        st = _ti.parse_stamp(stamp)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_tropics_outlook_cache, (b, st),
+                              lambda: _tropics_outlook_build(b, st), response)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

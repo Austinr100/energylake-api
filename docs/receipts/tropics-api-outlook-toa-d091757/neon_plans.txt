@@ -1,0 +1,130 @@
+# d091757 — EXPLAIN (ANALYZE, BUFFERS) of every NEW read the routes make, on Neon (project
+# Energylake, the production branch, through the Neon connector) in ONE read-only transaction:
+# SET TRANSACTION READ ONLY first, transaction_read_only = on read back. Run
+# 2026-10-16T02:59:39.679Z (now() of the transaction). Statement text = explains.json
+# (psycopg's mogrify of the routes' own statements and parameter builders: literal values,
+# as the custom plans psycopg's first executions get).
+# The ledger at the time: 8,410 rows; 730 display rows; PostgreSQL 17.11 (59c914d).
+# Transcribed verbatim from the connector's output; test X1 reads this file.
+
+## OUTLOOK_STAMP_SQL two_areas newest
+Limit  (cost=0.29..7.87 rows=1 width=43) (actual time=0.061..0.061 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan Backward using tfv_identity on tropical_file_vintage a  (cost=0.29..7.87 rows=1 width=43) (actual time=0.060..0.060 rows=1 loops=1)
+        Index Cond: ((source = 'display'::text) AND (product = 'display:two_areas'::text) AND (storm_id = ''::text) AND (vintage_key < '999999999999s'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=3
+Planning Time: 0.140 ms
+Execution Time: 0.081 ms
+
+## OUTLOOK_STAMP_SQL two_text_at <= 202610152347
+Limit  (cost=0.29..7.87 rows=1 width=43) (actual time=0.020..0.020 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan Backward using tfv_identity on tropical_file_vintage a  (cost=0.29..7.87 rows=1 width=43) (actual time=0.019..0.020 rows=1 loops=1)
+        Index Cond: ((source = 'display'::text) AND (product = 'display:two_text_at'::text) AND (storm_id = ''::text) AND (vintage_key < '202610152347s'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=3
+Planning Time: 0.108 ms
+Execution Time: 0.034 ms
+
+## OUTLOOK_STAMP_SQL two_text_ep <= 202610140517
+Limit  (cost=0.29..7.87 rows=1 width=43) (actual time=0.017..0.018 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan Backward using tfv_identity on tropical_file_vintage a  (cost=0.29..7.87 rows=1 width=43) (actual time=0.017..0.017 rows=1 loops=1)
+        Index Cond: ((source = 'display'::text) AND (product = 'display:two_text_ep'::text) AND (storm_id = ''::text) AND (vintage_key < '202610140517s'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=3
+Planning Time: 0.096 ms
+Execution Time: 0.031 ms
+
+## DISPLAY_FILES_SQL outlook graphics 202610152347
+Nested Loop Left Join  (cost=12.46..20.56 rows=1 width=449) (actual time=1.481..1.489 rows=2 loops=1)
+  Join Filter: ((COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) > 0)
+  Rows Removed by Join Filter: 2
+  Buffers: shared hit=32 read=2
+  ->  Unique  (cost=12.18..12.23 rows=1 width=335) (actual time=0.318..0.321 rows=2 loops=1)
+        Buffers: shared hit=28
+        ->  Incremental Sort  (cost=12.18..12.23 rows=2 width=335) (actual time=0.318..0.319 rows=2 loops=1)
+              Sort Key: v.product, (COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) DESC, v.fetch_ts DESC, v.vintage_id DESC
+              Presorted Key: v.product
+              Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB
+              Buffers: shared hit=28
+              ->  Index Scan using tfv_identity on tropical_file_vintage v  (cost=0.29..12.17 rows=1 width=335) (actual time=0.196..0.307 rows=2 loops=1)
+                    Index Cond: ((source = 'display'::text) AND (product = ANY ('{display:two_areas,display:two_points}'::text[])) AND (storm_id = ''::text))
+                    Filter: ((status = 'banked'::text) AND ("substring"(vintage_key, '^([0-9]{3}[A-Z]?|[0-9]{10}|[0-9]{12})'::text) = '202610152347'::text))
+                    Rows Removed by Filter: 72
+                    Buffers: shared hit=28
+  ->  Index Scan using tfv_display_immutable on tropical_file_vintage a  (cost=0.28..8.30 rows=1 width=152) (actual time=0.581..0.582 rows=1 loops=2)
+        Index Cond: ((product = v.product) AND (storm_id = ''::text) AND (vintage_key = '202610152347'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=4 read=2
+Planning:
+  Buffers: shared hit=19
+Planning Time: 0.319 ms
+Execution Time: 1.524 ms
+
+## DISPLAY_FILES_SQL outlook text_at 202610152319
+Nested Loop Left Join  (cost=8.16..16.26 rows=1 width=449) (actual time=0.113..0.114 rows=1 loops=1)
+  Join Filter: ((COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) > 0)
+  Rows Removed by Join Filter: 1
+  Buffers: shared hit=11
+  ->  Unique  (cost=7.89..7.94 rows=1 width=335) (actual time=0.107..0.107 rows=1 loops=1)
+        Buffers: shared hit=8
+        ->  Incremental Sort  (cost=7.89..7.93 rows=2 width=335) (actual time=0.106..0.106 rows=1 loops=1)
+              Sort Key: v.product, (COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) DESC, v.fetch_ts DESC, v.vintage_id DESC
+              Presorted Key: v.product
+              Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+              Buffers: shared hit=8
+              ->  Index Scan using tfv_identity on tropical_file_vintage v  (cost=0.29..7.88 rows=1 width=335) (actual time=0.100..0.100 rows=1 loops=1)
+                    Index Cond: ((source = 'display'::text) AND (product = ANY ('{display:two_text_at}'::text[])) AND (storm_id = ''::text))
+                    Filter: ((status = 'banked'::text) AND ("substring"(vintage_key, '^([0-9]{3}[A-Z]?|[0-9]{10}|[0-9]{12})'::text) = '202610152319'::text))
+                    Rows Removed by Filter: 26
+                    Buffers: shared hit=8
+  ->  Index Scan using tfv_display_immutable on tropical_file_vintage a  (cost=0.28..8.30 rows=1 width=152) (actual time=0.003..0.004 rows=1 loops=1)
+        Index Cond: ((product = v.product) AND (storm_id = ''::text) AND (vintage_key = '202610152319'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=3
+Planning Time: 0.229 ms
+Execution Time: 0.140 ms
+
+## DISPLAY_FILES_SQL products+toa ep182026 054
+Nested Loop Left Join  (cost=17.17..25.27 rows=1 width=449) (actual time=2.201..2.214 rows=4 loops=1)
+  Join Filter: ((COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) > 0)
+  Buffers: shared hit=29 read=4
+  ->  Unique  (cost=16.89..16.94 rows=1 width=335) (actual time=2.192..2.195 rows=4 loops=1)
+        Buffers: shared hit=17 read=4
+        ->  Incremental Sort  (cost=16.89..16.94 rows=2 width=335) (actual time=2.191..2.192 rows=8 loops=1)
+              Sort Key: v.product, (COALESCE(("substring"(v.vintage_key, 'r([1-9][0-9]*)$'::text))::integer, 0)) DESC, v.fetch_ts DESC, v.vintage_id DESC
+              Presorted Key: v.product
+              Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 34kB  Peak Memory: 34kB
+              Buffers: shared hit=17 read=4
+              ->  Index Scan using tfv_display_immutable on tropical_file_vintage v  (cost=0.28..16.88 rows=1 width=335) (actual time=0.671..2.176 rows=8 loops=1)
+                    Index Cond: ((product = ANY ('{display:cone,display:ww,display:surge_ww,display:toa_earliest,display:toa_mostlikely}'::text[])) AND (storm_id = 'ep182026'::text))
+                    Filter: ((status = 'banked'::text) AND ("substring"(vintage_key, '^([0-9]{3}[A-Z]?|[0-9]{10}|[0-9]{12})'::text) = '054'::text))
+                    Rows Removed by Filter: 61
+                    Buffers: shared hit=17 read=4
+  ->  Index Scan using tfv_display_immutable on tropical_file_vintage a  (cost=0.28..8.30 rows=1 width=152) (actual time=0.003..0.003 rows=1 loops=4)
+        Index Cond: ((product = v.product) AND (storm_id = 'ep182026'::text) AND (vintage_key = '054'::text))
+        Filter: (status = 'banked'::text)
+        Buffers: shared hit=12
+Planning Time: 0.224 ms
+Execution Time: 2.241 ms
+
+## FILES_SQL products+toa ep182026 054
+Subquery Scan on v  (cost=25.54..25.60 rows=1 width=267) (actual time=0.071..0.074 rows=4 loops=1)
+  Buffers: shared hit=17
+  ->  Unique  (cost=25.54..25.59 rows=1 width=391) (actual time=0.070..0.072 rows=4 loops=1)
+        Buffers: shared hit=17
+        ->  Incremental Sort  (cost=25.54..25.58 rows=2 width=391) (actual time=0.069..0.070 rows=8 loops=1)
+              Sort Key: v_1.product, v_1.fetch_ts DESC, v_1.vintage_id DESC
+              Presorted Key: v_1.product
+              Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 28kB  Peak Memory: 28kB
+              Buffers: shared hit=17
+              ->  Index Scan using tfv_identity on tropical_file_vintage v_1  (cost=0.29..25.53 rows=1 width=391) (actual time=0.033..0.059 rows=8 loops=1)
+                    Index Cond: ((source = 'nhc'::text) AND (product = ANY ('{cone_kmz,ww_kmz,surge_ww_kml,toa_earliest_kmz,toa_mostlikely_kmz}'::text[])) AND (storm_id = 'ep182026'::text) AND (vintage_key = '054'::text))
+                    Filter: ((NOT (meta ? 'anomaly_prior_sha'::text)) AND (status = 'banked'::text))
+                    Buffers: shared hit=17
+Planning:
+  Buffers: shared hit=2
+Planning Time: 0.187 ms
+Execution Time: 0.099 ms

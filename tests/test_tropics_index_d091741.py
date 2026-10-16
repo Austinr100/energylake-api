@@ -916,9 +916,12 @@ def test_C_every_ledger_read_is_of_the_view_in_force():
         assert "FROM tropical_file_vintage_in_force" in sql, name
     for name in ("DISPLAY_FILES_SQL", "DISPLAY_MEMBERS_SQL"):          # d091746: 314's reader
         assert "FROM tropical_display_in_force" in getattr(ti, name), name
-    # the one bare read is the original's, only where the copy in force is corrected
+    # the bare reads: the original's, only where the copy in force is corrected; and
+    # (d091757) the outlook's newest stamp, a key and no row (CLAUDE.md d091551: one
+    # LIMIT 1 down tfv_identity, not the view's DISTINCT ON), the row then read on the view
     bare = [n for n in dir(ti) if n.endswith("_SQL") and "FROM tropical_file_vintage AS a" in getattr(ti, n)]
-    assert bare == ["DISPLAY_FILES_SQL"]
+    assert bare == ["DISPLAY_FILES_SQL", "OUTLOOK_STAMP_SQL"]
+    assert "SELECT substring(a.vintage_key FROM '^[0-9]{12}') AS stamp" in ti.OUTLOOK_STAMP_SQL
     assert ti.DISPLAY_FILES_SQL.count("FROM tropical_file_vintage AS a") == 1
     assert "WHERE v.revision > 0" in ti.DISPLAY_FILES_SQL
 

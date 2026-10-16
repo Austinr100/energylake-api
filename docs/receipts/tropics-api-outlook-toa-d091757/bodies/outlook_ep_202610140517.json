@@ -1,0 +1,108 @@
+{
+ "basin": "ep",
+ "stamp": "202610140517",
+ "stamp_requested": true,
+ "issued_ts": "2026-10-14T05:17:00+00:00",
+ "revision": 0,
+ "corrected": false,
+ "graphics": {
+  "stamp": "202610140517",
+  "objects": [
+   {
+    "product": "two_areas",
+    "url": "https://display.energylake.io/tropics/two/202610140517/areas.geojson",
+    "sha256": "670e69061ec043f7f8f490a22ce8af28ba4fec7b7761c60364de3511c9abbbd8",
+    "bytes": 106,
+    "stamp": "202610140517",
+    "issued_utc": "2026-10-14T05:17:00+00:00",
+    "source_layer": "gtwo_areas_202610140517",
+    "n_features": 0,
+    "n_records": 0,
+    "dbf_fields": [
+     "BASIN",
+     "AREA",
+     "PROB2DAY",
+     "RISK2DAY",
+     "PROB7DAY",
+     "RISK7DAY"
+    ],
+    "geometry_types": {},
+    "vertices": 0,
+    "source_r2_key": "tropical/nhc/two/202610140517/gtwo_zip.zip",
+    "source_sha256": "2d1c67886c962946892fb29c2699efe13f7796cf5672832747a8f915447bac62",
+    "revision": 0,
+    "corrected": false,
+    "original": null
+   },
+   {
+    "product": "two_points",
+    "url": "https://display.energylake.io/tropics/two/202610140517/points.geojson",
+    "sha256": "9db389e4be49623e88a2c6855ff1896b8352c182f0d7eaa09c08eb7eeb365a6b",
+    "bytes": 107,
+    "stamp": "202610140517",
+    "issued_utc": "2026-10-14T05:17:00+00:00",
+    "source_layer": "gtwo_points_202610140517",
+    "n_features": 0,
+    "n_records": 0,
+    "dbf_fields": [
+     "BASIN",
+     "AREA",
+     "PROB2DAY",
+     "RISK2DAY",
+     "PROB7DAY",
+     "RISK7DAY"
+    ],
+    "geometry_types": {},
+    "vertices": 0,
+    "source_r2_key": "tropical/nhc/two/202610140517/gtwo_zip.zip",
+    "source_sha256": "2d1c67886c962946892fb29c2699efe13f7796cf5672832747a8f915447bac62",
+    "revision": 0,
+    "corrected": false,
+    "original": null
+   }
+  ],
+  "absent": []
+ },
+ "text": {
+  "product": "two_text_ep",
+  "text_basin": "ep",
+  "url": "https://display.energylake.io/tropics/two/202610132316/text_ep.json",
+  "sha256": "2d35fbada10abf9cb062a591c4c446a1322b995bc4a11348ae3486b00110be8a",
+  "bytes": 1596,
+  "basin_heading": "For the eastern and central North Pacific east of 180 longitude:",
+  "stamp": "202610132316",
+  "wmo_heading": "ABPZ20 KNHC 132316",
+  "awips_id": "TWOEP",
+  "bbb": null,
+  "title": "Tropical Weather Outlook",
+  "forecaster": "Mahoney",
+  "issued_local": "500 PM PDT Tue Oct 13 2026",
+  "issued_utc": "2026-10-14T00:00:00+00:00",
+  "transmitted_utc": "2026-10-13T23:16:00+00:00",
+  "formation_not_expected": true,
+  "n_paragraphs": 3,
+  "n_disturbances": 0,
+  "disturbances": [],
+  "source_r2_key": "tropical/nhc/two/202610132316/two_ep.txt",
+  "source_sha256": "11cf9f14ea484dad3f7021334c9d195cc48bc9bf43396ab93a92d3f389e86d23",
+  "revision": 0,
+  "corrected": false,
+  "original": null,
+  "absence": null
+ },
+ "absence": null,
+ "stamp_rule": "An outlook issuance is keyed by its 12-digit stamp YYYYMMDDHHMM (D-09-25-234; pantry migration 316): the row's vintage_key and tropical_display_in_force's advisory_or_cycle. `stamp` is the graphical issuance's (the gtwo zip's, which two_areas and two_points share); without one, the newest published. Two outlooks of one hour are two issuances, and r<n> is a correction NHC issued over a stamp, never an issuance: the copy in force at the stamp is served, revision stated.",
+ "pairing_rule": "The text is paired to the graphics by stamp: the basin's outlook text with the newest stamp at or before the graphics' (the text in force when NHC cut the zip). Each text has its own stamp (its WMO heading's DDHHMM), so the two stamps may differ; each object prints its own. issued_utc is the text's nominal synoptic time as NHC wrote it, transmitted_utc its WMO time: the pairing reads neither.",
+ "basin_rule": "basin al is served NHC's Atlantic outlook (two_text_at); ep and cp are served NHC's East Pacific outlook (two_text_ep), whose own heading, basin_heading, states its reach; the bank holds no CPHC outlook text. The graphics are one gtwo zip for every basin: each feature carries its own BASIN field, in the object at url.",
+ "revision_rule": "revision and corrected are each object's own, as on /products: the copy in force at a stamp is the highest revision published over it (pantry 314's tropical_display_in_force; key '<STAMP>r<n>'), and `original` is the revision-0 object where one is corrected. The top-level revision is the highest served.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket, the copy in force per (product, storm_id, advisory or cycle) as pantry 314's tropical_display_in_force names it (source 'display', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is the publisher's (pantry tropical/publish.py, migrations 314 and 316).",
+ "reasons": {
+  "not_published": "the ledger holds no published display object for it"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

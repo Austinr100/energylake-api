@@ -378,6 +378,11 @@ SERVED = json.loads((RECEIPTS / "bodies" / "served_from.json").read_text())
 def test_R1_the_handed_back_body_is_what_the_route_serves(client, monkeypatch, pg, name):
     b, _ = get(client, monkeypatch, pg, SERVED[name]["path"])
     b.pop("cache")
+    # d091757 adds /products' `toa` block and `toa_rule` and nothing else: they are set
+    # aside here, and that lane's own R1 pins its bodies whole.
+    if name.startswith("products_"):
+        assert set(b) - set(json.loads((RECEIPTS / "bodies" / name).read_text())) == {"toa", "toa_rule"}
+        b.pop("toa"), b.pop("toa_rule")
     assert b == json.loads((RECEIPTS / "bodies" / name).read_text())
     by_id = {r["vintage_id"]: r for r in lb.display_rows()}
     for o in SERVED[name]["objects"]:

@@ -1,0 +1,30 @@
+[
+ {
+  "name": "OUTLOOK_STAMP_SQL two_areas newest",
+  "sql": "SELECT substring(a.vintage_key FROM '^[0-9]{12}') AS stamp FROM tropical_file_vintage AS a WHERE a.source = 'display' AND a.product = 'display:two_areas' AND a.storm_id = '' AND a.status = 'banked' AND a.vintage_key < '999999999999s' ORDER BY a.vintage_key DESC LIMIT 1"
+ },
+ {
+  "name": "OUTLOOK_STAMP_SQL two_text_at <= 202610152347",
+  "sql": "SELECT substring(a.vintage_key FROM '^[0-9]{12}') AS stamp FROM tropical_file_vintage AS a WHERE a.source = 'display' AND a.product = 'display:two_text_at' AND a.storm_id = '' AND a.status = 'banked' AND a.vintage_key < '202610152347s' ORDER BY a.vintage_key DESC LIMIT 1"
+ },
+ {
+  "name": "OUTLOOK_STAMP_SQL two_text_ep <= 202610140517",
+  "sql": "SELECT substring(a.vintage_key FROM '^[0-9]{12}') AS stamp FROM tropical_file_vintage AS a WHERE a.source = 'display' AND a.product = 'display:two_text_ep' AND a.storm_id = '' AND a.status = 'banked' AND a.vintage_key < '202610140517s' ORDER BY a.vintage_key DESC LIMIT 1"
+ },
+ {
+  "name": "DISPLAY_FILES_SQL outlook graphics 202610152347",
+  "sql": "SELECT 'display' AS source, v.product, v.advisory_or_cycle, v.vintage_key, v.revision, v.revision > 0 AS corrected, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.published_ts, v.meta, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_display_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.revision > 0 AND a.source = 'display' AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.advisory_or_cycle AND a.status = 'banked') AS o ON true WHERE v.product = ANY ('{display:two_areas,display:two_points}'::text[]) AND v.storm_id = '' AND v.advisory_or_cycle = '202610152347' ORDER BY v.product"
+ },
+ {
+  "name": "DISPLAY_FILES_SQL outlook text_at 202610152319",
+  "sql": "SELECT 'display' AS source, v.product, v.advisory_or_cycle, v.vintage_key, v.revision, v.revision > 0 AS corrected, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.published_ts, v.meta, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_display_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.revision > 0 AND a.source = 'display' AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.advisory_or_cycle AND a.status = 'banked') AS o ON true WHERE v.product = ANY ('{display:two_text_at}'::text[]) AND v.storm_id = '' AND v.advisory_or_cycle = '202610152319' ORDER BY v.product"
+ },
+ {
+  "name": "DISPLAY_FILES_SQL products+toa ep182026 054",
+  "sql": "SELECT 'display' AS source, v.product, v.advisory_or_cycle, v.vintage_key, v.revision, v.revision > 0 AS corrected, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.published_ts, v.meta, o.r2_key AS original_r2_key, o.sha256 AS original_sha256, o.byte_size AS original_bytes FROM tropical_display_in_force AS v LEFT JOIN LATERAL ( SELECT a.r2_key, a.sha256, a.byte_size FROM tropical_file_vintage AS a WHERE v.revision > 0 AND a.source = 'display' AND a.product = v.product AND a.storm_id = v.storm_id AND a.vintage_key = v.advisory_or_cycle AND a.status = 'banked') AS o ON true WHERE v.product = ANY ('{display:cone,display:ww,display:surge_ww,display:toa_earliest,display:toa_mostlikely}'::text[]) AND v.storm_id = 'ep182026' AND v.advisory_or_cycle = '054' ORDER BY v.product"
+ },
+ {
+  "name": "FILES_SQL products+toa ep182026 054",
+  "sql": "SELECT v.source, v.product, v.vintage_key, v.r2_key, v.sha256, v.byte_size, v.issued_ts, v.fetch_ts, v.meta, v.revision, v.corrected FROM tropical_file_vintage_in_force AS v WHERE v.source = 'nhc' AND v.product = ANY ('{cone_kmz,ww_kmz,surge_ww_kml,toa_earliest_kmz,toa_mostlikely_kmz}'::text[]) AND v.storm_id = 'ep182026' AND v.vintage_key = '054' ORDER BY v.product"
+ }
+]

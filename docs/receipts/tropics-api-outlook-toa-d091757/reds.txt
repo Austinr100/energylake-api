@@ -1,0 +1,49 @@
+clean tree (the three Tropics index modules): GREEN (531 passed, 1 warning in 13.08s)
+ 1. hour a    ?stamp= takes an hour (YYYYMMDDHH) as an issuance
+      -k 'test_S_an_hour_is_not_a_stamp' -> RED  [2 failed, 392 deselected, 1 warning in 2.48s]
+      red: test_S_an_hour_is_not_a_stamp
+ 2. hour b    the text is paired to the graphics' hour (key bound cut to YYYYMMDDHH)
+      -k 'test_P_the_text_is_paired_by_its_own_stamp' -> RED  [19 failed, 98 passed, 277 deselected, 1 warning in 3.67s]
+      red: test_P_the_text_is_paired_by_its_own_stamp
+ 3. hour c    the view is read at the stamp's hour, not the stamp
+      -k 'test_S_two_outlooks_of_one_hour_are_two_issuances' -> RED  [2 failed, 392 deselected, 1 warning in 2.46s]
+      red: test_S_two_outlooks_of_one_hour_are_two_issuances
+ 4. hour d    the text is paired by the top of the graphics' hour (the hour NHC writes)
+      -k 'test_P_the_text_is_paired_by_its_own_stamp' -> RED  [98 failed, 19 passed, 277 deselected, 1 warning in 5.68s]
+      red: test_P_the_text_is_paired_by_its_own_stamp
+ 5. r<n> a    ?stamp= takes a correction's key (<stamp>r<n>) as an issuance
+      -k 'test_S_r_n_is_not_an_issuance' -> RED  [2 failed, 392 deselected, 1 warning in 2.53s]
+      red: test_S_r_n_is_not_an_issuance
+ 6. r<n> b    the display read takes the key (054r1) for its own advisory (vintage_key, not advisory_or_cycle)
+      -k 'test_T_each_correction_is_served_as_its_r1' -> RED  [4 failed, 390 deselected, 1 warning in 2.56s]
+      red: test_T_each_correction_is_served_as_its_r1
+ 7. r<n> c    the stamp read returns the key, not its 12-digit base
+      -k 'test_S_r_n_is_not_an_issuance' -> RED  [2 failed, 392 deselected, 1 warning in 2.46s]
+      red: test_S_r_n_is_not_an_issuance
+ 8. r<n> diag the same, the text pin set aside: what the banked vectors alone can see
+      -k 'not test_S_r_n_is_not_an_issuance and not test_C and not X1' -> GREEN (diagnostic, as expected)  [384 passed, 10 deselected, 1 warning in 4.38s]
+ 9. T labels  the block serves a key the row does not carry (label_rule, D-09-05-T)
+      -k 'test_T_the_label_block_serves_only_keys_the_row_carries' -> RED  [120 failed, 274 deselected, 1 warning in 2.82s]
+      red: test_T_the_label_block_serves_only_keys_the_row_carries
+10. T labels  a timezone filled in over the row's own (every banked row carries one)
+      -k 'test_T_every_banked_identity or test_T_the_054' -> RED  [57 failed, 337 deselected, 1 warning in 4.03s]
+      red: test_T_every_banked_identity_is_served_as_its_copy_in_force
+      red: test_T_the_054_pair_names_the_corrected_nhc_file_in_force
+11. T toa     /products reads no TOA (the pairs dropped from the route's read)
+      -k 'test_T_' -> RED  [64 failed, 126 passed, 204 deselected, 1 warning in 4.45s]
+      red: test_T_a_contour_only_object_is_served_with_parsed_0_as_banked
+      red: test_T_each_correction_is_served_as_its_r1
+      red: test_T_every_banked_identity_is_served_as_its_copy_in_force
+      red: test_T_simon_033_mostlikely_as_the_architect_measured
+      red: test_T_the_054_pair_names_the_corrected_nhc_file_in_force
+12. T toa     TOA's top-level revision not counted
+      -k 'test_T_' -> GREEN (diagnostic, as expected)  [190 passed, 204 deselected, 1 warning in 3.22s]
+13. P basin   cp served the Atlantic text
+      -k 'test_P_' -> RED  [40 failed, 79 passed, 275 deselected, 1 warning in 4.15s]
+      red: test_P_cp_is_served_eps_text_and_says_so
+      red: test_P_the_text_is_paired_by_its_own_stamp
+14. T labels  labels.by_source dropped from the served object
+      -k 'test_T_every_banked_identity' -> RED  [56 failed, 338 deselected, 1 warning in 3.71s]
+      red: test_T_every_banked_identity_is_served_as_its_copy_in_force
+clean tree again: GREEN (531 passed, 1 warning in 13.80s)
+14 of 14 as expected (12 breaks red, 2 diagnostics green); tree restored byte for byte (sha256 54e096080bffcc54 -> 54e096080bffcc54)
