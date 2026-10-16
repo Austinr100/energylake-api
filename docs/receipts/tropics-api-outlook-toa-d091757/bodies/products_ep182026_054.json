@@ -87,8 +87,8 @@
    {
     "product": "toa_earliest",
     "url": "https://display.energylake.io/tropics/ep182026/adv054r1/toa_earliest.geojson",
-    "sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e",
-    "bytes": 30502,
+    "sha256": "a1564a4d812d2fb89c0067130011d71fa1268a8168095a33930c04d698e55bf8",
+    "bytes": 31744,
     "source_r2_key": "tropical/nhc/2026/ep182026/adv054/toa_earliest_kmz__c10b68e0.kmz",
     "source_sha256": "c10b68e0a0891578ed071594f99bab05be19abfc232535de976f792e7f3ddeaf",
     "geometry_types": {
@@ -100,35 +100,46 @@
     "corrected": true,
     "original": {
      "url": "https://display.energylake.io/tropics/ep182026/adv054/toa_earliest.geojson",
-     "sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e",
-     "bytes": 30502,
+     "sha256": "a1564a4d812d2fb89c0067130011d71fa1268a8168095a33930c04d698e55bf8",
+     "bytes": 31744,
      "absence": null
     },
     "source_in_force": true,
-    "advisory_in_object": null,
-    "advisory_check": "not carried in the KML: checked against the NHC file name in source_url",
+    "advisory_in_object": "54",
     "labels": {
-     "label_rule": null,
-     "timezone": null,
-     "counts": {
+     "labels": {
       "n": 13,
-      "null": 13,
-      "parsed": 0
+      "null": 1,
+      "parsed": 12,
+      "backwards": [],
+      "by_source": {
+       "icon": 9,
+       "description": 4
+      },
+      "icon_bands": 3,
+      "not_a_time": 1
      },
-     "null": [
+     "labels_null": [
       {
-       "why": "no label",
-       "label": null
+       "why": "not_a_time",
+       "label": "Wind Speed Probability 5% contour"
       }
      ],
-     "withdrawal": null
+     "timezone": "PDT",
+     "withdrawal": {
+      "note": "withdrawn and republished under D-09-25-236, no reader existed",
+      "ruling": "D-09-25-236",
+      "withdrawn_sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e",
+      "withdrawn_fetch_ts": "2026-10-15T21:17:51.515087+00:00",
+      "withdrawn_vintage_id": 8150
+     }
     }
    },
    {
     "product": "toa_mostlikely",
     "url": "https://display.energylake.io/tropics/ep182026/adv054r1/toa_mostlikely.geojson",
-    "sha256": "f2cbe7f330387b46e4de3595d967556251b5d89d72b9ec6bd8b1061f9c14ed96",
-    "bytes": 30421,
+    "sha256": "6b582877bbd4634407b93bd52338a67dd8ba7ac1216fadc22432116fa7995c59",
+    "bytes": 31663,
     "source_r2_key": "tropical/nhc/2026/ep182026/adv054/toa_mostlikely_kmz__6812f50d.kmz",
     "source_sha256": "6812f50d05b36c516363f9cac0fc2580713e4e2c86e69bd4a6d319cc9432e253",
     "geometry_types": {
@@ -140,28 +151,39 @@
     "corrected": true,
     "original": {
      "url": "https://display.energylake.io/tropics/ep182026/adv054/toa_mostlikely.geojson",
-     "sha256": "f2cbe7f330387b46e4de3595d967556251b5d89d72b9ec6bd8b1061f9c14ed96",
-     "bytes": 30421,
+     "sha256": "6b582877bbd4634407b93bd52338a67dd8ba7ac1216fadc22432116fa7995c59",
+     "bytes": 31663,
      "absence": null
     },
     "source_in_force": true,
-    "advisory_in_object": null,
-    "advisory_check": "not carried in the KML: checked against the NHC file name in source_url",
+    "advisory_in_object": "54",
     "labels": {
-     "label_rule": null,
-     "timezone": null,
-     "counts": {
+     "labels": {
       "n": 13,
-      "null": 13,
-      "parsed": 0
+      "null": 1,
+      "parsed": 12,
+      "backwards": [],
+      "by_source": {
+       "icon": 9,
+       "description": 4
+      },
+      "icon_bands": 3,
+      "not_a_time": 1
      },
-     "null": [
+     "labels_null": [
       {
-       "why": "no label",
-       "label": null
+       "why": "not_a_time",
+       "label": "Wind Speed Probability 5% contour"
       }
      ],
-     "withdrawal": null
+     "timezone": "PDT",
+     "withdrawal": {
+      "note": "withdrawn and republished under D-09-25-236, no reader existed",
+      "ruling": "D-09-25-236",
+      "withdrawn_sha256": "f2cbe7f330387b46e4de3595d967556251b5d89d72b9ec6bd8b1061f9c14ed96",
+      "withdrawn_fetch_ts": "2026-10-15T21:17:51.515087+00:00",
+      "withdrawn_vintage_id": 8206
+     }
     }
    }
   ],
@@ -275,7 +297,7 @@
  "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (published objects: pantry 314's tropical_display_in_force; NHC's files: 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
  "wsp_rule": "WSP is issued per synoptic cycle, basin-wide, not per storm: the cycle is the advisory's synoptic time (its official forecast's init_ts) as YYYYMMDDHH. Bands are the 5 km zip's contours (11 percentage bands); the grid is the half-degree zip's points, value in percent, cells below 0.1 % absent.",
  "revision_rule": "revision and corrected are each object's own: the copy in force is the highest revision published for the advisory or cycle (pantry 314's tropical_display_in_force; a correction NHC issued is its own ledger row, key '<ADV>r<n>'), corrected = revision > 0, and `original` is the revision-0 object where one is corrected, stated even when its bytes equal the correction's (NHC re-posted the same file). The top-level revision is the highest served; source_in_force says whether the NHC file an object names is the copy in force now.",
- "toa_rule": "toa holds the advisory's arrival-time objects (NHC's earliest reasonable and most likely arrival of tropical-storm-force winds), read as the cone is: per product the copy in force on pantry 314's tropical_display_in_force, revision / corrected / original each object's own, absences by the same reasons (not_issued on NHC's CurrentStorms refs toa_earliest_kmz / toa_mostlikely_kmz). `labels` is the label table the object's ledger row carries, served as banked and never parsed or inferred here: label_rule names the parser ruling the labels were read under (D-09-25-236: the Placemark description) and is null on a row the first publish wrote, whose labels were read from the Placemark name; counts {n, parsed, null, ...} and null [{label, why}] are the row's own; withdrawal is the ledger's note where the object was withdrawn and republished under its own key (D-09-25-236). The top-level revision counts these objects too.",
+ "toa_rule": "toa holds the advisory's arrival-time objects (NHC's earliest reasonable and most likely arrival of tropical-storm-force winds), read as the cone is: per product the copy in force on pantry 314's tropical_display_in_force, revision / corrected / original each object's own, absences by the same reasons (not_issued on NHC's CurrentStorms refs toa_earliest_kmz / toa_mostlikely_kmz). `labels` is the label table the object's ledger row carries, under the row's own keys and names, served as banked and never parsed, inferred, renamed or filled here (D-09-25-242 §1(d)): labels {n, null, parsed, backwards, by_source, icon_bands, not_a_time} is the publisher's count verbatim; labels_null [{label, why}] the labels that are not a time; timezone the zone the KML states; withdrawal the ledger's note where the object was withdrawn and republished under its own key (D-09-25-236: ruling, withdrawn_vintage_id, withdrawn_sha256, withdrawn_fetch_ts). A key the row does not carry is not served. advisory_in_object is the advisory the KML carries, as banked (a string). The top-level revision counts these objects too.",
  "index_rule": "Each object is a vintage-ledger row of the display bucket, the copy in force per (product, storm_id, advisory or cycle) as pantry 314's tropical_display_in_force names it (source 'display', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is the publisher's (pantry tropical/publish.py, migrations 314 and 316).",
  "reasons": {
   "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",

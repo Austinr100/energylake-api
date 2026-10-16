@@ -80,11 +80,11 @@ view at that exact stamp, as every display object is.
 THE ARRIVAL-TIME OBJECTS (d091757; D-09-25-236). toa_earliest and toa_mostlikely are
 served on /products as display objects of the advisory, read exactly as the cone is
 (the copy in force on 314's view, revision / corrected / original), plus the label table
-their row carries, as banked: label_rule (null on a row of the first publish, which read
-the labels from the Placemark name), timezone, the counts and the null labels, and the
-withdrawal note where the row has one. No label is parsed, inferred or filled here: the
-first-publish rows may be withdrawn and republished on the captain's word, and whatever
-row is in force is what is served.
+their row carries, under the row's own names and never a key the publisher does not write
+(D-09-25-242 §1(d)): labels (the publisher's object verbatim: n, null, parsed, backwards,
+by_source, icon_bands, not_a_time), labels_null, timezone and withdrawal, each served
+where the row carries it. No label is parsed, inferred or filled here: whatever row is in
+force is what is served (since D-09-25-236's withdrawal, the corrected parser's).
 
 THE RULINGS, AND WHERE EACH IS HELD.
   D-09-21-05  a count says what it counted: every absence names what was read and
@@ -476,16 +476,20 @@ def _object(name: str, r: dict, src: Optional[dict]) -> dict:
             **_provenance(r, src)}
 
 
+# The label table's keys, the publisher's own names (pantry tropical/publish.py _toa_meta,
+# scripts/withdraw_toa_d091756.py): served where the row carries them, never filled.
+TOA_LABEL_KEYS = ("labels", "labels_null", "timezone", "withdrawal")
+
+
 def _toa_object(name: str, r: dict, src: Optional[dict]) -> dict:
     """An arrival-time object: the cone's fields, and the label table its row carries,
-    verbatim (D-09-25-236). Nothing here reads, parses or fills a label."""
+    under the row's own keys and names (D-09-25-242 §1(d)). Nothing here reads, parses,
+    renames or fills a label; a key the row does not carry is not served."""
     meta = r["meta"] or {}
     return {**_object(name, r, src),
             "advisory_in_object": meta.get("advisory_in_object"),
-            "advisory_check": meta.get("advisory_check"),
-            "labels": {"label_rule": meta.get("label_rule"), "timezone": meta.get("timezone"),
-                       "counts": meta.get("labels"), "null": meta.get("labels_null"),
-                       "withdrawal": meta.get("withdrawal")}}
+            **({"advisory_check": meta["advisory_check"]} if "advisory_check" in meta else {}),
+            "labels": {k: meta[k] for k in TOA_LABEL_KEYS if k in meta}}
 
 
 def _entry_ref(entry: Optional[dict], nhc_product: str) -> tuple[str, Optional[str]]:
@@ -674,13 +678,15 @@ TOA_RULE = ("toa holds the advisory's arrival-time objects (NHC's earliest reaso
             "copy in force on pantry 314's tropical_display_in_force, revision / corrected / "
             "original each object's own, absences by the same reasons (not_issued on NHC's "
             "CurrentStorms refs toa_earliest_kmz / toa_mostlikely_kmz). `labels` is the label "
-            "table the object's ledger row carries, served as banked and never parsed or "
-            "inferred here: label_rule names the parser ruling the labels were read under "
-            "(D-09-25-236: the Placemark description) and is null on a row the first publish "
-            "wrote, whose labels were read from the Placemark name; counts {n, parsed, null, ...} "
-            "and null [{label, why}] are the row's own; withdrawal is the ledger's note where "
-            "the object was withdrawn and republished under its own key (D-09-25-236). The "
-            "top-level revision counts these objects too.")
+            "table the object's ledger row carries, under the row's own keys and names, served "
+            "as banked and never parsed, inferred, renamed or filled here (D-09-25-242 §1(d)): "
+            "labels {n, null, parsed, backwards, by_source, icon_bands, not_a_time} is the "
+            "publisher's count verbatim; labels_null [{label, why}] the labels that are not a "
+            "time; timezone the zone the KML states; withdrawal the ledger's note where the "
+            "object was withdrawn and republished under its own key (D-09-25-236: ruling, "
+            "withdrawn_vintage_id, withdrawn_sha256, withdrawn_fetch_ts). A key the row does "
+            "not carry is not served. advisory_in_object is the advisory the KML carries, as "
+            "banked (a string). The top-level revision counts these objects too.")
 
 
 # ── /outlook ────────────────────────────────────────────────────────────────

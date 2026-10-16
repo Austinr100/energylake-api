@@ -4,23 +4,23 @@
   "objects": [
    {
     "product": "two_areas",
-    "vintage_id": 8340,
-    "vintage_key": "202610152347",
-    "sha256": "dd1361bf379ace7d3d5faca99f031a5f7639b81d94fe2e1f26254022307d7299",
+    "vintage_id": 8743,
+    "vintage_key": "202610161136",
+    "sha256": "7c72ad878d5fb0dbd7152c7db61a4b5c8d1113f30fc9d315f5440cd1f1f5a5fe",
     "original": null
    },
    {
     "product": "two_points",
-    "vintage_id": 8341,
-    "vintage_key": "202610152347",
-    "sha256": "e161994fd40024156ba9d99e5940a838326742e4ef6c6b5ecd3475ca97ba77f5",
+    "vintage_id": 8744,
+    "vintage_key": "202610161136",
+    "sha256": "a886b99394f00c4b319175952592810e9aa15470e97b0fa72753e7afd06f94a6",
     "original": null
    },
    {
     "product": "two_text_at",
-    "vintage_id": 8334,
-    "vintage_key": "202610152319",
-    "sha256": "0df6a8c313143fd49097273f4154fbda39f14414414abc697ce2f1bc9a2716a9",
+    "vintage_id": 8746,
+    "vintage_key": "202610161136",
+    "sha256": "27bf2234b47275f0265bd03080db1b378c8a32d685137a796f5d334ecd5fe2f5",
     "original": null
    }
   ]
@@ -130,24 +130,24 @@
    },
    {
     "product": "toa_earliest",
-    "vintage_id": 8150,
+    "vintage_id": 8614,
     "vintage_key": "054r1",
-    "sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e",
+    "sha256": "a1564a4d812d2fb89c0067130011d71fa1268a8168095a33930c04d698e55bf8",
     "original": {
-     "vintage_id": 8149,
+     "vintage_id": 8613,
      "vintage_key": "054",
-     "sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e"
+     "sha256": "a1564a4d812d2fb89c0067130011d71fa1268a8168095a33930c04d698e55bf8"
     }
    },
    {
     "product": "toa_mostlikely",
-    "vintage_id": 8206,
+    "vintage_id": 8674,
     "vintage_key": "054r1",
-    "sha256": "f2cbe7f330387b46e4de3595d967556251b5d89d72b9ec6bd8b1061f9c14ed96",
+    "sha256": "6b582877bbd4634407b93bd52338a67dd8ba7ac1216fadc22432116fa7995c59",
     "original": {
-     "vintage_id": 8205,
+     "vintage_id": 8673,
      "vintage_key": "054",
-     "sha256": "f2cbe7f330387b46e4de3595d967556251b5d89d72b9ec6bd8b1061f9c14ed96"
+     "sha256": "6b582877bbd4634407b93bd52338a67dd8ba7ac1216fadc22432116fa7995c59"
     }
    },
    {

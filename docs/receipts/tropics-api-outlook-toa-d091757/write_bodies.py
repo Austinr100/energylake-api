@@ -3,12 +3,15 @@
     python3 -I docs/receipts/tropics-api-outlook-toa-d091757/write_bodies.py
 
 Serves each path through main.app (TestClient) over the test cluster (d091741's slice,
-d091746's display rows and this lane's TWO / TOA rows, banked 2026-10-16 02:49:59Z),
+d091746's display rows and this lane's TWO / TOA rows, re-banked 2026-10-16 13:09:21Z
+after D-09-25-236's withdrawal),
 drops the `cache` block (the memo's state at serve time) and writes bodies/<name>.json,
 plus bodies/served_from.json: per body, the banked ledger rows each served object and its
-original were read from (vintage_id, vintage_key, sha256). Test R1 in
+original were read from (vintage_id, vintage_key, sha256), and ../bodies_sha256.json (each
+body's sha-256 over its compact JSON). Test R1 in
 tests/test_tropics_outlook_toa_d091757.py re-serves each body and compares.
 """
+import hashlib
 import json
 import pathlib
 import sys
@@ -78,6 +81,9 @@ def main_():
             (OUT / name).write_text(json.dumps(body, indent=1, ensure_ascii=False) + "\n")
             rows[name] = {"path": path, "objects": served_from(body)}
     (OUT / "served_from.json").write_text(json.dumps(rows, indent=1) + "\n")
+    shas = {n: hashlib.sha256(json.dumps(json.loads((OUT / n).read_text()), separators=(",", ":"),
+                                         ensure_ascii=False).encode()).hexdigest() for n in sorted(BODIES)}
+    (OUT.parent / "bodies_sha256.json").write_text(json.dumps(shas, indent=1) + "\n")
 
 
 if __name__ == "__main__":

@@ -21780,16 +21780,17 @@ async def weather_tropics_products(
                        source_in_force } ],
           absent: [ { product, reason, detail } ],
           toa: { objects: [ ..as above, product toa_earliest|toa_mostlikely,
-                            advisory_in_object, advisory_check,
-                            labels: { label_rule, timezone, counts, null, withdrawal } ],
+                            advisory_in_object, [advisory_check],
+                            labels: { labels, labels_null, timezone, withdrawal } ],
                  absent: [ ... ] },
           wsp: { cycle, synoptic_ts, objects: [ ..as above, product wsp{34|50|64}_
                  {bands|grid}.. ], absent: [ ... ], absence },
           absence, advisory_rule, wsp_rule, revision_rule, toa_rule, index_rule, reasons,
           timestamps, not_served, nhc_terms, cache }
 
-    The TOA label table is the ledger row's, as banked (D-09-25-236): never a label
-    parsed or inferred here. Reasons: not_issued (NHC's CurrentStorms entry for the advisory links no
+    The TOA label table is the ledger row's keys under the row's names, as banked
+    (D-09-25-236, D-09-25-242 §1(d)): a key the row does not carry is not served, and
+    no label is parsed or inferred here. Reasons: not_issued (NHC's CurrentStorms entry for the advisory links no
     such product, or an earlier advisory's), basin_has_none (surge: Atlantic
     and Gulf only), not_banked, not_published (banked, no display object in
     the ledger). Unknown storm -> 404; a named advisory the bank knows nothing

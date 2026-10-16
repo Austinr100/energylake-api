@@ -25,7 +25,9 @@ WHAT IS READ:
            suite reads (Isaias, Rachel, Simon, Trudy): the files the TOA objects name, so
            source_in_force and not_banked / not_published are read off real rows.
   count    the ledger at the read: rows, display rows, the TWO/TOA counts, how many TOA rows
-           carry D-09-25-236's label_rule or a withdrawal note, the view's md5, 316 applied.
+           carry a label_rule (a key the publisher does not write: 0 expected), a withdrawal
+           note, or a first parser's labels (no labels.by_source: the withdrawal's own
+           selector, scripts/withdraw_toa_d091756.py), the view's md5, 316 applied.
 
 Not run by the suite; the suite re-checks every sha on load (load_bank_d091741.rows).
 """
@@ -72,6 +74,8 @@ STATEMENTS = {
               "AND meta ? 'label_rule') AS n_toa_label_rule, "
               f"(SELECT count(*) FROM tropical_file_vintage WHERE source = 'display' AND product IN {_in(TOA)} "
               "AND meta ? 'withdrawal') AS n_toa_withdrawn, "
+              f"(SELECT count(*) FROM tropical_file_vintage WHERE source = 'display' AND product IN {_in(TOA)} "
+              "AND NOT coalesce(meta -> 'labels' ? 'by_source', false)) AS n_toa_first_parser, "
               f"(SELECT count(*) FROM tropical_file_vintage WHERE source = 'display' AND product IN "
               f"{_in(TWO + TOA)} AND vintage_key ~ 'r[1-9][0-9]*$') AS n_two_toa_revisions, "
               "md5(pg_get_viewdef('tropical_display_in_force'::regclass)) AS view_md5, "

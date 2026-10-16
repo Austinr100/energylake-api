@@ -4,6 +4,8 @@
 **Ran:** 2026-10-16, about 02:35Z–03:15Z (container clock). **Environment:** EL 6.
 **Rulings held:** D-09-25-234 · D-09-25-236 · D-09-05-T · D-09-25-231 · D-09-25-75 / D-09-25-76 (CLAUDE.md) · CLAUDE.md d091551.
 
+**Re-banked after D-09-25-236's withdrawal, 2026-10-16 ~13:05–13:30Z: see §8.** Where §8 and §§0–7 differ (the bank's counts and shas, the label block, the tests' counts, the rehearsal), §8 holds.
+
 **Continued or fresh: fresh.** The earlier branch `claude/tropics-outlook-toa-api-99d0fq` (`682ea04`) held at STOP-D 91 with one file, its held handback, and no code. Its recon (§2 there: the stamps per product, the text meta, the TOA refs) is folded in here and re-read live; nothing of it is carried as code.
 
 **Scope kept:**
@@ -273,3 +275,173 @@ Clean before and after: 394 passed. Tree sha256 `db81dacb…` → `db81dacb…`,
 - `tests/fixtures/tropics_d091741/bank_outlook_toa_from_neon.py` and `bank/{two,toa,nhc_toa}.jsonl.gz`
 - `docs/receipts/tropics-api-outlook-toa-d091757/`: `explains_sql.py`, `explains.json`, `neon_plans.txt`, `write_bodies.py`, `bodies/` (5 bodies + `served_from.json`), `bodies_sha256.json`, `reds.txt`, `red_on_main.txt`
 - this handback
+
+---
+
+## 8. Re-bank after the withdrawal (D-09-25-242 §1)
+
+**Branch:** `claude/toa-rebank-withdrawal-o9ntwh`, fast-forwarded to `bbf92f2` (this lane's earlier head on `claude/tropics-outlook-toa-api-t4gajq`) and committed on top. The earlier pane was gone; the session is pinned to this branch name, so the work continues the same history under a new name. `claude/tropics-outlook-toa-api-t4gajq` is untouched.
+**Ran:** 2026-10-16, about 13:05Z–13:30Z (container clock).
+**Scope kept:** no Neon write (two connector calls, each one transaction opened by `SET TRANSACTION READ ONLY`, with `transaction_read_only = on` read back on every statement); no R2 read or write; no deploy; no PR. GitHub read: energylake-pantry `main` at `96d1806` (13:06:08Z).
+
+### 8.1 The read: 2026-10-16T13:09:21.898Z
+
+One transaction, `bank_outlook_toa_from_neon.py`'s statements. Every body was checked against Neon's sha-256 and row count before it was written.
+
+| kind | rows | sha256 (Neon's = the file's) | vs the 02:49:59Z bank |
+|---|---:|---|---|
+| `two` | **136** | `4fdc6d85addb47ffd9cdef7336d1f95155230e3a57f52c67d55e47307eac9fec` | all 128 earlier rows present, each row equal in full; 8 new (ids 8470–8747) |
+| `toa` | **120** | `c036fbc66b1b7442df8d3f55026b54203b3162a605ba1039f0ef882b2c9e0045` | **0 of 112 earlier rows exist**; 120 new, ids 8603–8722, all `fetch_ts` 10:57:17.013635Z |
+| `nhc_toa` | **122** | `9f6ae9b800f587a3537794bcaf26c6d9f9e9b4f4832c7fa47e66f24897b2eea0` | all 114 earlier rows present, each equal in full; 8 new (max id 8569) |
+
+"Equal" here is row-for-row equality of `row_to_json` against the earlier bank, by `vintage_id`. That is stronger than the architect's `md5(string_agg(vintage_id:sha256))` digest, and agrees with it.
+
+**The ledger at the read:**
+- 8,596 rows, 767 display rows.
+- TOA: `label_rule` **0**; `withdrawal` **120**; first parser's labels (no `labels.by_source`, the withdrawal's own selector) **0**. The count statement gained `n_toa_first_parser` for this.
+- 8 TWO/TOA `r<n>`, all TOA, the same 4 corrections × 2 kinds.
+- **Max migration 317, not 316.** 317 is `317_cwms_willamette_irregular.sql` (d091761, applied 09:24:19Z), two CWMS dataset rows. The view md5 is still 316's, `977c97d6…`. B now pins 317 and says why.
+
+**TWO, the 8 new rows:**
+- `two_areas`/`two_points`: 10-16 05:25Z and 11:36Z.
+- `two_text_at`: 05:16Z and 11:36Z.
+- `two_text_ep`: 05:15Z and 11:33Z.
+- Stamps per product are now 39/39/29/29. The newest outlook is **202610161136**, and al's text pairs to its own 11:36Z.
+
+**TOA, the 120 rows:**
+- 60 per kind; **56 identities**. The four new ones are Simon 035/036 and Trudy 011/012.
+- **Every row's `withdrawal`** names `D-09-25-236` and the note "withdrawn and republished under D-09-25-236, no reader existed". Its `withdrawn_vintage_id`s are exactly 8139–8250 (the 112 the first bank held), plus 8440–8443 (02:54:12Z) and 8578–8581 (08:58:48Z).
+  - Those last eight are rows the scheduled publish wrote on the first parser after the first bank read. The withdrawal took them too. Each replaced id is below its replacement's.
+- **Labels:** 2,792 in all, 2,672 parse. The 120 nulls are one per object, each `{why: not_a_time, label: "Wind Speed Probability 5% contour"}`.
+- **The four contour-only objects** have `n 1`, `parsed 0`, `by_source {description: 1}`, `icon_bands 0`:
+  - ep182026 058 (8620, 8680)
+  - ep202026 036 (8649, 8709)
+- **Simon 033 `toa_mostlikely` (8706):** 25 labels, 24 parsed, `by_source {icon: 18, description: 7}`, `icon_bands 6`, sha `bda19f72…`, `MST`, `advisory_in_object "33"`. It replaced 8238.
+- **Other keys:**
+  - `timezone` is on all 120 (CST 48, MST 38, PDT 24, CDT 10).
+  - `advisory_in_object` is a string on all 120.
+  - `correction` is on the 8 r1 rows.
+  - **`advisory_check` is on none.** All 112 first-publish rows carried it.
+
+### 8.2 The publisher's key set (pantry `main` `96d1806`)
+
+- `tropical/publish.py` `_toa_meta` writes `advisory_in_object`, `timezone`, `labels` (`products_geo.toa`'s `{n, parsed, null, not_a_time, by_source, icon_bands, backwards}`) and `labels_null` (the first 12 nulls, `{label, why}`).
+- It writes **`advisory_check` only when the KML carries no advisory**: none does now.
+- `scripts/withdraw_toa_d091756.py` adds `withdrawal {ruling, note, withdrawn_sha256, withdrawn_fetch_ts, withdrawn_vintage_id}`. Its selector is "no `labels.by_source`" (line 73), not "no `label_rule`", as the paste says. §6.5 above had that wrong.
+- **No pantry code writes `label_rule`.** The banked rows agree: 0 of 120.
+
+### 8.3 The label block (`tropics_index._toa_object`)
+
+```python
+TOA_LABEL_KEYS = ("labels", "labels_null", "timezone", "withdrawal")
+... "advisory_in_object": meta.get("advisory_in_object"),
+    **({"advisory_check": meta["advisory_check"]} if "advisory_check" in meta else {}),
+    "labels": {k: meta[k] for k in TOA_LABEL_KEYS if k in meta}
+```
+
+- **Before:** `labels: {label_rule, timezone, counts, null, withdrawal}`, five names, two of them renamed (`counts` ← `labels`, `null` ← `labels_null`) and one the publisher never writes (`label_rule`). `advisory_check` was always served, null when absent.
+- **After:** the row's keys under the row's names, verbatim, each **only where the row carries it**. `labels` is the publisher's object with all seven keys. `advisory_in_object` is served as banked (`"54"`).
+- **`advisory_check` is served only where the row carries it (0 of 120 today).** Section (d) does not name it, and the publisher still writes it for a KML without an advisory. Serving it as `null` everywhere would be a key the row does not carry. Dropping it outright would lose the publisher's word if such a row comes back. **For the architect:** keep it conditional, or drop it.
+- `correction` (8 rows) is not served. The ruling does not list it, and `original` already states each correction against its revision-0 row.
+- `TOA_RULE`, the module docstring and `/products`' route docstring now say the same thing.
+
+**054's `toa_earliest`, as served now** (row 8614, `054r1`):
+
+```json
+{"advisory_in_object":"54",
+ "labels":{"labels":{"n":13,"null":1,"parsed":12,"backwards":[],"by_source":{"icon":9,"description":4},"icon_bands":3,"not_a_time":1},
+           "labels_null":[{"why":"not_a_time","label":"Wind Speed Probability 5% contour"}],
+           "timezone":"PDT",
+           "withdrawal":{"note":"withdrawn and republished under D-09-25-236, no reader existed","ruling":"D-09-25-236",
+                         "withdrawn_sha256":"f06dffbd…","withdrawn_fetch_ts":"2026-10-15T21:17:51.515087+00:00","withdrawn_vintage_id":8150}}}
+```
+
+### 8.4 Cells re-pinned, and the new ones (`tests/test_tropics_outlook_toa_d091757.py`: 257 → 394)
+
+**B:**
+- The read stamp, counts and shas of §8.1, and max migration 317.
+- New `test_B_no_first_parser_row_is_banked`: every `labels` has `by_source`, with exactly the seven keys; no `label_rule`; 2,792 / 2,672 / 120; every null is the 5 % contour; `advisory_in_object` is a string; no `advisory_check`; 8 `correction`.
+- New `test_B_every_withdrawal_names_the_ruling_and_the_row_it_replaced`.
+
+**S / P / W:**
+- 39 stamps; the newest is 202610161136.
+- W's wire pins move to 11:36Z.
+- The routes are unchanged.
+
+**T:**
+- Every one of the **56** identities is served as its copy in force, with `labels` equal to the row's four keys verbatim, `by_source` present, no `label_rule` anywhere in the object, and `advisory_in_object` as banked.
+- The four r1 corrections with their originals: unchanged and green.
+- 054's pin is the new row's full label block.
+- New `test_T_a_contour_only_object_is_served_with_parsed_0_as_banked` (×2 advisories × both kinds).
+- New `test_T_simon_033_mostlikely_as_the_architect_measured`.
+- **New `test_T_the_label_block_serves_only_keys_the_row_carries` (×120, every banked row):**
+  - the label block's keys ⊆ the row's meta keys, each value verbatim;
+  - and the only TOA key beside the cone's is `advisory_in_object`.
+  - It runs through `_toa_object` on each row, the 8 superseded originals included. The view's two columns are read off the key.
+- The source pin names `TOA_LABEL_KEYS` and forbids `label_rule`/`counts` in the block.
+
+**R1:**
+- Bodies re-written by `write_bodies.py`, which now also writes `bodies_sha256.json`.
+- **Unchanged byte for byte:** `outlook_ep_202610140517`, `outlook_ep_202610140522`, `outlook_cp_202610152311` (their rows held).
+- **Changed:** `outlook_al_newest` (now 202610161136, rows 8743/8744/8746) and `products_ep182026_054` (rows 8614/8613 and 8674/8673, the new label block).
+
+| body | sha256 |
+|---|---|
+| outlook_al_newest.json | `942efa3f62a65a20a7f4c3b82914dbb25e22569693f51c5fd1b90aacce0ecbb6` |
+| outlook_cp_202610152311.json | `f66cdbc05094d9acb359fcc1068c780ed787a7b8119b3c56e01023dd0b7becfd` |
+| outlook_ep_202610140517.json | `5c5f9b90354b62492303a354a1bc0c4552ed94949d31ad2fcf03aa13f509ffd5` |
+| outlook_ep_202610140522.json | `91eb9ca239503cc20aa90b494c0974f336766e30647991da8da33a66b8f376c0` |
+| products_ep182026_054.json | `f3bc0c7d3d26623d720d57cb805975904ed616c073e3ebb917a6878779a7566f` |
+
+**X1:** the plan receipts (02:59Z) were not re-measured. The statements and indexes are unchanged, and every stamp they name is still in the ledger.
+
+### 8.5 Red before, green after
+
+`docs/receipts/tropics-api-outlook-toa-d091757/red_on_bbf92f2.txt` runs this branch's tests, fixtures and receipts against `bbf92f2`'s code: **183 failed, 348 passed.**
+- **Every red is the label block:**
+  - T every identity ×56;
+  - the subset cell ×120;
+  - contour-only ×2;
+  - Simon 033, 054's pin, the source pin, the `toa_rule` pin, R1's 054 body.
+- Everything that reads only rows is green on the old code, so the re-bank moved no route.
+
+**Branch:** 531 of 531 across the three Tropics index modules.
+
+### 8.6 Rehearsal (`reds.txt`): 14 of 14 as expected
+
+- Clean before and after: 531 passed. Tree sha256 `54e09608…` → `54e09608…`, restored byte for byte.
+- Breaks 1–8 and 11–13 are kept as they were. Their reds are the same tests; P's counts are now out of 117.
+- Break 10 keeps its rule, but every banked row now carries a timezone, so it overwrites the row's (`"UTC"`) rather than filling one in where none was.
+
+| # | break | result |
+|---|---|---|
+| 9 | **the block serves a key the row does not carry** (`label_rule`, D-09-05-T) | RED: `test_T_the_label_block_serves_only_keys_the_row_carries` (120) |
+| 10 | a timezone filled in over the row's own | RED: `test_T_every_banked_identity…` (56), `test_T_the_054…` |
+| 14 | **`labels.by_source` dropped from the served object** | RED: `test_T_every_banked_identity_is_served_as_its_copy_in_force` (56) |
+| 8, 12 | diagnostics | GREEN, as before |
+
+### 8.7 The whole suite
+
+`python3 -B -m pytest -q -p no:cacheprovider`, ~13:25Z: **3,496 passed, 2 failed.**
+- **+137 over §5.4's 3,359:** this module's 394 − 257.
+- **The 2 failures** are asset H8 ×2 (`test_asset_runs_d091667.py`). They are the same two, red on main before this lane, and not touched.
+
+### 8.8 Files
+
+**Changed:**
+- `tropics_index.py`: the docstring, `TOA_LABEL_KEYS`, `_toa_object`, `TOA_RULE`.
+- `main.py`: `/products`' docstring only.
+- `tests/fixtures/tropics_d091741/bank_outlook_toa_from_neon.py`: the count gains `n_toa_first_parser`.
+- `bank/{two,toa,nhc_toa}.jsonl.gz` and `manifest.json` `"d091757"`.
+- `tests/test_tropics_outlook_toa_d091757.py`.
+- `tests/rehearse_tropics_outlook_toa_d091757.py`.
+- `docs/receipts/tropics-api-outlook-toa-d091757/{write_bodies.py, bodies/*, bodies_sha256.json, reds.txt}`.
+- This handback (§8, and one line under the header).
+
+**New:**
+- `docs/receipts/tropics-api-outlook-toa-d091757/red_on_bbf92f2.txt`.
+
+**Railway after deploy:**
+- `/products?storm_id=ep182026&advisory=054` should serve `products_ep182026_054.json` with only `cache` differing.
+- The three stamped outlook bodies are stable.
+- `/outlook?basin=al` serves whatever is newest then.

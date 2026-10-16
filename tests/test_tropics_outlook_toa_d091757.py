@@ -2,8 +2,10 @@
 /products), on banked vectors (D-09-25-234, D-09-25-236; D-09-05-T; D-09-25-75 / -76).
 
   B   the bank: every display:two_* and display:toa_* row and NHC's toa_*_kmz rows of the
-      four storms, Neon's verbatim (read 2026-10-16 02:49:59Z, manifest.json "d091757"),
-      held in the test cluster to 314's and 316's CHECKs; no row constructed
+      four storms, Neon's verbatim (re-read 2026-10-16 13:09:21Z after D-09-25-236's
+      withdrawal, manifest.json "d091757"), held in the test cluster to 314's and 316's
+      CHECKs; no row constructed. Every TOA row is the corrected parser's (labels.by_source
+      on every one) and names, in its withdrawal note, the vintage_id it replaced
   S   the stamp is the issuance: 12 digits, never an hour and never r<n>; two outlooks of
       one hour are two issuances (10-14 05:17Z / 05:22Z, 10-15 23:11Z / 23:47Z); the
       default is the newest stamp; every banked graphics stamp is served at itself
@@ -11,9 +13,11 @@
       stamp, every banked stamp, every basin (cp is served ep's text)
   O   the outlook body: the publisher's meta verbatim (the disturbances as banked, no
       field derived, D-09-25-76), the rules, the not_published absences, 404 / 400
-  T   TOA on /products: every one of the 52 banked identities served as its copy in
+  T   TOA on /products: every one of the 56 banked identities served as its copy in
       force (the 8 corrections as r1, original stated), the label table the row's own
-      (no label_rule on any banked row: the first publish), not_issued on NHC's refs
+      keys under the row's own names, verbatim (D-09-25-242 §1(d): labels, labels_null,
+      timezone, withdrawal; never a key the publisher does not write, so no label_rule);
+      the four contour-only objects with parsed 0 as banked; not_issued on NHC's refs
   W   the wire: the statement timeout first, the memo, each stamp read names one
       product and reads a key, 294's view carries no display product
   X1  the Neon receipts of the new reads: no seq scan; the stamp read is one backward
@@ -130,12 +134,13 @@ def by_product(items):
 
 def test_B_the_fixture_carries_the_neon_read_stamp_and_counts():
     d = lb.MANIFEST["d091757"]
-    assert d["count"]["ro"] == "on" and d["count"]["read_at"] == "2026-10-16T02:49:59.014Z"
-    for kind, n in (("two", 128), ("toa", 112), ("nhc_toa", 114)):
+    assert d["count"]["ro"] == "on" and d["count"]["read_at"] == "2026-10-16T13:09:21.898Z"
+    for kind, n in (("two", 136), ("toa", 120), ("nhc_toa", 122)):
         assert d["bank"][kind]["rows"] == n and d["bank"][kind]["read_at"] == d["count"]["read_at"]
         assert len(lb.rows(kind)) == n, kind                     # rows() checks Neon's sha first
-    assert (d["count"]["n_two"], d["count"]["n_toa"]) == ("128", "112")
-    assert d["count"]["max_migration"] == 316
+    assert (d["count"]["n_two"], d["count"]["n_toa"]) == ("136", "120")
+    # 317 (d091761, cwms_*_irregular datasets) landed since 316; the view is still 316's
+    assert d["count"]["max_migration"] == 317
     assert d["count"]["view_md5"] == "977c97d66d70ff8a8ed7e6992545f6c7"    # 316's view
 
 
@@ -146,19 +151,50 @@ def test_B_what_the_rows_are():
     assert sorted({r["product"] for r in TWO}) == ["display:two_areas", "display:two_points",
                                                    "display:two_text_at", "display:two_text_ep"]
     assert [len(stamps(p)) for p in ("two_areas", "two_points", "two_text_at", "two_text_ep")] == \
-        [37, 37, 27, 27]
+        [39, 39, 29, 29]
     # every row's own meta.stamp is its key (the publisher's), and each object's key carries it
     assert all(r["meta"]["stamp"] == r["vintage_key"] and f"/{r['vintage_key']}/" in r["r2_key"] for r in TWO)
     r1 = sorted((r["storm_id"], r["vintage_key"], r["product"]) for r in TOA if BASE.search(r["vintage_key"]))
     assert r1 == sorted((s, a + "r1", f"display:toa_{k}") for s, a in (
         ("ep182026", "054"), ("ep182026", "056"), ("ep182026", "057"), ("ep212026", "001"))
         for k in ("earliest", "mostlikely"))
-    # D-09-25-236: at the read no TOA row carried the corrected parser's label_rule or a
-    # withdrawal note: every one is the first publish's (labels from the Placemark name)
+    # D-09-25-236's withdrawal (run 38888308463): every TOA row is its republish, one fetch_ts
     d = lb.MANIFEST["d091757"]["count"]
-    assert (d["n_toa_label_rule"], d["n_toa_withdrawn"]) == ("0", "0")
-    assert not any("label_rule" in r["meta"] or "withdrawal" in r["meta"] for r in TOA)
-    assert sum(r["meta"]["labels"]["parsed"] for r in TOA) == 0
+    assert (d["n_toa_label_rule"], d["n_toa_withdrawn"], d["n_toa_first_parser"]) == ("0", "120", "0")
+    assert {r["fetch_ts"] for r in TOA} == {"2026-10-16T10:57:17.013635+00:00"}
+    assert (min(r["vintage_id"] for r in TOA), max(r["vintage_id"] for r in TOA)) == (8603, 8722)
+
+
+def test_B_no_first_parser_row_is_banked():
+    """The withdrawal's own selector (pantry scripts/withdraw_toa_d091756.py) is "no
+    labels.by_source": no banked row meets it, and no row carries label_rule, a key the
+    publisher does not write."""
+    assert all("by_source" in r["meta"]["labels"] for r in TOA)
+    assert {tuple(sorted(r["meta"]["labels"])) for r in TOA} == {
+        ("backwards", "by_source", "icon_bands", "n", "not_a_time", "null", "parsed")}
+    assert not any("label_rule" in r["meta"] for r in TOA)
+    n = sum(r["meta"]["labels"]["n"] for r in TOA)
+    parsed = sum(r["meta"]["labels"]["parsed"] for r in TOA)
+    assert (n, parsed, n - parsed) == (2792, 2672, 120)
+    # the 120 nulls are the 5 % WSP contours, one per object, said not_a_time
+    assert all(r["meta"]["labels"]["null"] == r["meta"]["labels"]["not_a_time"] == 1 for r in TOA)
+    assert {json.dumps(r["meta"]["labels_null"]) for r in TOA} == {
+        json.dumps([{"why": "not_a_time", "label": "Wind Speed Probability 5% contour"}])}
+    assert all(isinstance(r["meta"]["advisory_in_object"], str) for r in TOA)
+    assert not any("advisory_check" in r["meta"] for r in TOA)        # the KML carries every advisory
+    assert sum("correction" in r["meta"] for r in TOA) == 8
+
+
+def test_B_every_withdrawal_names_the_ruling_and_the_row_it_replaced():
+    ws = [r["meta"]["withdrawal"] for r in TOA]
+    assert {w["ruling"] for w in ws} == {"D-09-25-236"}
+    assert {w["note"] for w in ws} == {"withdrawn and republished under D-09-25-236, no reader existed"}
+    replaced = sorted(w["withdrawn_vintage_id"] for w in ws)
+    # one row replaced per row: the 112 the first bank held (8139-8250), and the 8 the
+    # scheduled publish wrote after it on the first parser (02:54Z and 08:58Z)
+    assert replaced == list(range(8139, 8251)) + [8440, 8441, 8442, 8443, 8578, 8579, 8580, 8581]
+    assert all(r["meta"]["withdrawal"]["withdrawn_vintage_id"] < r["vintage_id"] for r in TOA)
+    assert all(re.fullmatch(r"[0-9a-f]{64}", w["withdrawn_sha256"]) for w in ws)
 
 
 def test_B_the_cluster_holds_every_banked_row_under_316s_checks(pg):
@@ -224,7 +260,7 @@ def test_S_two_outlooks_of_one_hour_are_two_issuances(client, monkeypatch, pg, p
 
 def test_S_the_default_is_the_newest_stamp(client, monkeypatch, pg):
     b, _ = get(client, monkeypatch, pg, f"{P}/outlook?basin=al")
-    assert b["stamp"] == AREAS[-1] == "202610152347" and not b["stamp_requested"]
+    assert b["stamp"] == AREAS[-1] == "202610161136" and not b["stamp_requested"]
     named, _ = get(client, monkeypatch, pg, f"{P}/outlook?basin=al&stamp={AREAS[-1]}")
     for k in ("graphics", "text", "revision", "corrected", "issued_ts"):
         assert b[k] == named[k], k
@@ -366,9 +402,9 @@ TOA_IDS = sorted({(r["storm_id"], base(r["vintage_key"])) for r in TOA})
 
 def test_T_the_toa_pairs_and_their_refs():
     assert ti.TOA_PRODUCTS == (("toa_earliest", "toa_earliest_kmz"), ("toa_mostlikely", "toa_mostlikely_kmz"))
-    # 56 rows per kind: 52 advisories, 4 of them corrected (r1)
-    assert len(TOA_IDS) == 52
-    assert all(sum(r["product"] == f"display:{k}" for r in TOA) == 56 for k in ("toa_earliest", "toa_mostlikely"))
+    # 60 rows per kind: 56 advisories, 4 of them corrected (r1)
+    assert len(TOA_IDS) == 56
+    assert all(sum(r["product"] == f"display:{k}" for r in TOA) == 60 for k in ("toa_earliest", "toa_mostlikely"))
 
 
 @pytest.mark.parametrize("sid,adv", TOA_IDS)
@@ -382,12 +418,12 @@ def test_T_every_banked_identity_is_served_as_its_copy_in_force(client, monkeypa
         assert (o["url"], o["sha256"], o["bytes"]) == (DISPLAY + row["r2_key"], row["sha256"], row["byte_size"])
         rev = 1 if row["vintage_key"].endswith("r1") else 0
         assert (o["revision"], o["corrected"]) == (rev, rev > 0)
-        # the label table is the row's, verbatim: nothing parsed, nothing filled
-        assert o["labels"] == {"label_rule": meta.get("label_rule"), "timezone": meta.get("timezone"),
-                               "counts": meta["labels"], "null": meta["labels_null"],
-                               "withdrawal": meta.get("withdrawal")}
-        assert (o["advisory_in_object"], o["advisory_check"]) == (meta["advisory_in_object"],
-                                                                  meta.get("advisory_check"))
+        # the label table is the row's keys under the row's names, verbatim: nothing parsed,
+        # renamed or filled (D-09-25-242 §1(d))
+        assert o["labels"] == {"labels": meta["labels"], "labels_null": meta["labels_null"],
+                               "timezone": meta["timezone"], "withdrawal": meta["withdrawal"]}
+        assert "by_source" in o["labels"]["labels"] and "label_rule" not in json.dumps(o)
+        assert o["advisory_in_object"] == meta["advisory_in_object"] and "advisory_check" not in o
     assert b["revision"] >= max(o["revision"] for o in objs.values())
 
 
@@ -413,8 +449,56 @@ def test_T_the_054_pair_names_the_corrected_nhc_file_in_force(client, monkeypatc
     e = by_product(b["toa"]["objects"])["toa_earliest"]
     assert e["source_r2_key"] == "tropical/nhc/2026/ep182026/adv054/toa_earliest_kmz__c10b68e0.kmz"
     assert e["source_in_force"] is True
-    assert e["labels"] == {"label_rule": None, "timezone": None, "counts": {"n": 13, "null": 13, "parsed": 0},
-                           "null": [{"why": "no label", "label": None}], "withdrawal": None}
+    assert e["advisory_in_object"] == "54"
+    assert e["labels"] == {
+        "labels": {"n": 13, "null": 1, "parsed": 12, "backwards": [], "by_source": {"icon": 9, "description": 4},
+                   "icon_bands": 3, "not_a_time": 1},
+        "labels_null": [{"why": "not_a_time", "label": "Wind Speed Probability 5% contour"}],
+        "timezone": "PDT",
+        "withdrawal": {"note": "withdrawn and republished under D-09-25-236, no reader existed",
+                       "ruling": "D-09-25-236",
+                       "withdrawn_sha256": "f06dffbd6e44b32491b217ce39460de5a5a8cbb9fec48c0e8721d760ada9053e",
+                       "withdrawn_fetch_ts": "2026-10-15T21:17:51.515087+00:00", "withdrawn_vintage_id": 8150}}
+
+
+@pytest.mark.parametrize("sid,adv", [("ep182026", "058"), ("ep202026", "036")])
+def test_T_a_contour_only_object_is_served_with_parsed_0_as_banked(client, monkeypatch, pg, sid, adv):
+    """Four objects carry only the 5 % WSP contour (vintage_ids 8620, 8649, 8680, 8709):
+    one label, not a time. Served as the row says it, parsed 0 with its null; no label
+    made up for it."""
+    b, _ = get(client, monkeypatch, pg, f"{P}/products?storm_id={sid}&advisory={adv}")
+    for name in ("toa_earliest", "toa_mostlikely"):
+        o = by_product(b["toa"]["objects"])[name]
+        row = in_force(TOA, f"display:{name}", sid, adv)
+        assert row["vintage_id"] in (8620, 8649, 8680, 8709) and o["sha256"] == row["sha256"]
+        assert o["labels"]["labels"] == {"n": 1, "null": 1, "parsed": 0, "backwards": [],
+                                         "by_source": {"description": 1}, "icon_bands": 0, "not_a_time": 1}
+        assert o["labels"]["labels_null"] == [{"why": "not_a_time", "label": "Wind Speed Probability 5% contour"}]
+
+
+def test_T_simon_033_mostlikely_as_the_architect_measured(client, monkeypatch, pg):
+    b, _ = get(client, monkeypatch, pg, f"{P}/products?storm_id=ep202026&advisory=033")
+    o = by_product(b["toa"]["objects"])["toa_mostlikely"]
+    assert o["sha256"] == "bda19f72ea85b4efedc792badbf4c7e19fabaa53d1f69c7fb6f598dc53bf6f78"
+    lab = o["labels"]["labels"]
+    assert (lab["n"], lab["parsed"], lab["by_source"], lab["icon_bands"]) == (25, 24, {"icon": 18, "description": 7}, 6)
+    assert (o["labels"]["timezone"], o["advisory_in_object"]) == ("MST", "33")
+    assert o["labels"]["withdrawal"]["withdrawn_vintage_id"] == 8238
+
+
+@pytest.mark.parametrize("vid", [r["vintage_id"] for r in TOA])
+def test_T_the_label_block_serves_only_keys_the_row_carries(vid):
+    """D-09-25-242 §1(d), on every banked row (the 112 in force and the 8 originals the
+    corrections replaced): the keys the label block serves are a subset of the row's meta
+    keys, each served verbatim, and so is every TOA key beside the cone's. The view's
+    two columns are read off the key, as 314's view reads them."""
+    row = [r for r in TOA if r["vintage_id"] == vid][0]
+    rev = 1 if BASE.search(row["vintage_key"]) else 0
+    o = ti._toa_object(row["product"].split(":", 1)[1], {**row, "revision": rev, "corrected": False}, None)
+    assert set(o["labels"]) <= set(row["meta"])
+    assert all(o["labels"][k] == row["meta"][k] for k in o["labels"])
+    extra = set(o) - set(ti._object("x", {**row, "revision": rev, "corrected": False}, None)) - {"labels"}
+    assert extra <= set(row["meta"]) and extra == {"advisory_in_object"}
 
 
 @pytest.mark.parametrize("sid,adv,linked", [("ep182026", "054A", "054"), ("al092026", "016", None)])
@@ -431,14 +515,18 @@ def test_T_the_existing_objects_are_untouched(client, monkeypatch, pg):
     b, _ = get(client, monkeypatch, pg, f"{P}/products?storm_id=ep182026&advisory=054")
     assert [o["product"] for o in b["objects"]] == ["cone", "ww"]
     assert [a["product"] for a in b["absent"]] == ["surge_ww"]
-    assert "D-09-25-236" in b["toa_rule"] and "never parsed or inferred" in b["toa_rule"]
+    assert "D-09-25-236" in b["toa_rule"] and "never parsed, inferred, renamed or filled" in b["toa_rule"]
+    assert "D-09-25-242" in b["toa_rule"] and "label_rule" not in b["toa_rule"]
 
 
 def test_T_no_label_is_read_off_anything_but_the_rows_label_table():
     src = (ROOT / "tropics_index.py").read_text()
     block = src[src.index("def _toa_object"):src.index("def _entry_ref")]
-    assert set(re.findall(r'meta\.get\("([a-z_]+)"\)', block)) == {
-        "advisory_in_object", "advisory_check", "label_rule", "timezone", "labels", "labels_null", "withdrawal"}
+    # the label block is the row's keys, by the publisher's names, where the row has them
+    assert ti.TOA_LABEL_KEYS == ("labels", "labels_null", "timezone", "withdrawal")
+    assert '"labels": {k: meta[k] for k in TOA_LABEL_KEYS if k in meta}' in block
+    assert set(re.findall(r'meta\.get\("([a-z_]+)"\)', block)) == {"advisory_in_object"}
+    assert "label_rule" not in block and "counts" not in block
     for word in ("valid_utc", "label_source", "description", "parse"):
         assert word not in block.split('"""')[2], word
 
@@ -462,9 +550,9 @@ def test_W_the_outlook_reads(client, monkeypatch, pg):
     assert [p for _, p in calls[1:]] == [
         {"product": "display:two_areas", "key_below": "999999999999s"},
         {"products": ["display:two_areas", "display:two_points"], "storm_id": "",
-         "advisory_or_cycle": "202610152347"},
-        {"product": "display:two_text_at", "key_below": "202610152347s"},
-        {"products": ["display:two_text_at"], "storm_id": "", "advisory_or_cycle": "202610152319"}]
+         "advisory_or_cycle": "202610161136"},
+        {"product": "display:two_text_at", "key_below": "202610161136s"},
+        {"products": ["display:two_text_at"], "storm_id": "", "advisory_or_cycle": "202610161136"}]
     # a named stamp skips the newest read
     _, pool = get(client, monkeypatch, pg, f"{P}/outlook?basin=ep&stamp=202610140517")
     assert [q for q, _ in pool.calls[1:]] == [ti.DISPLAY_FILES_SQL, ti.OUTLOOK_STAMP_SQL, ti.DISPLAY_FILES_SQL]

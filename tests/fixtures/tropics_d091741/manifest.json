@@ -420,36 +420,37 @@
   "what": "d091757: rows read verbatim off the live ledger (one read-only transaction, bank_outlook_toa_from_neon.py's STATEMENTS): every display:two_* and display:toa_* row, every revision, and NHC's toa_*_kmz rows of the four storms",
   "count": {
    "kind": "count",
-   "read_at": "2026-10-16T02:49:59.014Z",
+   "read_at": "2026-10-16T13:09:21.898Z",
    "ro": "on",
-   "n_ledger": "8365",
-   "n_display": "719",
-   "n_two": "128",
-   "n_toa": "112",
+   "n_ledger": "8596",
+   "n_display": "767",
+   "n_two": "136",
+   "n_toa": "120",
    "n_toa_label_rule": "0",
-   "n_toa_withdrawn": "0",
+   "n_toa_withdrawn": "120",
+   "n_toa_first_parser": "0",
    "n_two_toa_revisions": "8",
    "view_md5": "977c97d66d70ff8a8ed7e6992545f6c7",
-   "max_migration": 316
+   "max_migration": 317
   },
   "bank": {
    "two": {
     "path": "bank/two.jsonl.gz",
-    "rows": 128,
-    "sha256": "37dbc1fcb2ddc7e6d234a02884dc47883c9845972c776eff1c1c91ec09f34ec4",
-    "read_at": "2026-10-16T02:49:59.014Z"
+    "rows": 136,
+    "sha256": "4fdc6d85addb47ffd9cdef7336d1f95155230e3a57f52c67d55e47307eac9fec",
+    "read_at": "2026-10-16T13:09:21.898Z"
    },
    "toa": {
     "path": "bank/toa.jsonl.gz",
-    "rows": 112,
-    "sha256": "0889ebfd5b8d89f6a4f10efe9f902b2dd60ebcc659bfab06339b85f4c316c23a",
-    "read_at": "2026-10-16T02:49:59.014Z"
+    "rows": 120,
+    "sha256": "c036fbc66b1b7442df8d3f55026b54203b3162a605ba1039f0ef882b2c9e0045",
+    "read_at": "2026-10-16T13:09:21.898Z"
    },
    "nhc_toa": {
     "path": "bank/nhc_toa.jsonl.gz",
-    "rows": 114,
-    "sha256": "b63c7b45b96ea56e95e267587c608ce63ee06ff3f24227988cc9ec1dce2702ef",
-    "read_at": "2026-10-16T02:49:59.014Z"
+    "rows": 122,
+    "sha256": "9f6ae9b800f587a3537794bcaf26c6d9f9e9b4f4832c7fa47e66f24897b2eea0",
+    "read_at": "2026-10-16T13:09:21.898Z"
    }
   }
  }

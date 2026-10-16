@@ -9,7 +9,9 @@ last. The brief's two come first: the stamp key mistaken for an hour (four ways)
 mistaken for an issuance (three ways). Two breaks are DIAGNOSTICS, expected GREEN: 8 is
 break 7 with its text pin set aside, to show that no banked vector can see it (no TWO row
 is corrected); 12 drops TOA from the top-level revision, which no banked vector can see
-either (every corrected TOA identity's cone is corrected too). Not a test module.
+either (every corrected TOA identity's cone is corrected too). Breaks 9, 10 and 14 are the
+label table (D-09-25-242 §1(d)): a key the row does not carry, a timezone not the row's,
+labels.by_source dropped. Not a test module.
 """
 
 import hashlib
@@ -27,6 +29,7 @@ RN_CHECK = '    if re.match(r"^[0-9]{12}r[0-9]+$", raw):'
 STAMP_RE = 'STAMP = re.compile(r"^20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])([01][0-9]|2[0-3])[0-5][0-9]$")'
 STRPTIME = '    datetime.strptime(raw, "%Y%m%d%H%M")        # 202602311200 is refused, not rolled'
 VIEW_MATCH = "       AND v.advisory_or_cycle = %(advisory_or_cycle)s"
+LABEL_BLOCK = '"labels": {k: meta[k] for k in TOA_LABEL_KEYS if k in meta}}'
 
 # (rule, what, [(file, old, new), ...], -k, expected: "red" | "green")
 BREAKS = [
@@ -66,13 +69,13 @@ BREAKS = [
        "    SELECT a.vintage_key AS stamp")],
      "not test_S_r_n_is_not_an_issuance and not test_C and not X1", "green"),
     # the label table
-    ("T labels", "a label_rule filled in where the row carries none",
-     [("tropics_index.py", '"labels": {"label_rule": meta.get("label_rule"),',
-       '"labels": {"label_rule": meta.get("label_rule") or "D-09-25-236",')],
-     "test_T_every_banked_identity", "red"),
-    ("T labels", "a timezone filled in where the row carries none",
-     [("tropics_index.py", '"timezone": meta.get("timezone"),\n',
-       '"timezone": meta.get("timezone") or "UTC",\n')],
+    ("T labels", "the block serves a key the row does not carry (label_rule, D-09-05-T)",
+     [("tropics_index.py", LABEL_BLOCK,
+       '"labels": {**{k: meta[k] for k in TOA_LABEL_KEYS if k in meta}, "label_rule": meta.get("label_rule")}}')],
+     "test_T_the_label_block_serves_only_keys_the_row_carries", "red"),
+    ("T labels", "a timezone filled in over the row's own (every banked row carries one)",
+     [("tropics_index.py", LABEL_BLOCK,
+       '"labels": {**{k: meta[k] for k in TOA_LABEL_KEYS if k in meta}, "timezone": "UTC"}}')],
      "test_T_every_banked_identity or test_T_the_054", "red"),
     ("T toa", "/products reads no TOA (the pairs dropped from the route's read)",
      [("main.py", "_ti.ADVISORY_PRODUCTS + _ti.TOA_PRODUCTS, with_wsp=True)",
@@ -86,6 +89,12 @@ BREAKS = [
     ("P basin", "cp served the Atlantic text",
      [("tropics_index.py", '"cp": "two_text_ep"}', '"cp": "two_text_at"}')],
      "test_P_", "red"),
+    # the label table again (D-09-25-242 §1(d))
+    ("T labels", "labels.by_source dropped from the served object",
+     [("tropics_index.py", LABEL_BLOCK,
+       '"labels": {k: ({x: y for x, y in meta[k].items() if x != "by_source"} if k == "labels" else meta[k])\n'
+       '                       for k in TOA_LABEL_KEYS if k in meta}}')],
+     "test_T_every_banked_identity", "red"),
 ]
 
 
