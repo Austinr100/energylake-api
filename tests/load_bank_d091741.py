@@ -27,6 +27,16 @@ fixtures/tropics_d091741/bank_display_from_neon.py, manifest.json "d091746"):
   dataset_two   the nhc_two_vintage dataset (migration 316's probe writes under it)
   migrations    schema_migrations 314 and 315 (316's pre-check requires both)
 
+and, read by d091757 (2026-10-16 02:49:59Z, one read-only transaction:
+fixtures/tropics_d091741/bank_outlook_toa_from_neon.py, manifest.json "d091757"):
+
+  two           every display:two_areas / two_points / two_text_at / two_text_ep row,
+                every revision: the 7-day outlook keyed by its 12-digit stamp (316)
+  toa           every display:toa_earliest / toa_mostlikely row, every revision, with the
+                label table each carried at the read (the first publish's: none of the
+                112 carried D-09-25-236's label_rule)
+  nhc_toa       NHC's banked toa_earliest_kmz / toa_mostlikely_kmz rows of the four storms
+
 `rows(kind)` checks the sha-256 Neon computed over the same text before it
 returns anything. `cluster()` starts a throwaway Postgres (load_bank_d091673's),
 creates migration 291's tables and 294/297's views (d091673's and d091682's DDL
@@ -63,9 +73,12 @@ NOW = datetime(2026, 10, 15, 14, 0, 0, tzinfo=timezone.utc)
 TABLES = {"dataset": "datasets", "storm": "tropical_storms", "official": "tropical_track_points",
           "ledger": "tropical_file_vintage", "display": "tropical_file_vintage",
           "ledger_033": "tropical_file_vintage", "official_033": "tropical_track_points",
-          "dataset_two": "datasets", "migrations": "schema_migrations"}
+          "dataset_two": "datasets", "migrations": "schema_migrations",
+          "two": "tropical_file_vintage", "toa": "tropical_file_vintage",
+          "nhc_toa": "tropical_file_vintage"}
 LOAD_ORDER = ("dataset", "storm", "official", "ledger")
 BANKED_D091746 = ("official_033", "ledger_033", "display")
+BANKED_D091757 = ("nhc_toa", "two", "toa")
 NEON_LEDGER_ROWS = 7029
 DDL_316_PANTRY_SHA256 = "0eca89902b5a109771479b2210325708cbd40f16772d8d89d1e01fd1e7688d2f"  # pantry main 5dc57d1
 # The instant the I2 newest-default vectors are read at: Rachel 054 (15Z
@@ -76,7 +89,10 @@ AS_OF_054_016 = datetime(2026, 10, 10, 17, 30, 0, tzinfo=timezone.utc)
 
 
 def _bank_entry(kind: str) -> dict:
-    return MANIFEST["bank"][kind] if kind in MANIFEST["bank"] else MANIFEST["d091746"]["bank"][kind]
+    for bank in (MANIFEST["bank"], MANIFEST["d091746"]["bank"], MANIFEST["d091757"]["bank"]):
+        if kind in bank:
+            return bank[kind]
+    raise KeyError(kind)
 
 
 def text(kind: str) -> str:
@@ -159,7 +175,7 @@ def load(conn, *, constructed: bool = False, padded: bool = False, as_of=None) -
     conn.execute((FIX / "ddl_316_ledger.sql").read_text())
     _insert_bank(conn, "migrations")
     conn.execute(ddl_316())                          # pantry 316, verbatim: its checks run here
-    for kind in LOAD_ORDER[1:] + BANKED_D091746:
+    for kind in LOAD_ORDER[1:] + BANKED_D091746 + BANKED_D091757:
         _insert_bank(conn, kind)
     if as_of is not None:
         conn.execute("DELETE FROM tropical_file_vintage WHERE source = 'nhc' AND fetch_ts > %s", (as_of,))

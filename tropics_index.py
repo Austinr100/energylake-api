@@ -1,13 +1,20 @@
 """The Tropics index — d091741 (D-09-25-226, orders 1-4: the API half), reading no R2;
-the display read by revision — d091746 (D-09-25-231).
+the display read by revision — d091746 (D-09-25-231); the 7-day outlook and the
+arrival-time objects — d091757 (D-09-25-234, D-09-25-236).
 
     GET /api/weather/tropics/ground?basin=al|ep|cp
                                         the GOES GeoColor frame GIBS holds now, probed
                                         tile by tile (never GIBS's `default`)
     GET /api/weather/tropics/products?storm_id=&advisory=
                                         the published cone / watch-warning / surge
-                                        objects of one advisory, and the WSP of its
-                                        synoptic cycle, each stated or absent with a reason
+                                        objects of one advisory, its arrival-time (TOA)
+                                        objects with their label tables, and the WSP of
+                                        its synoptic cycle, each stated or absent with a reason
+    GET /api/weather/tropics/outlook?basin=al|ep|cp&stamp=
+                                        NHC's Tropical Weather Outlook: the graphical
+                                        issuance (areas, points) at its 12-digit stamp,
+                                        newest by default, and the basin's outlook text
+                                        in force at that stamp, each by its own stamp
     GET /api/weather/tropics/text?storm_id=&advisory=
                                         the published TCD and TCP parses of one advisory
     GET /api/weather/tropics/members?storm_id=&cycle=
@@ -55,6 +62,30 @@ vintage_key, and the member parquets likewise (source 'parsed'); no display row
 is read through 294's view. Before d091746 this module asked 294's view for
 vintage_key = '<ADV>', so a corrected advisory was served its revision-0 object.
 
+THE OUTLOOK'S KEY (d091757; D-09-25-234, pantry migration 316). A TWO issuance is
+keyed by its 12-digit stamp, YYYYMMDDHHMM: vintage_key = the stamp, and the view's
+advisory_or_cycle is the stamp (316 widened the base pattern to read it whole). r<n> on
+a TWO row means a correction NHC issued over the same stamp, never another issuance.
+Two outlooks of one hour are two issuances (10-14 05:17Z and 05:22Z; 10-15 23:11Z and
+23:47Z are banked): no read here truncates a stamp to its hour, and `stamp` refuses an
+hour and refuses r<n>. The graphics (two_areas, two_points: one gtwo zip) share the
+zip's stamp; each text has its own (its WMO DDHHMM, e.g. 10-15 two_text_ep 23:10Z, the
+zip re-cut at 23:11Z), so a text is paired to the graphics by stamp: the basin's text
+with the newest stamp at or before the graphics' (the text in force when the zip was
+cut). Each object prints its own stamp. The newest stamp of a product is one
+tfv_identity range read backwards, LIMIT 1 (CLAUDE.md d091551: not the view's DISTINCT
+ON, which reads every issuance to keep one); the object itself is read through 314's
+view at that exact stamp, as every display object is.
+
+THE ARRIVAL-TIME OBJECTS (d091757; D-09-25-236). toa_earliest and toa_mostlikely are
+served on /products as display objects of the advisory, read exactly as the cone is
+(the copy in force on 314's view, revision / corrected / original), plus the label table
+their row carries, as banked: label_rule (null on a row of the first publish, which read
+the labels from the Placemark name), timezone, the counts and the null labels, and the
+withdrawal note where the row has one. No label is parsed, inferred or filled here: the
+first-publish rows may be withdrawn and republished on the captain's word, and whatever
+row is in force is what is served.
+
 THE RULINGS, AND WHERE EACH IS HELD.
   D-09-21-05  a count says what it counted: every absence names what was read and
               found missing (`detail`); `not_issued` is said only on NHC's own word
@@ -86,6 +117,12 @@ ADVISORY = re.compile(r"^[0-9]{3}A?$")
 CYCLE = re.compile(r"^20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])(00|06|12|18)$")
 
 
+# An outlook issuance as the publisher keys it (D-09-25-234): YYYYMMDDHHMM, nothing after it.
+STAMP = re.compile(r"^20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])([01][0-9]|2[0-3])[0-5][0-9]$")
+# Every banked stamp sorts at or below this one.
+STAMP_MAX = "999999999999"
+
+
 def parse_advisory(raw: Optional[str]) -> Optional[str]:
     if raw is None or raw == "":
         return None
@@ -100,6 +137,25 @@ def parse_cycle(raw: Optional[str]) -> Optional[str]:
     if not CYCLE.match(raw):
         raise ValueError(f"cycle must be YYYYMMDDHH with HH 00, 06, 12 or 18 (e.g. 2026101112), got {raw!r}")
     datetime.strptime(raw, "%Y%m%d%H")          # 2026023112 is refused, not rolled
+    return raw
+
+
+def parse_stamp(raw: Optional[str]) -> Optional[str]:
+    """An outlook's issuance stamp, YYYYMMDDHHMM (D-09-25-234). An hour (YYYYMMDDHH) is not
+    a stamp: two outlooks of one hour are two issuances. r<n> is not an issuance: it is a
+    correction NHC issued over a stamp, and the stamp's copy in force is served."""
+    if raw is None or raw == "":
+        return None
+    if re.match(r"^[0-9]{12}r[0-9]+$", raw):
+        raise ValueError(f"stamp {raw!r} names a correction (r<n>), not an issuance: ask for the "
+                         f"stamp {raw[:12]}; its copy in force is served, revision stated")
+    if re.match(r"^[0-9]{10}$", raw):
+        raise ValueError(f"stamp {raw!r} is an hour (YYYYMMDDHH), not an issuance: an outlook is "
+                         f"keyed by its 12-digit stamp YYYYMMDDHHMM, and two of one hour are two")
+    if not STAMP.match(raw):
+        raise ValueError(f"stamp must be the outlook's 12-digit issuance stamp YYYYMMDDHHMM "
+                         f"(e.g. 202610152347), got {raw!r}")
+    datetime.strptime(raw, "%Y%m%d%H%M")        # 202602311200 is refused, not rolled
     return raw
 
 
@@ -122,12 +178,20 @@ DISPLAY_PREFIX = "display:"
 # (served name, the banked NHC file it is published from). Keys, recon §7:
 #   tropics/{storm}/adv{ADV}/{cone|ww|surge_ww}.geojson
 ADVISORY_PRODUCTS = (("cone", "cone_kmz"), ("ww", "ww_kmz"), ("surge_ww", "surge_ww_kml"))
+#   tropics/{storm}/adv{ADV}/toa_{earliest|mostlikely}.geojson (d091756; labels: D-09-25-236)
+TOA_PRODUCTS = (("toa_earliest", "toa_earliest_kmz"), ("toa_mostlikely", "toa_mostlikely_kmz"))
 #   tropics/{storm}/adv{ADV}/{tcd|tcp}.json (the products_text parse)
 TEXT_PRODUCTS = (("tcd", "tcd"), ("tcp", "tcp"))
 #   tropics/wsp/{cycle}/wsp{34|50|64}_{bands|grid}.geojson, basin-wide (storm_id '')
 WSP_PRODUCTS = (("wsp34_bands", "wsp_5km_zip"), ("wsp50_bands", "wsp_5km_zip"),
                 ("wsp64_bands", "wsp_5km_zip"), ("wsp34_grid", "wsp_halfdeg_zip"),
                 ("wsp50_grid", "wsp_halfdeg_zip"), ("wsp64_grid", "wsp_halfdeg_zip"))
+#   tropics/two/{STAMP}/{areas|points}.geojson and text_{at|ep}.json, basin-wide (storm_id ''),
+#   keyed by the 12-digit stamp (d091756, migration 316)
+OUTLOOK_GRAPHICS = ("two_areas", "two_points")
+# The outlook text each basin is served. NHC's East Pacific outlook is headed "For the
+# eastern and central North Pacific east of 180 longitude"; the bank holds no CPHC text.
+OUTLOOK_TEXT_BY_BASIN = {"al": "two_text_at", "ep": "two_text_ep", "cp": "two_text_ep"}
 #   tropics/{storm}/{cycle}/{ensemble}/manifest.json, from the banked member parquet
 ENSEMBLES = (("ecmwf_ens", "tracks:ecmwf_ens"), ("ecmwf_aifs_ens", "tracks:ecmwf_aifs_ens"),
              ("gefs_adeck", "tracks:adeck"))
@@ -145,6 +209,12 @@ META_OBJECT = ("source_r2_key", "source_sha256", "geometry_types", "vertices")
 META_TEXT = ("source_r2_key", "source_sha256", "issued_utc", "transmitted_utc", "forecaster",
              "title", "n_forecast_rows", "section_kinds")
 META_MEMBERS = ("source_r2_key", "source_sha256", "n_members", "min_members", "taus")
+# The publisher's TWO meta (tropical/publish.py _two_objects), served verbatim.
+META_TWO_GRAPHICS = ("stamp", "issued_utc", "source_layer", "n_features", "n_records", "dbf_fields",
+                     "geometry_types", "vertices", "source_r2_key", "source_sha256")
+META_TWO_TEXT = ("stamp", "wmo_heading", "awips_id", "bbb", "title", "forecaster", "issued_local",
+                 "issued_utc", "transmitted_utc", "formation_not_expected", "n_paragraphs",
+                 "n_disturbances", "disturbances", "source_r2_key", "source_sha256")
 
 
 def display_product(name: str) -> str:
@@ -276,6 +346,22 @@ DISPLAY_FILES_SQL = """
      ORDER BY v.product
 """
 
+# The newest outlook stamp of one product at or before a stamp (d091757): one tfv_identity
+# range (source, product, storm_id '') read backwards, LIMIT 1, never the view's DISTINCT
+# ON (CLAUDE.md d091551). key_below is '<stamp>s': every key whose base is at or before the
+# stamp sorts below it under C (the ledger's collation), r<n> included ('r' < 's'), and
+# every later stamp above it. The base is cut off the key, so a correction's key is
+# never taken for an issuance. The row served at the stamp is read through the view
+# (DISPLAY_FILES_SQL), as every display object is.
+OUTLOOK_STAMP_SQL = """
+    SELECT substring(a.vintage_key FROM '^[0-9]{12}') AS stamp
+      FROM tropical_file_vintage AS a
+     WHERE a.source = 'display' AND a.product = %(product)s AND a.storm_id = ''
+       AND a.status = 'banked' AND a.vintage_key < %(key_below)s
+     ORDER BY a.vintage_key DESC
+     LIMIT 1
+"""
+
 # Every banked member parquet of one storm, per cycle (vintage_key): one
 # tfv_identity range per product. The bank's own derivations (source 'parsed').
 MEMBERS_SQL = """
@@ -311,6 +397,12 @@ def display_files_params(storm_id: str, advisory_or_cycle: str, pairs) -> dict:
     """DISPLAY_FILES_SQL's parameters: the display products of the same pairs."""
     return {"products": [display_product(n) for n, _ in pairs], "storm_id": storm_id,
             "advisory_or_cycle": advisory_or_cycle}
+
+
+def outlook_stamp_params(name: str, at_or_before: Optional[str] = None) -> dict:
+    """OUTLOOK_STAMP_SQL's parameters: the newest stamp of display:<name> at or before
+    a stamp (default: the newest of all)."""
+    return {"product": display_product(name), "key_below": (at_or_before or STAMP_MAX) + "s"}
 
 
 def members_params(storm_id: str, cycle: Optional[str]) -> dict:
@@ -361,6 +453,12 @@ def _original(r: dict) -> Optional[dict]:
             "bytes": r["original_bytes"], "absence": None}
 
 
+def _revision_of(r: dict) -> dict:
+    """The object's own correction state. The outlook reads no NHC row, so it states no
+    source_in_force."""
+    return {"revision": r["revision"], "corrected": r["corrected"], "original": _original(r)}
+
+
 def _provenance(r: dict, src: Optional[dict]) -> dict:
     """The published object's own correction state, and whether the NHC file it
     names is the one in force now (a correction NHC issued after publishing)."""
@@ -376,6 +474,18 @@ def _object(name: str, r: dict, src: Optional[dict]) -> dict:
             "source_sha256": meta.get("source_sha256"),
             "geometry_types": meta.get("geometry_types"), "vertices": meta.get("vertices"),
             **_provenance(r, src)}
+
+
+def _toa_object(name: str, r: dict, src: Optional[dict]) -> dict:
+    """An arrival-time object: the cone's fields, and the label table its row carries,
+    verbatim (D-09-25-236). Nothing here reads, parses or fills a label."""
+    meta = r["meta"] or {}
+    return {**_object(name, r, src),
+            "advisory_in_object": meta.get("advisory_in_object"),
+            "advisory_check": meta.get("advisory_check"),
+            "labels": {"label_rule": meta.get("label_rule"), "timezone": meta.get("timezone"),
+                       "counts": meta.get("labels"), "null": meta.get("labels_null"),
+                       "withdrawal": meta.get("withdrawal")}}
 
 
 def _entry_ref(entry: Optional[dict], nhc_product: str) -> tuple[str, Optional[str]]:
@@ -441,14 +551,14 @@ def wsp_cycle(init_ts) -> Optional[str]:
     return init_ts.astimezone(timezone.utc).strftime("%Y%m%d%H")
 
 
-def _served_and_absent(pairs, rows, *, advisory, entry, basin) -> tuple[list, list]:
+def _served_and_absent(pairs, rows, *, advisory, entry, basin, shape=None) -> tuple[list, list]:
     by = _by_product(rows)
     objects, absent = [], []
     for name, nhc_product in pairs:
         src = by.get((NHC_SOURCE, nhc_product))
         pub = by.get((DISPLAY_SOURCE, display_product(name)))
         if pub is not None:
-            objects.append(_object(name, pub, src))
+            objects.append((shape or _object)(name, pub, src))
         else:
             absent.append(_absent(name, nhc_product, advisory=advisory, src=src, entry=entry,
                                   basin=basin))
@@ -499,10 +609,12 @@ def build_products(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
     forecast's row (init_ts: the synoptic time), None where NHC issued none."""
     if advisory is None:
         body = {**no_advisory(storm), "revision": 0, "corrected": False, "objects": [],
-                "absent": [], "wsp": None}
+                "absent": [], "toa": None, "wsp": None}
     else:
         objects, absent = _served_and_absent(ADVISORY_PRODUCTS, rows, advisory=advisory,
                                              entry=entry, basin=storm["basin"])
+        tobj, tabs = _served_and_absent(TOA_PRODUCTS, rows, advisory=advisory, entry=entry,
+                                        basin=storm["basin"], shape=_toa_object)
         cycle = wsp_cycle(adv["init_ts"]) if adv else None
         if cycle is None:
             wsp = {"cycle": None, "synoptic_ts": None, "objects": [], "absent": [],
@@ -530,9 +642,10 @@ def build_products(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
             wsp = {"cycle": cycle, "synoptic_ts": _ts(adv["init_ts"]), "objects": wobj,
                    "absent": wabs, "absence": None}
         body = {**_advisory_head(storm, advisory, adv, requested, entry),
-                "revision": max((o["revision"] for o in objects), default=0),
-                "corrected": any(o["corrected"] for o in objects),
-                "objects": objects, "absent": absent, "wsp": wsp, "absence": None}
+                "revision": max((o["revision"] for o in objects + tobj), default=0),
+                "corrected": any(o["corrected"] for o in objects + tobj),
+                "objects": objects, "absent": absent,
+                "toa": {"objects": tobj, "absent": tabs}, "wsp": wsp, "absence": None}
     body.update({
         "advisory_rule": ADVISORY_DEFAULT_RULE,
         "wsp_rule": ("WSP is issued per synoptic cycle, basin-wide, not per storm: the cycle is "
@@ -549,10 +662,114 @@ def build_products(*, storm: dict, advisory: Optional[str], adv: Optional[dict],
                           "file). The top-level revision is the highest served; "
                           "source_in_force says whether the NHC file an object names is the "
                           "copy in force now."),
+        "toa_rule": TOA_RULE,
         "index_rule": INDEX_RULE, "reasons": REASONS, "timestamps": _tr.TIMESTAMPS,
         "not_served": NOT_SERVED_INDEX, "nhc_terms": _tr.NHC_TERMS,
     })
     return body
+
+
+TOA_RULE = ("toa holds the advisory's arrival-time objects (NHC's earliest reasonable and most "
+            "likely arrival of tropical-storm-force winds), read as the cone is: per product the "
+            "copy in force on pantry 314's tropical_display_in_force, revision / corrected / "
+            "original each object's own, absences by the same reasons (not_issued on NHC's "
+            "CurrentStorms refs toa_earliest_kmz / toa_mostlikely_kmz). `labels` is the label "
+            "table the object's ledger row carries, served as banked and never parsed or "
+            "inferred here: label_rule names the parser ruling the labels were read under "
+            "(D-09-25-236: the Placemark description) and is null on a row the first publish "
+            "wrote, whose labels were read from the Placemark name; counts {n, parsed, null, ...} "
+            "and null [{label, why}] are the row's own; withdrawal is the ledger's note where "
+            "the object was withdrawn and republished under its own key (D-09-25-236). The "
+            "top-level revision counts these objects too.")
+
+
+# ── /outlook ────────────────────────────────────────────────────────────────
+
+OUTLOOK_REASONS = {
+    "not_published": "the ledger holds no published display object for it",
+}
+STAMP_RULE = ("An outlook issuance is keyed by its 12-digit stamp YYYYMMDDHHMM (D-09-25-234; pantry "
+              "migration 316): the row's vintage_key and tropical_display_in_force's "
+              "advisory_or_cycle. `stamp` is the graphical issuance's (the gtwo zip's, which "
+              "two_areas and two_points share); without one, the newest published. Two outlooks "
+              "of one hour are two issuances, and r<n> is a correction NHC issued over a stamp, "
+              "never an issuance: the copy in force at the stamp is served, revision stated.")
+PAIRING_RULE = ("The text is paired to the graphics by stamp: the basin's outlook text with the "
+                "newest stamp at or before the graphics' (the text in force when NHC cut the "
+                "zip). Each text has its own stamp (its WMO heading's DDHHMM), so the two "
+                "stamps may differ; each object prints its own. issued_utc is the text's "
+                "nominal synoptic time as NHC wrote it, transmitted_utc its WMO time: the "
+                "pairing reads neither.")
+BASIN_RULE = ("basin al is served NHC's Atlantic outlook (two_text_at); ep and cp are served NHC's "
+              "East Pacific outlook (two_text_ep), whose own heading, basin_heading, states its "
+              "reach; the bank holds no CPHC outlook text. The graphics are one gtwo zip for "
+              "every basin: each feature carries its own BASIN field, in the object at url.")
+
+
+def _two_graphics_obj(name: str, r: dict) -> dict:
+    meta = r["meta"] or {}
+    return {"product": name, "url": display_url(r["r2_key"]), "sha256": r["sha256"],
+            "bytes": r["byte_size"], **{k: meta.get(k) for k in META_TWO_GRAPHICS},
+            **_revision_of(r)}
+
+
+def _two_text_obj(name: str, r: dict) -> dict:
+    meta = r["meta"] or {}
+    return {"product": name, "text_basin": name.rsplit("_", 1)[1], "url": display_url(r["r2_key"]),
+            "sha256": r["sha256"], "bytes": r["byte_size"],
+            "basin_heading": meta.get("basin"), **{k: meta.get(k) for k in META_TWO_TEXT},
+            **_revision_of(r), "absence": None}
+
+
+def build_outlook(*, basin: str, stamp: Optional[str], requested: Optional[str], rows: list,
+                  text_name: str, text_stamp: Optional[str], text_rows: list) -> dict:
+    """GET /outlook. `stamp` is the graphical issuance served (the requested one, or the
+    newest); `rows` the display rows at it; `text_stamp` the basin's text paired to it
+    (None: none published at or before it) and `text_rows` the rows at that stamp."""
+    by = _by_product(rows)
+    objects, absent = [], []
+    for name in OUTLOOK_GRAPHICS:
+        pub = by.get((DISPLAY_SOURCE, display_product(name)))
+        if pub is not None:
+            objects.append(_two_graphics_obj(name, pub))
+        else:
+            absent.append({"product": name, "reason": "not_published",
+                           "detail": (f"the ledger holds no published {display_product(name)} at "
+                                      f"stamp {stamp}" if stamp else
+                                      f"the ledger holds no published {display_product(name)}")})
+    tpub = _by_product(text_rows).get((DISPLAY_SOURCE, display_product(text_name)))
+    if tpub is not None:
+        text = _two_text_obj(text_name, tpub)
+    else:
+        text = {"product": text_name, "text_basin": text_name.rsplit("_", 1)[1], "url": None,
+                "sha256": None, "bytes": None, "basin_heading": None,
+                **{k: None for k in META_TWO_TEXT}, "revision": None, "corrected": None,
+                "original": None,
+                "absence": {"reason": "not_published",
+                            "detail": (f"the ledger holds no published {display_product(text_name)} "
+                                       f"at or before stamp {stamp}" if stamp else
+                                       f"the ledger holds no published {display_product(text_name)}")}}
+    served = objects + ([text] if tpub is not None else [])
+    head = by.get((DISPLAY_SOURCE, display_product("two_areas")))
+    return {
+        "basin": basin, "stamp": stamp, "stamp_requested": requested is not None,
+        "issued_ts": _ts(head["issued_ts"]) if head else None,
+        "revision": max((o["revision"] for o in served), default=0),
+        "corrected": any(o["corrected"] for o in served),
+        "graphics": {"stamp": stamp, "objects": objects, "absent": absent},
+        "text": text,
+        "absence": None if stamp else _absence(
+            "not_published", "the ledger holds no published display:two_areas: no outlook issuance "
+                             "to serve"),
+        "stamp_rule": STAMP_RULE, "pairing_rule": PAIRING_RULE, "basin_rule": BASIN_RULE,
+        "revision_rule": ("revision and corrected are each object's own, as on /products: the "
+                          "copy in force at a stamp is the highest revision published over it "
+                          "(pantry 314's tropical_display_in_force; key '<STAMP>r<n>'), and "
+                          "`original` is the revision-0 object where one is corrected. The "
+                          "top-level revision is the highest served."),
+        "index_rule": INDEX_RULE, "reasons": OUTLOOK_REASONS, "timestamps": _tr.TIMESTAMPS,
+        "not_served": NOT_SERVED_INDEX, "nhc_terms": _tr.NHC_TERMS,
+    }
 
 
 # ── /text ───────────────────────────────────────────────────────────────────
