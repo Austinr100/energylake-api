@@ -1,0 +1,117 @@
+{
+ "storm_id": "ep202026",
+ "name": "Simon",
+ "basin": "ep",
+ "advisory": "033",
+ "advisory_requested": true,
+ "init_ts": "2026-10-15T12:00:00+00:00",
+ "position_valid_ts": "2026-10-15T15:00:00+00:00",
+ "issued_ts": "2026-10-15T15:00:00+00:00",
+ "nhc_entry": {
+  "vintage_key": "033:3153ed2e",
+  "issued_ts": "2026-10-15T15:00:00+00:00",
+  "fetch_ts": "2026-10-15T17:13:08.104720+00:00",
+  "classification": "TS",
+  "refs": {
+   "pws": "033",
+   "tcd": "033",
+   "tcm": "033",
+   "tcp": "033",
+   "cone_kmz": "033",
+   "track_kmz": "033",
+   "fcst_5day_zip": "033",
+   "fcst_radii_zip": "033",
+   "initialradii_kmz": "033",
+   "toa_earliest_kmz": "033",
+   "forecastradii_kmz": "033",
+   "toa_mostlikely_kmz": "033"
+  }
+ },
+ "nhc_entry_absence": null,
+ "revision": 0,
+ "corrected": false,
+ "products": {
+  "tcd": {
+   "product": "tcd",
+   "url": "https://display.energylake.io/tropics/ep202026/adv033/tcd.json",
+   "sha256": "f0b774d3602ce43faba50382778e4e68e8beeb71ea039f928bb90fc4f063d8ea",
+   "bytes": 4982,
+   "issued_utc": "2026-10-15T15:00:00+00:00",
+   "transmitted_utc": "2026-10-15T14:43:00+00:00",
+   "forecaster": "Beven",
+   "title": "Tropical Storm Simon Discussion Number  33",
+   "n_forecast_rows": 9,
+   "sections": [
+    {
+     "kind": "discussion"
+    },
+    {
+     "kind": "key_messages"
+    },
+    {
+     "kind": "forecast_table"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv033/tcd.txt",
+   "source_sha256": "0ce6e819692686ee3679bbe5a91f0759e093604dce1d287177b2e308d4c6a209",
+   "revision": 0,
+   "corrected": false,
+   "original": null,
+   "source_in_force": true,
+   "absence": null
+  },
+  "tcp": {
+   "product": "tcp",
+   "url": "https://display.energylake.io/tropics/ep202026/adv033/tcp.json",
+   "sha256": "e6ade63a220b47955599a704df4bbee39102cd280cb2a79f6cd3529e746ea7eb",
+   "bytes": 2888,
+   "issued_utc": "2026-10-15T15:00:00+00:00",
+   "transmitted_utc": "2026-10-15T14:42:00+00:00",
+   "forecaster": "Beven",
+   "title": "Tropical Storm Simon Advisory Number  33",
+   "n_forecast_rows": 0,
+   "sections": [
+    {
+     "kind": "summary"
+    },
+    {
+     "kind": "watches_and_warnings"
+    },
+    {
+     "kind": "discussion_and_outlook"
+    },
+    {
+     "kind": "hazards_affecting_land"
+    },
+    {
+     "kind": "next_advisory"
+    }
+   ],
+   "source_r2_key": "tropical/nhc/2026/ep202026/adv033/tcp.txt",
+   "source_sha256": "fd1206eee3a096ae6971bb4c663b78685963f315f42a9d741d5f66691201e934",
+   "revision": 0,
+   "corrected": false,
+   "original": null,
+   "source_in_force": true,
+   "absence": null
+  }
+ },
+ "absence": null,
+ "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (published objects: pantry 314's tropical_display_in_force; NHC's files: 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
+ "times_rule": "Two times, and they differ: transmitted_utc is the WMO heading's DDHHMM (when NHC transmitted the product), issued_utc the product's local issuance line in UTC (the advisory's nominal time). The TCD's forecast table counts from the advisory time, the bank's official track from the synoptic time: never join them on tau.",
+ "revision_rule": "revision and corrected are each product's own, as on /products: the copy in force is the highest revision published (a correction NHC issued is its own ledger row, key '<ADV>r<n>'), and `original` is the revision-0 object where one is corrected. The top-level revision is the highest served.",
+ "sections_rule": "sections are the publisher's section_kinds, in NHC's order, each {kind} as the parser names it. The ledger carries no section titles: they, and the text, are in the object at url. title is the product's own heading as the parse read it; n_forecast_rows the rows of its forecast table (0 for a TCP).",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket, the copy in force per (product, storm_id, advisory or cycle) as pantry 314's tropical_display_in_force names it (source 'display', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is the publisher's (pantry tropical/publish.py, migrations 314 and 316).",
+ "reasons": {
+  "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",
+  "basin_has_none": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only",
+  "not_banked": "the bank holds no copy of the NHC file this would be published from",
+  "not_published": "the NHC file is banked; no published display object is in the ledger"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

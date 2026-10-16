@@ -1,44 +1,5 @@
 [
  {
-  "byte_size": 27980,
-  "closed_ts": null,
-  "dataset": "nhc_advisory_vintage",
-  "fetch_ts": "2026-10-15T13:40:00+00:00",
-  "issued_ts": "2026-10-15T09:00:00+00:00",
-  "meta": {
-   "constructed_by": "d091741 (constructed from recon d091737's parsed fixtures; not d091740's rows)",
-   "correction": {
-    "prior_sha256": [
-     "23fb9e669eb93c9db7a63eb81cffff4c159c248f491399695dd20040c223bab9"
-    ],
-    "revision": 1,
-    "signal": "constructed for I2 (a corrected advisory)"
-   },
-   "geometry_types": {
-    "Polygon": 1
-   },
-   "lon_range": [
-    -116.47044,
-    -108.0546
-   ],
-   "n_features": 1,
-   "source_r2_key": "tropical/nhc/2026/ep202026/adv032/cone_kmz.kmz",
-   "source_sha256": "1f82e17dc6d17d760091a7c6215a502073277e8892beb020698db9210c3f79e1",
-   "vertices": 1264
-  },
-  "product": "display:cone",
-  "r2_key": "tropics/ep202026/adv032/cone.r1.geojson",
-  "sha256": "b57430293de7220dd9cf22761593d566dab77dae8924a8ae8558024236494361",
-  "source": "display",
-  "source_etag": null,
-  "source_last_modified": null,
-  "source_url": null,
-  "status": "banked",
-  "storm_id": "ep202026",
-  "vintage_id": 910101,
-  "vintage_key": "032r1"
- },
- {
   "byte_size": 1685,
   "closed_ts": null,
   "dataset": "tc_model_tracks",

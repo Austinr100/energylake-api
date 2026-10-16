@@ -1,0 +1,171 @@
+{
+ "products_ep182026_054.json": {
+  "path": "/api/weather/tropics/products?storm_id=ep182026&advisory=054",
+  "objects": [
+   {
+    "product": "cone",
+    "vintage_id": 7338,
+    "vintage_key": "054r1",
+    "sha256": "63baad562bc2698131bc6aa56d58b7a335b0c5e5232e3785adaa10f2f294e087",
+    "original": {
+     "vintage_id": 7337,
+     "vintage_key": "054",
+     "sha256": "63baad562bc2698131bc6aa56d58b7a335b0c5e5232e3785adaa10f2f294e087"
+    }
+   },
+   {
+    "product": "ww",
+    "vintage_id": 7721,
+    "vintage_key": "054r1",
+    "sha256": "e90f66c33582b60301de6ad112d864ff8c997706ab0cf9345b1ddbcd20cd5517",
+    "original": {
+     "vintage_id": 7720,
+     "vintage_key": "054",
+     "sha256": "e90f66c33582b60301de6ad112d864ff8c997706ab0cf9345b1ddbcd20cd5517"
+    }
+   },
+   {
+    "product": "wsp34_bands",
+    "vintage_id": 7568,
+    "vintage_key": "2026101012",
+    "sha256": "c18bc75b6bc8b81ce2c125a9648a0eec99a7044a03adb6226d00a3fd66838efc",
+    "original": null
+   },
+   {
+    "product": "wsp50_bands",
+    "vintage_id": 7569,
+    "vintage_key": "2026101012",
+    "sha256": "0bf99a5177be769855d71f145ea0f42326d30ce6e2e27505f53dc0c5a4e505c4",
+    "original": null
+   },
+   {
+    "product": "wsp64_bands",
+    "vintage_id": 7570,
+    "vintage_key": "2026101012",
+    "sha256": "94f61a7ac4364d09600792e13369e41cb161d60049ac35fd9990073b4a3d00b0",
+    "original": null
+   },
+   {
+    "product": "wsp34_grid",
+    "vintage_id": 7643,
+    "vintage_key": "2026101012",
+    "sha256": "89d2850a81569db652d248891508574dc86f13ed8c0eecae04325ee2cb3b3ac0",
+    "original": null
+   },
+   {
+    "product": "wsp50_grid",
+    "vintage_id": 7644,
+    "vintage_key": "2026101012",
+    "sha256": "28055731a6a300e72db96ea8de3916ce35d02fb6a48dab4645169a818f3cb244",
+    "original": null
+   },
+   {
+    "product": "wsp64_grid",
+    "vintage_id": 7645,
+    "vintage_key": "2026101012",
+    "sha256": "32b7c3d67d22135c7c5dd57dadbcebf9d19839644f191fe0612e44996ad2c002",
+    "original": null
+   }
+  ]
+ },
+ "text_al092026_016.json": {
+  "path": "/api/weather/tropics/text?storm_id=al092026&advisory=016",
+  "objects": [
+   {
+    "product": "tcd",
+    "vintage_id": 7416,
+    "vintage_key": "016r1",
+    "sha256": "1e29f570af1dc9bc423c497478fb1b85f2495f3b5a59813885a0ac28e324d014",
+    "original": {
+     "vintage_id": 7415,
+     "vintage_key": "016",
+     "sha256": "344e7c6bef3207f2ac19a39d43954bef7fdca5a7597be23d963aea18192a938d"
+    }
+   },
+   {
+    "product": "tcp",
+    "vintage_id": 7475,
+    "vintage_key": "016r1",
+    "sha256": "995d55d2a0318ec1418cab77487fd1e18a36639fcdb201651e6c40840ce903e7",
+    "original": {
+     "vintage_id": 7474,
+     "vintage_key": "016",
+     "sha256": "4b97bd582842acca6b1abbf7b1b771c0d619a706013a8ea0c98c0cb8b032ac11"
+    }
+   }
+  ]
+ },
+ "text_ep202026_033.json": {
+  "path": "/api/weather/tropics/text?storm_id=ep202026&advisory=033",
+  "objects": [
+   {
+    "product": "tcd",
+    "vintage_id": 7456,
+    "vintage_key": "033",
+    "sha256": "f0b774d3602ce43faba50382778e4e68e8beeb71ea039f928bb90fc4f063d8ea",
+    "original": null
+   },
+   {
+    "product": "tcp",
+    "vintage_id": 7543,
+    "vintage_key": "033",
+    "sha256": "e6ade63a220b47955599a704df4bbee39102cd280cb2a79f6cd3529e746ea7eb",
+    "original": null
+   }
+  ]
+ },
+ "products_ep202026_033.json": {
+  "path": "/api/weather/tropics/products?storm_id=ep202026&advisory=033",
+  "objects": [
+   {
+    "product": "cone",
+    "vintage_id": 7394,
+    "vintage_key": "033",
+    "sha256": "a2bd42a5d55659cfad6e64abc56fd52af11063797230de539a28924e53f25c2d",
+    "original": null
+   },
+   {
+    "product": "wsp34_bands",
+    "vintage_id": 7781,
+    "vintage_key": "2026101512",
+    "sha256": "2002c3f245f90b38490b44a4ef730165facc90e12ee26c08aa77eb77f3d356bd",
+    "original": null
+   },
+   {
+    "product": "wsp50_bands",
+    "vintage_id": 7782,
+    "vintage_key": "2026101512",
+    "sha256": "4c5c7fb9c70dd2b81c136f90f3a472d587df3d48a5205139858f01dc7403d7f6",
+    "original": null
+   },
+   {
+    "product": "wsp64_bands",
+    "vintage_id": 7783,
+    "vintage_key": "2026101512",
+    "sha256": "37dbdf795ab9542d654f01797244ebbe8ae9f309f4bab5002c50ec4f63b70b42",
+    "original": null
+   },
+   {
+    "product": "wsp34_grid",
+    "vintage_id": 7784,
+    "vintage_key": "2026101512",
+    "sha256": "313a659dc8a908fcf090127cdc53634ed8d669f6157954fed4145f090235d2ef",
+    "original": null
+   },
+   {
+    "product": "wsp50_grid",
+    "vintage_id": 7785,
+    "vintage_key": "2026101512",
+    "sha256": "17408ef37485aeb4526e0b50deff0e28a1ff627d0740ec93cddc6df93697d7dc",
+    "original": null
+   },
+   {
+    "product": "wsp64_grid",
+    "vintage_id": 7786,
+    "vintage_key": "2026101512",
+    "sha256": "364670531767143abac48a7849fa2424c2ba79f67ec2932f9f0133f66354d1d2",
+    "original": null
+   }
+  ]
+ }
+}

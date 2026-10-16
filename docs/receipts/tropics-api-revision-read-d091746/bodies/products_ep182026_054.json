@@ -1,0 +1,206 @@
+{
+ "storm_id": "ep182026",
+ "name": "Rachel",
+ "basin": "ep",
+ "advisory": "054",
+ "advisory_requested": true,
+ "init_ts": "2026-10-10T12:00:00+00:00",
+ "position_valid_ts": "2026-10-10T15:00:00+00:00",
+ "issued_ts": "2026-10-10T15:00:00+00:00",
+ "nhc_entry": {
+  "vintage_key": "054:4b6fae86",
+  "issued_ts": "2026-10-10T15:00:00+00:00",
+  "fetch_ts": "2026-10-10T15:32:23.596695+00:00",
+  "classification": "TS",
+  "refs": {
+   "pws": "054",
+   "tcd": "054",
+   "tcm": "054",
+   "tcp": "054",
+   "ww_kmz": "054",
+   "cone_kmz": "054",
+   "track_kmz": "054",
+   "fcst_5day_zip": "054",
+   "fcst_radii_zip": "054",
+   "initialradii_kmz": "054",
+   "toa_earliest_kmz": "054",
+   "forecastradii_kmz": "054",
+   "toa_mostlikely_kmz": "054"
+  }
+ },
+ "nhc_entry_absence": null,
+ "revision": 1,
+ "corrected": true,
+ "objects": [
+  {
+   "product": "cone",
+   "url": "https://display.energylake.io/tropics/ep182026/adv054r1/cone.geojson",
+   "sha256": "63baad562bc2698131bc6aa56d58b7a335b0c5e5232e3785adaa10f2f294e087",
+   "bytes": 28736,
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv054/cone_kmz__b0b5d20f.kmz",
+   "source_sha256": "b0b5d20f101a81ecf783342e0ff8904fb7380f44d17381d89063a7a31a989e8f",
+   "geometry_types": {
+    "Polygon": 1
+   },
+   "vertices": 1296,
+   "revision": 1,
+   "corrected": true,
+   "original": {
+    "url": "https://display.energylake.io/tropics/ep182026/adv054/cone.geojson",
+    "sha256": "63baad562bc2698131bc6aa56d58b7a335b0c5e5232e3785adaa10f2f294e087",
+    "bytes": 28736,
+    "absence": null
+   },
+   "source_in_force": true
+  },
+  {
+   "product": "ww",
+   "url": "https://display.energylake.io/tropics/ep182026/adv054r1/ww.geojson",
+   "sha256": "e90f66c33582b60301de6ad112d864ff8c997706ab0cf9345b1ddbcd20cd5517",
+   "bytes": 2493,
+   "source_r2_key": "tropical/nhc/2026/ep182026/adv054/ww_kmz__a3a146da.kmz",
+   "source_sha256": "a3a146da4f8e04fe5bbbc5645a96d4ae1b0a37bb36ccf1c9a57c3bc12fbdf4a4",
+   "geometry_types": {
+    "LineString": 5
+   },
+   "vertices": 17,
+   "revision": 1,
+   "corrected": true,
+   "original": {
+    "url": "https://display.energylake.io/tropics/ep182026/adv054/ww.geojson",
+    "sha256": "e90f66c33582b60301de6ad112d864ff8c997706ab0cf9345b1ddbcd20cd5517",
+    "bytes": 2493,
+    "absence": null
+   },
+   "source_in_force": true
+  }
+ ],
+ "absent": [
+  {
+   "product": "surge_ww",
+   "reason": "basin_has_none",
+   "detail": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only; this storm's basin is 'ep'"
+  }
+ ],
+ "wsp": {
+  "cycle": "2026101012",
+  "synoptic_ts": "2026-10-10T12:00:00+00:00",
+  "objects": [
+   {
+    "product": "wsp34_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp34_bands.geojson",
+    "sha256": "c18bc75b6bc8b81ce2c125a9648a0eec99a7044a03adb6226d00a3fd66838efc",
+    "bytes": 768836,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_5km_zip.zip",
+    "source_sha256": "da4eee80d6131cd291f767e56d48cb505b9872bff5e19239fdd58a2cfabe7a44",
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "vertices": 43173,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp50_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp50_bands.geojson",
+    "sha256": "0bf99a5177be769855d71f145ea0f42326d30ce6e2e27505f53dc0c5a4e505c4",
+    "bytes": 420781,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_5km_zip.zip",
+    "source_sha256": "da4eee80d6131cd291f767e56d48cb505b9872bff5e19239fdd58a2cfabe7a44",
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "vertices": 23533,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp64_bands",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp64_bands.geojson",
+    "sha256": "94f61a7ac4364d09600792e13369e41cb161d60049ac35fd9990073b4a3d00b0",
+    "bytes": 218452,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_5km_zip.zip",
+    "source_sha256": "da4eee80d6131cd291f767e56d48cb505b9872bff5e19239fdd58a2cfabe7a44",
+    "geometry_types": {
+     "MultiPolygon": 11
+    },
+    "vertices": 12156,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp34_grid",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp34_grid.geojson",
+    "sha256": "89d2850a81569db652d248891508574dc86f13ed8c0eecae04325ee2cb3b3ac0",
+    "bytes": 358166,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_halfdeg_zip.zip",
+    "source_sha256": "718a0dbae0364dfafd7bd79828a7eeb282bc03437e2c3e2973c19a903f34c6cd",
+    "geometry_types": {
+     "Point": 3152
+    },
+    "vertices": 3152,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp50_grid",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp50_grid.geojson",
+    "sha256": "28055731a6a300e72db96ea8de3916ce35d02fb6a48dab4645169a818f3cb244",
+    "bytes": 200216,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_halfdeg_zip.zip",
+    "source_sha256": "718a0dbae0364dfafd7bd79828a7eeb282bc03437e2c3e2973c19a903f34c6cd",
+    "geometry_types": {
+     "Point": 1762
+    },
+    "vertices": 1762,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   },
+   {
+    "product": "wsp64_grid",
+    "url": "https://display.energylake.io/tropics/wsp/2026101012/wsp64_grid.geojson",
+    "sha256": "32b7c3d67d22135c7c5dd57dadbcebf9d19839644f191fe0612e44996ad2c002",
+    "bytes": 142449,
+    "source_r2_key": "tropical/nhc/wsp/2026101012/wsp_halfdeg_zip.zip",
+    "source_sha256": "718a0dbae0364dfafd7bd79828a7eeb282bc03437e2c3e2973c19a903f34c6cd",
+    "geometry_types": {
+     "Point": 1253
+    },
+    "vertices": 1253,
+    "revision": 0,
+    "corrected": false,
+    "original": null,
+    "source_in_force": true
+   }
+  ],
+  "absent": [],
+  "absence": null
+ },
+ "absence": null,
+ "advisory_rule": "Without `advisory`, NHC's newest advisory for the storm: the one its newest CurrentStorms entry is of (issued_ts, then fetch), so a text-only post-tropical advisory counts; for a storm with no entry, the newest official forecast (newest init_ts, then position valid time, never the string). Per product, the copy in force (published objects: pantry 314's tropical_display_in_force; NHC's files: 294). init_ts is the advisory's synoptic time, from its official forecast; null where NHC issued none.",
+ "wsp_rule": "WSP is issued per synoptic cycle, basin-wide, not per storm: the cycle is the advisory's synoptic time (its official forecast's init_ts) as YYYYMMDDHH. Bands are the 5 km zip's contours (11 percentage bands); the grid is the half-degree zip's points, value in percent, cells below 0.1 % absent.",
+ "revision_rule": "revision and corrected are each object's own: the copy in force is the highest revision published for the advisory or cycle (pantry 314's tropical_display_in_force; a correction NHC issued is its own ledger row, key '<ADV>r<n>'), corrected = revision > 0, and `original` is the revision-0 object where one is corrected, stated even when its bytes equal the correction's (NHC re-posted the same file). The top-level revision is the highest served; source_in_force says whether the NHC file an object names is the copy in force now.",
+ "index_rule": "Each object is a vintage-ledger row of the display bucket, the copy in force per (product, storm_id, advisory or cycle) as pantry 314's tropical_display_in_force names it (source 'display', product 'display:<name>', r2_key = the display key), served as the ledger states it: url = https://display.energylake.io/<r2_key>. The API reads no R2 and fetches no object. The contract is the publisher's (pantry tropical/publish.py, migrations 314 and 316).",
+ "reasons": {
+  "not_issued": "NHC issued none: its CurrentStorms entry for this advisory links no such product, or links an earlier advisory's file",
+  "basin_has_none": "NHC issues storm surge watches and warnings for the US Atlantic and Gulf coasts only",
+  "not_banked": "the bank holds no copy of the NHC file this would be published from",
+  "not_published": "the NHC file is banked; no published display object is in the ledger"
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-09T12:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "alerts": "NWS tropical watches and warnings (api.weather.gov) have no route here: the page fetches them directly (recon d091737 §5)."
+ },
+ "nhc_terms": "NOAA/NHC products are public domain. They are served as the bank parsed them, are not presented as NHC's own official display, and imply no endorsement."
+}

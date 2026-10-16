@@ -1,0 +1,15 @@
+clean tree: GREEN (137 passed, 1 warning in 8.85s)
+ 1. R a       DISPLAY_FILES_SQL asks vintage_key, not advisory_or_cycle                    -> RED  [16 failed, 2 passed, 119 deselected, 1 warning in 6.37s]
+ 2. R b       the view's revision DESC dropped (316 as loaded, ddl_316.sql)                -> RED  [119 deselected, 1 warning, 18 errors in 3.92s]
+ 3. R b diag  the same, past 316's checks and the pin (a view re-made after 316)           -> GREEN (diagnostic, as expected)  [18 passed, 119 deselected, 1 warning in 6.13s]
+ 4. R c       the fixture's r1 rows deleted (054r1, 016r1)                                 -> RED  [9 failed, 9 passed, 119 deselected, 1 warning in 6.15s]
+ 5. I2        the original's probe never runs (original_not_held for every correction)     -> RED  [16 failed, 2 passed, 119 deselected, 1 warning in 6.34s]
+ 6. I2        the original is stated only where the bytes differ                           -> RED  [12 failed, 6 passed, 119 deselected, 1 warning in 6.80s]
+ 7. I2        /text's top-level revision is not the max over its products                  -> RED  [4 failed, 14 passed, 119 deselected, 1 warning in 6.37s]
+ 8. T2        /text reads a `sections` key again                                           -> RED  [5 failed, 2 passed, 130 deselected, 1 warning in 6.32s]
+ 9. T2        /text serves no title                                                        -> RED  [4 failed, 3 passed, 130 deselected, 1 warning in 6.04s]
+10. I3        the WSP display read asks the storm, not storm_id ''                         -> RED  [1 failed, 136 deselected, 1 warning in 2.61s]
+11. V1        FILES_SQL admits display rows through 294's view again                       -> RED  [5 failed, 13 passed, 119 deselected, 1 warning in 2.94s]
+12. V1        /members reads the manifests through 294's view again                        -> RED  [3 failed, 15 passed, 119 deselected, 1 warning in 2.79s]
+clean tree again: GREEN (137 passed, 1 warning in 9.74s)
+12 of 12 as expected (11 breaks red, 1 diagnostic green); tree restored byte for byte (sha256 7bb3a61e25fedfd1 -> 7bb3a61e25fedfd1)

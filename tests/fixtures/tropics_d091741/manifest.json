@@ -30,15 +30,10 @@
   }
  },
  "neon_ledger_rows_at_read": 7029,
- "display_rows": {
-  "path": "display_rows.json",
-  "generator": "make_display_rows.py",
-  "what": "CONSTRUCTED: no display:* row exists on Neon (read 13:56Z) and d091740's spec was not readable; built from recon/ to recon \u00a77's keys"
- },
  "constructed_rows": {
   "path": "constructed_rows.json",
   "generator": "make_display_rows.py",
-  "what": "CONSTRUCTED: I2's revision-1 cone of Simon 032, and three member manifests (Simon's from the recon's dry write over a SYNTHETIC parquet; Rachel's states 1 member against a minimum of 5; Isaias 2026101006 AIFS-ENS states 7 against 10)"
+  "what": "CONSTRUCTED: three member manifests (no display:members:* row is published: Neon, read 2026-10-15 22:00Z). Simon's from the recon's dry write over a SYNTHETIC parquet; Rachel's states 1 member against a minimum of 5; Isaias 2026101006 AIFS-ENS states 7 against 10. d091741's constructed r1 cone of Simon 032 is retired: the corrections are banked (d091746)."
  },
  "recon": {
   "recon/recorded_k1.json": {
@@ -117,5 +112,308 @@
    "from": "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/GOES-West_ABI_GeoColor.json",
    "sha256": "8de1274f077316539885c6953dac8e1edc8430a777732325b91586e71238fa27"
   }
+ },
+ "d091746": {
+  "what": "d091746: rows read verbatim off the live ledger (one read-only transaction, bank_display_from_neon.py's STATEMENTS); every display row of the identities listed, every revision",
+  "identities": [
+   [
+    "display:cone",
+    "ep202026",
+    "032"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "058"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "052A"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "053A"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "054"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "056"
+   ],
+   [
+    "display:cone",
+    "ep182026",
+    "057"
+   ],
+   [
+    "display:cone",
+    "ep212026",
+    "001"
+   ],
+   [
+    "display:cone",
+    "ep202026",
+    "033"
+   ],
+   [
+    "display:ww",
+    "ep182026",
+    "057A"
+   ],
+   [
+    "display:ww",
+    "ep202026",
+    "028A"
+   ],
+   [
+    "display:ww",
+    "al092026",
+    "014A"
+   ],
+   [
+    "display:ww",
+    "ep182026",
+    "052A"
+   ],
+   [
+    "display:ww",
+    "ep182026",
+    "053A"
+   ],
+   [
+    "display:ww",
+    "ep182026",
+    "054"
+   ],
+   [
+    "display:ww",
+    "ep182026",
+    "057"
+   ],
+   [
+    "display:ww",
+    "ep202026",
+    "033"
+   ],
+   [
+    "display:surge_ww",
+    "al092026",
+    "014A"
+   ],
+   [
+    "display:surge_ww",
+    "ep202026",
+    "033"
+   ],
+   [
+    "display:tcd",
+    "ep182026",
+    "058"
+   ],
+   [
+    "display:tcd",
+    "ep202026",
+    "032"
+   ],
+   [
+    "display:tcd",
+    "al092026",
+    "016"
+   ],
+   [
+    "display:tcd",
+    "ep202026",
+    "033"
+   ],
+   [
+    "display:tcp",
+    "ep182026",
+    "058"
+   ],
+   [
+    "display:tcp",
+    "ep202026",
+    "032"
+   ],
+   [
+    "display:tcp",
+    "al092026",
+    "016"
+   ],
+   [
+    "display:tcp",
+    "ep202026",
+    "033"
+   ],
+   [
+    "display:wsp34_bands",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp34_grid",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp50_bands",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp50_grid",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp64_bands",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp64_grid",
+    "",
+    "2026101012"
+   ],
+   [
+    "display:wsp34_bands",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp34_grid",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp50_bands",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp50_grid",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp64_bands",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp64_grid",
+    "",
+    "2026101112"
+   ],
+   [
+    "display:wsp34_bands",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp34_grid",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp50_bands",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp50_grid",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp64_bands",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp64_grid",
+    "",
+    "2026101506"
+   ],
+   [
+    "display:wsp34_bands",
+    "",
+    "2026101512"
+   ],
+   [
+    "display:wsp34_grid",
+    "",
+    "2026101512"
+   ],
+   [
+    "display:wsp50_bands",
+    "",
+    "2026101512"
+   ],
+   [
+    "display:wsp50_grid",
+    "",
+    "2026101512"
+   ],
+   [
+    "display:wsp64_bands",
+    "",
+    "2026101512"
+   ],
+   [
+    "display:wsp64_grid",
+    "",
+    "2026101512"
+   ]
+  ],
+  "count": {
+   "kind": "count",
+   "read_at": "2026-10-15T22:00:14.622Z",
+   "ro": "on",
+   "n_ledger": "8286",
+   "n_display": "710",
+   "n_display_revisions": "20",
+   "view_md5": "977c97d66d70ff8a8ed7e6992545f6c7",
+   "max_migration": 316
+  },
+  "bank": {
+   "display": {
+    "path": "bank/display.jsonl.gz",
+    "rows": 61,
+    "sha256": "7073a131712694cbb77317eb559ef2355c42ccd6de25939a7254b1d3c82a7483",
+    "read_at": "2026-10-15T22:00:14.622Z"
+   },
+   "ledger_033": {
+    "path": "bank/ledger_033.jsonl.gz",
+    "rows": 8,
+    "sha256": "48e60d8be534a15471c1c9252d0eef5afed5b10980178240cc8a2675b53a5973",
+    "read_at": "2026-10-15T22:00:14.622Z"
+   },
+   "official_033": {
+    "path": "bank/official_033.jsonl.gz",
+    "rows": 8,
+    "sha256": "495c6b10313acc507b626eda6ab037c3ec2f86c9a570bfccee553b44ce25b220",
+    "read_at": "2026-10-15T22:00:14.622Z"
+   },
+   "dataset_two": {
+    "path": "bank/dataset_two.jsonl.gz",
+    "rows": 1,
+    "sha256": "10c3bac43d503fa90922bcb47aad515234686b0b03e12798136e8b211359da3a",
+    "read_at": "2026-10-15T22:00:14.622Z"
+   },
+   "migrations": {
+    "path": "bank/migrations.jsonl.gz",
+    "rows": 2,
+    "sha256": "2ecd3d5320fd23359d2412ed9df8cf7c13793ebe32c4fd7f11427a6228dcf214",
+    "read_at": "2026-10-15T22:00:14.622Z"
+   }
+  },
+  "retired": "display_rows.json (d091741's 19 constructed display rows) is deleted: every display row the suite reads is bank/display.jsonl.gz, read off the live ledger."
  }
 }
