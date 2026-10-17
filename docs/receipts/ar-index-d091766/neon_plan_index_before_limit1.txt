@@ -1,0 +1,30 @@
+# INDEX_SQL before LIMIT 1 in its LATERALs (read 2026-10-17T12:58:03.750Z): Postgres pulled each
+# LATERAL up into a join, walked the (level_set, kind) range per cycle and dropped the other
+# keys by Join Filter. Kept as the receipt for the change; X1 holds the plan after.
+
+Sort  (cost=28.68..28.69 rows=1 width=197) (actual time=0.374..0.376 rows=16 loops=1)
+  Sort Key: r.init_ts DESC
+  Sort Method: quicksort  Memory: 28kB
+  Buffers: shared hit=66 read=1 dirtied=1
+  ->  Nested Loop Left Join  (cost=0.29..28.67 rows=1 width=197) (actual time=0.127..0.366 rows=16 loops=1)
+        Join Filter: (d_1.display_key = (((((((('ar/gefs/'::text || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'YYYYMMDD'::text)) || '/'::text) || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'HH24'::text)) || 'Z/'::text) || 'odds'::text) || '.'::text) || r.level_set) || '.json'::text))
+        Rows Removed by Join Filter: 120
+        Buffers: shared hit=66 read=1 dirtied=1
+        ->  Nested Loop Left Join  (cost=0.15..20.46 rows=1 width=196) (actual time=0.114..0.238 rows=16 loops=1)
+              Join Filter: (d.display_key = (((((((('ar/gefs/'::text || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'YYYYMMDD'::text)) || '/'::text) || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'HH24'::text)) || 'Z/'::text) || 'coast_ivt'::text) || '.'::text) || r.level_set) || '.json'::text))
+              Rows Removed by Join Filter: 120
+              Buffers: shared hit=34 read=1 dirtied=1
+              ->  Seq Scan on ar_runs r  (cost=0.00..12.25 rows=1 width=116) (actual time=0.006..0.009 rows=16 loops=1)
+                    Filter: (level_set = 'sub7_v1'::text)
+                    Buffers: shared hit=2
+              ->  Index Scan using ar_display_objects_pkey on ar_display_objects d  (cost=0.15..8.17 rows=1 width=112) (actual time=0.004..0.005 rows=8 loops=16)
+                    Index Cond: ((level_set = 'sub7_v1'::text) AND (kind = 'coast_ivt'::text))
+                    Buffers: shared hit=31 read=1
+        ->  Index Only Scan using ar_display_objects_pkey on ar_display_objects d_1  (cost=0.15..8.17 rows=1 width=64) (actual time=0.002..0.003 rows=8 loops=16)
+              Index Cond: ((level_set = 'sub7_v1'::text) AND (kind = 'odds'::text))
+              Heap Fetches: 138
+              Buffers: shared hit=32
+Planning:
+  Buffers: shared hit=22
+Planning Time: 0.198 ms
+Execution Time: 0.405 ms

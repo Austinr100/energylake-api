@@ -1,0 +1,901 @@
+{
+ "absence": null,
+ "attribution": "NOAA GEFS (NODD). Computed by EnergyLake; not endorsed by NOAA.",
+ "bias_note": "7-level IVT (1000–300 hPa); reads ~40–80 kg m⁻¹ s⁻¹ low at landfall against a full column",
+ "edges": {
+  "edges_sha256": "5b0068645d1c3514365f50f15a6900c15bdd6758cde6c1580c2e82ccfb6cc0fe",
+  "exceedance": ">=",
+  "lead_buckets": [
+   {
+    "gt_h": 0,
+    "le_h": 48,
+    "name": "d1-2"
+   },
+   {
+    "gt_h": 48,
+    "le_h": 120,
+    "name": "d3-5"
+   },
+   {
+    "gt_h": 120,
+    "le_h": 192,
+    "name": "d6-8"
+   },
+   {
+    "gt_h": 192,
+    "le_h": 288,
+    "name": "d9-12"
+   },
+   {
+    "gt_h": 288,
+    "le_h": 384,
+    "name": "d13-16"
+   }
+  ],
+  "lead_rule": "lead_h = valid_ts - init_ts in hours; bucket where gt_h < lead_h <= le_h; lead 0 is in no bucket and never shows",
+  "pin": "5b0068645d1c3514365f50f15a6900c15bdd6758cde6c1580c2e82ccfb6cc0fe",
+  "pinned": true,
+  "region_rule": "a coast point belongs to the region whose [lat_min, lat_max] holds its latitude (0.5-deg coast list: the half-degrees between regions sit in the region below)",
+  "regions": [
+   {
+    "lat_max": 34.5,
+    "lat_min": 25.0,
+    "name": "baja_socal"
+   },
+   {
+    "lat_max": 42.5,
+    "lat_min": 35.0,
+    "name": "central_norcal"
+   },
+   {
+    "lat_max": 49.5,
+    "lat_min": 43.0,
+    "name": "or_wa"
+   },
+   {
+    "lat_max": 55.5,
+    "lat_min": 50.0,
+    "name": "bc"
+   },
+   {
+    "lat_max": 60.0,
+    "lat_min": 56.0,
+    "name": "se_alaska"
+   }
+  ],
+  "source": "energylake-pantry scripts/ar_cells.py --edges at af0aeb902b637218f434110722cdf12170618ee5 (edge files last changed b786fe79)",
+  "thresholds": [
+   250,
+   500
+  ]
+ },
+ "edges_sha256": "5b0068645d1c3514365f50f15a6900c15bdd6758cde6c1580c2e82ccfb6cc0fe",
+ "index_rule": "Each object is a row of migration 324's ar_display_objects, the publish ledger of pantry scripts/ar_publish.py: url = https://display.energylake.io/<display_key>, sha256 and bytes of the published bytes. The API reads no R2 and fetches no object. An init is a banked cycle (292's ar_runs); odds_published says whether the cycle's odds object is in the ledger, whose url is not served (a bank artifact, never drawn as-is: D-09-25-245).",
+ "inits": [
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1199506,
+    "published_at": "2026-10-17T12:19:10.251961+00:00",
+    "sha256": "2e76eb7e3f7719f503b44f9a6a31d02055197e273e3ad156f72c4873ceb41f5b",
+    "url": "https://display.energylake.io/ar/gefs/20261017/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-17T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1194045,
+    "published_at": "2026-10-17T12:19:08.759941+00:00",
+    "sha256": "6fb618220eb279a248754f7fe1be14d90e4903dd90559277289371d8bb192617",
+    "url": "https://display.energylake.io/ar/gefs/20261016/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-16T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1201211,
+    "published_at": "2026-10-17T12:19:07.334217+00:00",
+    "sha256": "b6deb15203db398dcc338094d49005f973595a0aefb0cf5523ea04bb6497cd7e",
+    "url": "https://display.energylake.io/ar/gefs/20261016/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-16T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1199402,
+    "published_at": "2026-10-17T12:19:05.926997+00:00",
+    "sha256": "ec618332df03162c02881ff462ce23f5c14c58ac289352060ce5305ff7895509",
+    "url": "https://display.energylake.io/ar/gefs/20261015/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-15T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1193646,
+    "published_at": "2026-10-17T12:19:04.429674+00:00",
+    "sha256": "5252b80d63004da073dd4e7d95a934d5a634ba2a6c23ae8feed13087d9c88504",
+    "url": "https://display.energylake.io/ar/gefs/20261015/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-15T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1190238,
+    "published_at": "2026-10-17T12:19:03.100852+00:00",
+    "sha256": "7ce8833703fb882686fdb741af2887cf9bd4b0c0b39df6ae3ebb87dc737554c6",
+    "url": "https://display.energylake.io/ar/gefs/20261014/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-14T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1192598,
+    "published_at": "2026-10-17T12:19:01.801668+00:00",
+    "sha256": "5b1020101d8355a06969b05def9676df2a09e49ab08df92bb9bda28fa686bdfb",
+    "url": "https://display.energylake.io/ar/gefs/20261014/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-14T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1196073,
+    "published_at": "2026-10-17T12:19:00.330028+00:00",
+    "sha256": "c370c3d4d53732af8137f3b453640523f6dd248f66ad19b8143a3648ead8f0e9",
+    "url": "https://display.energylake.io/ar/gefs/20261013/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-13T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1199450,
+    "published_at": "2026-10-17T12:18:59.010897+00:00",
+    "sha256": "c198811468fe5c64ee42d9e50cb6dd539a5358ab7e3359f5bddb4588e0022030",
+    "url": "https://display.energylake.io/ar/gefs/20261013/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-13T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1200119,
+    "published_at": "2026-10-17T12:18:57.646607+00:00",
+    "sha256": "87e1d712a33d33e8df9d8875b11505d0ab11077199b55569c33f84500776681f",
+    "url": "https://display.energylake.io/ar/gefs/20261012/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-12T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1203043,
+    "published_at": "2026-10-17T12:18:56.243351+00:00",
+    "sha256": "e3eca607d20caac3b17191acd0c8cf51bbddec856e6557df2eb83f9ecc59357f",
+    "url": "https://display.energylake.io/ar/gefs/20261012/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-12T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1200877,
+    "published_at": "2026-10-17T12:18:54.871519+00:00",
+    "sha256": "28054b0e3b802de2f91500345d27d9e8ec564cfc641b1130dd71b0ff66ffa7e8",
+    "url": "https://display.energylake.io/ar/gefs/20261011/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-11T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1197989,
+    "published_at": "2026-10-17T12:18:53.573169+00:00",
+    "sha256": "a7af795b20809ae571f64b5f4a32f9ef1470a82131dcc20d12d388d6753b015e",
+    "url": "https://display.energylake.io/ar/gefs/20261011/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-11T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1195321,
+    "published_at": "2026-10-17T12:18:52.190273+00:00",
+    "sha256": "3146d7d2005cff3c3644c8e9cabd5981e425255e8f63d94aa34b3726cd2c78b6",
+    "url": "https://display.energylake.io/ar/gefs/20261010/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-10T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1200416,
+    "published_at": "2026-10-17T12:18:50.457844+00:00",
+    "sha256": "ce02170b9fbbcd20ed7a49cfe14015c32b61958a71d5768b0edbf3339e8a9bb1",
+    "url": "https://display.energylake.io/ar/gefs/20261010/00Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-10T00:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  },
+  {
+   "coast_ivt": {
+    "absence": null,
+    "bytes": 1202048,
+    "published_at": "2026-10-17T12:18:49.136172+00:00",
+    "sha256": "5dee9108da6cc22e18800cf0c35d977790c120eeab8c55f6532e4f7aa6d5a05a",
+    "url": "https://display.energylake.io/ar/gefs/20261009/12Z/coast_ivt.sub7_v1.json"
+   },
+   "init_ts": "2026-10-09T12:00:00+00:00",
+   "members_present": 31,
+   "method_hash": "3092ec738846",
+   "odds_published": true,
+   "status": "complete",
+   "steps_with_odds": 93
+  }
+ ],
+ "inits_published": 16,
+ "level_set": "sub7_v1",
+ "newest_init": "2026-10-17T00:00:00+00:00",
+ "not_served": {
+  "object_bytes": "This API reads no R2 and serves no object bytes: every url is the display bucket's, and the browser fetches it.",
+  "odds_object": "The cycle's odds object (odds.<level_set>.json) carries every count of every (point, lead) ungated: it is a bank artifact the API gates per cell and never serves, so its url is not given. /landfall serves its counts where a cell shows."
+ },
+ "order": "newest init first",
+ "reasons": {
+  "edges_pin_mismatch": "the edges constant's sha is not the pinned one, so no cell is served",
+  "no_cell": "the (point, lead) is in no cell of the pinned edges: rule is the edges' own",
+  "no_init": "the bank holds no cycle to serve (ar_runs, or ar_landfall_latest for /landfall)",
+  "not_published": "the cycle is banked (ar_runs); ar_display_objects holds no published object of this kind for it",
+  "not_shown": "the cell is scored and its 'all' row says show = false; show_reasons are the scorer's, as written",
+  "not_yet_scored": "the newest scoring in ar_scores holds no k_bin 'all' row for this (region, lead bucket, threshold) cell"
+ },
+ "registry": {
+  "absence": null,
+  "bytes": 43072,
+  "published_at": "2026-10-17T12:18:48.397552+00:00",
+  "sha256": "6461743c86ea3b726303f239801a7df2a7daf9794be4780f42607df91948525a",
+  "url": "https://display.energylake.io/ar/registry/points_v1.6461743c.json"
+ },
+ "scoring": {
+  "cells": [
+   {
+    "lead_bucket": "d1-2",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "baja_socal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "central_norcal",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "or_wa",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "bc",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d1-2",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d3-5",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d6-8",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d9-12",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 250,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   },
+   {
+    "lead_bucket": "d13-16",
+    "region": "se_alaska",
+    "scored": false,
+    "show": null,
+    "show_reasons": null,
+    "threshold": 500,
+    "withheld": {
+     "reason": "not_yet_scored"
+    }
+   }
+  ],
+  "cells_scored": 0,
+  "cells_shown": 0,
+  "cells_total": 50,
+  "rule": "show_v1",
+  "scored_at": null,
+  "scorer_hash": null,
+  "show_rule": "show_v1 as migration 292 holds it: S1 (n_eff >= 60, event_days_eff >= 14) and S2 (bss_lo90 > 0) are terms of the ar_scores_show_rule_v1 CHECK, which also requires show_rule = 'show_v1' and an empty show_reasons where show = true; S4 (truth_level_set = level_set) is its own CHECK, ar_scores_like_for_like; S3 (calibration) is the scorer's and reaches Neon only as a show_reasons entry. The API serves show and show_reasons as written by the newest scoring (max scored_at, k_bin 'all') and recomputes no S. A cell with no row is not_yet_scored."
+ },
+ "timestamps": "ISO 8601, UTC, e.g. 2026-10-17T00:00:00+00:00"
+}

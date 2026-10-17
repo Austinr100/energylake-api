@@ -1,0 +1,22 @@
+[
+ {
+  "name": "INDEX_SQL",
+  "sql": "SELECT r.init_ts, r.level_set, r.status, r.members_present, r.steps_with_odds, r.method_hash, r.written_at, c.display_key AS coast_key, c.sha256 AS coast_sha256, c.bytes AS coast_bytes, c.published_at AS coast_published_at, o.display_key IS NOT NULL AS odds_published FROM ar_runs AS r LEFT JOIN LATERAL ( SELECT d.display_key, d.sha256, d.bytes, d.published_at FROM ar_display_objects AS d WHERE d.level_set = r.level_set AND d.kind = 'coast_ivt' AND d.display_key = 'ar/gefs/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'YYYYMMDD') || '/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'HH24') || 'Z/' || 'coast_ivt' || '.' || r.level_set || '.json' LIMIT 1) AS c ON true LEFT JOIN LATERAL ( SELECT d.display_key FROM ar_display_objects AS d WHERE d.level_set = r.level_set AND d.kind = 'odds' AND d.display_key = 'ar/gefs/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'YYYYMMDD') || '/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'HH24') || 'Z/' || 'odds' || '.' || r.level_set || '.json' LIMIT 1) AS o ON true WHERE r.level_set = 'sub7_v1' ORDER BY r.init_ts DESC"
+ },
+ {
+  "name": "REGISTRY_SQL",
+  "sql": "SELECT d.display_key, d.sha256, d.bytes, d.published_at FROM ar_display_objects AS d WHERE d.level_set = 'sub7_v1' AND d.kind = 'registry' ORDER BY d.published_at DESC, d.display_key DESC LIMIT 1"
+ },
+ {
+  "name": "SCORES_SQL",
+  "sql": "SELECT s.scored_at, s.scorer_hash, s.show_rule, s.region, s.lead_bucket, s.threshold, s.show, s.show_reasons FROM (SELECT a.scored_at FROM ar_scores AS a WHERE a.level_set = 'sub7_v1' ORDER BY a.scored_at DESC LIMIT 1) AS n JOIN LATERAL ( SELECT b.scored_at, b.scorer_hash, b.show_rule, b.region, b.lead_bucket, b.threshold, b.show, b.show_reasons FROM ar_scores AS b WHERE b.scored_at = n.scored_at AND b.level_set = 'sub7_v1' AND b.k_bin = 'all') AS s ON true ORDER BY s.region, s.lead_bucket, s.threshold"
+ },
+ {
+  "name": "LANDFALL_INIT_SQL",
+  "sql": "SELECT l.init_ts FROM ar_landfall_latest AS l WHERE l.level_set = 'sub7_v1' ORDER BY l.point_code, l.valid_ts LIMIT 1"
+ },
+ {
+  "name": "LANDFALL_SQL",
+  "sql": "SELECT l.init_ts, l.valid_ts, l.lead_h, l.point_code, l.lat, l.lon, l.n250, l.n500, l.n_present, l.ens_mean, l.ctrl, l.max_member, l.absent_members, l.tc_named_system, l.tc_rule_version FROM ar_landfall_latest AS l WHERE l.level_set = 'sub7_v1' AND l.init_ts = '2026-10-17T00:00:00+00:00' ORDER BY l.point_code, l.valid_ts"
+ }
+]
