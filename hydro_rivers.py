@@ -272,18 +272,14 @@ RECEIPTS_SQL = """
       ON u.subject = s.subject AND u.measured_at = n.newest
 """
 
-# The forecast cycles a reach's product holds, for a drawable gate. One
-# (dataset, series) per LATERAL, the series named in full.
-FORECAST_CYCLE_SQL = """
-    SELECT d.series,
-           v.first_ts, v.last_ts, v.n
-    FROM (VALUES %(values)s) AS d(series)
-    CROSS JOIN LATERAL (
-        SELECT min(t.ts) AS first_ts, max(t.ts) AS last_ts, count(*) AS n
-        FROM timeseries_values t
-        WHERE t.dataset = 'nwm_reach_forecast_hourly' AND t.series = d.series
-    ) AS v
-"""
+# NO FORECAST-CYCLE READ LIVES HERE (follow-up to d091770, 2026-10-17). The forecast's
+# series are `<feature_id>/<product>/<cycle>` and every feature_id is in the crosswalk
+# object, which this route does not read — so no statement here can name one. The
+# constant that sat here (`FORECAST_CYCLE_SQL`) was reachable from nothing: main.py never
+# executed it, and `build_gate` was never handed its rows. It is gone rather than kept as
+# a statement the suite would have to pretend covers a read. When D-09-25-252 §5 banks
+# the crosswalk's `places[]` and `reaches[]` (pantry lane d091790), the read comes back
+# with a caller.
 
 # How many rows a window can hold, per dataset: the LIMIT each LATERAL carries.
 CADENCE_S = {
@@ -365,6 +361,43 @@ HOURLY_PAIRS_WHY = (
     "geo_unit_receipts banks no _detail column, so a gate line recomputed from banked "
     "receipts carries no 'hour pairs' clause; the pantry's stdout has it because it is "
     "computed in-process. Its own `receipt ...` lines are this same shape."
+)
+
+# ── the follow-up's absences (review of d091770, 2026-10-17) ───────────────────
+# The review found two bodies claiming more than they hold: the gate's items are not the
+# set the pantry gates, and the index's entries are walks, not rivers. D-09-25-252 §5
+# rules the cure — the pantry mirrors each crosswalk's places[] and the registry's river
+# structure into Neon (pantry lane d091790) and this API then gates on the placed set.
+# Until it lands, each is a STATED ABSENCE in the house shape, never a derived guess.
+
+GATE_ITEMS_WHY = (
+    "items are the banked records on this walk, not the crosswalk's placed set the "
+    "pantry gates (scripts/nwm_reach_gate.py); the placed set is not banked in Neon "
+    "(D-09-25-252 §5, pantry lane d091790)"
+)
+GATE_VERDICT_WHY = (
+    "the line is `gate_line` — the pantry's own function, ported byte for byte — run "
+    "over THIS ROUTE's items, so it is this API's verdict over this API's item set. It "
+    "is NOT the pantry's gate verdict for the reach, which is computed over the "
+    "crosswalk's placed set: the two sets differ, so the two verdicts can differ, and "
+    "nothing here claims the pantry's."
+)
+STRUCTURE_NOT_BANKED_WHY = (
+    "`count` and `rivers[]` are one entry PER BANKED, PUBLISHED WALK, not per river: a "
+    "river composed of several walks is served as several entries (the Willamette "
+    "basin's nine walks are nine entries, each named by its own key). Which walks "
+    "compose one river, and the river's label and basin, are the geo.rivers.v1 "
+    "registry's and are NOT banked in Neon (D-09-25-252 §5, pantry lane d091790); this "
+    "route reads no R2, so it cannot compose them and does not try. The field keeps the "
+    "name `rivers` so that the day the structure is banked is additive."
+)
+RIVER_MATCH_WHY = (
+    "?river= names ONE WALK — its layer_code, its key, an unambiguous first segment of "
+    "its key, or the river tag its own records carry — and this body is that walk's "
+    "alone. Whether any other banked walk composes the same river is the geo.rivers.v1 "
+    "registry's and is not banked in Neon (D-09-25-252 §5, pantry lane d091790), so "
+    "they are named here rather than composed: ?river=willamette answers for "
+    "willamette_hcr_columbia by itself, never for the basin's nine walks."
 )
 
 
@@ -510,6 +543,42 @@ def resolve_river(requested: str, ledger: dict) -> tuple[Optional[str], list, Op
                        f"geo.rivers.v1 registry's, not this route's (D-09-25-247 §3)")
 
 
+def match_of(requested: str, layer_code: str, ledger: dict) -> str:
+    """How `?river=<requested>` came to name `layer_code` — `resolve_river`'s own four
+    ways, restated for the body. Recomputed, never guessed."""
+    want = (requested or "").strip().lower()
+    key = walk_key(layer_code)
+    tag, _how = river_tag(ledger["records"].get(layer_code, []), layer_code)
+    if want == layer_code.lower():
+        return "the walk's layer_code"
+    if want == key.lower():
+        return "the walk's key"
+    if want == tag.lower():
+        return "the river tag this walk's own records carry (attrs._bank.river)"
+    if key.lower().split("_")[0] == want:
+        return (f"an unambiguous first segment of the walk's key ({key.split('_')[0]!r} "
+                f"-> {key!r}): no other banked walk's key begins with it")
+    return "resolve_river's match on this walk"
+
+
+def river_match(requested: str, layer_code: str, ledger: dict) -> dict:
+    """The stated absence beside every `?river=` body: this is ONE WALK, matched this
+    way, and these are the other banked walks this route cannot compose into rivers
+    (D-09-25-252 §5). Never a grouping — that is the registry's (D-09-25-247 §3)."""
+    others = sorted(c for c in ledger["walks"] if c != layer_code)
+    return {
+        "requested": requested, "matched": layer_code, "matched_by": match_of(
+            requested, layer_code, ledger),
+        "is": "one walk, not a river",
+        "absence": "river_structure_not_banked",
+        "why": RIVER_MATCH_WHY,
+        "other_banked_walks": others,
+        "other_banked_walks_count": len(others),
+        "composed_by": {"schema": RIVERS_REGISTRY_SCHEMA,
+                        "read_by": "the page, from the registry pointer /index serves"},
+    }
+
+
 def crosswalk_served(xw_row: Optional[dict]) -> dict:
     """The crosswalk term: the pointer when one is banked AND published, else the absence
     D-09-25-247 §3 names (a crosswalk is optional; without one the NWM terms read
@@ -536,6 +605,11 @@ def build_index(walk_rows: list, registry_row: Optional[dict], record_rows: list
 
     `length_km` and the river STRUCTURE (label, basin, which walks make one river) are in
     the published bodies, so they are served as absences with the pointer beside them.
+
+    SO `count` AND `rivers[]` ARE WALKS. One entry per banked and published walk, which
+    is not one entry per river: the Willamette basin publishes nine walks and is served
+    as nine entries. `entries_absence` states that (D-09-25-252 §5, pantry lane d091790);
+    the field keeps the name `rivers` so that banking the structure is additive.
     """
     ledger = shape_ledger(walk_rows, record_rows)
     registry = None
@@ -573,6 +647,13 @@ def build_index(walk_rows: list, registry_row: Optional[dict], record_rows: list
         })
     return {
         "count": len(rivers), "rivers": rivers, "omitted": omitted,
+        # The review of d091770 found `count`/`rivers[]` reading as rivers when every
+        # entry is a WALK. The name stays (a page reads it; banking the structure is
+        # additive) and the shape is stated instead.
+        "walk_count": len(rivers),
+        "entries_are": "one per banked and published WALK, not one per river",
+        "entries_absence": {"absence": "river_structure_not_banked",
+                            "why": STRUCTURE_NOT_BANKED_WHY},
         "registry": registry,
         "registry_absence": (None if registry else
                              {"absence": "no_rivers_registry",
@@ -586,6 +667,7 @@ def build_index(walk_rows: list, registry_row: Optional[dict], record_rows: list
         "not_served": {
             "length_km": LENGTH_KM_WHY,
             "label/basin/river composition": STRUCTURE_WHY,
+            "which walks compose one river": STRUCTURE_NOT_BANKED_WHY,
         },
         "ported_from": {"commit": PANTRY_COMMIT,
                         "nwm_reach_gate.LAYER_REACH": sorted(LAYER_REACH)},
@@ -685,6 +767,7 @@ def build_stations(river: str, layer_code: str, walk_rows: list, record_rows: li
 
     return {
         "river": river, "walk": layer_code,
+        "river_match": river_match(river, layer_code, ledger),
         "walk_object": (object_of(walk_row) if walk_row else None),
         "walk_absence": (None if walk_row else
                          {"absence": "no_banked_walk",
@@ -896,6 +979,7 @@ def build_flow(river: str, layer_code: str, walk_rows: list, record_rows: list,
         nwm["crosswalk"] = {"url": xw["url"], "sha256": xw["sha256"]}
     return {
         "river": river, "walk": layer_code,
+        "river_match": river_match(river, layer_code, ledger),
         "from": start.isoformat(), "to": end.isoformat(),
         "window_days": round((end - start).total_seconds() / 86400.0, 4),
         "max_window_days": MAX_WINDOW_DAYS,
@@ -963,11 +1047,35 @@ def anchor_km_lo(rec: dict):
     return None
 
 
+def item_absence(q: str, name: str, why: Optional[str]) -> Optional[dict]:
+    """The item that can NEVER read settled: the bank holds no arbiter series for it, so
+    no receipt can ever be written under its subject (MCN on the Columbia today). Stated
+    on the item, and scoped to THIS route's verdict — never to the pantry's."""
+    dataset, missing_why = GATE_ARBITER[q]
+    if why != missing_why:
+        return None
+    return {"absence": "no_banked_arbiter_series",
+            "why": (f"{name} serves no {dataset} row in the bank, so no receipt can be "
+                    f"written under its subject and this item can never read settled. It "
+                    f"blocks the verdict stated here, which is over THIS ROUTE's item set "
+                    f"only (items_absence) — it is no claim about the pantry's gate, whose "
+                    f"items are the crosswalk's placed set.")}
+
+
 def build_gate(river: str, layer_code: str, walk_rows: list, record_rows: list,
-               gate_receipt_rows: list, arbiter_present: set,
-               cycle_rows: Optional[list] = None) -> dict:
+               gate_receipt_rows: list, arbiter_present: set) -> dict:
     """The gate as a set of receipts, recomputed by the ported `gate_line`/`line_of`
-    (D-09-25-237). `forecast` is served ONLY when the line reads drawable.
+    (D-09-25-237).
+
+    THE ITEMS ARE NOT THE PANTRY'S. `scripts/nwm_reach_gate.py` gates the crosswalk's
+    PLACED set; this route's items are the records the ledger anchors to the walk, because
+    `places[]` is in the crosswalk object and is not banked in Neon. The two sets differ,
+    so the verdict is stated as this API's own (`items_absence`, `verdict_absence`) and
+    never as the pantry's. D-09-25-252 §5 rules the cure, in pantry lane d091790.
+
+    `forecast` is never served: it would name `<feature_id>/<product>/<cycle>` series and
+    every feature_id is in the crosswalk object, so a drawable line earns a stated absence
+    rather than a read (the dead `FORECAST_CYCLE_SQL` is gone; see the reads block).
 
     A river without a crosswalk reads `no_crosswalk`: the gate's subjects are keyed on the
     crosswalk's layer_code, and its items are its places (D-09-25-247 §3)."""
@@ -979,9 +1087,13 @@ def build_gate(river: str, layer_code: str, walk_rows: list, record_rows: list,
 
     if xw.get("absence"):
         return {"river": river, "walk": layer_code,
+                "river_match": river_match(river, layer_code, ledger),
                 "absence": "no_crosswalk", "why": xw["why"],
                 "line": None, "drawable": False, "decided_by": [],
                 "banked": len(rows), "no_da_line": None, "forecast": None,
+                "items": [], "item_count": 0,
+                "items_absence": {"absence": "not_the_crosswalks_placed_set",
+                                  "why": GATE_ITEMS_WHY},
                 "crosswalk": xw, "reads_no_r2": True}
 
     xw_layer = xw["layer_code"]
@@ -1012,22 +1124,25 @@ def build_gate(river: str, layer_code: str, walk_rows: list, record_rows: list,
     line, ok = gate_line(layer_code, items_da)
     line2, ok2 = gate_line(layer_code, items_no_da)
 
-    forecast = None
-    forecast_absence = None
     if ok:
-        forecast = [{"series": c["series"], "from": c["first_ts"], "to": c["last_ts"],
-                     "n": c["n"]} for c in (cycle_rows or [])]
-        if not forecast:
-            forecast_absence = {
-                "absence": "in_crosswalk_object",
-                "why": (f"the forecast's series are <feature_id>/<product>/<cycle>, and the "
-                        f"feature_ids are in {xw_layer}; this route reads no R2")}
+        forecast_absence = {
+            "absence": "in_crosswalk_object",
+            "why": (f"the forecast's series are <feature_id>/<product>/<cycle>, and the "
+                    f"feature_ids are in {xw_layer}; this route reads no R2, so no "
+                    f"statement here can name one (D-09-25-252 §5)")}
     else:
         forecast_absence = {"absence": "gate_not_drawable", "why": line}
 
     return {
         "river": river, "walk": layer_code, "crosswalk": xw,
+        "river_match": river_match(river, layer_code, ledger),
         "line": line, "drawable": ok,
+        # The review of d091770: the line reads as the pantry's gate verdict when it is
+        # this API's over a different item set. Both are stated beside it.
+        "items_absence": {"absence": "not_the_crosswalks_placed_set",
+                          "why": GATE_ITEMS_WHY},
+        "verdict_absence": {"absence": "not_the_pantrys_verdict",
+                            "why": GATE_VERDICT_WHY},
         "no_da_line": "_no_da " + line2, "no_da_drawable": ok2,
         "decided_by": [line_of(*i) for i in items_da],
         "no_da_decided_by": [line_of(*i) for i in items_no_da],
@@ -1035,12 +1150,18 @@ def build_gate(river: str, layer_code: str, walk_rows: list, record_rows: list,
         "banked_all_rivers": len(rows),
         "question": q,
         "items": [{"q": i[0], "name": i[1], "has_receipt": i[2] is not None,
-                   "why": i[3]} for i in items_da],
+                   "why": i[3], "line": line_of(*i),
+                   "item_absence": item_absence(i[0], i[1], i[3])} for i in items_da],
+        "item_count": len(items_da),
+        "items_are": ("the records the ledger anchors to this walk, ordered by "
+                      + order_by),
         "order_by": order_by, "order_absence": order_absence,
-        "forecast": forecast, "forecast_absence": forecast_absence,
+        "forecast": None, "forecast_absence": forecast_absence,
         "rule": ("drawable only when every item's newest receipt is settled; else the first "
-                 "that is not decides (scripts/nwm_reach_gate.gate_line, ported byte for "
-                 f"byte from pantry {PANTRY_COMMIT[:7]}); n >= {MIN_DAYS}, tolerance {TOL}"),
+                 "that is not decides (scripts/nwm_reach_gate.gate_line, THE FUNCTION "
+                 f"ported byte for byte from pantry {PANTRY_COMMIT[:7]} — not its item "
+                 f"set, which is the crosswalk's places[]: see items_absence); "
+                 f"n >= {MIN_DAYS}, tolerance {TOL}"),
         "hourly_pairs_absence": {"absence": "not_banked", "why": HOURLY_PAIRS_WHY},
         "ported_from": {"commit": PANTRY_COMMIT,
                         "functions": ["gate_line", "line_of"],
@@ -1060,6 +1181,7 @@ def build_reaches(river: str, layer_code: str, walk_rows: list, record_rows: lis
     ledger = shape_ledger(walk_rows, record_rows)
     xw = crosswalk_served(ledger["crosswalks"].get(layer_code))
     head = {"river": river, "walk": layer_code,
+            "river_match": river_match(river, layer_code, ledger),
             "from": start.isoformat(), "to": end.isoformat(),
             "dataset": "nwm_reach_analysis_hourly", "parameter": "streamflow",
             "velocity": {"absence": "never_served",

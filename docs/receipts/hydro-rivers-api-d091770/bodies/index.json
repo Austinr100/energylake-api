@@ -1,9 +1,15 @@
 {
   "count": 4,
   "display_base": "https://display.energylake.io/",
+  "entries_absence": {
+    "absence": "river_structure_not_banked",
+    "why": "`count` and `rivers[]` are one entry PER BANKED, PUBLISHED WALK, not per river: a river composed of several walks is served as several entries (the Willamette basin's nine walks are nine entries, each named by its own key). Which walks compose one river, and the river's label and basin, are the geo.rivers.v1 registry's and are NOT banked in Neon (D-09-25-252 \u00a75, pantry lane d091790); this route reads no R2, so it cannot compose them and does not try. The field keeps the name `rivers` so that the day the structure is banked is additive."
+  },
+  "entries_are": "one per banked and published WALK, not one per river",
   "not_served": {
     "label/basin/river composition": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does.",
-    "length_km": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+    "length_km": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2.",
+    "which walks compose one river": "`count` and `rivers[]` are one entry PER BANKED, PUBLISHED WALK, not per river: a river composed of several walks is served as several entries (the Willamette basin's nine walks are nine entries, each named by its own key). Which walks compose one river, and the river's label and basin, are the geo.rivers.v1 registry's and are NOT banked in Neon (D-09-25-252 \u00a75, pantry lane d091790); this route reads no R2, so it cannot compose them and does not try. The field keeps the name `rivers` so that the day the structure is banked is additive."
   },
   "omitted": [],
   "ported_from": {
@@ -407,5 +413,6 @@
       ]
     }
   ],
-  "rule": "D-09-25-247 \u00a73: a river is served when its reach object is banked and published; a crosswalk is optional, and without one the NWM terms read no_crosswalk with the reason."
+  "rule": "D-09-25-247 \u00a73: a river is served when its reach object is banked and published; a crosswalk is optional, and without one the NWM terms read no_crosswalk with the reason.",
+  "walk_count": 4
 }

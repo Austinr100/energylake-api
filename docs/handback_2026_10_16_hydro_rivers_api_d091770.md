@@ -8,6 +8,125 @@ pantry or the dashboard.
 
 ---
 
+## Corrections (follow-up, 10-17)
+
+A review after the merge read the five bodies against the pantry and the live bank and
+found the plumbing correct but **untested** — no cell called a route — and found two
+bodies claiming more than they hold. The follow-up branch
+`claude/rivers-followup-d091770` carries the cure (route tests, the stated absences, two
+more rehearsal mutations); these are the sentences in THIS document that were wrong.
+Every figure below was measured 2026-10-17 on live Neon, read-only, through the MCP
+(project `fancy-block-96153928`, `neondb`), after this handback was written.
+
+### C1 — §1's "15 banked+published walks" is **12 walks and 3 crosswalks**
+
+`geo_layer_objects` holds 15 distinct `layer_code`s with a derived object, and 15 is the
+count of *layers*, not of walks: **12 are reach walks** (`nhdplus_hr_*`) and **3 are NWM
+crosswalks** (`nwm_crosswalk_*`). `/index` serves one entry per published **walk**, so
+today it serves **12**, of which **3 carry a crosswalk** (Columbia, Snake, Sacramento).
+§0's "the published reach objects (15 rows)" miscounts the same way: at that cut
+`geo_display_objects` held 15 publish rows across both kinds, 12 of them reach walks.
+
+The 12 walks are **nine Willamette-basin walks** —
+`blue_river_blu`, `coast_fork_cot`, `fall_creek_fal`, `long_tom_frn`,
+`north_santiam_det`, `row_river_dor`, `santiam_gpr`, `sf_mckenzie_cgr`,
+`willamette_hcr_columbia` — plus `columbia_gcl_bon`, `snake_lwg_columbia` and
+`sacramento_shasta_delta`.
+
+**So the index lists walks, not rivers,** and `?river=willamette` matches the one walk
+whose key begins with it (`willamette_hcr_columbia`) and answers for that walk alone — 1
+of the basin's 9. No record on any Willamette walk carries `attrs._bank.river`, so each
+of the nine is named by its own key; nothing in Neon says the nine are one river.
+**Cure on the branch:** `/index` serves `walk_count`, says `entries_are: "one per banked
+and published WALK, not one per river"`, and carries `entries_absence` — the structure is
+the `geo.rivers.v1` registry's and is not banked in Neon (D-09-25-252 §5, pantry lane
+d091790). Every `?river=` body carries `river_match`, which states what it matched, how,
+and names the other banked walks it will not compose. The field keeps the name `rivers`
+so that banking the structure is additive — and because `main.py` may only gain lines
+(`test_R_no_existing_route_or_memo_changed`), a rename could not be carried into the
+route's own docstring and would have made main.py the next thing that lied.
+
+### C2 — §2.7's "it reproduces the pantry's order exactly" is wrong: the **item SET** is not the pantry's
+
+§2.7 compared ORDERS and never checked the LISTS. `scripts/nwm_reach_gate.py` gates the
+**crosswalk's placed set** (`places[k]`); this route's items are the records the **ledger
+anchors to the walk**. On the Columbia those are not the same list:
+
+| | items |
+| --- | --- |
+| this route, live (11 `cwms_project` records on the walk, by anchor km) | GCL 0.0, CHJ 82.0, **WEL 128.5**, **RRH 196.4**, **RIS 228.5**, **WAN 291.0**, **PRD 320.7**, MCN 489.9, JDA 614.0, TDA 653.7, BON 727.9 |
+| the pantry's d091752 dry run (the 6 placed in `nwm_crosswalk_columbia`) | GCL, CHJ, MCN, JDA, TDA, BON |
+
+The five in bold are the **mid-Columbia PUD projects** (`geo/cwms.MID_COLUMBIA`), which
+the ledger anchors to this walk and the crosswalk does not place. What survives of §2.7:
+the anchor km puts the **shared** items in exactly the pantry's printed order (GCL, CHJ,
+MCN, JDA, TDA, BON), and the Snake's set and order match outright (LWG 0.0, LGS 59.6,
+LMN 105.8, IHR 154.1 — the pantry's four, in its order). What does not survive is
+"exactly": a verdict over 11 items is not a verdict over 6, however they are sorted.
+
+**Cure on the branch:** `/gate` states its item set as an absence beside the verdict
+(`items_absence`, the sentence D-09-25-252 §5 asks for), states that the verdict is this
+API's own over this API's set and not the pantry's (`verdict_absence`), and names the
+ported `gate_line` as **the function** ported byte for byte — not its item set. Three
+route cells pin those sentences, and one pins the two sets against the d091752 fixture so
+that the day the placed set is banked, the test says so.
+
+### C3 — §7's slice note is right about WAN and BON, and wrong about what that costs
+
+`gate_columbia.json` reads "no banked release" for **WAN** and **BON** because the values
+bank holds `cwms_outflow_hourly` for GCL, PRD and MCN only. Live, one existence read per
+location (the gate's own test, `LIMIT 1` per series) says **WAN and BON both publish a
+release**, and **MCN alone does not** — so live, MCN is the only item that can never be
+settled. The branch states that per item off the bank (`item_absence`) rather than naming
+locations in code, so the slice's three (WAN, MCN, BON) and the live one (MCN) are both
+true of their own bank.
+
+MCN's `item_absence` says what it blocks: **the verdict over THIS route's item set**. It
+makes no claim about the pantry's gate — and the review's own note that MCN "blocks this
+API's gate even once the pantry's reads drawable" goes too far in the other direction:
+`MCN` is an item of the pantry's placed set too (the d091752 dry run prints
+`Q4 MCN: no banked release` on the Columbia), so the same item blocks that gate as well,
+until MCN publishes a release or the crosswalk stops placing it.
+
+### C4 — §6's counts are superseded, and the rehearsal is 8 breaks
+
+`tests/test_hydro_rivers_d091770.py` is still 18 cells; the branch adds
+`tests/test_hydro_rivers_routes_d091770.py` (**34 cells**: T ×5, M ×5, B ×8, A ×2, S ×14)
+for a hydro total of **52**. The rehearsal is **8 of 8 caught by name** — R7 (the
+statement timeout removed from `/index`) and R8 (the memo removed from `/index`) are
+mutations of `main.py`, and each is caught only by a route cell, which is the measure of
+what §6 was missing. The whole suite's counts on the branch and against main's own reds
+are in the follow-up's own handback section below (§9).
+
+### C5 — §8.4's "the five paths are asserted registered on `main.app`" was not asserted anywhere
+
+It is now: `test_a_each_route_is_registered_on_main_app` reads `main.app.routes`, and
+holds each of the five paths to GET, to its own endpoint function, and to nothing else
+being mounted under `/api/hydro/rivers/`. A live HTTP smoke test is still not this lane's
+(no deploy), but the routes are now exercised end to end through `TestClient` over the
+banked cluster, which is what §6 should have said.
+
+### C6 — §3.4's "`forecast` is served only when the line reads drawable" is now "never, and here is why"
+
+`FORECAST_CYCLE_SQL` was **dead code**: `main.py` never executed it and `build_gate` was
+never handed its rows (one grep over the tree, and the only other mention was the
+tripwire's own list of statements). It is removed. A drawable line now earns
+`forecast_absence: {absence: 'in_crosswalk_object'}`, because the series it would name are
+`<feature_id>/<product>/<cycle>` and every `feature_id` is in the crosswalk object, which
+this route does not read. A route cell drives the drawable branch with synthetic settled
+receipts — the one path no bank reaches today — so the absence is asserted, not assumed.
+
+### C7 — a live state that moved after the cut (not an error, a cut)
+
+The Columbia crosswalk object **32** (banked 11:27Z with no publish row — §2.5's whole
+case) was **published at 2026-10-17T16:05:44Z**. The fixture bank is the 11:30Z cut and is
+sha-pinned, so `test_r1_index_crosswalk_published_and_pending` still asserts the pending
+case and still should: it is the cut's truth, and the rule it proves ("serve the newest
+PUBLISHED object, name the newer banked one") is what made the body right both before and
+after that publish.
+
+---
+
 ## 0. STOP-D: passed
 
 `geo_display_objects` holds the published reach objects (15 rows) and
@@ -24,7 +143,7 @@ Five routes are served, read-only, each from one transaction under
 
 | Route | Today's answer on the live bank |
 | --- | --- |
-| `GET /api/hydro/rivers/index` | 15 banked+published walks; 3 carry a crosswalk, the rest read `no_crosswalk` |
+| `GET /api/hydro/rivers/index` | 15 banked+published walks; 3 carry a crosswalk, the rest read `no_crosswalk` **← wrong: 12 walks + 3 crosswalks; see Corrections (follow-up, 10-17) C1** |
 | `GET /api/hydro/rivers/stations?river=` | the newest record per `source_key`, with the crosswalk **join** or the anchor |
 | `GET /api/hydro/rivers/flow?river=&from=&to=` | per station, per series: `served` behind a settled receipt, else `{state:'grey', why}` |
 | `GET /api/hydro/rivers/gate?river=` | **not drawable**, 0 banked `nwm_reach:*` receipts, recomputed by the ported `gate_line` |
@@ -146,6 +265,8 @@ byte for byte, and against the bank without it, so both halves are pinned.
 
 ### 2.7 The gate's item ORDER is the crosswalk's, and for a gauge river it is unreachable
 
+**→ Corrected: the ORDER was never the whole of it — the item SET is not the pantry's. See Corrections (follow-up, 10-17) C2.**
+
 `nwm_reach_gate.compute` orders items by `places[k]["km"]` — the crosswalk's measure. From
 Neon I can order **dam** rivers by the ledger's own anchor km, and it reproduces the
 pantry's order exactly (Columbia GCL→WAN→PRD→MCN→BON; Snake LWG→LGS→LMN→IHR). **A gauge
@@ -224,7 +345,7 @@ never clipped; each `LATERAL`'s `LIMIT` is the window's row count at the dataset
 
 ### 3.4 `/gate`
 Recomputed from banked `nwm_reach:*` receipts by `gate_line`/`line_of`, ported byte for
-byte. Today: **0 receipts banked, not drawable, both twins.** `forecast` is served only when
+byte. Today: **0 receipts banked, not drawable, both twins.** [`forecast` is never served; see Corrections C6.] `forecast` is served only when
 the line reads drawable. A river without a crosswalk reads `no_crosswalk`.
 
 ### 3.5 `/reaches`
@@ -280,7 +401,7 @@ release" and `/flow`'s grey on MCN, measured rather than assumed.
 
 ## 6. Tests, sweeps, rehearsal
 
-**`tests/test_hydro_rivers_d091770.py`: 18 cells.**
+**`tests/test_hydro_rivers_d091770.py`: 18 cells.** (The routes themselves are untested here — see Corrections C4 and C5.)
 
 - **Red on main `b399c67`:** a clean worktree with only the test, loader and fixtures fails
   at collection — `ModuleNotFoundError: No module named 'hydro_rivers'`
@@ -374,6 +495,8 @@ Rebuild: `cd tests && python3 -I ../docs/receipts/hydro-rivers-api-d091770/bank_
 | `reaches_columbia.json` | 1,167 | `1b216750d43a3f91…` |
 | `reaches_willamette.json` | 581 | `8ac6cfa57b16935b…` |
 
+**→ Corrected in part: see Corrections (follow-up, 10-17) C3.**
+
 **These are vectors over the banked CUT, not over live Neon.** The values bank holds
 `cwms_outflow_hourly` for GCL, PRD and MCN only, so in `gate_columbia.json` WAN and BON read
 "no banked release" — true of the slice, **not** of the live bank, where both publish a
@@ -434,4 +557,66 @@ Postgres egress (or the script run from a box that has it).
   because no route reads them while the gate is shut.
 - **A live HTTP smoke test** of the five routes — no deploy in this lane; the bodies are
   built by the routes' own builders over the bank, and the five paths are asserted
-  registered on `main.app`.
+  registered on `main.app`. **← the last clause was not true: nothing asserted it. See
+  Corrections (follow-up, 10-17) C5.**
+
+---
+
+## 9. The follow-up (10-17): what it added, and its gate
+
+**Branch:** `claude/rivers-followup-d091770`, cut from main `4016beb` (this lane merged as
+PR #120). **No PR, no merge, no deploy. Writes: none** — Neon was read through the MCP
+with `SELECT` only (`followup_neon_measurements.md`), and the suite runs on the sha-pinned
+11:30Z slice, never on live Neon.
+
+### 9.1 What changed
+
+| | |
+| --- | --- |
+| `tests/test_hydro_rivers_routes_d091770.py` | **new, 34 cells.** The five routes through FastAPI's `TestClient` over the lane's throwaway Postgres, with `main._pool` swapped for `load_bank_d091673.PgPool`, which records every `(sql, params)`: **T** ×5 the statement timeout is the FIRST statement on the connection · **M** ×5 a memo hit makes NO reads and serves the same body · **B** ×8 the 400s (unknown river, no river, the ambiguous resolver, a window over 14 days refused and not clipped, and which route takes which parameter) · **A** ×2 each path registered on `main.app`, GET, its own endpoint, nothing else under the prefix · **S** ×14 the stated absences in the bodies the routes really serve |
+| `hydro_rivers.py` | `/gate` carries `items_absence` (the D-09-25-252 §5 sentence), `verdict_absence`, `item_count`, `items_are`, a `line` and an `item_absence` per item; `/index` carries `walk_count`, `entries_are`, `entries_absence`; every `?river=` body carries `river_match`. `FORECAST_CYCLE_SQL` and the dead `cycle_rows` parameter are gone; a drawable line earns `forecast_absence` |
+| `main.py` | **+23 lines, 0 removed** — the five route docstrings say what the bodies now state. `test_R_no_existing_route_or_memo_changed` (main.py may only gain lines) stays green |
+| `tests/rehearse_hydro_rivers_d091770.py` | **R7** the statement timeout removed from `/index`, **R8** the memo removed from `/index` — both mutations of `main.py`, both caught only by a route cell. The rehearsal now runs both hydro test files |
+| `docs/receipts/.../bodies/` | re-banked by `bank_bodies.py` over the same sha-checked slice, `SHA256SUMS.json` beside them |
+
+### 9.2 The gate
+
+**The whole suite** (`python3 -m pytest tests/ -q`), same box, same interpreter, main read
+from a worktree of `origin/main`:
+
+| tree | passed | failed | skipped |
+| --- | --- | --- | --- |
+| main `4016beb` | 3,539 | **3** | 2 |
+| this branch | **3,573** | **3** | 2 |
+
+**+34 passed, exactly the new route cells. The 3 failures are the same 3 test ids on both
+trees and are main's own:** `test_H8_a_rebanked_vector_is_mains_plus_the_one_key` ×2
+(`asset_wind_57514.json`, `body_wind_ciso_n28.json`) and `tropics::test_T1_scopes_recent
+_and_all_and_a_bad_scope` (date-aged). The 2 skips are `test_mjo_status`'s, for "no
+energylake-pantry checkout beside this repo" — there is none in this session, which is
+also why §6's "+2 mjo cells" does not repeat here. **`season_regions` p4 and the two
+`vintages` timezone cells pass on this box**, on main and on the branch alike.
+
+**The mutation rehearsal:** `8 of 8 breaks caught by name`, tree hash unchanged
+(`followup_rehearsal_R.txt`).
+
+**`git diff --diff-filter=D --name-only origin/main...HEAD`: empty** — no file is deleted.
+
+### 9.3 Receipts
+
+| file | what |
+| --- | --- |
+| `followup_suite_branch.txt` | the whole suite on the branch |
+| `followup_suite_main.txt` | the whole suite on main `4016beb`, same box |
+| `followup_rehearsal_R.txt` | 8 of 8, tree unchanged |
+| `followup_neon_measurements.md` | the five read-only statements behind C1–C3 and C7 |
+
+### 9.4 Still not done, and now named
+
+- **The placed set is still not banked** (D-09-25-252 §5, pantry lane d091790). Until it
+  is, `/gate` gates this API's item set and says so; the cell that pins the two sets
+  against the d091752 fixture is what will go red when it lands.
+- **The river structure is still not banked** (same ruling). `/index` keeps the field name
+  `rivers` and states that its entries are walks; `?river=` answers for one walk.
+- **A live HTTP smoke test** — still no deploy in this lane. The routes are now exercised
+  end to end against the banked cluster, which is as far as a read-only branch goes.
