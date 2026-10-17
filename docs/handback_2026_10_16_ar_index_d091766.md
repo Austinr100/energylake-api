@@ -114,3 +114,60 @@ Those 71 lead-0 rows (one per point, the init hour) can never be shown under the
 
 Everything after §0: the two routes, `tests/test_ar_index_d091766.py` (A1–A5, X1, R), the EXPLAIN receipts, the banked fixture bodies and their shas for the dashboard lane. No file in this repo was changed; this handback is the only addition.
 
+
+---
+
+## 0.8 Re-fire 2026-10-17 12:04Z — STOP-D fires again: the table is present and **empty**
+
+**One line:** `ar_display_objects` now exists (migration 324 committed 10:35:28Z, exactly as the architect said) but holds **0 rows of any kind**, so there is no `coast_ivt` row, so the lane still does not open. Nothing was built. This is the spec's own gate behaving correctly, not a new obstacle.
+
+**Why:** the publish step was *installed* at 10:49Z; it has not *run*. The first `ar-gefs-points` fire since installation is today's 18:52Z, and this read is 12:04:54Z — about six and three-quarter hours early. `ar_runs` is still 16 rows with newest `init_ts = 2026-10-17T00:00:00Z`, unchanged from §0.2, which confirms the lane's own reading: no cycle has fired since §0, so the publish has had no occasion to emit.
+
+### 0.8.1 STOP-D receipt (read 2026-10-17T12:04:22.486Z and 12:04:54.030Z, `transaction_read_only = on` read back in both, PostgreSQL 17.11)
+
+| Check | §0 (10:32Z) | Re-fire (12:04Z) |
+|---|---|---|
+| `to_regclass('public.ar_display_objects')` | NULL — absent | **present** |
+| rows with `kind = 'coast_ivt'` | n/a (no table) | **0** |
+| rows of *any* kind | n/a | **0** |
+| `ar_truth_days` | absent | present, **0 rows** |
+| `max(version)` in `schema_migrations` | 323 | **328** |
+| `ar_runs` | 16, newest `2026-10-17 00Z` | 16, newest `2026-10-17 00Z` — unchanged |
+| `ar_landfall_latest` | 6,603 (71 pts × 93 steps) | 6,603 (71 pts × 93 steps) — unchanged |
+| `ar_scores` | 0 | **0** — still unscored |
+
+Migrations applied since §0: `324_ar_display_objects_and_truth_witness.sql` (10:35:28Z), `325_clock_promotions_d091778.sql` (10:36:30Z), `326_clock_arms_d091778.sql` (10:37:25Z), `328_tropical_verification_clock.sql` (10:38:11Z) — all `status = committed`. **No row for 327 at any status**; that is another lane's business, recorded here only because it sits inside the range this lane read.
+
+Because `ar_scores` is still empty, ruling 3's note stands unchanged and the architect's instruction on A3 applies as written: when the backtest's score mode writes the first `ar_scores` rows, those become A3's vector instead of a fixture.
+
+### 0.8.2 What the re-fire learned that §0 could not: the table's shape
+
+§0 was blind to this table — it did not exist. It does now, and its DDL settles two things the rulings had to assume. Recorded so the next firing does not have to re-derive them.
+
+Columns: `init_ts` (nullable), `level_set`, `kind`, `display_key`, `sha256`, `bytes`, `published_at default now()`.
+
+**Ruling 2's mechanics are sound.** `display_key` and `sha256` both exist and are `NOT NULL`, so "fetch `https://display.energylake.io/<display_key>` and sha-check it against `ar_display_objects.sha256`" is executable as written. Better: the key is not free text — a CHECK derives it, so the next firing can compute it rather than trust it.
+
+- cycle objects — `ar_display_cycle_key`: `display_key = 'ar/gefs/' || YYYYMMDD || '/' || HH || 'Z/' || kind || '.' || level_set || '.json'` (init_ts at UTC)
+- registry — `ar_display_registry_key`: `display_key ~ '^ar/registry/points_v[0-9]+\.[0-9a-f]{8}\.json$'` **and** its 8 hex digits equal `left(sha256, 8)`
+
+**Three kinds, not one.** `ar_display_objects_kind_check`: `coast_ivt | odds | registry`. The spec's `/index` shape ("`inits` to list, `registry` to name") maps onto this directly, and `ar_display_cycle_or_registry` makes the split exact: `(kind = 'registry') = (init_ts IS NULL)`. So `inits` is built from the non-registry rows and `registry` is the cycle-less row — the route must not expect an `init_ts` on it, and must not expect a registry row to appear under any cycle.
+
+Other terms: `bytes > 0`; `sha256 ~ '^[0-9a-f]{64}$'`; `level_set ~ '^[a-z0-9]+_v[0-9]+$'`; FK `(init_ts, level_set) → ar_runs(init_ts, level_set)`, so a published cycle is always an already-known run and `/index` never needs to defend against a cycle `ar_runs` has not got.
+
+`ar_truth_days` is keyed `(valid_date, level_set)` with `r2_key`, `sha256`, `status`, `written_at` — no `init_ts`. It is the truth witness, not a display object, and nothing in this lane's two routes reads it.
+
+**One thing for X1 to state plainly.** The only index on `ar_display_objects` is the primary key, `(level_set, kind, display_key)` — `init_ts` is **not** indexed and not in the PK. Any "newest cycle" read therefore has no supporting index and will sort or scan. At 32 kB that is free and the CLAUDE.md d091551 `LATERAL` form is not in question here, but X1 should say so with the table size next to it rather than leave a reader to assume an index that is not there. Note also that uniqueness is carried by `display_key`, which encodes the cycle — not by `init_ts` — so two kinds for one cycle are two rows, as intended.
+
+### 0.8.3 Scope of the re-fire
+
+Identical to §0's, and for the same reason. **No Neon write** — both statement groups ran in a transaction opened `SET TRANSACTION READ ONLY` with `transaction_read_only` read back `on` before any read. **No R2 read** and **no `display.energylake.io` call** — ruling 2's test-vector fetch is the first thing the next firing does, and it needs a published object to fetch. **No route, no test, no constant, no fixture written**; the edges pin of ruling 1 is not yet in the tree. The only change in this commit is this section.
+
+### 0.8.4 What unblocks the next firing
+
+Unchanged from §0.1 except that its first two steps are now done. What remains is one step: **`scripts/ar_publish.py --backfill --emit` must run.** Today's 18:52Z `ar-gefs-points` fire does it, or an earlier dispatch on the captain's word. Re-fire this paste after that; it re-checks STOP-D itself, and the condition it checks — at least one `coast_ivt` row — is the right one and needs no change.
+
+### 0.8.5 What this spec got wrong (re-fire addendum to §0.6)
+
+7. **STOP-D's premise was one step short in the other direction, too.** §0.6 ¶1 said the binding constraint was migration 324, one step before the publish. Both halves are now visible: 324 *and* the publish are separate gates, and clearing the schema gate moved nothing, because the table a migration creates is empty until a job fills it. The condition the architect re-worded for this firing — "`ar_display_objects` holds at least one `coast_ivt` row" — is correct precisely because it tests the *data*, not the schema and not the install time. A firing gated on "324 applied" or "the publish step installed" would have opened this lane at 10:49Z onto an empty table.
+8. **`kind` is not implicitly `coast_ivt`.** The spec and the rulings speak of "the published `coast_ivt` object" as though it were the table's only tenant. The CHECK admits `odds` and `registry` as well, and the registry row is structurally different (no `init_ts`). A route written against the assumption that every row carries a cycle will fail on the registry row the moment the publish emits one — which is the same fire that opens this lane.
