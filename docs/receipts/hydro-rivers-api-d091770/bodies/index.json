@@ -1,0 +1,411 @@
+{
+  "count": 4,
+  "display_base": "https://display.energylake.io/",
+  "not_served": {
+    "label/basin/river composition": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does.",
+    "length_km": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+  },
+  "omitted": [],
+  "ported_from": {
+    "commit": "f2a75d16dcc0761f358b4ee8a33790e3d02256ac",
+    "nwm_reach_gate.LAYER_REACH": [
+      "nwm_crosswalk_columbia",
+      "nwm_crosswalk_sacramento",
+      "nwm_crosswalk_snake"
+    ]
+  },
+  "reads_no_r2": true,
+  "registry": {
+    "bytes": 6446,
+    "published_at": "2026-10-17 11:05:11+00:00",
+    "registry_key": "geo/rivers/registry.8f3d80e2.json",
+    "schema": "geo.rivers.v1",
+    "sha256": "8f3d80e22160bb686840eafb165ec777009c5e1f02f26a12d7ec4020e49f40c4",
+    "url": "https://display.energylake.io/geo/rivers/registry.8f3d80e2.json"
+  },
+  "registry_absence": null,
+  "rivers": [
+    {
+      "basin": null,
+      "crosswalk": {
+        "crs_as_published": "EPSG:4269/WGS84 reach points as NWM publishes them (v3.0 retrospective latitude/longitude); positions recorded as km along the banked HR centreline",
+        "derived_from": 6,
+        "derived_from_keys": [
+          "geo/nhdplus_hr/columbia_gcl_bon/reach/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson"
+        ],
+        "feature_count": 317,
+        "fetched_at": "2026-10-15 20:22:53+00:00",
+        "layer_code": "nwm_crosswalk_columbia",
+        "newer_banked_not_published": {
+          "fetched_at": "2026-10-17 11:27:01+00:00",
+          "object_id": 32,
+          "r2_sha256": "caaf7c89d3e02c7b2bff227758bc72f3aa3a891f732302a05354ef9ba1c2dc9f",
+          "why": "a newer derived object of this layer is banked but has no geo_display_objects row; the published one above is served until it is published"
+        },
+        "object_id": 9,
+        "published": {
+          "bytes": 50443,
+          "content_type": "application/json; charset=utf-8",
+          "display_key": "geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+          "published_at": "2026-10-17 11:05:11+00:00",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "r2_key": "geo/nwm/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+        "r2_sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+        "role": "derived",
+        "served": "the newest derived object with a publish row",
+        "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+        "sha_equal": true,
+        "simplification": "none",
+        "source": {
+          "code": "noaa_nwm",
+          "sha256": "43bf3860bc283e2b78cc6a7b7d5f0731f0bf7de3109b3ba7db8adc52684d9b76",
+          "terms_ref": "docs/handback_2026_10_14_rivers_in_motion_recon.md Q1 (NOAA NODD terms quoted from the AWS Open Data registry: open; attribution requested; no implied endorsement)",
+          "vintage": "NWM v3.1"
+        },
+        "tolerance_m": null,
+        "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+        "vertex_count": 0
+      },
+      "label": null,
+      "length_km": null,
+      "length_km_absence": {
+        "absence": "in_crosswalk_object",
+        "why": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+      },
+      "nwm": {
+        "crosswalk": "nwm_crosswalk_columbia",
+        "gate": "/api/hydro/rivers/gate"
+      },
+      "registry": {
+        "bytes": 6446,
+        "published_at": "2026-10-17 11:05:11+00:00",
+        "registry_key": "geo/rivers/registry.8f3d80e2.json",
+        "schema": "geo.rivers.v1",
+        "sha256": "8f3d80e22160bb686840eafb165ec777009c5e1f02f26a12d7ec4020e49f40c4",
+        "url": "https://display.energylake.io/geo/rivers/registry.8f3d80e2.json"
+      },
+      "river": "columbia",
+      "river_named_by": "attrs._bank.river (the walk's records name 2: ['columbia', 'columbia_gcl_bon'])",
+      "stations_in_ledger": 5,
+      "structure": {
+        "absence": "registry_not_read",
+        "why": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does."
+      },
+      "walks": [
+        {
+          "crs_as_published": "EPSG:3857 (wkid 102100)",
+          "derived_from": 5,
+          "derived_from_keys": [
+            "geo/nhdplus_hr/columbia_gcl_bon/pages/09beef55982c6a93175f04fff18fcb3ea8d2750f80eb7a76b584ad87e144a5cf.json"
+          ],
+          "feature_count": 895,
+          "fetched_at": "2026-10-14 15:07:25+00:00",
+          "layer_code": "nhdplus_hr_columbia_gcl_bon",
+          "newer_banked_not_published": null,
+          "object_id": 6,
+          "published": {
+            "bytes": 529639,
+            "content_type": "application/json; charset=utf-8",
+            "display_key": "geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+            "published_at": "2026-10-17 11:05:11+00:00",
+            "sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+            "url": "https://display.energylake.io/geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson"
+          },
+          "r2_key": "geo/nhdplus_hr/columbia_gcl_bon/reach/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+          "r2_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+          "role": "derived",
+          "served": "the newest derived object with a publish row",
+          "sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+          "sha_equal": true,
+          "simplification": "none",
+          "source": {
+            "code": "usgs_nhdplus_hr",
+            "sha256": "8340ca0e8c2c2ff9da9fa4bcfd74a4fa6fb9c0c4a26c7cfbbdbc9711efb04b11",
+            "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+            "vintage": "Data refreshed October, 2022."
+          },
+          "tolerance_m": null,
+          "url": "https://display.energylake.io/geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+          "vertex_count": 4067
+        }
+      ]
+    },
+    {
+      "basin": null,
+      "crosswalk": {
+        "crs_as_published": "EPSG:4269/WGS84 reach points as NWM publishes them (v3.0 retrospective latitude/longitude); positions recorded as km along the banked HR centreline",
+        "derived_from": 2,
+        "derived_from_keys": [
+          "geo/nhdplus_hr/sacramento_shasta_delta/reach/05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9.geojson"
+        ],
+        "feature_count": 262,
+        "fetched_at": "2026-10-15 20:22:53+00:00",
+        "layer_code": "nwm_crosswalk_sacramento",
+        "newer_banked_not_published": null,
+        "object_id": 11,
+        "published": {
+          "bytes": 43151,
+          "content_type": "application/json; charset=utf-8",
+          "display_key": "geo/nwm_crosswalk_sacramento/cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045.json",
+          "published_at": "2026-10-17 11:05:11+00:00",
+          "sha256": "cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_sacramento/cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045.json"
+        },
+        "r2_key": "geo/nwm/nwm_crosswalk_sacramento/cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045.json",
+        "r2_sha256": "cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045",
+        "role": "derived",
+        "served": "the newest derived object with a publish row",
+        "sha256": "cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045",
+        "sha_equal": true,
+        "simplification": "none",
+        "source": {
+          "code": "noaa_nwm",
+          "sha256": "43bf3860bc283e2b78cc6a7b7d5f0731f0bf7de3109b3ba7db8adc52684d9b76",
+          "terms_ref": "docs/handback_2026_10_14_rivers_in_motion_recon.md Q1 (NOAA NODD terms quoted from the AWS Open Data registry: open; attribution requested; no implied endorsement)",
+          "vintage": "NWM v3.1"
+        },
+        "tolerance_m": null,
+        "url": "https://display.energylake.io/geo/nwm_crosswalk_sacramento/cc7226152dc45b6492a9901e213c5a228fd7f4cb8c5846c465e35b937cf86045.json",
+        "vertex_count": 0
+      },
+      "label": null,
+      "length_km": null,
+      "length_km_absence": {
+        "absence": "in_crosswalk_object",
+        "why": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+      },
+      "nwm": {
+        "crosswalk": "nwm_crosswalk_sacramento",
+        "gate": "/api/hydro/rivers/gate"
+      },
+      "registry": {
+        "bytes": 6446,
+        "published_at": "2026-10-17 11:05:11+00:00",
+        "registry_key": "geo/rivers/registry.8f3d80e2.json",
+        "schema": "geo.rivers.v1",
+        "sha256": "8f3d80e22160bb686840eafb165ec777009c5e1f02f26a12d7ec4020e49f40c4",
+        "url": "https://display.energylake.io/geo/rivers/registry.8f3d80e2.json"
+      },
+      "river": "sacramento_shasta_delta",
+      "river_named_by": "the walk's own key: no record on it carries attrs._bank.river (a gauge banks attrs._bank.reach only)",
+      "stations_in_ledger": 0,
+      "structure": {
+        "absence": "registry_not_read",
+        "why": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does."
+      },
+      "walks": [
+        {
+          "crs_as_published": "EPSG:3857 (wkid 102100)",
+          "derived_from": 1,
+          "derived_from_keys": [
+            "geo/nhdplus_hr/sacramento_shasta_delta/pages/9ff429ee874c6e035ad9b27428f4c9382565852ede044a79ef9287df279a691d.json"
+          ],
+          "feature_count": 350,
+          "fetched_at": "2026-10-14 12:47:24+00:00",
+          "layer_code": "nhdplus_hr_sacramento_shasta_delta",
+          "newer_banked_not_published": null,
+          "object_id": 2,
+          "published": {
+            "bytes": 334188,
+            "content_type": "application/json; charset=utf-8",
+            "display_key": "geo/nhdplus_hr_sacramento_shasta_delta/05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9.geojson",
+            "published_at": "2026-10-17 11:05:11+00:00",
+            "sha256": "05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9",
+            "url": "https://display.energylake.io/geo/nhdplus_hr_sacramento_shasta_delta/05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9.geojson"
+          },
+          "r2_key": "geo/nhdplus_hr/sacramento_shasta_delta/reach/05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9.geojson",
+          "r2_sha256": "05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9",
+          "role": "derived",
+          "served": "the newest derived object with a publish row",
+          "sha256": "05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9",
+          "sha_equal": true,
+          "simplification": "none",
+          "source": {
+            "code": "usgs_nhdplus_hr",
+            "sha256": "eb2bf2021c43beaed511d54316abcb92dec39d377ef9b8272b031918aaf57082",
+            "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+            "vintage": "Data refreshed October, 2022."
+          },
+          "tolerance_m": null,
+          "url": "https://display.energylake.io/geo/nhdplus_hr_sacramento_shasta_delta/05ebd91bd7f12edd866701155e421808744ecf5f5796a47e21abde85db71eee9.geojson",
+          "vertex_count": 5116
+        }
+      ]
+    },
+    {
+      "basin": null,
+      "crosswalk": {
+        "crs_as_published": "EPSG:4269/WGS84 reach points as NWM publishes them (v3.0 retrospective latitude/longitude); positions recorded as km along the banked HR centreline",
+        "derived_from": 8,
+        "derived_from_keys": [
+          "geo/nhdplus_hr/snake_lwg_columbia/reach/0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f.geojson"
+        ],
+        "feature_count": 90,
+        "fetched_at": "2026-10-15 20:22:53+00:00",
+        "layer_code": "nwm_crosswalk_snake",
+        "newer_banked_not_published": null,
+        "object_id": 10,
+        "published": {
+          "bytes": 17052,
+          "content_type": "application/json; charset=utf-8",
+          "display_key": "geo/nwm_crosswalk_snake/c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e.json",
+          "published_at": "2026-10-17 11:05:11+00:00",
+          "sha256": "c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_snake/c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e.json"
+        },
+        "r2_key": "geo/nwm/nwm_crosswalk_snake/c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e.json",
+        "r2_sha256": "c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e",
+        "role": "derived",
+        "served": "the newest derived object with a publish row",
+        "sha256": "c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e",
+        "sha_equal": true,
+        "simplification": "none",
+        "source": {
+          "code": "noaa_nwm",
+          "sha256": "43bf3860bc283e2b78cc6a7b7d5f0731f0bf7de3109b3ba7db8adc52684d9b76",
+          "terms_ref": "docs/handback_2026_10_14_rivers_in_motion_recon.md Q1 (NOAA NODD terms quoted from the AWS Open Data registry: open; attribution requested; no implied endorsement)",
+          "vintage": "NWM v3.1"
+        },
+        "tolerance_m": null,
+        "url": "https://display.energylake.io/geo/nwm_crosswalk_snake/c709d1a0fe85a75a9ee40facd6ad6fbbf1ca61491f83dff7cec8c8d46e20f13e.json",
+        "vertex_count": 0
+      },
+      "label": null,
+      "length_km": null,
+      "length_km_absence": {
+        "absence": "in_crosswalk_object",
+        "why": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+      },
+      "nwm": {
+        "crosswalk": "nwm_crosswalk_snake",
+        "gate": "/api/hydro/rivers/gate"
+      },
+      "registry": {
+        "bytes": 6446,
+        "published_at": "2026-10-17 11:05:11+00:00",
+        "registry_key": "geo/rivers/registry.8f3d80e2.json",
+        "schema": "geo.rivers.v1",
+        "sha256": "8f3d80e22160bb686840eafb165ec777009c5e1f02f26a12d7ec4020e49f40c4",
+        "url": "https://display.energylake.io/geo/rivers/registry.8f3d80e2.json"
+      },
+      "river": "snake_lwg_columbia",
+      "river_named_by": "the walk's own key: no record on it carries attrs._bank.river (a gauge banks attrs._bank.reach only)",
+      "stations_in_ledger": 0,
+      "structure": {
+        "absence": "registry_not_read",
+        "why": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does."
+      },
+      "walks": [
+        {
+          "crs_as_published": "EPSG:3857 (wkid 102100)",
+          "derived_from": 7,
+          "derived_from_keys": [
+            "geo/nhdplus_hr/snake_lwg_columbia/pages/365e67eb0dd41637ed4db003677259ca5ba32fd2a6c3582e12872ae26c334741.json"
+          ],
+          "feature_count": 258,
+          "fetched_at": "2026-10-14 15:07:25+00:00",
+          "layer_code": "nhdplus_hr_snake_lwg_columbia",
+          "newer_banked_not_published": null,
+          "object_id": 8,
+          "published": {
+            "bytes": 161163,
+            "content_type": "application/json; charset=utf-8",
+            "display_key": "geo/nhdplus_hr_snake_lwg_columbia/0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f.geojson",
+            "published_at": "2026-10-17 11:05:11+00:00",
+            "sha256": "0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f",
+            "url": "https://display.energylake.io/geo/nhdplus_hr_snake_lwg_columbia/0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f.geojson"
+          },
+          "r2_key": "geo/nhdplus_hr/snake_lwg_columbia/reach/0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f.geojson",
+          "r2_sha256": "0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f",
+          "role": "derived",
+          "served": "the newest derived object with a publish row",
+          "sha256": "0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f",
+          "sha_equal": true,
+          "simplification": "none",
+          "source": {
+            "code": "usgs_nhdplus_hr",
+            "sha256": "e0008e06b7eca6725d65c0f66ae2f303dade9d3cce98c694fe7e9e4837528bea",
+            "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+            "vintage": "Data refreshed October, 2022."
+          },
+          "tolerance_m": null,
+          "url": "https://display.energylake.io/geo/nhdplus_hr_snake_lwg_columbia/0a69958dd3cfd0ac990cae29a71c3bfd2d630244d58ff7cf623330f58d5e733f.geojson",
+          "vertex_count": 1430
+        }
+      ]
+    },
+    {
+      "basin": null,
+      "crosswalk": {
+        "absence": "no_crosswalk",
+        "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+      },
+      "label": null,
+      "length_km": null,
+      "length_km_absence": {
+        "absence": "in_crosswalk_object",
+        "why": "length_km is the crosswalk object's reach.length_km (the Columbia's 723.886 km); geo_layer_objects has no length_km column and this route reads no R2."
+      },
+      "nwm": {
+        "absence": "no_crosswalk",
+        "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+      },
+      "registry": {
+        "bytes": 6446,
+        "published_at": "2026-10-17 11:05:11+00:00",
+        "registry_key": "geo/rivers/registry.8f3d80e2.json",
+        "schema": "geo.rivers.v1",
+        "sha256": "8f3d80e22160bb686840eafb165ec777009c5e1f02f26a12d7ec4020e49f40c4",
+        "url": "https://display.energylake.io/geo/rivers/registry.8f3d80e2.json"
+      },
+      "river": "willamette_hcr_columbia",
+      "river_named_by": "attrs._bank.river",
+      "stations_in_ledger": 1,
+      "structure": {
+        "absence": "registry_not_read",
+        "why": "a river's label, basin and which walks compose it are the geo.rivers.v1 registry's, and D-09-25-247 \u00a73 forbids re-deriving the river structure here; the registry pointer below is served so the page reads it. `river` is the tag the records themselves carry (attrs._bank.river), or the walk's own key when none does."
+      },
+      "walks": [
+        {
+          "crs_as_published": "EPSG:3857 (wkid 102100)",
+          "derived_from": 12,
+          "derived_from_keys": [
+            "geo/nhdplus_hr/willamette_hcr_columbia/pages/37d32e46b5893d9b35acf68e3e7ff5d0a5cc5340b6611eb1ca5cc20fc8f50f26.json"
+          ],
+          "feature_count": 514,
+          "fetched_at": "2026-10-16 09:45:37+00:00",
+          "layer_code": "nhdplus_hr_willamette_hcr_columbia",
+          "newer_banked_not_published": null,
+          "object_id": 13,
+          "published": {
+            "bytes": 408958,
+            "content_type": "application/json; charset=utf-8",
+            "display_key": "geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+            "published_at": "2026-10-17 11:05:11+00:00",
+            "sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+            "url": "https://display.energylake.io/geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson"
+          },
+          "r2_key": "geo/nhdplus_hr/willamette_hcr_columbia/reach/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+          "r2_sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+          "role": "derived",
+          "served": "the newest derived object with a publish row",
+          "sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+          "sha_equal": true,
+          "simplification": "none",
+          "source": {
+            "code": "usgs_nhdplus_hr",
+            "sha256": "5a145f61483468ebf2ba2dd2da9dc57a08e39a8eca8e7cca748712cf30d0531d",
+            "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+            "vintage": "Data refreshed October, 2022."
+          },
+          "tolerance_m": null,
+          "url": "https://display.energylake.io/geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+          "vertex_count": 5203
+        }
+      ]
+    }
+  ],
+  "rule": "D-09-25-247 \u00a73: a river is served when its reach object is banked and published; a crosswalk is optional, and without one the NWM terms read no_crosswalk with the reason."
+}

@@ -1,0 +1,77 @@
+{
+  "lane": "d091770",
+  "cut": "2026-10-17T11:30:00+00:00",
+  "read": {
+    "project_id": "fancy-block-96153928",
+    "database": "neondb",
+    "branch": "default",
+    "how": "read through the Neon MCP with SELECT statements only, 2026-10-17 11:30-11:43Z. Each bank is the exact string_agg(row_to_json(t)::text, E'\\n' ORDER BY <pk>) text Neon returned, and was accepted only after the sha256 computed here equalled encode(sha256(convert_to(txt,'UTF8')),'hex') computed by NEON over the same expression (fixtures/.../bank_from_neon.py holds the shape; it could not be run here because this environment's network policy allows no Postgres connection, only HTTPS through the agent proxy). Nothing was written.",
+    "writes": "none"
+  },
+  "a_slice_not_the_table": "These are SLICES, each verbatim and sha-checked, not whole tables: the rows the suite asserts on. The bank moved under this lane while it ran (d091775's five mid-Columbia projects landed 11:22Z and a new Columbia crosswalk 11:27Z), which is why the suite runs on a cut and not on live Neon. Row counts live on Neon at the cut: geo_layer_objects 30, geo_records 70, geo_unit_receipts 44, geo_display_objects 15, geo_display_registry 1.",
+  "ddl": {
+    "ddl_geo_tables.sql": "the five geo tables, VERBATIM from energylake-pantry @ f2a75d16dcc0761f358b4ee8a33790e3d02256ac: migrations/302 lines 92-199 (sha256 a149a16b0c60be69c9b2b9fe72283baeb2027ca01116d9fd2a3096d014a842ab) and migrations/322 lines 114-148 (sha256 dbc0287b859def80c74aa7b0cf40cb478807d1cda8140fbbc20bc963fa149415). migrations/308 adds no DDL. Each migration's BEGIN/COMMIT, DO $$ checks, schema_migrations row and unrelated tables are left out, as tests/fixtures/tropics_d091673/ddl_291_tables.sql does.",
+    "ddl_series_tables.sql": "timeseries_values, datasets and sources from NEON'S OWN LIVE DEFINITION (information_schema + pg_constraint, read 2026-10-17): all three predate the pantry's numbered migrations, so there is no file to copy. Verified column for column against Neon."
+  },
+  "fk_bootstrap": "the loader inserts one sources row ('usace') and one datasets row ('cwms_outflow_hourly') so timeseries_values' foreign key holds. No route reads either table; these are NOT presented as banked rows.",
+  "pantry_d091752": {
+    "from": "energylake-dashboard @ 3b2ba7f443e9253aa9c549c0fd881abb2f55d327, src/components/hydro/fixtures/pantry_d091752/ \u2014 the shas d091763 \u00a74 states",
+    "gate_receipt.json": "d74ce5a3f2bee484d06483a7872179a17c31fad2ddf5242150c106b34fb37cc1",
+    "gate_stdout.txt": "b2d828f2878d3c113ad1977e5c31d812d0004ba7f617a735e861870e96a511ef",
+    "what": "the pantry's own dry-run gate: 38 receipts and the three reaches' computed lines, with its stdout. The F1/R4 vector for the ported gate_line/line_of."
+  },
+  "not_banked": {
+    "nwm_reach_analysis_hourly / nwm_reach_forecast_hourly": "no route reads either while the gate is not drawable, and the gate reads not drawable on 0 banked nwm_reach:* receipts",
+    "the sacramento gauges and the other Willamette walks": "outside the asserted slice; /index over the live bank is reported in the handback with its own read, not asserted here"
+  },
+  "files": {
+    "walks": {
+      "path": "bank/walks.jsonl.gz",
+      "table": "geo_layer_objects",
+      "rows": 12,
+      "chars": 14825,
+      "sha256": "8685f99aad024b17f41810694b4f091f7cb50a52ff37cd5365be776970c9bfbe",
+      "slice": "every geo_layer_objects row (source and derived) of the four reach walks the tests assert on and their three nwm_crosswalk layers: columbia_gcl_bon, snake_lwg_columbia, sacramento_shasta_delta, willamette_hcr_columbia. Includes object 32, the Columbia crosswalk banked 11:27Z with no publish row."
+    },
+    "display": {
+      "path": "bank/display.jsonl.gz",
+      "table": "geo_display_objects",
+      "rows": 7,
+      "chars": 2230,
+      "sha256": "015a3ad6ed2cb7e81ae0951c1a332471fe60b70f6b6f18e7e92aecaef5eca1ab",
+      "slice": "the geo_display_objects row of each banked object above that has one"
+    },
+    "registry": {
+      "path": "bank/registry.jsonl.gz",
+      "table": "geo_display_registry",
+      "rows": 1,
+      "chars": 209,
+      "sha256": "21a7a4adb8934d79500cc491aa21af0597e3f1b209cc240cb49b8c4afafdd9dd",
+      "slice": "every geo_display_registry row (one: the geo.rivers.v1 rivers registry)"
+    },
+    "receipts": {
+      "path": "bank/receipts.jsonl.gz",
+      "table": "geo_unit_receipts",
+      "rows": 44,
+      "chars": 31692,
+      "sha256": "94f49d9e417a357f8ddbd763f2f3396121c7d5b4464a0473c1693da4aa1faa4c",
+      "slice": "every geo_unit_receipts row at the cut (44; none is an nwm_reach:* receipt)"
+    },
+    "records": {
+      "path": "bank/records.jsonl.gz",
+      "table": "geo_records",
+      "rows": 9,
+      "chars": 17030,
+      "sha256": "b19890e71509535eb6c5f94c38b1b74496d0178e2e55285b10e0777d75d41445",
+      "slice": "the cwms_project rows of GCL, BON, MCN (each with its superseded copy), PRD and WAN (the mid-Columbia relay: both state their own receipt_scope, and WAN SERVES a forebay whose relay subject is banked inconclusive \u2014 the only 'served by the source, unsettled by its receipt' case in the bank) and HCR (the Willamette, whose walk has no crosswalk)"
+    },
+    "values": {
+      "path": "bank/values.jsonl.gz",
+      "table": "timeseries_values",
+      "rows": 6,
+      "chars": 1625,
+      "sha256": "e21c271a52c414f7e7b015ab664dac8cb56767019fcab394658499396b6fd7cf",
+      "slice": "cwms_outflow_hourly for GCL, PRD and MCN over 2026-10-17 00:00-03:00Z. MCN returns no row: it has none, which is what R3's grey assertion rests on."
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "absence": "no_crosswalk",
+  "banked": 0,
+  "crosswalk": {
+    "absence": "no_crosswalk",
+    "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+  },
+  "decided_by": [],
+  "drawable": false,
+  "forecast": null,
+  "line": null,
+  "no_da_line": null,
+  "reads_no_r2": true,
+  "river": "willamette",
+  "walk": "nhdplus_hr_willamette_hcr_columbia",
+  "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+}

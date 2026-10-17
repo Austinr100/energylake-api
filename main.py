@@ -22529,6 +22529,338 @@ async def mjo_status(response: Response):
     """
     return await _solar_serve(_mjo_status_cache, "status", _mjo_status_build, response)
 
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE RIVERS (lane d091770). Five routes over the geo bank: the index, the
+# stations, the observed flow, the NWM gate, and the crosswalked reaches.
+#
+# Each answers from ONE read-only transaction under SET LOCAL statement_timeout
+# (D-09-25-75), through a single-flight 300 s memo, never served stale. Every
+# timeseries_values read names one (dataset, series) and takes it through
+# LATERAL … ORDER BY ts … LIMIT n (D-08-02-L); no read uses DISTINCT ON.
+#
+# NO R2 IS READ. Neon's publish tables hold pointers only (`bytes` is a byte
+# count), so `length_km`, a station's placed km and the river STRUCTURE are
+# served as stated absences beside the published object's url and sha — the page
+# fetches and sha-checks those objects already. See hydro_rivers.py's docstring.
+# NWM VELOCITY IS NEVER READ (D-09-25-237).
+
+import hydro_rivers as _hr
+
+HYDRO_RIVERS_PREFIX = "/api/hydro/rivers"
+HYDRO_RIVERS_MEMO_TTL = 300.0
+HYDRO_RIVERS_STATEMENT_TIMEOUT = "5s"
+
+_hydro_rivers_index_cache = _DDCache("hydro/rivers/index", HYDRO_RIVERS_MEMO_TTL,
+                                     max_entries=2, build_timeout=SOLAR_BUILD_TIMEOUT)
+_hydro_rivers_stations_cache = _DDCache("hydro/rivers/stations", HYDRO_RIVERS_MEMO_TTL,
+                                        max_entries=16, build_timeout=SOLAR_BUILD_TIMEOUT)
+_hydro_rivers_flow_cache = _DDCache("hydro/rivers/flow", HYDRO_RIVERS_MEMO_TTL,
+                                    max_entries=32, build_timeout=SOLAR_BUILD_TIMEOUT)
+_hydro_rivers_gate_cache = _DDCache("hydro/rivers/gate", HYDRO_RIVERS_MEMO_TTL,
+                                    max_entries=16, build_timeout=SOLAR_BUILD_TIMEOUT)
+_hydro_rivers_reaches_cache = _DDCache("hydro/rivers/reaches", HYDRO_RIVERS_MEMO_TTL,
+                                       max_entries=32, build_timeout=SOLAR_BUILD_TIMEOUT)
+
+
+async def _hydro_ledger(cur) -> tuple[list, list]:
+    """The walks and the newest record per source_key. Two statements, both LATERAL."""
+    await cur.execute(_hr.WALKS_SQL)
+    walks = await cur.fetchall()
+    await cur.execute(_hr.RECORDS_SQL)
+    records = await cur.fetchall()
+    return walks, records
+
+
+def _hydro_river_or_400(requested: str, walks: list, records: list) -> str:
+    ledger = _hr.shape_ledger(walks, records)
+    code, _candidates, why = _hr.resolve_river(requested, ledger)
+    if code is None:
+        raise HTTPException(status_code=400, detail=why)
+    return code
+
+
+async def _hydro_arbiter_present(cur, places: list, dataset: str) -> set:
+    """Which (dataset, series) the bank actually holds a row for — the gate's own
+    test ('no banked release' / 'no banked discharge'). One LATERAL per series,
+    LIMIT 1: an existence test never scans a series."""
+    if not places:
+        return set()
+    pairs = [(dataset, rec["source_key"]) for rec in places]
+    sql = f"""
+    SELECT d.dataset, d.series
+    FROM (VALUES {_hr.values_sql(len(pairs))}) AS d(dataset, series)
+    CROSS JOIN LATERAL (
+        SELECT 1 AS present
+        FROM timeseries_values t
+        WHERE t.dataset = d.dataset AND t.series = d.series
+        ORDER BY t.ts DESC
+        LIMIT 1
+    ) AS v
+"""
+    await cur.execute(sql, [x for pair in pairs for x in pair])
+    return {(r["dataset"], r["series"]) for r in (await cur.fetchall() or [])}
+
+
+async def _hydro_gate_build_on(cur, river: str, code: str, walks: list,
+                               records: list) -> dict:
+    """The gate, inside a transaction already opened and timed out by the caller."""
+    ledger = _hr.shape_ledger(walks, records)
+    recs = ledger["records"].get(code, [])
+    dams = [r for r in recs if r["kind"] == "cwms_project"]
+    gauges = [r for r in recs if r["kind"] == "gauge"]
+    places, dataset = ((dams, "cwms_outflow_hourly") if dams
+                       else (gauges, "usgs_iv_discharge"))
+    present = await _hydro_arbiter_present(cur, places, dataset)
+    await cur.execute(_hr.RECEIPTS_SQL)
+    receipts = await cur.fetchall()
+    # The forecast's series are <feature_id>/<product>/<cycle> and the feature_ids are
+    # in the crosswalk object, so a drawable gate's cycle read has nothing to name here;
+    # build_gate states that as its forecast_absence. A not-drawable gate earns no read.
+    return _hr.build_gate(river, code, walks, records, receipts, present)
+
+
+def _hydro_window_or_400(raw_from, raw_to):
+    try:
+        return _hr.parse_window(raw_from, raw_to, now=_utcnow())
+    except ValueError as e:
+        _solar_400(e)
+
+
+async def _hydro_rivers_index_build() -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+                await cur.execute(_hr.REGISTRY_SQL,
+                                  {"schema": _hr.RIVERS_REGISTRY_SCHEMA})
+                registry = await cur.fetchone()
+    return _hr.build_index(walks, registry, records)
+
+
+async def _hydro_rivers_stations_build(requested: str) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+    code = _hydro_river_or_400(requested, walks, records)
+    return _hr.build_stations(requested, code, walks, records)
+
+
+async def _hydro_rivers_flow_build(requested: str, raw_from: Optional[str],
+                                   raw_to: Optional[str]) -> dict:
+    assert _pool is not None
+    start, end = _hydro_window_or_400(raw_from, raw_to)
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+                code = _hydro_river_or_400(requested, walks, records)
+                ledger = _hr.shape_ledger(walks, records)
+                recs = ledger["records"].get(code, [])
+                stations = [{"source_key": r["source_key"],
+                             "serves": _hr.station_series(r)[0]} for r in recs]
+                pairs = [(ds, key) for ds, key, _ in _hr.flow_pairs(stations)]
+                values: list = []
+                if pairs:
+                    limit = max(_hr.window_limit(ds, start, end) for ds, _ in pairs)
+                    params: list = [x for pair in pairs for x in pair]
+                    params += [start, end, limit]
+                    await cur.execute(_hr.series_window_sql(len(pairs)), params)
+                    values = await cur.fetchall()
+                await cur.execute(_hr.RECEIPTS_SQL)
+                receipts = await cur.fetchall()
+                gate = await _hydro_gate_build_on(cur, requested, code, walks, records)
+    return _hr.build_flow(requested, code, walks, records, receipts, values, gate,
+                          start=start, end=end)
+
+
+async def _hydro_rivers_gate_build(requested: str) -> dict:
+    assert _pool is not None
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+                code = _hydro_river_or_400(requested, walks, records)
+                return await _hydro_gate_build_on(cur, requested, code, walks, records)
+
+
+async def _hydro_rivers_reaches_build(requested: str, raw_from: Optional[str],
+                                      raw_to: Optional[str]) -> dict:
+    assert _pool is not None
+    start, end = _hydro_window_or_400(raw_from, raw_to)
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+                code = _hydro_river_or_400(requested, walks, records)
+                gate = await _hydro_gate_build_on(cur, requested, code, walks, records)
+                # A not-drawable gate earns NO analysis read at all (D-09-25-232 §3).
+                values: list = []
+    return _hr.build_reaches(requested, code, walks, records, gate, values,
+                             start=start, end=end)
+
+
+@app.get(f"{HYDRO_RIVERS_PREFIX}/index")
+async def hydro_rivers_index(response: Response):
+    """The rivers the geo bank serves, and the published objects the page fetches.
+
+        { count, rivers: [ { river, river_named_by, label, basin, structure,
+                             walks: [ { layer_code, object_id, r2_key, r2_sha256,
+                                        url, published, feature_count, source } ],
+                             length_km, length_km_absence,
+                             crosswalk | {absence:'no_crosswalk', why},
+                             nwm, registry, stations_in_ledger } ],
+          omitted: [ { river, walk, absence, why } ],
+          registry, registry_absence, rule, display_base, reads_no_r2,
+          not_served, ported_from, cache }
+
+    D-09-25-247 §3: a river is served when its reach object is banked AND published;
+    a crosswalk is optional, and without one the NWM terms read `no_crosswalk` with
+    the reason. A banked but unpublished walk is omitted with its reason.
+
+    `label`, `basin`, which walks compose one river, and `length_km` are inside the
+    published bodies; this route reads no R2, so each is a stated absence with the
+    registry/crosswalk pointer beside it (never re-derived: D-09-25-247 §3).
+    DB unavailable -> 503. Memoised 300 s, single-flight, never served stale.
+    """
+    return await _solar_serve(_hydro_rivers_index_cache, "index",
+                              _hydro_rivers_index_build, response)
+
+
+@app.get(f"{HYDRO_RIVERS_PREFIX}/stations")
+async def hydro_rivers_stations(
+    response: Response,
+    river: Optional[str] = Query(None, description="the river as /index names it, "
+                                                   "e.g. columbia | snake"),
+):
+    """The newest record per source_key on the river's walk, and how each is placed.
+
+        { river, walk, walk_object, crosswalk, count,
+          stations: [ { source_key, kind, name, lat, lon, position_basis,
+                        record_sha256, anchor: { reach, reach_object_sha256,
+                        km_from_reach_start, scale, scale_why } | null,
+                        serves, not_served, placement,
+                        placed, placed_absence | unplaced } ],
+          placement, newest_record_rule, reads_no_r2, not_served, cache }
+
+    The newest record is the ingesters' own rule — the newest row per (kind,
+    source_code, source_key), through one LATERAL per key, so the superseded CWMS
+    copies (57-66) are never served.
+
+    With a crosswalk the place is that object's `places[<source_key>]`, keyed by
+    `record_sha256`; this route reads no R2, so it serves the pointer, each record's
+    sha and the rule (placed iff the place exists, its sha equals the record's, and
+    dist_m <= 1000) and the page does the join. Without one, the record's own lat/lon
+    and anchor are served with the anchor's scale named ('nhd_lengthkm', an interval,
+    NOT the walk's measure) and `placement: 'client_snaps_to_walk'` (D-09-25-237 §2).
+    Unknown river -> 400; DB unavailable -> 503. Memoised 300 s per river.
+    """
+    return await _solar_serve(_hydro_rivers_stations_cache, river or "",
+                              lambda: _hydro_rivers_stations_build(river or ""),
+                              response)
+
+
+@app.get(f"{HYDRO_RIVERS_PREFIX}/flow")
+async def hydro_rivers_flow(
+    response: Response,
+    river: Optional[str] = Query(None, description="the river as /index names it"),
+    from_: Optional[str] = Query(None, alias="from", description="ISO instant or date, UTC"),
+    to: Optional[str] = Query(None, description="ISO instant or date, UTC"),
+):
+    """The observed flow each station serves over the window, and the NWM term.
+
+        { river, walk, from, to, window_days, max_window_days, count,
+          stations: [ { source_key, kind, name, record_sha256,
+                        series: [ { dataset, series, subject, served_tag, scope,
+                                    state: 'served', unit_tag, unit_settled,
+                                    receipt_ids, n, values: { ts: value } }
+                                | { ..., state: 'grey', why } ] } ],
+          nwm: { drawn: false, why_not_drawn, gate_line, no_da_line, velocity,
+                 absence, why }, gate, rule, reads_no_r2, cache }
+
+    A series is served ONLY when the subject's newest receipt set settles the tag the
+    rows were served in (D-09-25-232 §2, D-08-02-R); otherwise `{state:'grey', why}`.
+    The subject carries the scope — the project's version and its relay basin
+    (geo/cwms.scope_subject) — so LGS/LMN/IHR's `.Best` outflow rides its own receipt
+    and never the CBT-REV one, and a mid-Columbia relay rides the basin's.
+
+    Each read names one (dataset, series) and takes it through LATERAL … ORDER BY ts …
+    LIMIT the window's row count (D-08-02-L). A window over 14 days is REFUSED (400),
+    never clipped. NWM VELOCITY IS NEVER READ (D-09-25-237); the analysis term is
+    `drawn: false` unless the gate reads drawable (D-09-25-232 §3).
+    Unknown river or window -> 400; DB unavailable -> 503. Memoised 300 s.
+    """
+    return await _solar_serve(
+        _hydro_rivers_flow_cache, (river or "", from_ or "", to or ""),
+        lambda: _hydro_rivers_flow_build(river or "", from_, to), response)
+
+
+@app.get(f"{HYDRO_RIVERS_PREFIX}/gate")
+async def hydro_rivers_gate(
+    response: Response,
+    river: Optional[str] = Query(None, description="the river as /index names it"),
+):
+    """The NWM gate as a set of receipts, recomputed from the bank.
+
+        { river, walk, crosswalk, line, drawable, no_da_line, no_da_drawable,
+          decided_by: [...], no_da_decided_by: [...], banked, question, items,
+          order_by, order_absence, forecast, forecast_absence, rule,
+          hourly_pairs_absence, ported_from, reads_no_r2, cache }
+        or { absence: 'no_crosswalk', why, ... }
+
+    The gate is NOT a row to read: scripts/nwm_reach_gate.py banks receipts
+    (`nwm_reach:<crosswalk>:<place>`, with a `:no_da` twin), and the drawable line is
+    COMPUTED from them. This route recomputes it with `gate_line`/`line_of` ported
+    byte for byte from the pantry; drawable only when every item's newest receipt is
+    settled, else the first that is not decides (n >= 20, tolerance 0.20).
+
+    A line recomputed from the bank carries no 'hour pairs' clause: geo_unit_receipts
+    banks no `_detail` column (`hourly_pairs_absence`). `forecast` is served only when
+    the line reads drawable (D-09-25-232 §3). A river without a crosswalk reads
+    `no_crosswalk` (D-09-25-247 §3).
+    Unknown river -> 400; DB unavailable -> 503. Memoised 300 s per river.
+    """
+    return await _solar_serve(_hydro_rivers_gate_cache, river or "",
+                              lambda: _hydro_rivers_gate_build(river or ""), response)
+
+
+@app.get(f"{HYDRO_RIVERS_PREFIX}/reaches")
+async def hydro_rivers_reaches(
+    response: Response,
+    river: Optional[str] = Query(None, description="the river as /index names it"),
+    from_: Optional[str] = Query(None, alias="from", description="ISO instant or date, UTC"),
+    to: Optional[str] = Query(None, description="ISO instant or date, UTC"),
+):
+    """Every crosswalked reach's analysis streamflow per hour — when the gate allows.
+
+        { river, walk, from, to, dataset, parameter, velocity, gate, count,
+          reaches: [ { fid, series, n, values: { ts: value } } ] }
+        or { ..., absence: 'gate_not_drawable' | 'no_crosswalk' | 'in_crosswalk_object',
+             why, reaches: [] }
+
+    Served only when the gate reads drawable (D-09-25-232 §3): a not-drawable gate
+    earns no analysis read at all, and the answer is `{absence:'gate_not_drawable',
+    line}`. NEVER velocity (D-09-25-237). A window over 14 days is refused (400).
+    Unknown river or window -> 400; DB unavailable -> 503. Memoised 300 s.
+    """
+    return await _solar_serve(
+        _hydro_rivers_reaches_cache, (river or "", from_ or "", to or ""),
+        lambda: _hydro_rivers_reaches_build(river or "", from_, to), response)
+
 # ═══════════════════════════════════════════════════════════════════════════
 # /api/weather/season* — the season-to-date API (d091503, Season to date lane 1)
 #

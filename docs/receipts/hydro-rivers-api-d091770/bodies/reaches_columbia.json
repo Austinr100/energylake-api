@@ -1,0 +1,22 @@
+{
+  "absence": "gate_not_drawable",
+  "dataset": "nwm_reach_analysis_hourly",
+  "from": "2026-10-17T00:00:00+00:00",
+  "gate": {
+    "banked": 0,
+    "drawable": false,
+    "line": "nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+    "no_da_line": "_no_da nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
+  },
+  "parameter": "streamflow",
+  "reaches": [],
+  "reads_no_r2": true,
+  "river": "columbia",
+  "to": "2026-10-17T03:00:00+00:00",
+  "velocity": {
+    "absence": "never_served",
+    "why": "NWM velocity is never served (D-09-25-237)"
+  },
+  "walk": "nhdplus_hr_columbia_gcl_bon",
+  "why": "nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
+}

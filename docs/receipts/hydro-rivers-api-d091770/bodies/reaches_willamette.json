@@ -1,0 +1,22 @@
+{
+  "absence": "no_crosswalk",
+  "dataset": "nwm_reach_analysis_hourly",
+  "from": "2026-10-17T00:00:00+00:00",
+  "gate": {
+    "banked": 0,
+    "drawable": false,
+    "line": null,
+    "no_da_line": null
+  },
+  "parameter": "streamflow",
+  "reaches": [],
+  "reads_no_r2": true,
+  "river": "willamette",
+  "to": "2026-10-17T03:00:00+00:00",
+  "velocity": {
+    "absence": "never_served",
+    "why": "NWM velocity is never served (D-09-25-237)"
+  },
+  "walk": "nhdplus_hr_willamette_hcr_columbia",
+  "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+}
