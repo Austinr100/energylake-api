@@ -21916,6 +21916,143 @@ async def weather_tropics_outlook(
                               lambda: _tropics_outlook_build(b, st), response)
 
 
+# ── THE AR INDEX — d091766 (D-09-25-245; show_v1, migration 292) ─────────────
+#
+#   GET /api/weather/ar/index                  the AR bank's published objects per
+#                                              banked cycle, the registry, and the
+#                                              show_v1 census of the 50 cells
+#   GET /api/weather/ar/landfall?init=         per coast point x lead: model IVT
+#                                              always; a probability and its counts
+#                                              only where the point's cell shows
+#
+# AN INDEX AND A GATE, AND NO R2. /index says what pantry scripts/ar_publish.py
+# put to the display bucket (migration 324's ar_display_objects); /landfall
+# serves the newest cycle's odds rows (292's ar_landfall_latest) and withholds
+# every probability and count whose (region, lead bucket, threshold) cell the
+# newest ar_scores 'all' row does not show, each with its reason. The SQL, the
+# pinned edges and the shaping are ar_index.py's; this section is the routes and
+# their memos, on the Tropics index's plumbing: every read in one transaction
+# under SET LOCAL statement_timeout first (D-09-25-75), every answer from a
+# single-flight _DDCache, 300 s, never served stale. A point whose rows disagree
+# with themselves or their point_code is a 500 naming it. Plans:
+# docs/receipts/ar-index-d091766/.
+
+import ar_index as _ar
+
+AR_PREFIX = "/api/weather/ar"
+AR_MEMO_TTL = 300.0
+AR_STATEMENT_TIMEOUT = "5s"           # Neon 2026-10-17: every read < 10 ms
+
+_ar_index_cache = _DDCache("weather/ar/index", AR_MEMO_TTL, max_entries=1,
+                           build_timeout=SOLAR_BUILD_TIMEOUT)
+_ar_landfall_cache = _DDCache("weather/ar/landfall", AR_MEMO_TTL, max_entries=8,
+                              build_timeout=SOLAR_BUILD_TIMEOUT)
+
+
+async def _ar_index_build() -> dict:
+    assert _pool is not None
+    p = _ar.params()
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{AR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_ar.INDEX_SQL, p)
+                runs = await cur.fetchall()
+                await cur.execute(_ar.REGISTRY_SQL, p)
+                registry = await cur.fetchone()
+                await cur.execute(_ar.SCORES_SQL, p)
+                scores = await cur.fetchall()
+    try:
+        return _ar.build_index(runs=runs, registry=registry, score_rows=scores)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"ar index refused: {e}")
+
+
+async def _ar_landfall_build(init) -> dict:
+    assert _pool is not None
+    p = _ar.params()
+    rows: list = []
+    async with _pool.connection() as conn:
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(f"SET LOCAL statement_timeout = '{AR_STATEMENT_TIMEOUT}'")
+                await cur.execute(_ar.LANDFALL_INIT_SQL, p)
+                row = await cur.fetchone()
+                held = row["init_ts"] if row else None
+                if held is not None and (init is None or init == held):
+                    await cur.execute(_ar.LANDFALL_SQL, _ar.params(init_ts=held))
+                    rows = await cur.fetchall()
+                await cur.execute(_ar.SCORES_SQL, p)
+                scores = await cur.fetchall()
+    try:
+        return _ar.build_landfall(init=init, held=held, rows=rows, score_rows=scores)
+    except _ar.PointMismatch as e:
+        raise HTTPException(status_code=500,
+                            detail=f"ar landfall refused: point {e.point_code}'s region cannot be "
+                                   f"derived once: {e}")
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=f"ar landfall refused: {e}")
+
+
+@app.get(f"{AR_PREFIX}/index")
+async def weather_ar_index(response: Response):
+    """The AR bank's published objects, per banked cycle, and the show_v1 census.
+
+        { level_set, newest_init, inits_published,
+          inits: [ { init_ts, status, members_present, steps_with_odds, method_hash,
+                     coast_ivt: { url, sha256, bytes, published_at, absence },
+                     odds_published } ],                         // newest first
+          registry: { url, sha256, bytes, published_at, absence },
+          scoring: { rule: "show_v1", cells_scored, cells_shown, cells_total: 50,
+                     scored_at, scorer_hash,
+                     cells: [ { region, lead_bucket, threshold, scored, show,
+                                show_reasons, withheld } ], show_rule },
+          edges_sha256, edges, bias_note, attribution, absence, order,
+          index_rule, reasons, not_served, timestamps, cache }
+
+    An init is an ar_runs cycle; its coast_ivt is the ar_display_objects row at
+    the key 324's CHECK makes its own, or absent not_published. The odds
+    object's url is never served (a bank artifact). show and show_reasons are
+    ar_scores' as written; a cell with no row is not_yet_scored. No cycle -> 200
+    with absence no_init. DB unavailable or past the 5 s statement timeout ->
+    503. Memoised 300 s, single-flight, never served stale.
+    """
+    return await _solar_serve(_ar_index_cache, "index", _ar_index_build, response)
+
+
+@app.get(f"{AR_PREFIX}/landfall")
+async def weather_ar_landfall(
+    response: Response,
+    init: Optional[str] = Query(None, description="The cycle, YYYYMMDDHH or ISO 8601 UTC; "
+                                                  "default the newest held"),
+):
+    """Per coast point x lead, the newest cycle's IVT, and its odds where a cell shows.
+
+        { level_set, init_ts, init_requested, units,
+          rows: [ { point_code, lat, lon, region, valid_ts, lead_h, lead_bucket,
+                    n_present, ens_mean, ctrl, max_member, absent_members,
+                    [p250, n250,] [p500, n500,]
+                    withheld: { "250"?: { reason, rule? | show_reasons? },
+                                "500"?: { ... } } | null } ],
+          counts: { rows, points, served: { "250", "500" }, withheld_by_reason },
+          scoring, absence, order, edges_sha256, edges, landfall_rule, show_rule,
+          reasons, bias_note, attribution, timestamps, cache }
+
+    A threshold's p and n appear only where the row's (region, lead_bucket,
+    threshold) cell shows under show_v1; otherwise that threshold is a key of
+    `withheld` with its reason and the row carries neither. ens_mean, ctrl and
+    max_member are always served. A cycle ar_landfall_latest does not hold ->
+    200 with absence no_init. Bad init -> 400; a point whose region cannot be
+    derived once -> 500 naming it; DB unavailable or timed out -> 503. Memoised
+    300 s per init, single-flight, never served stale.
+    """
+    try:
+        t = _ar.parse_init(init)
+    except ValueError as e:
+        _solar_400(e)
+    return await _solar_serve(_ar_landfall_cache, t, lambda: _ar_landfall_build(t), response)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # THE PRESS — d091689: the Joule Report's editions (D-09-25-184, D-09-25-185)
 # ═══════════════════════════════════════════════════════════════════════════

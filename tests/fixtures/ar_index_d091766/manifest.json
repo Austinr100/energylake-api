@@ -1,0 +1,139 @@
+{
+ "bank": {
+  "display": {
+   "path": "bank/display.jsonl.gz",
+   "read_at": "2026-10-17T12:51:19.539Z",
+   "ro": "on",
+   "rows": 33,
+   "sha256": "b040f81f495578520c5f152568392d731861329916d1287fc22463f3c1eb457b",
+   "table": "ar_display_objects"
+  },
+  "landfall": {
+   "path": "bank/landfall.jsonl.gz",
+   "read_at": "2026-10-17T12:52:21.953Z",
+   "ro": "on",
+   "rows": 6603,
+   "sha256": "4a10bcb635331b8dc776c47d66fad15b564f402257a6d5ea86b678cbaefa6656",
+   "table": "ar_landfall_latest"
+  },
+  "runs": {
+   "path": "bank/runs.jsonl.gz",
+   "read_at": "2026-10-17T12:51:19.537Z",
+   "ro": "on",
+   "rows": 16,
+   "sha256": "2d2bffffe4b3ff67bec31064ac6ff801f693b833da7ad53cb418e6a28b826a7b",
+   "table": "ar_runs"
+  }
+ },
+ "ddl": {
+  "145_schema_migrations_ledger.sql": {
+   "sha256": "4fd273f8062a908bfde6422552a90a160e831a3074070790e3b3db5091c2deac",
+   "source": "energylake-pantry migrations/145_schema_migrations_ledger.sql at af0aeb902b637218f434110722cdf12170618ee5"
+  },
+  "292_ar_ivt_bank_shadow.sql": {
+   "sha256": "268d49d583a31608994149a566b8cbff568c236e6d1b6126024b63f4b3dbb78b",
+   "source": "energylake-pantry migrations/292_ar_ivt_bank_shadow.sql at af0aeb902b637218f434110722cdf12170618ee5"
+  },
+  "324_ar_display_objects_and_truth_witness.sql": {
+   "sha256": "0b344c0b12e352127043b45f5f29d23ac76d80dc984c025d764baac5c89bbfaa",
+   "source": "energylake-pantry migrations/324_ar_display_objects_and_truth_witness.sql at af0aeb902b637218f434110722cdf12170618ee5"
+  }
+ },
+ "lane": "d091766",
+ "neon": {
+  "constraints": {
+   "path": "neon_constraints.json",
+   "read_at": "2026-10-17T12:51:19.540Z",
+   "rows": 44
+  },
+  "counts": {
+   "ar_scores": 0,
+   "read_at": "2026-10-17T12:51:19.540Z",
+   "ro": "on"
+  },
+  "migrations": [
+   {
+    "applied_at": "2026-08-05T17:26:10.239Z",
+    "attestation": "self-recorded",
+    "filename": "145_schema_migrations_ledger.sql",
+    "status": "committed",
+    "version": 145
+   },
+   {
+    "applied_at": "2026-10-08T16:29:16.438Z",
+    "attestation": "architect-applied on the captain's word",
+    "filename": "289_cpc_bank_deeper.sql",
+    "status": "committed",
+    "version": 289
+   },
+   {
+    "applied_at": "2026-10-08T23:16:33.956Z",
+    "attestation": "captain-applied, architect-recorded",
+    "filename": "292_ar_ivt_bank_shadow.sql",
+    "status": "committed",
+    "version": 292
+   },
+   {
+    "applied_at": "2026-10-17T10:35:28.072Z",
+    "attestation": "6db58cda4d05d89b772e2fe6a0966587",
+    "filename": "324_ar_display_objects_and_truth_witness.sql",
+    "status": "committed",
+    "version": 324
+   }
+  ],
+  "project": "fancy-block-96153928 (Energylake, production branch)",
+  "server": "PostgreSQL 17.11",
+  "sizes": {
+   "ar_display_objects": {
+    "pg_total_relation_size": 32768,
+    "reltuples": -1
+   },
+   "ar_landfall_latest": {
+    "pg_total_relation_size": 2498560,
+    "reltuples": 6603
+   },
+   "ar_runs": {
+    "pg_total_relation_size": 65536,
+    "reltuples": -1
+   },
+   "ar_scores": {
+    "pg_total_relation_size": 32768,
+    "reltuples": -1
+   }
+  },
+  "stop_d": {
+   "ar_display_objects": {
+    "coast_ivt": 16,
+    "odds": 16,
+    "registry": 1
+   },
+   "first_init": "2026-10-09T12:00:00Z",
+   "last_init": "2026-10-17T00:00:00Z",
+   "last_published_at": "2026-10-17T12:19:10.917Z",
+   "read_at": "2026-10-17T12:49:25.166Z",
+   "ro": "on",
+   "schema_migrations_max": 328
+  }
+ },
+ "objects": {
+  "coast_ivt_2026101700": {
+   "bytes": 1199506,
+   "display_key": "ar/gefs/20261017/00Z/coast_ivt.sub7_v1.json",
+   "fetched_at": "2026-10-17T12:53Z",
+   "http": "200 application/json; charset=utf-8",
+   "path": "objects/coast_ivt.sub7_v1.2026101700.json.gz",
+   "sha256": "2e76eb7e3f7719f503b44f9a6a31d02055197e273e3ad156f72c4873ceb41f5b",
+   "url": "https://display.energylake.io/ar/gefs/20261017/00Z/coast_ivt.sub7_v1.json"
+  },
+  "registry": {
+   "bytes": 43072,
+   "display_key": "ar/registry/points_v1.6461743c.json",
+   "fetched_at": "2026-10-17T12:53Z",
+   "http": "200 application/json; charset=utf-8",
+   "path": "objects/points_v1.6461743c.json.gz",
+   "sha256": "6461743c86ea3b726303f239801a7df2a7daf9794be4780f42607df91948525a",
+   "url": "https://display.energylake.io/ar/registry/points_v1.6461743c.json"
+  }
+ },
+ "what": "the AR index's vectors: Neon's ar_runs / ar_display_objects / ar_landfall_latest rows verbatim (read-only), the newest coast_ivt object and the registry as display.energylake.io serves them (sha = the ledger's), and pantry migrations 145/292/324 verbatim at af0aeb9"
+}

@@ -1,0 +1,103 @@
+# d091766 — the AR index's reads on Neon, EXPLAIN (ANALYZE, BUFFERS)
+# Neon production (project fancy-block-96153928), PostgreSQL 17.11. Every statement in a
+# transaction opened SET TRANSACTION READ ONLY, transaction_read_only read back 'on'.
+# Table sizes at the read (2026-10-17T12:58:03.750Z): ar_runs 16 rows, ar_display_objects 33, ar_landfall_latest 6603, ar_scores 0.
+# Each statement is explains.json's, the route's SQL with its parameters bound.
+
+## INDEX_SQL   (read 2026-10-17T12:58:35.754Z)
+SELECT r.init_ts, r.level_set, r.status, r.members_present, r.steps_with_odds, r.method_hash, r.written_at, c.display_key AS coast_key, c.sha256 AS coast_sha256, c.bytes AS coast_bytes, c.published_at AS coast_published_at, o.display_key IS NOT NULL AS odds_published FROM ar_runs AS r LEFT JOIN LATERAL ( SELECT d.display_key, d.sha256, d.bytes, d.published_at FROM ar_display_objects AS d WHERE d.level_set = r.level_set AND d.kind = 'coast_ivt' AND d.display_key = 'ar/gefs/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'YYYYMMDD') || '/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'HH24') || 'Z/' || 'coast_ivt' || '.' || r.level_set || '.json' LIMIT 1) AS c ON true LEFT JOIN LATERAL ( SELECT d.display_key FROM ar_display_objects AS d WHERE d.level_set = r.level_set AND d.kind = 'odds' AND d.display_key = 'ar/gefs/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'YYYYMMDD') || '/' || to_char(r.init_ts AT TIME ZONE 'UTC', 'HH24') || 'Z/' || 'odds' || '.' || r.level_set || '.json' LIMIT 1) AS o ON true WHERE r.level_set = 'sub7_v1' ORDER BY r.init_ts DESC
+
+Sort  (cost=28.68..28.69 rows=1 width=197) (actual time=0.130..0.132 rows=16 loops=1)
+  Sort Key: r.init_ts DESC
+  Sort Method: quicksort  Memory: 28kB
+  Buffers: shared hit=62 read=4 written=2
+  ->  Nested Loop Left Join  (cost=0.35..28.67 rows=1 width=197) (actual time=0.053..0.122 rows=16 loops=1)
+        Buffers: shared hit=62 read=4 written=2
+        ->  Nested Loop Left Join  (cost=0.18..20.46 rows=1 width=196) (actual time=0.047..0.085 rows=16 loops=1)
+              Buffers: shared hit=30 read=4 written=2
+              ->  Seq Scan on ar_runs r  (cost=0.00..12.25 rows=1 width=116) (actual time=0.014..0.019 rows=16 loops=1)
+                    Filter: (level_set = 'sub7_v1'::text)
+                    Buffers: shared read=2
+              ->  Limit  (cost=0.18..8.20 rows=1 width=80) (actual time=0.004..0.004 rows=1 loops=16)
+                    Buffers: shared hit=30 read=2 written=2
+                    ->  Index Scan using ar_display_objects_pkey on ar_display_objects d  (cost=0.18..8.20 rows=1 width=80) (actual time=0.003..0.003 rows=1 loops=16)
+                          Index Cond: ((level_set = r.level_set) AND (kind = 'coast_ivt'::text) AND (display_key = (((((((('ar/gefs/'::text || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'YYYYMMDD'::text)) || '/'::text) || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'HH24'::text)) || 'Z/'::text) || 'coast_ivt'::text) || '.'::text) || r.level_set) || '.json'::text)))
+                          Buffers: shared hit=30 read=2 written=2
+        ->  Limit  (cost=0.18..8.20 rows=1 width=32) (actual time=0.002..0.002 rows=1 loops=16)
+              Buffers: shared hit=32
+              ->  Index Only Scan using ar_display_objects_pkey on ar_display_objects d_1  (cost=0.18..8.20 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=16)
+                    Index Cond: ((level_set = r.level_set) AND (kind = 'odds'::text) AND (display_key = (((((((('ar/gefs/'::text || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'YYYYMMDD'::text)) || '/'::text) || to_char((r.init_ts AT TIME ZONE 'UTC'::text), 'HH24'::text)) || 'Z/'::text) || 'odds'::text) || '.'::text) || r.level_set) || '.json'::text)))
+                    Heap Fetches: 16
+                    Buffers: shared hit=32
+Planning:
+  Buffers: shared hit=4 read=7 written=7
+Planning Time: 0.241 ms
+Execution Time: 0.164 ms
+
+## REGISTRY_SQL   (read 2026-10-17T12:58:03.750Z)
+SELECT d.display_key, d.sha256, d.bytes, d.published_at FROM ar_display_objects AS d WHERE d.level_set = 'sub7_v1' AND d.kind = 'registry' ORDER BY d.published_at DESC, d.display_key DESC LIMIT 1
+
+Limit  (cost=8.18..8.18 rows=1 width=80) (actual time=0.008..0.009 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Sort  (cost=8.18..8.18 rows=1 width=80) (actual time=0.008..0.008 rows=1 loops=1)
+        Sort Key: published_at DESC, display_key DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Index Scan using ar_display_objects_pkey on ar_display_objects d  (cost=0.15..8.17 rows=1 width=80) (actual time=0.003..0.005 rows=1 loops=1)
+              Index Cond: ((level_set = 'sub7_v1'::text) AND (kind = 'registry'::text))
+              Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=5
+Planning Time: 0.051 ms
+Execution Time: 0.019 ms
+
+## SCORES_SQL   (read 2026-10-17T12:58:03.750Z)
+SELECT s.scored_at, s.scorer_hash, s.show_rule, s.region, s.lead_bucket, s.threshold, s.show, s.show_reasons FROM (SELECT a.scored_at FROM ar_scores AS a WHERE a.level_set = 'sub7_v1' ORDER BY a.scored_at DESC LIMIT 1) AS n JOIN LATERAL ( SELECT b.scored_at, b.scorer_hash, b.show_rule, b.region, b.lead_bucket, b.threshold, b.show, b.show_reasons FROM ar_scores AS b WHERE b.scored_at = n.scored_at AND b.level_set = 'sub7_v1' AND b.k_bin = 'all') AS s ON true ORDER BY s.region, s.lead_bucket, s.threshold
+
+Sort  (cost=19.57..19.58 rows=1 width=171) (actual time=0.008..0.008 rows=0 loops=1)
+  Sort Key: b.region, b.lead_bucket, b.threshold
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=1
+  ->  Nested Loop  (cost=11.53..19.56 rows=1 width=171) (actual time=0.005..0.006 rows=0 loops=1)
+        Buffers: shared hit=1
+        ->  Limit  (cost=11.38..11.39 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+              Buffers: shared hit=1
+              ->  Sort  (cost=11.38..11.39 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                    Sort Key: a.scored_at DESC
+                    Sort Method: quicksort  Memory: 25kB
+                    Buffers: shared hit=1
+                    ->  Seq Scan on ar_scores a  (cost=0.00..11.38 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                          Filter: (level_set = 'sub7_v1'::text)
+                          Buffers: shared hit=1
+        ->  Index Scan using ar_scores_pkey on ar_scores b  (cost=0.14..8.16 rows=1 width=171) (never executed)
+              Index Cond: ((scored_at = a.scored_at) AND (level_set = 'sub7_v1'::text) AND (k_bin = 'all'::text))
+Planning Time: 0.076 ms
+Execution Time: 0.022 ms
+
+## LANDFALL_INIT_SQL   (read 2026-10-17T12:58:03.750Z)
+SELECT l.init_ts FROM ar_landfall_latest AS l WHERE l.level_set = 'sub7_v1' ORDER BY l.point_code, l.valid_ts LIMIT 1
+
+Limit  (cost=0.28..0.45 rows=1 width=28) (actual time=0.018..0.018 rows=1 loops=1)
+  Buffers: shared hit=1 read=2
+  ->  Index Scan using ar_landfall_latest_pkey on ar_landfall_latest l  (cost=0.28..1133.40 rows=6603 width=28) (actual time=0.018..0.018 rows=1 loops=1)
+        Index Cond: (level_set = 'sub7_v1'::text)
+        Buffers: shared hit=1 read=2
+Planning:
+  Buffers: shared hit=7 read=2
+Planning Time: 0.416 ms
+Execution Time: 0.026 ms
+
+## LANDFALL_SQL   (read 2026-10-17T12:58:03.750Z)
+SELECT l.init_ts, l.valid_ts, l.lead_h, l.point_code, l.lat, l.lon, l.n250, l.n500, l.n_present, l.ens_mean, l.ctrl, l.max_member, l.absent_members, l.tc_named_system, l.tc_rule_version FROM ar_landfall_latest AS l WHERE l.level_set = 'sub7_v1' AND l.init_ts = '2026-10-17T00:00:00+00:00' ORDER BY l.point_code, l.valid_ts
+
+Sort  (cost=619.97..636.48 rows=6603 width=136) (actual time=4.925..5.215 rows=6603 loops=1)
+  Sort Key: point_code, valid_ts
+  Sort Method: quicksort  Memory: 863kB
+  Buffers: shared hit=102
+  ->  Seq Scan on ar_landfall_latest l  (cost=0.00..201.05 rows=6603 width=136) (actual time=0.005..1.041 rows=6603 loops=1)
+        Filter: ((level_set = 'sub7_v1'::text) AND (init_ts = '2026-10-17 00:00:00+00'::timestamp with time zone))
+        Buffers: shared hit=102
+Planning:
+  Buffers: shared hit=31 read=5
+Planning Time: 0.430 ms
+Execution Time: 5.482 ms

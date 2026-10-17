@@ -1,0 +1,19 @@
+clean tree: GREEN (28 passed, 1 warning in 8.31s)
+ 1. R p        a probability is served for an unscored cell                             -> RED  [1 failed, 21 deselected, 1 warning in 2.95s]
+ 2. R n250     n250 is served for an unscored cell                                      -> RED  [1 failed, 27 deselected, 1 warning in 2.92s]
+ 3. R distinct the newest init is read DISTINCT ON (level_set)                          -> RED  [1 failed, 2 passed, 24 deselected, 1 warning in 2.85s]
+ 4. R band edge a band's top half-degree is derived into the band above                  -> RED  [1 failed, 26 deselected, 1 warning in 2.48s]
+ 5. gate       a scored, not-shown cell is served as shown (show is not None)           -> RED  [1 failed, 1 passed, 22 deselected, 1 warning in 3.37s]
+ 6. gate       an unscored cell counts as shown                                         -> RED  [1 failed, 27 deselected, 1 warning in 2.67s]
+ 7. no_cell    lead 0 is put in d1-2 (gt_h <= lead_h)                                   -> RED  [1 failed, 26 deselected, 1 warning in 2.79s]
+ 8. no_cell    no_cell loses the edges' rule                                            -> RED  [1 failed, 26 deselected, 1 warning in 2.71s]
+ 9. pin        the pin is not checked (a changed constant still serves)                 -> RED  [1 failed, 1 passed, 24 deselected, 1 warning in 2.17s]
+10. pin        the pinned sha is mistyped                                               -> RED  [1 failed, 24 deselected, 1 warning in 0.57s]
+11. A4b        a point whose rows disagree is silently picked, not refused              -> RED  [1 failed, 1 passed, 26 deselected, 1 warning in 3.07s]
+12. A5         the index build sets no statement timeout                                -> RED  [1 failed, 24 deselected, 1 warning in 2.36s]
+13. A5         /landfall builds on every call (the memo removed)                        -> RED  [1 failed, 1 passed, 24 deselected, 1 warning in 3.29s]
+14. A5         the coast_ivt LATERAL is pulled up (no LIMIT 1): a (level_set, kind) walk -> RED  [1 failed, 2 passed, 24 deselected, 1 warning in 3.19s]
+15. A1         the index serves the odds object's url                                   -> RED  [1 failed, 25 deselected, 1 warning in 2.87s]
+16. A2         the control is withheld with the counts                                  -> RED  [1 failed, 27 deselected, 1 warning in 2.85s]
+clean tree again: GREEN (28 passed, 1 warning in 8.16s)
+16 of 16 breaks red; tree restored byte for byte (sha256 c76a142c5a8c5811 -> c76a142c5a8c5811)

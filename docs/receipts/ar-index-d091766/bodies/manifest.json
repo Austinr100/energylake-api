@@ -1,0 +1,47 @@
+{
+ "bodies": {
+  "index.json": {
+   "bytes": 22548,
+   "path": "/api/weather/ar/index",
+   "scores_fixture": false,
+   "sha256": "9cd48001b97c12db8185b1bcf34506e44213f20ca0708fbbf08ed9932e2eae13"
+  },
+  "index_a3_fixture.json": {
+   "bytes": 22546,
+   "path": "/api/weather/ar/index",
+   "scores_fixture": true,
+   "sha256": "569a08d782dd376e0af6e4226646ae5d457ffaac1517103b57aea9b98e5a540d"
+  },
+  "landfall.json.gz": {
+   "bytes": 133389,
+   "path": "/api/weather/ar/landfall",
+   "scores_fixture": false,
+   "sha256": "5a6ce4298927a09a0e39f2b427c1333e00ad2cec5db4c596916e753402e7d7c3"
+  },
+  "landfall_a3_fixture.json.gz": {
+   "bytes": 134394,
+   "path": "/api/weather/ar/landfall",
+   "scores_fixture": true,
+   "sha256": "6737b3ffa5f7f86f8f3478b96317afcb4f99dc406bf30d428acc69a66c51ce7e"
+  }
+ },
+ "lane": "d091766",
+ "scores_fixture": {
+  "bss_lo90": 0.2,
+  "event_days_eff": 20,
+  "k_bin": "all",
+  "lead_bucket": "d1-2",
+  "level_set": "sub7_v1",
+  "n": 500,
+  "n_eff": 120,
+  "region": "or_wa",
+  "scored_at": "2026-10-17T12:00:00+00:00",
+  "scorer_hash": "fixture_d091766",
+  "show": true,
+  "show_reasons": [],
+  "show_rule": "show_v1",
+  "threshold": 250,
+  "truth_level_set": "sub7_v1"
+ },
+ "served_over": "tests/load_bank_d091766.py (Neon rows banked 2026-10-17 12:51-12:52Z)"
+}
