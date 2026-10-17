@@ -1,0 +1,120 @@
+{
+  "banked": 0,
+  "banked_all_rivers": 0,
+  "crosswalk": {
+    "crs_as_published": "EPSG:4269/WGS84 reach points as NWM publishes them (v3.0 retrospective latitude/longitude); positions recorded as km along the banked HR centreline",
+    "derived_from": 6,
+    "derived_from_keys": [
+      "geo/nhdplus_hr/columbia_gcl_bon/reach/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson"
+    ],
+    "feature_count": 317,
+    "fetched_at": "2026-10-15 20:22:53+00:00",
+    "layer_code": "nwm_crosswalk_columbia",
+    "newer_banked_not_published": {
+      "fetched_at": "2026-10-17 11:27:01+00:00",
+      "object_id": 32,
+      "r2_sha256": "caaf7c89d3e02c7b2bff227758bc72f3aa3a891f732302a05354ef9ba1c2dc9f",
+      "why": "a newer derived object of this layer is banked but has no geo_display_objects row; the published one above is served until it is published"
+    },
+    "object_id": 9,
+    "published": {
+      "bytes": 50443,
+      "content_type": "application/json; charset=utf-8",
+      "display_key": "geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+      "published_at": "2026-10-17 11:05:11+00:00",
+      "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+      "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+    },
+    "r2_key": "geo/nwm/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+    "r2_sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+    "role": "derived",
+    "served": "the newest derived object with a publish row",
+    "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+    "sha_equal": true,
+    "simplification": "none",
+    "source": {
+      "code": "noaa_nwm",
+      "sha256": "43bf3860bc283e2b78cc6a7b7d5f0731f0bf7de3109b3ba7db8adc52684d9b76",
+      "terms_ref": "docs/handback_2026_10_14_rivers_in_motion_recon.md Q1 (NOAA NODD terms quoted from the AWS Open Data registry: open; attribution requested; no implied endorsement)",
+      "vintage": "NWM v3.1"
+    },
+    "tolerance_m": null,
+    "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+    "vertex_count": 0
+  },
+  "decided_by": [
+    "Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+    "Q4 WAN: no banked release (cwms_outflow_hourly holds no series for it)",
+    "Q4 PRD: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+    "Q4 MCN: no banked release (cwms_outflow_hourly holds no series for it)",
+    "Q4 BON: no banked release (cwms_outflow_hourly holds no series for it)"
+  ],
+  "drawable": false,
+  "forecast": null,
+  "forecast_absence": {
+    "absence": "gate_not_drawable",
+    "why": "nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
+  },
+  "hourly_pairs_absence": {
+    "absence": "not_banked",
+    "why": "geo_unit_receipts banks no _detail column, so a gate line recomputed from banked receipts carries no 'hour pairs' clause; the pantry's stdout has it because it is computed in-process. Its own `receipt ...` lines are this same shape."
+  },
+  "items": [
+    {
+      "has_receipt": false,
+      "name": "GCL",
+      "q": "Q4",
+      "why": "no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
+    },
+    {
+      "has_receipt": false,
+      "name": "WAN",
+      "q": "Q4",
+      "why": "no banked release (cwms_outflow_hourly holds no series for it)"
+    },
+    {
+      "has_receipt": false,
+      "name": "PRD",
+      "q": "Q4",
+      "why": "no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
+    },
+    {
+      "has_receipt": false,
+      "name": "MCN",
+      "q": "Q4",
+      "why": "no banked release (cwms_outflow_hourly holds no series for it)"
+    },
+    {
+      "has_receipt": false,
+      "name": "BON",
+      "q": "Q4",
+      "why": "no banked release (cwms_outflow_hourly holds no series for it)"
+    }
+  ],
+  "line": "nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+  "no_da_decided_by": [
+    "Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+    "Q4 WAN: no banked release (cwms_outflow_hourly holds no series for it)",
+    "Q4 PRD: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+    "Q4 MCN: no banked release (cwms_outflow_hourly holds no series for it)",
+    "Q4 BON: no banked release (cwms_outflow_hourly holds no series for it)"
+  ],
+  "no_da_drawable": false,
+  "no_da_line": "_no_da nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
+  "order_absence": null,
+  "order_by": "the ledger's own anchor km (attrs._bank.anchor.km_from_reach_start[0])",
+  "ported_from": {
+    "commit": "f2a75d16dcc0761f358b4ee8a33790e3d02256ac",
+    "functions": [
+      "gate_line",
+      "line_of"
+    ],
+    "min_days": 20,
+    "tolerance": 0.2
+  },
+  "question": "Q4",
+  "reads_no_r2": true,
+  "river": "columbia",
+  "rule": "drawable only when every item's newest receipt is settled; else the first that is not decides (scripts/nwm_reach_gate.gate_line, ported byte for byte from pantry f2a75d1); n >= 20, tolerance 0.2",
+  "walk": "nhdplus_hr_columbia_gcl_bon"
+}

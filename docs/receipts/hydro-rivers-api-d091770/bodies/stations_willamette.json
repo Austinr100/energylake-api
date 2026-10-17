@@ -1,0 +1,99 @@
+{
+  "count": 1,
+  "crosswalk": {
+    "absence": "no_crosswalk",
+    "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+  },
+  "newest_record_rule": "the ingesters' own: the newest row per (kind, source_code, source_key) by fetched_at, then record_id, read through one LATERAL per key (geo_records holds two copies of every CWMS project; 57-66 are superseded by 67-76 and never served)",
+  "not_served": {},
+  "placement": "client_snaps_to_walk",
+  "reads_no_r2": true,
+  "river": "willamette",
+  "stations": [
+    {
+      "anchor": {
+        "distance_m": 171.5,
+        "hydroseq": 55000900004010,
+        "km_from_reach_start": [
+          0.0,
+          0.24
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000900090764,
+        "reach": "nhdplus_hr_willamette_hcr_columbia",
+        "reach_object_sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 0
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-16 09:45:37+00:00",
+      "kind": "cwms_project",
+      "lat": 43.7098056,
+      "lon": -122.4218056,
+      "name": "Hills Creek Dam",
+      "not_served": {
+        "cwms_forebay_hourly": "HCR.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_outflow_hourly": "HCR.Flow-Out.Ave.1Hour.1Hour.CBT-REV",
+        "cwms_spill_hourly": "HCR.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "placed": null,
+      "placement": "client_snaps_to_walk",
+      "position_basis": "published lon/lat (CWMS location catalog, office NWDP, horizontal datum NAD83)",
+      "record_id": 85,
+      "record_sha256": "d2e452a222fe600e15e176bc67b722e121603ad398231420868586268ad765e5",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_forebay_irregular": "HCR.Elev-Forebay.Inst.0.0.MIXED-REV",
+        "cwms_outflow_irregular": "HCR.Flow-Out.Inst.0.0.MIXED-COMPUTED-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "HCR",
+      "unplaced": {
+        "absence": "no_crosswalk",
+        "scale": "nhd_lengthkm",
+        "snap": "the page snaps by geometry against the banked walk; the anchor's km is NHD's scale, not the walk's (D-09-25-237 \u00a72)",
+        "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+      }
+    }
+  ],
+  "walk": "nhdplus_hr_willamette_hcr_columbia",
+  "walk_absence": null,
+  "walk_object": {
+    "crs_as_published": "EPSG:3857 (wkid 102100)",
+    "derived_from": 12,
+    "derived_from_keys": [
+      "geo/nhdplus_hr/willamette_hcr_columbia/pages/37d32e46b5893d9b35acf68e3e7ff5d0a5cc5340b6611eb1ca5cc20fc8f50f26.json"
+    ],
+    "feature_count": 514,
+    "fetched_at": "2026-10-16 09:45:37+00:00",
+    "layer_code": "nhdplus_hr_willamette_hcr_columbia",
+    "newer_banked_not_published": null,
+    "object_id": 13,
+    "published": {
+      "bytes": 408958,
+      "content_type": "application/json; charset=utf-8",
+      "display_key": "geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+      "published_at": "2026-10-17 11:05:11+00:00",
+      "sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+      "url": "https://display.energylake.io/geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson"
+    },
+    "r2_key": "geo/nhdplus_hr/willamette_hcr_columbia/reach/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+    "r2_sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+    "role": "derived",
+    "served": "the newest derived object with a publish row",
+    "sha256": "217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c",
+    "sha_equal": true,
+    "simplification": "none",
+    "source": {
+      "code": "usgs_nhdplus_hr",
+      "sha256": "5a145f61483468ebf2ba2dd2da9dc57a08e39a8eca8e7cca748712cf30d0531d",
+      "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+      "vintage": "Data refreshed October, 2022."
+    },
+    "tolerance_m": null,
+    "url": "https://display.energylake.io/geo/nhdplus_hr_willamette_hcr_columbia/217de1179472af72ee556a96f0baed44f57405de9b19c96ca7deeb6572ade17c.geojson",
+    "vertex_count": 5203
+  }
+}

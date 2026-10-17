@@ -1,0 +1,108 @@
+EXPLAIN (ANALYZE, BUFFERS) — NEON's own planner over the LIVE tables
+lane d091770 · project fancy-block-96153928 · neondb · read-only · 2026-10-17 ~11:50Z
+
+Why Neon and not the test cluster: the local cluster's timeseries_values holds 6 banked
+rows, and on a 6-row table a Seq Scan is genuinely the cheapest plan whatever the indexes
+exist — so a plan taken there would prove nothing about D-08-02-L. The suite's X1 cell
+forces enable_seqscan = off and asserts the plan's SHAPE; THESE are the receipts.
+
+Every read below names one (dataset, series) per LATERAL with the LIMIT pushed into it.
+No read touches timeseries_values with a Seq Scan. Buffers are stated on every node.
+
+════════════════════════════════════════════════════════════════════════════════════
+1. /flow and /reaches — the window read (hydro_rivers.series_window_sql)
+   4 pairs, 7 days, LIMIT 170 per pair
+════════════════════════════════════════════════════════════════════════════════════
+Nested Loop  (cost=0.69..50.76 rows=8 width=109) (actual time=2.441..20.421 rows=661 loops=1)
+  Buffers: shared hit=47 read=106 dirtied=87   (File Cache hits=11 misses=95)
+  ->  Values Scan on "*VALUES*"  (rows=4 loops=1)
+  ->  Limit  (actual time=1.285..5.077 rows=165 loops=4)
+        Buffers: shared hit=47 read=106 dirtied=87
+        ->  Index Scan using idx_tsv_series_ts on timeseries_values t
+              (cost=0.69..12.66 rows=2 width=45) (actual time=1.284..5.060 rows=165 loops=4)
+              Scan Direction: Backward
+              Index Cond: ((t.dataset = "*VALUES*".column1)
+                       AND (t.series = "*VALUES*".column2)
+                       AND (t.ts >= '2026-10-10 00:00:00+00')
+                       AND (t.ts < '2026-10-17 00:00:00+00'))
+              Rows Removed by Index Recheck: 0
+              Buffers: shared hit=47 read=106 dirtied=87
+Planning Time: 0.255 ms
+Execution Time: 20.485 ms
+
+  INDEX: idx_tsv_series_ts (dataset, series, ts DESC).  SEQ SCAN: none.
+  The ts window and both key columns are ALL in the Index Cond — nothing is filtered
+  after the fact, and the LIMIT is inside each loop (4 loops, one per pair).
+
+════════════════════════════════════════════════════════════════════════════════════
+2. /gate and /flow — the arbiter-existence read (main._hydro_arbiter_present)
+   5 CWMS locations, LIMIT 1 per series
+════════════════════════════════════════════════════════════════════════════════════
+Nested Loop  (cost=0.69..4.21 rows=5 width=64) (actual time=0.061..1.847 rows=4 loops=1)
+  Buffers: shared hit=30 read=5 dirtied=1
+  ->  Values Scan on "*VALUES*"  (actual rows=5 loops=1)
+  ->  Limit  (cost=0.69..0.81 rows=1 width=12) (actual time=0.367..0.367 rows=1 loops=5)
+        Buffers: shared hit=30 read=5 dirtied=1
+        ->  Index Only Scan using idx_tsv_series_ts on timeseries_values t
+              (actual time=0.367..0.367 rows=1 loops=5)
+              Index Cond: ((dataset = "*VALUES*".column1) AND (series = "*VALUES*".column2))
+              Heap Fetches: 4
+              Buffers: shared hit=30 read=5 dirtied=1
+Planning Time: 0.411 ms
+Execution Time: 1.871 ms
+
+  INDEX ONLY SCAN — the existence test never reaches the heap for the key itself.
+  FIVE pairs in, FOUR rows out: GCL, CHJ, PRD and BON answer; **MCN does not**.
+  That missing row IS the gate's "no banked release (cwms_outflow_hourly holds no
+  series for it)" and R3's grey on MCN's outflow, measured rather than assumed.
+
+════════════════════════════════════════════════════════════════════════════════════
+3. /stations, /flow, /gate — the newest record per source_key (hydro_rivers.RECORDS_SQL)
+════════════════════════════════════════════════════════════════════════════════════
+Nested Loop  (cost=21.73..605.94 rows=72 width=953) (actual time=0.943..1.083 rows=60 loops=1)
+  Buffers: shared hit=129 read=13
+  ->  HashAggregate  (actual time=0.069..0.078 rows=60 loops=1)        -- the key list
+        Group Key: kind, source_code, source_key
+        ->  Seq Scan on geo_records  (actual time=0.011..0.050 rows=70 loops=1)
+              Buffers: shared read=12
+  ->  Limit  (actual time=0.016..0.016 rows=1 loops=60)                -- ONE row per key
+        ->  Incremental Sort (Presorted Key: g.fetched_at)
+              ->  Index Scan using ix_gr_kind_key on geo_records g
+                    Index Cond: ((kind = …) AND (source_code = …) AND (source_key = …))
+                    Buffers: shared hit=129 read=1
+Planning Time: 0.302 ms
+Execution Time: 1.118 ms
+
+  60 keys, 60 rows kept out of 70. The Seq Scan is the KEY LIST over a 70-row table
+  (12 buffers); the row per key is an Index Scan with LIMIT 1 inside the loop. This is
+  the d091551 shape, NOT `DISTINCT ON`, which would read every row of each group.
+
+════════════════════════════════════════════════════════════════════════════════════
+4. /index — the newest PUBLISHED derived object per layer_code (hydro_rivers.WALKS_SQL)
+════════════════════════════════════════════════════════════════════════════════════
+Nested Loop Left Join  (cost=36.56..36.65 rows=1 width=176) (actual time=1.493..1.581 rows=15 loops=1)
+  Buffers: shared hit=91 read=7 dirtied=6
+  ->  Nested Loop  (actual rows=15 loops=1)                            -- newest banked
+        ->  Unique -> Seq Scan on geo_layer_objects (rows=16, Removed by Filter: 14)
+        ->  Limit (rows=1 loops=15)
+              ->  Index Scan using ix_glo_layer on geo_layer_objects g
+                    Index Cond: ((layer_code = …) AND (role = 'derived'))
+  ->  Limit  (actual time=0.062..0.063 rows=1 loops=15)                -- newest PUBLISHED
+        ->  Nested Loop
+              ->  Index Scan using ix_glo_layer on geo_layer_objects g_1
+              ->  Index Scan using geo_display_objects_pkey on geo_display_objects d
+                    Index Cond: (object_id = g_1.object_id)
+Planning Time: 1.489 ms
+Execution Time: 1.626 ms
+
+  15 derived layer_codes live at the read. Both LATERALs keep ONE row each, by index.
+  The Seq Scan is again the key list, over 30 rows.
+
+════════════════════════════════════════════════════════════════════════════════════
+WHAT IS NOT READ
+════════════════════════════════════════════════════════════════════════════════════
+nwm_reach_analysis_hourly and nwm_reach_forecast_hourly carry NO plan here because no
+route reads them: the gate reads not drawable on 0 banked nwm_reach:* receipts, and
+D-09-25-232 §3 says a not-drawable gate earns no analysis read at all. /reaches answers
+{absence:'gate_not_drawable', line} without touching the table.
+NWM velocity is read nowhere, by any route, ever (D-09-25-237).

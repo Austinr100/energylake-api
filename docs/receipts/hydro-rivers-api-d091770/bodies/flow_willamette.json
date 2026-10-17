@@ -1,0 +1,140 @@
+{
+  "count": 1,
+  "from": "2026-10-17T00:00:00+00:00",
+  "gate": {
+    "absence": "no_crosswalk",
+    "banked": 0,
+    "crosswalk": {
+      "absence": "no_crosswalk",
+      "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+    },
+    "decided_by": [],
+    "drawable": false,
+    "forecast": null,
+    "line": null,
+    "no_da_line": null,
+    "reads_no_r2": true,
+    "river": "willamette",
+    "walk": "nhdplus_hr_willamette_hcr_columbia",
+    "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk"
+  },
+  "max_window_days": 14,
+  "nwm": {
+    "absence": "no_crosswalk",
+    "drawn": false,
+    "gate_line": null,
+    "no_da_line": null,
+    "velocity": {
+      "absence": "never_served",
+      "why": "NWM velocity is never served (D-09-25-237)"
+    },
+    "why": "no nwm_crosswalk object in geo_layer_objects is derived from this walk",
+    "why_not_drawn": "the gate does not read drawable (D-09-25-232 \u00a73)"
+  },
+  "reads_no_r2": true,
+  "river": "willamette",
+  "rule": "a series is served only when the subject's newest receipt set settles the tag the rows were served in (D-09-25-232 \u00a72); the subject carries the version and the relay basin (geo/cwms.scope_subject)",
+  "stations": [
+    {
+      "kind": "cwms_project",
+      "name": "Hills Creek Dam",
+      "record_sha256": "d2e452a222fe600e15e176bc67b722e121603ad398231420868586268ad765e5",
+      "series": [
+        {
+          "dataset": "cwms_forebay_hourly",
+          "scope": {
+            "basin": "willamette",
+            "relay_basin": null,
+            "version": "CBT-REV",
+            "version_ported": "CBT-REV"
+          },
+          "series": "HCR",
+          "served_tag": "HCR.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+          "state": "grey",
+          "subject": "cwms_forebay_hourly",
+          "subject_disagreement": null,
+          "subject_from": "geo/cwms.scope_subject (ported); the record states no receipt_scope",
+          "why": "not served: HCR.Elev-Forebay.Inst.1Hour.0.CBT-REV"
+        },
+        {
+          "dataset": "cwms_forebay_irregular",
+          "receipt_ids": [
+            134,
+            135,
+            136
+          ],
+          "scope": {
+            "basin": "willamette",
+            "relay_basin": null,
+            "version": "MIXED-REV",
+            "version_ported": "MIXED-REV"
+          },
+          "series": "HCR",
+          "served_tag": "HCR.Elev-Forebay.Inst.0.0.MIXED-REV",
+          "state": "grey",
+          "subject": "cwms_forebay_irregular",
+          "subject_disagreement": null,
+          "subject_from": "geo/cwms.scope_subject (ported); the record states no receipt_scope",
+          "why": "no banked rows in the window 2026-10-17T00:00:00+00:00 -> 2026-10-17T03:00:00+00:00"
+        },
+        {
+          "dataset": "cwms_outflow_hourly",
+          "scope": {
+            "basin": "willamette",
+            "relay_basin": null,
+            "version": "CBT-REV",
+            "version_ported": "CBT-REV"
+          },
+          "series": "HCR",
+          "served_tag": "HCR.Flow-Out.Ave.1Hour.1Hour.CBT-REV",
+          "state": "grey",
+          "subject": "cwms_outflow_hourly",
+          "subject_disagreement": null,
+          "subject_from": "geo/cwms.scope_subject (ported); the record states no receipt_scope",
+          "why": "not served: HCR.Flow-Out.Ave.1Hour.1Hour.CBT-REV"
+        },
+        {
+          "dataset": "cwms_outflow_irregular",
+          "receipt_ids": [
+            131,
+            132,
+            133
+          ],
+          "scope": {
+            "basin": "willamette",
+            "relay_basin": null,
+            "version": "MIXED-COMPUTED-REV",
+            "version_ported": "MIXED-COMPUTED-REV"
+          },
+          "series": "HCR",
+          "served_tag": "HCR.Flow-Out.Inst.0.0.MIXED-COMPUTED-REV",
+          "state": "grey",
+          "subject": "cwms_outflow_irregular",
+          "subject_disagreement": null,
+          "subject_from": "geo/cwms.scope_subject (ported); the record states no receipt_scope",
+          "why": "no banked rows in the window 2026-10-17T00:00:00+00:00 -> 2026-10-17T03:00:00+00:00"
+        },
+        {
+          "dataset": "cwms_spill_hourly",
+          "scope": {
+            "basin": "willamette",
+            "relay_basin": null,
+            "version": "CBT-REV",
+            "version_ported": "CBT-REV"
+          },
+          "series": "HCR",
+          "served_tag": "HCR.Flow-Spill.Ave.1Hour.1Hour.CBT-REV",
+          "state": "grey",
+          "subject": "cwms_spill_hourly",
+          "subject_disagreement": null,
+          "subject_from": "geo/cwms.scope_subject (ported); the record states no receipt_scope",
+          "why": "not served: HCR.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+        }
+      ],
+      "source_key": "HCR"
+    }
+  ],
+  "to": "2026-10-17T03:00:00+00:00",
+  "walk": "nhdplus_hr_willamette_hcr_columbia",
+  "window_days": 0.125
+}

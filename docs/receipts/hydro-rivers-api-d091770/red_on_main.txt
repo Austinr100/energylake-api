@@ -1,0 +1,15 @@
+ImportError while importing test module '/tmp/claude-0/-home-user-energylake-api/bbbf6576-fe37-5cff-8cee-bab91cda648c/scratchpad/red_main/tests/test_hydro_rivers_d091770.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_hydro_rivers_d091770.py:51: in <module>
+    import hydro_rivers as hr                   # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named 'hydro_rivers'
+=========================== short test summary info ============================
+ERROR tests/test_hydro_rivers_d091770.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.17s
+--- main HEAD: b399c67d88fdb1527035a52294253bf2cb9dc5e6 ---

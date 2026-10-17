@@ -1,0 +1,350 @@
+{
+  "count": 5,
+  "crosswalk": {
+    "crs_as_published": "EPSG:4269/WGS84 reach points as NWM publishes them (v3.0 retrospective latitude/longitude); positions recorded as km along the banked HR centreline",
+    "derived_from": 6,
+    "derived_from_keys": [
+      "geo/nhdplus_hr/columbia_gcl_bon/reach/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson"
+    ],
+    "feature_count": 317,
+    "fetched_at": "2026-10-15 20:22:53+00:00",
+    "layer_code": "nwm_crosswalk_columbia",
+    "newer_banked_not_published": {
+      "fetched_at": "2026-10-17 11:27:01+00:00",
+      "object_id": 32,
+      "r2_sha256": "caaf7c89d3e02c7b2bff227758bc72f3aa3a891f732302a05354ef9ba1c2dc9f",
+      "why": "a newer derived object of this layer is banked but has no geo_display_objects row; the published one above is served until it is published"
+    },
+    "object_id": 9,
+    "published": {
+      "bytes": 50443,
+      "content_type": "application/json; charset=utf-8",
+      "display_key": "geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+      "published_at": "2026-10-17 11:05:11+00:00",
+      "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+      "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+    },
+    "r2_key": "geo/nwm/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+    "r2_sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+    "role": "derived",
+    "served": "the newest derived object with a publish row",
+    "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+    "sha_equal": true,
+    "simplification": "none",
+    "source": {
+      "code": "noaa_nwm",
+      "sha256": "43bf3860bc283e2b78cc6a7b7d5f0731f0bf7de3109b3ba7db8adc52684d9b76",
+      "terms_ref": "docs/handback_2026_10_14_rivers_in_motion_recon.md Q1 (NOAA NODD terms quoted from the AWS Open Data registry: open; attribution requested; no implied endorsement)",
+      "vintage": "NWM v3.1"
+    },
+    "tolerance_m": null,
+    "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json",
+    "vertex_count": 0
+  },
+  "newest_record_rule": "the ingesters' own: the newest row per (kind, source_code, source_key) by fetched_at, then record_id, read through one LATERAL per key (geo_records holds two copies of every CWMS project; 57-66 are superseded by 67-76 and never served)",
+  "not_served": {
+    "placed": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+  },
+  "placement": "join_crosswalk_places",
+  "reads_no_r2": true,
+  "river": "columbia",
+  "stations": [
+    {
+      "anchor": {
+        "distance_m": 212.0,
+        "hydroseq": 55000400000894,
+        "km_from_reach_start": [
+          727.887,
+          728.371
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000400069432,
+        "reach": "nhdplus_hr_columbia_gcl_bon",
+        "reach_object_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 894
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-14 23:18:29+00:00",
+      "kind": "cwms_project",
+      "lat": 45.6458333,
+      "lon": -121.9388889,
+      "name": "Bonneville Lock and Dam",
+      "not_served": {},
+      "placed": null,
+      "placed_absence": {
+        "absence": "in_crosswalk_object",
+        "join": {
+          "key": "record_sha256",
+          "object": "nwm_crosswalk_columbia",
+          "path": "places['BON']",
+          "placed_iff": "the place exists AND its record_sha256 equals this record's AND dist_m <= 1000",
+          "record_sha256": "2ace3788e2a770d59d1f912c909b277128156f5b0b475967eafe2de8f15e1a17",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "why": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+      },
+      "placement": "join_crosswalk_places",
+      "position_basis": "published lon/lat (CWMS location record, office NWDP, horizontal datum WGS84)",
+      "record_id": 72,
+      "record_sha256": "2ace3788e2a770d59d1f912c909b277128156f5b0b475967eafe2de8f15e1a17",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_forebay_hourly": "BON.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_outflow_hourly": "BON.Flow-Out.Ave.1Hour.1Hour.CBT-REV",
+        "cwms_spill_hourly": "BON.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "BON"
+    },
+    {
+      "anchor": {
+        "distance_m": 155.3,
+        "hydroseq": 55000500002861,
+        "km_from_reach_start": [
+          0.0,
+          0.087
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000500392193,
+        "reach": "nhdplus_hr_columbia_gcl_bon",
+        "reach_object_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 0
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-14 23:18:29+00:00",
+      "kind": "cwms_project",
+      "lat": 47.95667,
+      "lon": -118.9805,
+      "name": "Grand Coulee Dam",
+      "not_served": {
+        "cwms_spill_hourly": "GCL.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "placed": null,
+      "placed_absence": {
+        "absence": "in_crosswalk_object",
+        "join": {
+          "key": "record_sha256",
+          "object": "nwm_crosswalk_columbia",
+          "path": "places['GCL']",
+          "placed_iff": "the place exists AND its record_sha256 equals this record's AND dist_m <= 1000",
+          "record_sha256": "9159dc53b323cedf1a0b7ba06edfe9d713b2cdc69c133d9805b9c583120f6fc3",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "why": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+      },
+      "placement": "join_crosswalk_places",
+      "position_basis": "published lon/lat (CWMS location record, office NWDP, horizontal datum WGS84)",
+      "record_id": 67,
+      "record_sha256": "9159dc53b323cedf1a0b7ba06edfe9d713b2cdc69c133d9805b9c583120f6fc3",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_forebay_hourly": "GCL.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_outflow_hourly": "GCL.Flow-Out.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "GCL"
+    },
+    {
+      "anchor": {
+        "distance_m": 117.9,
+        "hydroseq": 55000400004142,
+        "km_from_reach_start": [
+          489.862,
+          491.382
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000400094986,
+        "reach": "nhdplus_hr_columbia_gcl_bon",
+        "reach_object_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 678
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-14 23:18:29+00:00",
+      "kind": "cwms_project",
+      "lat": 45.935633,
+      "lon": -119.297667,
+      "name": "McNary Lock and Dam",
+      "not_served": {
+        "cwms_forebay_hourly": "MCN.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_outflow_hourly": "MCN.Flow-Out.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "placed": null,
+      "placed_absence": {
+        "absence": "in_crosswalk_object",
+        "join": {
+          "key": "record_sha256",
+          "object": "nwm_crosswalk_columbia",
+          "path": "places['MCN']",
+          "placed_iff": "the place exists AND its record_sha256 equals this record's AND dist_m <= 1000",
+          "record_sha256": "8ae1b7527f68249d37120a3a0057d163c608a87e3e0f53e4e547653fdf1389d3",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "why": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+      },
+      "placement": "join_crosswalk_places",
+      "position_basis": "published lon/lat (CWMS location record, office NWDP, horizontal datum WGS84)",
+      "record_id": 69,
+      "record_sha256": "8ae1b7527f68249d37120a3a0057d163c608a87e3e0f53e4e547653fdf1389d3",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_spill_hourly": "MCN.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "MCN"
+    },
+    {
+      "anchor": {
+        "distance_m": 27.9,
+        "hydroseq": 55000500000421,
+        "km_from_reach_start": [
+          320.72,
+          321.944
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000500116702,
+        "reach": "nhdplus_hr_columbia_gcl_bon",
+        "reach_object_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 579
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-17 11:22:17+00:00",
+      "kind": "cwms_project",
+      "lat": 46.6444207,
+      "lon": -119.909877,
+      "name": "Priest Rapids Dam",
+      "not_served": {
+        "cwms_forebay_hourly": "PRD.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_spill_hourly": "PRD.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "placed": null,
+      "placed_absence": {
+        "absence": "in_crosswalk_object",
+        "join": {
+          "key": "record_sha256",
+          "object": "nwm_crosswalk_columbia",
+          "path": "places['PRD']",
+          "placed_iff": "the place exists AND its record_sha256 equals this record's AND dist_m <= 1000",
+          "record_sha256": "8defec5db5d399f83170e03f60603f7caeb5410790afadc628944b4d5288ad2b",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "why": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+      },
+      "placement": "join_crosswalk_places",
+      "position_basis": "published lon/lat (CWMS location catalog, office NWDP, horizontal datum WGS84)",
+      "record_id": 98,
+      "record_sha256": "8defec5db5d399f83170e03f60603f7caeb5410790afadc628944b4d5288ad2b",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_outflow_hourly": "PRD.Flow-Out.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "PRD"
+    },
+    {
+      "anchor": {
+        "distance_m": 211.0,
+        "hydroseq": 55000500000452,
+        "km_from_reach_start": [
+          291.039,
+          291.855
+        ],
+        "km_is_an_interval": true,
+        "nhdplusid": 55000500222131,
+        "reach": "nhdplus_hr_columbia_gcl_bon",
+        "reach_object_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+        "scale": "nhd_lengthkm",
+        "scale_why": "attrs._bank.anchor.km_from_reach_start is an interval [lo, hi] on NHD's lengthkm scale, not the walk geometry's measure (D-09-25-237 \u00a72): on the Columbia the two differ by about 4.5 km (Bonneville [727.887, 728.371] against the walk's 723.746). So it is served as the anchor it is, and the page snaps by geometry.",
+        "walk_index": 548
+      },
+      "anchor_absence": null,
+      "distance_to_centreline_m": null,
+      "fetched_at": "2026-10-17 11:22:17+00:00",
+      "kind": "cwms_project",
+      "lat": 46.874724,
+      "lon": -119.971431,
+      "name": "Wanapum Dam",
+      "not_served": {
+        "cwms_spill_hourly": "WAN.Flow-Spill.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "placed": null,
+      "placed_absence": {
+        "absence": "in_crosswalk_object",
+        "join": {
+          "key": "record_sha256",
+          "object": "nwm_crosswalk_columbia",
+          "path": "places['WAN']",
+          "placed_iff": "the place exists AND its record_sha256 equals this record's AND dist_m <= 1000",
+          "record_sha256": "168a89b09aa2365b0dc9d1ab2aea9ff6f7f2e2e53b9ffe6fe7884d70f9fdc66d",
+          "sha256": "417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae",
+          "url": "https://display.energylake.io/geo/nwm_crosswalk_columbia/417dfa03c3c05d530b4001620f59b3aaaa51570e351e353ab2b79322ba904dae.json"
+        },
+        "why": "a station's km, feature_id and dist_m are in the crosswalk object's places[<source_key>], which is on the display bucket; this route reads no R2 (d091763 \u00a75). The object is keyed by record_sha256, so the page joins it against each record's own sha and applies: placed iff the place exists, its record_sha256 equals the record's, and dist_m <= 1000."
+      },
+      "placement": "join_crosswalk_places",
+      "position_basis": "published lon/lat (CWMS location catalog, office NWDP, horizontal datum WGS84)",
+      "record_id": 97,
+      "record_sha256": "168a89b09aa2365b0dc9d1ab2aea9ff6f7f2e2e53b9ffe6fe7884d70f9fdc66d",
+      "rule": "d091715.1",
+      "serves": {
+        "cwms_forebay_hourly": "WAN.Elev-Forebay.Inst.1Hour.0.CBT-REV",
+        "cwms_outflow_hourly": "WAN.Flow-Out.Ave.1Hour.1Hour.CBT-REV"
+      },
+      "source_code": "cwms",
+      "source_key": "WAN"
+    }
+  ],
+  "walk": "nhdplus_hr_columbia_gcl_bon",
+  "walk_absence": null,
+  "walk_object": {
+    "crs_as_published": "EPSG:3857 (wkid 102100)",
+    "derived_from": 5,
+    "derived_from_keys": [
+      "geo/nhdplus_hr/columbia_gcl_bon/pages/09beef55982c6a93175f04fff18fcb3ea8d2750f80eb7a76b584ad87e144a5cf.json"
+    ],
+    "feature_count": 895,
+    "fetched_at": "2026-10-14 15:07:25+00:00",
+    "layer_code": "nhdplus_hr_columbia_gcl_bon",
+    "newer_banked_not_published": null,
+    "object_id": 6,
+    "published": {
+      "bytes": 529639,
+      "content_type": "application/json; charset=utf-8",
+      "display_key": "geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+      "published_at": "2026-10-17 11:05:11+00:00",
+      "sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+      "url": "https://display.energylake.io/geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson"
+    },
+    "r2_key": "geo/nhdplus_hr/columbia_gcl_bon/reach/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+    "r2_sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+    "role": "derived",
+    "served": "the newest derived object with a publish row",
+    "sha256": "e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177",
+    "sha_equal": true,
+    "simplification": "none",
+    "source": {
+      "code": "usgs_nhdplus_hr",
+      "sha256": "8340ca0e8c2c2ff9da9fa4bcfd74a4fa6fb9c0c4a26c7cfbbdbc9711efb04b11",
+      "terms_ref": "docs/recon_2026_10_11_geo_geometry_bank.md \u00a75 (USGS public domain; policy page answered 403, unquoted)",
+      "vintage": "Data refreshed October, 2022."
+    },
+    "tolerance_m": null,
+    "url": "https://display.energylake.io/geo/nhdplus_hr_columbia_gcl_bon/e65c231968318ee7e668d518da7ab8d06715af6eda956d77481dcc2f64268177.geojson",
+    "vertex_count": 4067
+  }
+}

@@ -1,0 +1,8 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/asset-page-api-d091635/asset_wind_57514.json-key0]
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/vintages-d091644/body_wind_ciso_n28.json-key1]
+FAILED tests/test_chart_brief.py::test_chart_brief_maps_contract - AssertionE...
+FAILED tests/test_tropics_d091673.py::test_T1_scopes_recent_and_all_and_a_bad_scope
+4 failed, 3512 passed, 1 warning in 149.66s (0:02:29)

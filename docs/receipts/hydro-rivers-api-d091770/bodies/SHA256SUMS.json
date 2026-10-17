@@ -1,0 +1,44 @@
+{
+  "bodies": {
+    "flow_columbia": {
+      "bytes": 20279,
+      "sha256": "5e542b19551606ee6f85a61938defac7b25aafbe1d1f08af3a6b9d86f0391a38"
+    },
+    "flow_willamette": {
+      "bytes": 4922,
+      "sha256": "de2db35a8969edc0209378094e5be98d5068abdb4e3c3c4f8708cc620b2aa311"
+    },
+    "gate_columbia": {
+      "bytes": 6302,
+      "sha256": "d6d9a82620e52ca3e6a8868037a22de42ff74b760676f85acc10d52b6c532701"
+    },
+    "gate_willamette": {
+      "bytes": 462,
+      "sha256": "2f5803945cd2098a7cf10d1811773ca4689da2d4408f97bfc8f4f32f7ce8da37"
+    },
+    "index": {
+      "bytes": 22586,
+      "sha256": "ad0e9d477078132b1f953b9f1ca0f759543bc76376b84bb0a3c310a329a45158"
+    },
+    "reaches_columbia": {
+      "bytes": 1167,
+      "sha256": "1b216750d43a3f91a281014e01359b5d8a68da8b8935771308bfa75075a6880e"
+    },
+    "reaches_willamette": {
+      "bytes": 581,
+      "sha256": "8ac6cfa57b16935ba8f4ba1ebaa1b424aec07203d2e363d758444dea72216fd2"
+    },
+    "stations_columbia": {
+      "bytes": 18584,
+      "sha256": "395ab03d2418cd1546fb6a1f758814f8775999b02ea77f2883dc8335495cb7f9"
+    },
+    "stations_willamette": {
+      "bytes": 4713,
+      "sha256": "deb2ab887d0ce669b8ab420577c4c7cbd08dbc6e622e7593a0c78d40b698dda8"
+    }
+  },
+  "built_from": "tests/fixtures/hydro_rivers_d091770 (sha-checked)",
+  "cut": "2026-10-17T11:30:00+00:00",
+  "lane": "d091770",
+  "serialisation": "json.dumps(indent=2, sort_keys=True, default=str)"
+}
