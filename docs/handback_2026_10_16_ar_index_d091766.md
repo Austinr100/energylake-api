@@ -119,7 +119,7 @@ Everything after §0: the two routes, `tests/test_ar_index_d091766.py` (A1–A5,
 
 # Re-fire, 2026-10-17: STOP-D cleared, the six findings ruled, the AR index built
 
-**Ran:** 2026-10-17, 12:48Z–13:30Z (container clock). **Environment:** EL 6.
+**Ran:** 2026-10-17, 12:48Z–13:15Z (container clock). **Environment:** EL 6.
 **Branch:** the lane branch `claude/exciting-hamilton-gtdhfd` at `c06c82c` (§0, kept as written above) was fast-forwarded into this session's designated push branch, **`claude/ar-index-refire-qnt7jm`**, and every commit of this firing is on that branch. The paste names the lane branch; the session harness allows pushes only to its designated branch. History is continuous: §0's commit is this branch's parent. No PR, no merge, no deploy.
 
 **Scope kept:**
@@ -325,7 +325,17 @@ The cluster's 44 constraint definitions on the four tables equal Neon's (`neon_c
 | 15 | the odds URL served | A1 |
 | 16 | `ctrl` withheld with the counts | A2 |
 
-**The whole suite, with counts:** SUITE_COUNTS
+**The whole suite, with counts:**
+
+| Tree | Failed | Passed | Skipped | Wall |
+|---|---|---|---|---|
+| main `b399c67` (scratch worktree) | 3 | 3,493 | 2 | 170 s |
+| this branch | 3 | **3,523** | 0 | 178 s |
+
+- **+30 passed** = this lane's 28, plus `test_mjo_status.py`'s 2. Those two skip on main's worktree ("no energylake-pantry checkout beside this repo") and run green here, because the pantry clone sits at `/home/user/energylake-pantry`.
+- **The same 3 failures on both trees, none of them this lane's:**
+  - `test_asset_runs_d091667.py::test_H8_…` ×2: main's own reds, as the brief says.
+  - `test_tropics_d091673.py::test_T1_scopes_recent_and_all_and_a_bad_scope`: also red on main. It is clock-dependent: `scope=recent` (last seen in the last 7 days) now returns `[]` for the d091673 bank, whose storms were last seen before 2026-10-10. The brief names only the two H8 reds; this third one has aged into red since. Not touched here.
 
 ## 7. What the spec got wrong
 
