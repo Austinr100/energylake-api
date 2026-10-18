@@ -1,40 +1,40 @@
 {
   "bodies": {
     "flow_columbia": {
-      "bytes": 20279,
-      "sha256": "5e542b19551606ee6f85a61938defac7b25aafbe1d1f08af3a6b9d86f0391a38"
+      "bytes": 25444,
+      "sha256": "5895afc2c5d7641a5ae17fd7887ff473843c218e75d24187c989aa7257164f7b"
     },
     "flow_willamette": {
-      "bytes": 4922,
-      "sha256": "de2db35a8969edc0209378094e5be98d5068abdb4e3c3c4f8708cc620b2aa311"
+      "bytes": 7597,
+      "sha256": "ecdd608ee0ef09322556b452c1e59af92826dc0ee1c48374ae91b263ab0543f8"
     },
     "gate_columbia": {
-      "bytes": 6302,
-      "sha256": "d6d9a82620e52ca3e6a8868037a22de42ff74b760676f85acc10d52b6c532701"
+      "bytes": 10292,
+      "sha256": "42814b9eb2572fb00faa1a66616531adc8081250aba82507e3d61af159fde4b9"
     },
     "gate_willamette": {
-      "bytes": 462,
-      "sha256": "2f5803945cd2098a7cf10d1811773ca4689da2d4408f97bfc8f4f32f7ce8da37"
+      "bytes": 1936,
+      "sha256": "307ca76edb0f174726441e29731084f2e63be827f1c3937f1d97d465c86b9919"
     },
     "index": {
-      "bytes": 22586,
-      "sha256": "ad0e9d477078132b1f953b9f1ca0f759543bc76376b84bb0a3c310a329a45158"
+      "bytes": 23898,
+      "sha256": "a9eaa8e91bdf0f007a803603d0515766c4c8d4af4f5560612bcefb31249101a8"
     },
     "reaches_columbia": {
-      "bytes": 1167,
-      "sha256": "1b216750d43a3f91a281014e01359b5d8a68da8b8935771308bfa75075a6880e"
+      "bytes": 2248,
+      "sha256": "467650ed253e32c93fe21c2c35c2f27f2e9cc3291d7992f7de641c47d536d890"
     },
     "reaches_willamette": {
-      "bytes": 581,
-      "sha256": "8ac6cfa57b16935ba8f4ba1ebaa1b424aec07203d2e363d758444dea72216fd2"
+      "bytes": 1734,
+      "sha256": "70d58eab7ff95f7bac25a7118ee583cbd613fb8bb3b9fa2ef8c7baee2feed98b"
     },
     "stations_columbia": {
-      "bytes": 18584,
-      "sha256": "395ab03d2418cd1546fb6a1f758814f8775999b02ea77f2883dc8335495cb7f9"
+      "bytes": 19665,
+      "sha256": "7b38a993e6bdef9225102c953819370a1fb7355e6dd48af5f478175d652a878e"
     },
     "stations_willamette": {
-      "bytes": 4713,
-      "sha256": "deb2ab887d0ce669b8ab420577c4c7cbd08dbc6e622e7593a0c78d40b698dda8"
+      "bytes": 5866,
+      "sha256": "9b25d85bb9c3481e7d29ca1d59d3c25ebaf31850914bbab2796830a7f97b13f5"
     }
   },
   "built_from": "tests/fixtures/hydro_rivers_d091770 (sha-checked)",

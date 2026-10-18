@@ -6,7 +6,9 @@ cells went red. A break that nothing catches is a hole in the suite, not a pass.
 
     python3 -I rehearse_hydro_rivers_d091770.py          # from tests/
 
-The four the brief names, plus one for the publish rule the live bank forced:
+The four the brief names, plus one for the publish rule the live bank forced, plus the
+two the 10-17 follow-up added for the ROUTE contract (D-09-25-75) — a break in the
+plumbing no builder cell could ever see:
 
   R1  DISTINCT ON for the newest record   (CLAUDE.md d091551 / D-08-02-L)
   R2  OR-ed series in the window read     (D-08-02-L)
@@ -14,6 +16,12 @@ The four the brief names, plus one for the publish rule the live bank forced:
   R4  the gate drawable at n < 20         (nwm_reach_gate MIN_DAYS)
   R5  NWM velocity read into a body       (D-09-25-237)
   R6  'newest derived' instead of 'newest PUBLISHED' object (D-09-25-247 §3)
+  R7  the statement timeout removed from a route  (D-09-25-75, main.py)
+  R8  the memo removed from a route               (D-09-25-75, main.py)
+
+R7 and R8 are mutations of main.py, not hydro_rivers.py: the timeout and the memo are
+the route's, so the rehearsal reaches into the wiring. Both are caught only by the route
+cells, which is the point — before the follow-up, nothing in the suite called a route.
 
 The tree hash is printed before and after: the rehearsal must leave no trace.
 """
@@ -29,6 +37,10 @@ import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 TARGET = "hydro_rivers.py"
+ROUTES = "main.py"
+
+SUITE = ("tests/test_hydro_rivers_d091770.py",
+         "tests/test_hydro_rivers_routes_d091770.py")
 
 BREAKS = [
     ("R1 DISTINCT ON for the newest record", TARGET,
@@ -86,6 +98,27 @@ BREAKS = [
         FROM geo_layer_objects g
         LEFT JOIN geo_display_objects d ON d.object_id = g.object_id
         WHERE g.layer_code = c.layer_code AND g.role = 'derived'"""),
+
+    # R7: /index's read without its statement timeout. The tempting version of this is
+    # not malice — it is a route written by copying the body and forgetting the first
+    # line. Only a cell that looks at the STATEMENTS in order can see it.
+    ("R7 the statement timeout removed from /index", ROUTES,
+     """                await cur.execute(
+                    f"SET LOCAL statement_timeout = '{HYDRO_RIVERS_STATEMENT_TIMEOUT}'")
+                walks, records = await _hydro_ledger(cur)
+                await cur.execute(_hr.REGISTRY_SQL,""",
+     """                walks, records = await _hydro_ledger(cur)
+                await cur.execute(_hr.REGISTRY_SQL,"""),
+
+    # R8: /index answering without its memo. The cache object stays, the route keeps its
+    # envelope and its headers — it just rebuilds on every request, which is exactly
+    # what a polled route may not do (D-09-25-75).
+    ("R8 the memo removed from /index", ROUTES,
+     """    return await _solar_serve(_hydro_rivers_index_cache, "index",
+                              _hydro_rivers_index_build, response)""",
+     """    _hydro_rivers_index_cache.clear()
+    return await _solar_serve(_hydro_rivers_index_cache, "index",
+                              _hydro_rivers_index_build, response)"""),
 ]
 
 
@@ -101,9 +134,9 @@ def tree_hash(root: pathlib.Path) -> str:
 
 def run_suite(root: pathlib.Path) -> tuple[int, str]:
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/test_hydro_rivers_d091770.py",
+        [sys.executable, "-m", "pytest", *SUITE,
          "-q", "--no-header", "-p", "no:cacheprovider"],
-        cwd=root, capture_output=True, text=True, timeout=900)
+        cwd=root, capture_output=True, text=True, timeout=1800)
     return r.returncode, r.stdout + r.stderr
 
 

@@ -22735,6 +22735,11 @@ async def hydro_rivers_index(response: Response):
     `label`, `basin`, which walks compose one river, and `length_km` are inside the
     published bodies; this route reads no R2, so each is a stated absence with the
     registry/crosswalk pointer beside it (never re-derived: D-09-25-247 §3).
+    AND `count`/`rivers[]` ARE WALKS: one entry per banked and published WALK, which is
+    not one entry per river — the Willamette basin publishes nine walks and is served as
+    nine entries. `walk_count` is that count under its own name, and `entries_absence`
+    states the shape; which walks compose one river is the geo.rivers.v1 registry's and
+    is not banked in Neon (D-09-25-252 §5, pantry lane d091790). 10-17 follow-up.
     DB unavailable -> 503. Memoised 300 s, single-flight, never served stale.
     """
     return await _solar_serve(_hydro_rivers_index_cache, "index",
@@ -22767,6 +22772,10 @@ async def hydro_rivers_stations(
     dist_m <= 1000) and the page does the join. Without one, the record's own lat/lon
     and anchor are served with the anchor's scale named ('nhd_lengthkm', an interval,
     NOT the walk's measure) and `placement: 'client_snaps_to_walk'` (D-09-25-237 §2).
+    `river_match` states what `?river=` matched: ONE walk, by its layer_code, its key,
+    an unambiguous first segment of its key, or the river tag its own records carry — and
+    it NAMES the other banked walks rather than composing them into rivers, which is the
+    registry's and is not banked in Neon (D-09-25-252 §5). 10-17 follow-up.
     Unknown river -> 400; DB unavailable -> 503. Memoised 300 s per river.
     """
     return await _solar_serve(_hydro_rivers_stations_cache, river or "",
@@ -22802,6 +22811,8 @@ async def hydro_rivers_flow(
     LIMIT the window's row count (D-08-02-L). A window over 14 days is REFUSED (400),
     never clipped. NWM VELOCITY IS NEVER READ (D-09-25-237); the analysis term is
     `drawn: false` unless the gate reads drawable (D-09-25-232 §3).
+    `river_match` states that `?river=` matched ONE walk and names the other banked
+    walks it cannot compose (D-09-25-252 §5). 10-17 follow-up.
     Unknown river or window -> 400; DB unavailable -> 503. Memoised 300 s.
     """
     return await _solar_serve(
@@ -22832,6 +22843,16 @@ async def hydro_rivers_gate(
     banks no `_detail` column (`hourly_pairs_absence`). `forecast` is served only when
     the line reads drawable (D-09-25-232 §3). A river without a crosswalk reads
     `no_crosswalk` (D-09-25-247 §3).
+    THE ITEMS ARE NOT THE PANTRY'S, and the body says so (10-17 follow-up). This route's
+    items are the records the ledger anchors to the walk, because the crosswalk's
+    `places[]` — the placed set `scripts/nwm_reach_gate.py` actually gates — is not banked
+    in Neon (`items_absence`, D-09-25-252 §5, pantry lane d091790). The verdict is stated
+    as this API's own over this API's set, never as the pantry's (`verdict_absence`), and
+    an item the bank holds no arbiter series for (MCN) says it can never settle and what
+    it blocks (`item_absence`). So the `forecast` term above never carries rows: a
+    drawable line earns `forecast_absence` instead, because the series it would name are
+    `<feature_id>/<product>/<cycle>` and every feature_id is in the crosswalk object.
+    `river_match` states that `?river=` matched one walk.
     Unknown river -> 400; DB unavailable -> 503. Memoised 300 s per river.
     """
     return await _solar_serve(_hydro_rivers_gate_cache, river or "",
@@ -22855,6 +22876,8 @@ async def hydro_rivers_reaches(
     Served only when the gate reads drawable (D-09-25-232 §3): a not-drawable gate
     earns no analysis read at all, and the answer is `{absence:'gate_not_drawable',
     line}`. NEVER velocity (D-09-25-237). A window over 14 days is refused (400).
+    `river_match` states that `?river=` matched ONE walk and names the other banked
+    walks it cannot compose (D-09-25-252 §5). 10-17 follow-up.
     Unknown river or window -> 400; DB unavailable -> 503. Memoised 300 s.
     """
     return await _solar_serve(

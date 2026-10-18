@@ -1,0 +1,43 @@
+# the whole suite on claude/rivers-followup-d091770 (4016beb + the follow-up's working tree), 2026-10-17T17:33Z
+# python3 -m pytest tests/ -q --no-header
+
+>       assert new == old
+E       AssertionError: assert {'tech': 'win...rrr_gfs', ...} == {'tech': 'win...rrr_gfs', ...}
+E         
+E         Omitting 9 identical items, use -vv to show
+E         Right contains 1 more item:
+E         {'attribution': 'Contains information from the Wind Turbine Library '
+E                         '(OpenEnergy Platform, supply.wind_turbine_library, (c) Reiner '
+E                         'Lemoine Institut), which is made available under the Open '
+E                         'Database License (ODbL-1.0): '
+E                         'https://opendatacommons.org/licenses/odbl/1-0/'}
+E         Use -v to get more diff
+
+tests/test_asset_runs_d091667.py:816: AssertionError
+________________ test_T1_scopes_recent_and_all_and_a_bad_scope _________________
+
+client = <starlette.testclient.TestClient object at 0x7f638981b690>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f638cf5def0>
+pg = <psycopg.Connection [IDLE] (database=postgres) at 0x7f638a03f450>
+
+    def test_T1_scopes_recent_and_all_and_a_bad_scope(client, monkeypatch, pg):
+        for scope in ("recent", "all"):
+            b = pg_get(client, monkeypatch, pg, f"{P}/storms?scope={scope}")
+>           assert [s["storm_id"] for s in b["storms"]] == list(STORMS) and b["scope"] == scope
+E           AssertionError: assert ([] == ['al092026', ...', 'ep202026']
+E             
+E             Right contains 3 more items, first extra item: 'al092026'
+E             Use -v to get more diff)
+
+tests/test_tropics_d091673.py:211: AssertionError
+=============================== warnings summary ===============================
+../../../usr/local/lib/python3.13/dist-packages/starlette/testclient.py:40
+  /usr/local/lib/python3.13/dist-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/asset-page-api-d091635/asset_wind_57514.json-key0]
+FAILED tests/test_asset_runs_d091667.py::test_H8_a_rebanked_vector_is_mains_plus_the_one_key[docs/receipts/vintages-d091644/body_wind_ciso_n28.json-key1]
+FAILED tests/test_tropics_d091673.py::test_T1_scopes_recent_and_all_and_a_bad_scope
+3 failed, 3573 passed, 2 skipped, 1 warning in 158.30s (0:02:38)

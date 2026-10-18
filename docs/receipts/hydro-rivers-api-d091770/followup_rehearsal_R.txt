@@ -1,0 +1,18 @@
+# tests/rehearse_hydro_rivers_d091770.py — 8 breaks, the follow-up's R7 and R8 included
+# cd tests && python3 -I rehearse_hydro_rivers_d091770.py
+
+tree b68fdced739914fe… before
+
+baseline: green — 52 passed, 1 warning in 3.69s
+
+  R1 DISTINCT ON for the newest record: caught by test_r2_stations_newest_record_per_source_key, test_r5_no_banned_sql_in_any_statement, test_x1_the_ledger_reads_take_one_row_per_key
+  R2 OR-ed series in the window read: caught by test_r5_every_series_read_is_one_dataset_series_pair, test_r5_no_banned_sql_in_any_statement
+  R3 a series served without its receipt: caught by test_r3_flow_serves_only_behind_a_settled_receipt
+  R4 the gate drawable at n < 20: caught by test_r4_flow_verdict_needs_twenty_days_and_the_tolerance
+  R5 NWM velocity read into a body: caught by test_r3_flow_serves_only_behind_a_settled_receipt, test_r5_no_route_reads_velocity
+  R6 newest derived instead of newest PUBLISHED: caught by test_r1_index_crosswalk_published_and_pending
+  R7 the statement timeout removed from /index: caught by test_t_the_timeout_is_the_first_statement_on_the_connection[index]
+  R8 the memo removed from /index: caught by test_m_a_memo_hit_makes_no_reads[index]
+
+tree b68fdced739914fe… after
+8 of 8 breaks caught by name; tree unchanged

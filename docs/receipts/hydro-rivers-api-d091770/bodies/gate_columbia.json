@@ -59,38 +59,63 @@
     "absence": "not_banked",
     "why": "geo_unit_receipts banks no _detail column, so a gate line recomputed from banked receipts carries no 'hour pairs' clause; the pantry's stdout has it because it is computed in-process. Its own `receipt ...` lines are this same shape."
   },
+  "item_count": 5,
   "items": [
     {
       "has_receipt": false,
+      "item_absence": null,
+      "line": "Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
       "name": "GCL",
       "q": "Q4",
       "why": "no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
     },
     {
       "has_receipt": false,
+      "item_absence": {
+        "absence": "no_banked_arbiter_series",
+        "why": "WAN serves no cwms_outflow_hourly row in the bank, so no receipt can be written under its subject and this item can never read settled. It blocks the verdict stated here, which is over THIS ROUTE's item set only (items_absence) \u2014 it is no claim about the pantry's gate, whose items are the crosswalk's placed set."
+      },
+      "line": "Q4 WAN: no banked release (cwms_outflow_hourly holds no series for it)",
       "name": "WAN",
       "q": "Q4",
       "why": "no banked release (cwms_outflow_hourly holds no series for it)"
     },
     {
       "has_receipt": false,
+      "item_absence": null,
+      "line": "Q4 PRD: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
       "name": "PRD",
       "q": "Q4",
       "why": "no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)"
     },
     {
       "has_receipt": false,
+      "item_absence": {
+        "absence": "no_banked_arbiter_series",
+        "why": "MCN serves no cwms_outflow_hourly row in the bank, so no receipt can be written under its subject and this item can never read settled. It blocks the verdict stated here, which is over THIS ROUTE's item set only (items_absence) \u2014 it is no claim about the pantry's gate, whose items are the crosswalk's placed set."
+      },
+      "line": "Q4 MCN: no banked release (cwms_outflow_hourly holds no series for it)",
       "name": "MCN",
       "q": "Q4",
       "why": "no banked release (cwms_outflow_hourly holds no series for it)"
     },
     {
       "has_receipt": false,
+      "item_absence": {
+        "absence": "no_banked_arbiter_series",
+        "why": "BON serves no cwms_outflow_hourly row in the bank, so no receipt can be written under its subject and this item can never read settled. It blocks the verdict stated here, which is over THIS ROUTE's item set only (items_absence) \u2014 it is no claim about the pantry's gate, whose items are the crosswalk's placed set."
+      },
+      "line": "Q4 BON: no banked release (cwms_outflow_hourly holds no series for it)",
       "name": "BON",
       "q": "Q4",
       "why": "no banked release (cwms_outflow_hourly holds no series for it)"
     }
   ],
+  "items_absence": {
+    "absence": "not_the_crosswalks_placed_set",
+    "why": "items are the banked records on this walk, not the crosswalk's placed set the pantry gates (scripts/nwm_reach_gate.py); the placed set is not banked in Neon (D-09-25-252 \u00a75, pantry lane d091790)"
+  },
+  "items_are": "the records the ledger anchors to this walk, ordered by the ledger's own anchor km (attrs._bank.anchor.km_from_reach_start[0])",
   "line": "nhdplus_hr_columbia_gcl_bon: not drawable \u2014 decided by Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
   "no_da_decided_by": [
     "Q4 GCL: no banked nwm_reach receipt (the gate has run in plan mode only; scripts/nwm_reach_gate.py banks receipts, and the drawable line is computed from them)",
@@ -115,6 +140,28 @@
   "question": "Q4",
   "reads_no_r2": true,
   "river": "columbia",
-  "rule": "drawable only when every item's newest receipt is settled; else the first that is not decides (scripts/nwm_reach_gate.gate_line, ported byte for byte from pantry f2a75d1); n >= 20, tolerance 0.2",
+  "river_match": {
+    "absence": "river_structure_not_banked",
+    "composed_by": {
+      "read_by": "the page, from the registry pointer /index serves",
+      "schema": "geo.rivers.v1"
+    },
+    "is": "one walk, not a river",
+    "matched": "nhdplus_hr_columbia_gcl_bon",
+    "matched_by": "the river tag this walk's own records carry (attrs._bank.river)",
+    "other_banked_walks": [
+      "nhdplus_hr_sacramento_shasta_delta",
+      "nhdplus_hr_snake_lwg_columbia",
+      "nhdplus_hr_willamette_hcr_columbia"
+    ],
+    "other_banked_walks_count": 3,
+    "requested": "columbia",
+    "why": "?river= names ONE WALK \u2014 its layer_code, its key, an unambiguous first segment of its key, or the river tag its own records carry \u2014 and this body is that walk's alone. Whether any other banked walk composes the same river is the geo.rivers.v1 registry's and is not banked in Neon (D-09-25-252 \u00a75, pantry lane d091790), so they are named here rather than composed: ?river=willamette answers for willamette_hcr_columbia by itself, never for the basin's nine walks."
+  },
+  "rule": "drawable only when every item's newest receipt is settled; else the first that is not decides (scripts/nwm_reach_gate.gate_line, THE FUNCTION ported byte for byte from pantry f2a75d1 \u2014 not its item set, which is the crosswalk's places[]: see items_absence); n >= 20, tolerance 0.2",
+  "verdict_absence": {
+    "absence": "not_the_pantrys_verdict",
+    "why": "the line is `gate_line` \u2014 the pantry's own function, ported byte for byte \u2014 run over THIS ROUTE's items, so it is this API's verdict over this API's item set. It is NOT the pantry's gate verdict for the reach, which is computed over the crosswalk's placed set: the two sets differ, so the two verdicts can differ, and nothing here claims the pantry's."
+  },
   "walk": "nhdplus_hr_columbia_gcl_bon"
 }

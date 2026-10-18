@@ -32,6 +32,9 @@ Cells
       (ANALYZE, BUFFERS) over the live table, in the handback and
       docs/receipts/hydro-rivers-api-d091770/explain_neon.txt.
   W   the window rule: over 14 days is refused, never clipped.
+
+The routes themselves — the statement timeout, the memo, the 400s and their registration
+on `main.app` — are tests/test_hydro_rivers_routes_d091770.py (the 10-17 follow-up).
 """
 
 from __future__ import annotations
@@ -435,7 +438,8 @@ def all_sql() -> dict:
     return {
         "WALKS_SQL": hr.WALKS_SQL, "REGISTRY_SQL": hr.REGISTRY_SQL,
         "RECORDS_SQL": hr.RECORDS_SQL, "RECEIPTS_SQL": hr.RECEIPTS_SQL,
-        "FORECAST_CYCLE_SQL": hr.FORECAST_CYCLE_SQL,
+        # FORECAST_CYCLE_SQL was removed in the 10-17 follow-up: nothing executed it,
+        # and no statement here can name a <feature_id>/<product>/<cycle> series.
         "series_window_sql(ASC)": hr.series_window_sql(2),
         "series_window_sql(DESC)": hr.series_window_sql(2, order="DESC"),
         "main._hydro_arbiter_present": inline,
